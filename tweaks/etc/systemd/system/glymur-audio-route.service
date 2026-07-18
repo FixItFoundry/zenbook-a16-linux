@@ -1,0 +1,9 @@
+[Unit]
+Description=Establish glymur AudioReach speaker/mic route
+After=sound.target multi-user.target
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/glymur-audio-route.sh
+RemainAfterExit=yes
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+_*.sh
+_*.txt
+*.log
+MORNING-README.md
+PUSH_INSTRUCTIONS.md
+*.mbn
+*.bin
+*.img
+*.img.gz
+*.iso
+*.zip
+*.efi
+*.ko
+*.tar.gz
+.DS_Store
+Thumbs.db

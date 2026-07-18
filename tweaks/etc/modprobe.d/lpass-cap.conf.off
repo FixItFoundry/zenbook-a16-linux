@@ -1,0 +1,4 @@
+blacklist snd-soc-lpass-va-macro
+blacklist snd-soc-lpass-wsa-macro
+blacklist snd-soc-lpass-rx-macro
+blacklist snd-soc-lpass-tx-macro

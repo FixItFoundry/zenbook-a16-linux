@@ -1,0 +1,8 @@
+[Unit]
+Description=ASUS keyboard backlight init (stop breathing, steady on)
+After=multi-user.target
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/asus-kbd-init.py
+[Install]
+WantedBy=multi-user.target
