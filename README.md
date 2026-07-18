@@ -70,10 +70,39 @@ MDSS disabled, display via `simple-framebuffer`.
 - USB — dwc3 + eUSB2 redrivers (PTN3222 / SMB2370)
 - Audio — 4x WSA8845 speakers (confirmed audible) + internal DMIC capture; ALSA/UCM profile
 - Battery / charge % — via a reverse-engineered SOCCP GLINK path -> `qcom-battmgr`
-- Fan / thermals — through the ASUS Embedded Controller
+- Fan / basic cooling — EC-driven (⚠️ heavy sustained load can still hit the 115 °C trip and protectively shut down; an interim thermal-guard service mitigates it — see docs/ROADMAP.md)
 - NVMe — Gen4/Gen5 PHY, boots from internal SSD
 - RTC, fastrpc, ADSP (audio control plane)
-- Display output — UEFI `simple-framebuffer` (no acceleration, no brightness)
+- Display output — UEFI `simple-framebuffer` (no acceleration).  Watching videos isn't super enjoyable, still a WIP.  simplefb works for now to the best of its ability (yay 18 cores).
+
+---
+
+### Not working yet
+- **Native eDP display** — `msm`/DPU binds, reads EDID, then eDP **link training times out (`-110`)**. Top open problem. See [`docs/display-bringup-findings.md`](docs/display-bringup-findings.md).
+- **GPU (Adreno X2)** — no `gpu@3d00000` / `gpucc` support for `sm8750` in mainline. Full RE writeup in [`docs/gpu-re/`](docs/gpu-re/).
+- **Fn hotkeys** — Fn brightness/media keys aren't wired (brightness itself works in Settings).
+- **Camera** — no sensor driver / CCI-CSI device-tree wiring yet.
+
+### Known regression to be aware of
+Any device tree with **MDSS enabled + `msm` loaded** currently **kills Wi-Fi** at boot
+(garbled console -> black screen, box unreachable). Root cause unconfirmed; likely a shared
+power-domain / NoC / SMMU interaction between display bring-up and PCIe/ath12k.
+Treat every display-enabled DTB as **diagnostic-only** — do not make it the default boot.
+
+---
+
+## Things tried that did NOT work (dead-ends / open failures)
+
+A condensed list so contributors do not re-run known-bad experiments. Full detail in
+[`docs/DTB_CHANGELOG.md`](docs/DTB_CHANGELOG.md) and [`docs/THINGS_TRIED.md`](docs/THINGS_TRIED.md).
+
+- **test58 (FAILED)** — display-attack DTB (`x1e80100-asus-vivobook-s15` base + `mdss`/`dispcc`/`mdss_dp3` = okay). Did not bring up native display; recorded here as tried, to be revisited.
+- **`video=simplefb:off` / forced `video=eDP-1:...` modeset** — MDSS GDSC power-cycle -> warm reset. Keep simplefb alive; do not force a resolution.
+- **msm_gem CMA rewrite** — abandoned; solved the wrong problem (SMMU translation was never the fault).
+- **Grafting hamoa (x1e) GPU/GMU/IOMMU nodes without `gpucc`** — immediate SError (~0.3s) from unclocked register access.
+- **Gunyah/hypervisor "handshake" emulation for GPU** — dead-end; the GPU is driven natively by Windows, not behind a Gunyah VMID.
+- **100 kHz I2C for the EC keyboard bus** — regressed vs 400 kHz (GENI master command timeout).
+- **Building on 7.2 / linux-next** — broke the working chain; stay on v7.1.
 
 ---
 
@@ -101,34 +130,6 @@ Bring-up is done against **mainline Linux v7.1** (`7.1.0-glymur-full`).
 > the working glymur chain.  At least that's what I think, I started with 7.0.0, then updated
 > to 7.1.0 from CodeLinaro, and then tried linux-next 7.2.  The known-good base is **v7.1** plus
 > the patches in [`kernel/`](kernel/). See [`kernel/README.md`](kernel/README.md).
-
----
-
-### Not working yet
-- **Native eDP display** — `msm`/DPU binds, reads EDID, then eDP **link training times out (`-110`)**. Top open problem. See [`docs/display-bringup-findings.md`](docs/display-bringup-findings.md).
-- **GPU (Adreno X2)** — no `gpu@3d00000` / `gpucc` support for `sm8750` in mainline. Full RE writeup in [`docs/gpu-re/`](docs/gpu-re/).
-- **Brightness control** — depends on native eDP.
-
-### Known regression to be aware of
-Any device tree with **MDSS enabled + `msm` loaded** currently **kills Wi-Fi** at boot
-(garbled console -> black screen, box unreachable). Root cause unconfirmed; likely a shared
-power-domain / NoC / SMMU interaction between display bring-up and PCIe/ath12k.
-Treat every display-enabled DTB as **diagnostic-only** — do not make it the default boot.
-
----
-
-## Things tried that did NOT work (dead-ends / open failures)
-
-A condensed list so contributors do not re-run known-bad experiments. Full detail in
-[`docs/DTB_CHANGELOG.md`](docs/DTB_CHANGELOG.md) and [`docs/THINGS_TRIED.md`](docs/THINGS_TRIED.md).
-
-- **test58 (FAILED)** — display-attack DTB (`x1e80100-asus-vivobook-s15` base + `mdss`/`dispcc`/`mdss_dp3` = okay). Did not bring up native display; recorded here as tried, to be revisited.
-- **`video=simplefb:off` / forced `video=eDP-1:...` modeset** — MDSS GDSC power-cycle -> warm reset. Keep simplefb alive; do not force a resolution.
-- **msm_gem CMA rewrite** — abandoned; solved the wrong problem (SMMU translation was never the fault).
-- **Grafting hamoa (x1e) GPU/GMU/IOMMU nodes without `gpucc`** — immediate SError (~0.3s) from unclocked register access.
-- **Gunyah/hypervisor "handshake" emulation for GPU** — dead-end; the GPU is driven natively by Windows, not behind a Gunyah VMID.
-- **100 kHz I2C for the EC keyboard bus** — regressed vs 400 kHz (GENI master command timeout).
-- **Building on 7.2 / linux-next** — broke the working chain; stay on v7.1.
 
 ---
 
@@ -162,7 +163,7 @@ reverse-engineered to recover the hardware ground truth:
 ## Repository layout
 
 ```
-dts/            Device-tree sources (test55-usb = daily driver; test47/58 diagnostic)
+dts/            Device-tree sources (test55 = daily driver; test47/58 diagnostic)
 prebuilt/       Prebuilt DTB for the daily driver
 boot-kit/       Build/patch/deploy scripts + example GRUB config
 kernel/         Kernel build recipe, config fragment, patches, gpucc stub, fork-push script
