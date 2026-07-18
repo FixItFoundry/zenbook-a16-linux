@@ -15,16 +15,26 @@ eyes are very welcome — see `CONTRIBUTING.md` and open an Issue/Discussion.
 
 ## Not working yet / help wanted
 
-### CPU frequency scaling (SCMI) — HIGH IMPACT
-`scmi-cpufreq` fails to probe (`-110`, SCMI perf protocol timeout); cores run at the boot
-clock, which is a major cause of UI sluggishness (on top of software rendering). The SCMI perf
-handshake with firmware times out on the 7.1 tree. **Newer in-kernel SCMI work (7.x) may help
-— worth investigating a backport or a fresher SCMI stack.** Tracked for post-launch.
+### Thermal shutdowns under load — HIGH IMPACT
+The DT thermal-zones expose **only a `critical` trip (~115 °C hard shutdown) and no
+`cooling-maps`**, and the fan is not Linux-controllable (see SPMI below). So under sustained
+load the SoC races to 115 °C and does a protective shutdown — which presents as "random
+crashes" (~every 10–20 min under a full KDE/Wayland software-render load). An interim userspace
+**thermal guard** ships in the images and throttles CPU max frequency by temperature (see
+`../LOCAL-TWEAKS.md` §6); it held a full 18-core load at ~70 °C with no shutdown. The real fix is
+DT `cooling-maps` binding `cpufreq-cooling` to *passive* trips **plus** a working fan (SPMI).
+Note: CPU frequency scaling itself **works** (`scaling_driver=scmi`; cores scale 355 MHz–4.45 GHz)
+via SCMI regular messaging — only the SCMI perf *fast-channel* fails (`Failed to get FC for
+protocol 13 … Using regular messaging`). UI sluggishness is from **software rendering (no GPU)**,
+not cpufreq.
 
-### PMIC temperature alarm (SPMI) — `spmi-temp-alarm`
-`qcom-spmi-temp-alarm` bring-up is outstanding (thermal/temperature alarm via the SPMI PMIC).
-Related to the SPMI PMIC-arb transaction warnings seen at boot. Also likely has relevant
-in-kernel 7.x support to pull in. Tracked for post-launch.
+### SPMI PMIC-arb — gates the fan AND the thermal alarm — HIGH IMPACT
+Secondary PMICs fail to probe over SPMI (`pmic-spmi … error -5`; `pmic_arb_wait_for_done:
+transaction failed`). This one bottleneck blocks **both**: (1) `qcom-spmi-temp-alarm` (the PMIC
+temperature alarm never registers), and (2) the PMIC PWM (`pmh0101`/`pm8350c`) that drives the
+**fan** — so `/sys/class/pwm` is empty and Linux can't spin it. Fixing the SPMI arbiter probe
+should unlock the temp alarm, the fan PWM (→ a real `pwm-fan` cooling device), and proper thermal
+throttling. Likely relevant in-kernel 7.x SPMI work to pull in. Tracked for post-launch.
 
 ### GPU / display acceleration
 Still on software rendering (simpledrm/efifb). Adreno X2 + DPU bring-up is a separate, larger

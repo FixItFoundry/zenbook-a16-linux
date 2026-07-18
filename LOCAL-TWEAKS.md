@@ -95,14 +95,17 @@ Both modules ship in the image (`/lib/modules/7.1.0-glymur-clean+`); this file j
 ---
 
 ## Known-not-working (unchanged by these tweaks)
-- **CPU freq scaling** — `scmi-cpufreq` times out (`-110`); cores run at boot clock (a cause of
-  UI slowness alongside software rendering). Firmware‑response gap, not fixable in userspace.
+- **Thermal shutdowns under load** — DT thermal-zones have only a `critical` trip (~115 °C) and no
+  `cooling-maps`, and the fan isn't Linux-controllable (PMIC PWM blocked by the SPMI probe). Under
+  load the SoC reaches 115 °C and protectively shuts down. Mitigated by the thermal guard (§6); the
+  real fix needs SPMI + DT cooling-maps. (CPU freq scaling itself **works** via SCMI regular
+  messaging — only the perf fast-channel fails; UI slowness is from software rendering, not cpufreq.)
 - **UCSI/PD PPM** — `ucsi_glink … PPM init failed`. Charging‑negotiation gap.
 - **GPU/display** — still software rendering (simpledrm); GPU bring‑up is a separate task.
 - **Headphone jack, DP audio** — need codec/DRM work.
 
 ## How to re-capture (if the install changes)
-Re-run the pull from a working A16 (`ssh jcasco@192.168.8.209`): tar `/lib/firmware/{ath12k,qcom/glymur}`
+Re-run the pull from a working A16 (`ssh <user>@<your-A16>`): tar `/lib/firmware/{ath12k,qcom/glymur}`
 + regdb into `a16-fw.tar.gz`, and the files in sections 2–5 into `a16-tweaks.tar.gz`, drop both in
 `~/glymur-build/`, and `iso/build-all.sh` picks them up automatically via `addfw()`.
 
