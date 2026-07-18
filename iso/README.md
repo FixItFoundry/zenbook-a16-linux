@@ -1,14 +1,16 @@
 # Distro images for the Zenbook A16 (aarch64)
 
-Prebuilt, **bootable desktop images** for the A16 that carry the glymur `7.1.0-glymur-clean+`
-kernel + the `test55` device tree + firmware/tweak overlays — so you can try the semi-working
-platform without hand-building anything.
+How to build **bootable desktop images** for the A16 carrying the glymur `7.1.0-glymur-clean+`
+kernel + the `test55` device tree + tweak overlays. (No prebuilt images are published — a useful
+one would have to bundle proprietary firmware — so you build your own; it's mostly automated.)
 
-## Prebuilt images (recommended)
+## Images (build your own — none are published)
 
-Grab them from this repo's **GitHub Release** and flash with **balenaEtcher** (reads `.img.gz`
-directly) or `gunzip -c img.gz | sudo dd of=/dev/sdX bs=4M` to a **16 GB+** USB stick, then boot
-the A16 from it.
+We deliberately **don't ship flashable images**: a *useful* one would have to bundle proprietary
+firmware (see [`../firmware/README.md`](../firmware/README.md)). Build them yourself with the
+reuse-rootfs process below — these are the distro/desktop combos validated on the A16. Once built,
+flash `.img.gz` with **balenaEtcher** (reads `.img.gz` directly) or
+`gunzip -c img.gz | sudo dd of=/dev/sdX bs=4M` to a **16 GB+** stick and boot the A16 from it.
 
 | Image | Desktop | Status |
 |---|---|---|

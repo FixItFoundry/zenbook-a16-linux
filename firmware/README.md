@@ -60,6 +60,39 @@ Redistributable (usually already present from your distro's `linux-firmware`):
 
 After placing the files, `sudo depmod -a` (if needed) and reboot — Wi‑Fi + audio should come up.
 
-> **Packaging note:** the images in the Release ship **without** any of the above (only your own,
-> non-redistributable firmware makes Wi‑Fi/audio work). If you build your own image (see
-> `../iso/`), do **not** bundle these blobs into anything you publish.
+> **No prebuilt images are published** — precisely because a *useful* image would have to carry
+> this firmware. Build your own with `../iso/` and bake in your own firmware (below).
+
+## How the audio topology was derived (from a PUBLIC source)
+
+glymur (sm8750) has no upstream AudioReach topology, and the sound machine driver on this build
+is `snd-x1e80100`, which requests `qcom/glymur/GLYMUR-A16-tplg.bin`. We satisfied that with the
+**x1e80100 "Romulus" topology**, which *is* in public `linux-firmware`
+(`qcom/x1e80100/X1E80100-Romulus-tplg.bin`) — it drives the same WSA8845 4.0 speaker layout well
+enough for the A16. So the topology is derivable entirely from public firmware:
+
+```bash
+# from a linux-firmware checkout (or your distro's own /lib/firmware):
+sudo install -Dm644 qcom/x1e80100/X1E80100-Romulus-tplg.bin \
+    /lib/firmware/qcom/glymur/GLYMUR-A16-tplg.bin
+```
+The rest of the audio path — the ADSP image (`adsp.mbn` / `qcadsp8480.mbn`) — is the
+device-specific Qualcomm blob and must come from **your own device**, not linux-firmware.
+
+## Bake firmware into your own build
+
+Once the files are under `/lib/firmware/...` (paths listed above):
+
+- **On a running install:** drop them into `/lib/firmware`, then `sudo depmod -a` and reboot —
+  Wi‑Fi + audio come up.
+- **Into an image built with `../iso/build-all-overnight.sh`:** the builder's `addfw()` step
+  extracts an overlay tarball `a16-fw.tar.gz` into the rootfs. Build your own overlay:
+  ```bash
+  # stage your firmware under a matching tree (…/lib/firmware/…), then:
+  tar czf a16-fw.tar.gz -C /your/staging \
+      lib/firmware/ath12k lib/firmware/qcom/glymur \
+      lib/firmware/regulatory.db lib/firmware/regulatory.db.p7s
+  # drop a16-fw.tar.gz next to the builder — addfw() picks it up automatically.
+  ```
+  The resulting image works out-of-the-box **on your own device** — just don't redistribute it,
+  since it then contains non-free firmware.
