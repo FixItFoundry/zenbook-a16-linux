@@ -18,7 +18,7 @@ and the Qualcomm SoC package. Extract it from **your own device**.
 | `qcvss8480.mbn` | GPU / GMU (zap shader) — needed for any future GPU bring-up |
 | `qcdxkmsuc8480.mbn` | GPU microcode |
 | `qcav1e8480.mbn` | AV1 codec |
-| ADSP / audio (AudioReach topology) | Audio DSP + LPASS |
+| ADSP audio DSP (`adsp.mbn` / `qcadsp8480.mbn`) | Audio DSP + LPASS (the AudioReach **topology** is open source — see [`tplg/`](tplg/)) |
 | WCN / ath12k firmware | Wi-Fi |
 | Various `.mbn` PIL images | remoteproc-loaded subsystems |
 
@@ -41,7 +41,7 @@ build actually look for):
 **Audio + co‑processors (ADSP / AudioReach):**
 ```
 /lib/firmware/qcom/glymur/adsp.mbn
-/lib/firmware/qcom/glymur/GLYMUR-A16-tplg.bin        # AudioReach topology
+/lib/firmware/qcom/glymur/GLYMUR-A16-tplg.bin        # AudioReach topology — OPEN SOURCE, build from tplg/
 /lib/firmware/qcom/glymur/ASUSTeK/UX3607OA/qcadsp8480.mbn
 /lib/firmware/qcom/glymur/cdsp*.mbn , *.jsn          # as your drivers request
 ```
@@ -63,19 +63,31 @@ After placing the files, `sudo depmod -a` (if needed) and reboot — Wi‑Fi + a
 > **No prebuilt images are published** — precisely because a *useful* image would have to carry
 > this firmware. Build your own with `../iso/` and bake in your own firmware (below).
 
-## How the audio topology was derived (from a PUBLIC source)
+## The audio topology is OPEN SOURCE (not a blob)
 
-glymur (sm8750) has no upstream AudioReach topology, and the sound machine driver on this build
-is `snd-x1e80100`, which requests `qcom/glymur/GLYMUR-A16-tplg.bin`. We satisfied that with the
-**x1e80100 "Romulus" topology**, which *is* in public `linux-firmware`
-(`qcom/x1e80100/X1E80100-Romulus-tplg.bin`) — it drives the same WSA8845 4.0 speaker layout well
-enough for the A16. So the topology is derivable entirely from public firmware:
+The sound machine driver on this build is `snd-x1e80100`, which requests
+`qcom/glymur/GLYMUR-A16-tplg.bin`. That file is an **AudioReach topology**, and AudioReach
+topologies are **open source** — they are NOT part of the proprietary firmware.
+
+Upstream [`linux-msm/audioreach-topology`](https://github.com/linux-msm/audioreach-topology)
+(**BSD-3-Clause**, © Linaro Ltd) ships an `m4` topology source for the GLYMUR SoC
+(`GLYMUR-CRD.m4`) plus X1E80100 laptop variants. It compiles to a `.tplg` with open tools
+(`m4` + `alsatplg` from `alsa-topology-utils`) — no proprietary input at any step:
 
 ```bash
-# from a linux-firmware checkout (or your distro's own /lib/firmware):
-sudo install -Dm644 qcom/x1e80100/X1E80100-Romulus-tplg.bin \
-    /lib/firmware/qcom/glymur/GLYMUR-A16-tplg.bin
+sudo dnf install -y alsa-topology-utils m4          # Debian/Ubuntu: alsa-utils m4
+git clone --depth 1 https://github.com/linux-msm/audioreach-topology.git
+cd audioreach-topology
+m4 GLYMUR-CRD.m4 > /tmp/GLYMUR-CRD.conf
+alsatplg -c /tmp/GLYMUR-CRD.conf -o /tmp/GLYMUR-CRD.tplg
+sudo install -Dm644 /tmp/GLYMUR-CRD.tplg /lib/firmware/qcom/glymur/GLYMUR-A16-tplg.bin
 ```
+
+A prebuilt `GLYMUR-CRD.tplg` and a build script are in [`tplg/`](tplg/). **Verified on real
+hardware (2026-07-18):** the upstream topology instantiates the `GLYMUR-A16` card and brings up
+the full 4×WSA8845 speaker control tree — see [`tplg/README.md`](tplg/README.md) for details and
+the note on producing a true no-regression drop-in.
+
 The rest of the audio path — the ADSP image (`adsp.mbn` / `qcadsp8480.mbn`) — is the
 device-specific Qualcomm blob and must come from **your own device**, not linux-firmware.
 
