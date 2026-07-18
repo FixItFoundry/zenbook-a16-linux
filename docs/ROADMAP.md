@@ -25,8 +25,10 @@ crashes" (~every 10–20 min under a full KDE/Wayland software-render load). An 
 DT `cooling-maps` binding `cpufreq-cooling` to *passive* trips **plus** a working fan (SPMI).
 Note: CPU frequency scaling itself **works** (`scaling_driver=scmi`; cores scale 355 MHz–4.45 GHz)
 via SCMI regular messaging — only the SCMI perf *fast-channel* fails (`Failed to get FC for
-protocol 13 … Using regular messaging`). UI sluggishness is from **software rendering (no GPU)**,
-not cpufreq.
+protocol 13 … Using regular messaging`). The advertised perf table also tops out at **4.45 GHz** —
+the X2 Elite's rated ~5 GHz boost bin isn't exposed (the boost/turbo states are normally carried
+over the fast-channel, so this is likely the same FC gap). UI sluggishness is from **software
+rendering (no GPU)**, not cpufreq.
 
 ### SPMI PMIC-arb — gates the fan AND the thermal alarm — HIGH IMPACT
 Secondary PMICs fail to probe over SPMI (`pmic-spmi … error -5`; `pmic_arb_wait_for_done:

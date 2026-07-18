@@ -29,7 +29,7 @@ I'd especially value a second opinion on:
 - Please target **mainline Linux v7.1** — the known-good base. **7.2 / linux-next broke
   the chain** (a regression in the 7.2 cycle), so PRs against newer trees can't be tested
   against the working build yet. Bisecting *what* broke in 7.2 would itself be a huge help.
-- DTS changes: reference `dts/glymur-a16-test55-usb.dts` (the daily driver). Diagnostic
+- DTS changes: reference `dts/glymur-a16-test55.dts` (the daily driver). Diagnostic
   display DTBs (`test47`, `test58`) are separate.
 - Keep kernel-derived files `SPDX-License-Identifier: GPL-2.0-only`.
 
@@ -38,7 +38,7 @@ I'd especially value a second opinion on:
 Open an issue with: your exact hardware (`UX3607OA` variant), kernel + DTB build, the boot
 cmdline, and a `dmesg` (netconsole/serial preferred for crashes — see
 `docs/analysis/` for the netconsole capture setup). Please note whether you reproduced on
-`test55-usb` (daily) or a diagnostic DTB.
+`test55` (daily) or a diagnostic DTB.
 
 ## What this project is NOT
 

@@ -21,7 +21,7 @@ kernel onto the Zenbook A16.
 - **Every** `dt-*` boot entry MUST carry `efi=noruntime`. A missing one causes an intermittent
   early-boot warm reset during simpledrm/fbcon init on this firmware — easily misdiagnosed as
   a display/XPU problem.
-- The safe daily default points at `glymur-a16-test55-usb.dtb` (MDSS disabled, simplefb).
+- The safe daily default points at `glymur-a16-test55.dtb` (MDSS disabled, simplefb).
 - Display-enabled entries (`msm` loaded) are **diagnostic only** — they currently kill Wi-Fi.
 - `update-grub` will overwrite hand-edited entries; keep the source of truth in
   `/etc/grub.d/40_custom` and re-generate deliberately.
