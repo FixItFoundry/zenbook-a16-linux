@@ -1,0 +1,11 @@
+[Unit]
+Description=glymur A16 userspace thermal guard (CPU freq throttle; interim until DT thermal/fan)
+After=multi-user.target
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/glymur-thermal-guard.sh
+ExecStopPost=/bin/sh -c 'for p in /sys/devices/system/cpu/cpufreq/policy*; do cat $p/cpuinfo_max_freq > $p/scaling_max_freq 2>/dev/null; done'
+Restart=always
+Nice=-5
+[Install]
+WantedBy=multi-user.target

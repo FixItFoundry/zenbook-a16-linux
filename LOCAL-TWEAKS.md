@@ -105,3 +105,17 @@ Both modules ship in the image (`/lib/modules/7.1.0-glymur-clean+`); this file j
 Re-run the pull from a working A16 (`ssh jcasco@192.168.8.209`): tar `/lib/firmware/{ath12k,qcom/glymur}`
 + regdb into `a16-fw.tar.gz`, and the files in sections 2–5 into `a16-tweaks.tar.gz`, drop both in
 `~/glymur-build/`, and `iso/build-all.sh` picks them up automatically via `addfw()`.
+
+## 6. Thermal guard (interim CPU-freq throttle) — a16-tweaks.tar.gz
+`/usr/local/bin/glymur-thermal-guard.sh` + `glymur-thermal-guard.service` (enabled at boot).
+
+**Why:** the DT thermal-zones expose only a `critical` trip (~115 C hard shutdown) with **no
+`cooling-maps`**, and the fan is **not controllable from Linux** (no pwmchip / fan hwmon). Under
+heavy load the SoC raced to 115 C and did a protective shutdown — which presents as "random
+crashes." This userspace daemon polls the hottest thermal zone every 2 s and steps
+`scaling_max_freq` down in tiers (perf 2.8 -> 2.0 -> 1.1 GHz, eff 2.2 -> 1.5 -> 0.9 GHz) as temp
+climbs past ~86/94 C, releasing (debounced) below ~76 C. **Validated:** full 18-core load held
+~70 C steady (93 C peak) with no shutdown; without it the machine crashed every ~10-20 min.
+
+**Interim only.** The real fix is DT `cooling-maps` binding `cpufreq-cooling` to *passive* trips
+plus wiring the fan as an active cooling device — see `docs/ROADMAP.md` (SPMI / SCMI / thermal).
