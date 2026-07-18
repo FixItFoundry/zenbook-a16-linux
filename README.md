@@ -124,7 +124,9 @@ Full register/bus map: [`docs/HARDWARE_MAP.md`](docs/HARDWARE_MAP.md).
 
 ## Kernel base
 
-Bring-up is done against **mainline Linux v7.1** (`7.1.0-glymur-full`).
+Bring-up is done against **mainline Linux v7.1**. The build shipped in the images is
+**`7.1.0-glymur-clean+`** (v7.1 + patches, with the experimental `msm`/display mapping reverted
+for stability).
 
 > **Do not build on 7.2 / linux-next.** A regression somewhere in the 7.2 cycle broke
 > the working glymur chain.  At least that's what I think, I started with 7.0.0, then updated
