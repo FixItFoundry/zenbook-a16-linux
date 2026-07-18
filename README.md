@@ -4,68 +4,62 @@ Mainline-based Linux bring-up for the **ASUS Zenbook A16 (UX3607OA)** — a Wind
 laptop built on the **Qualcomm Snapdragon X2 Elite Extreme**, SoC codename **glymur**
 (`sm8750`), Adreno X2 GPU.
 
-> **Status: semi-working daily driver.** Most of the machine works on a hand-built
-> device tree today: keyboard, trackpad, touchscreen + stylus, Wi-Fi, USB, audio,
+> **Status: mostly-working daily driver.** Most of the machine works on a hand-built
+> device tree today: keyboard, trackpad, touchscreen, Wi-Fi, USB, audio,
 > battery, thermals, NVMe. The two big gaps are **native display (eDP)** and the
 > **GPU** — both blocked on Qualcomm kernel support for this SoC that does not exist
 > upstream yet. The machine is usable now via the UEFI `simple-framebuffer`.
->
-> **This repo is published as a call for help.** If you know the Adreno/DPU/clock-controller
-> stack, **your review and patches are wanted.** See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+ **I'm publishing this repo to ask for the community's help.**  I've been tinkering with
+ Linux and OSX (Hackintoshes) for almost two decades, and I wanted to test out some frontier
+ AI, their reasoning, limits, and compare different models.  I specifically bought one month
+ of Claude MAX for Fable 5 and Opus 4.8, and I have a gemini subscription as the added Youtube
+ and Google Drive (3-2-1 offsite), as well as easy integration for AI tools within the google
+ ecosystem.  Aside from that, I have a swarm of hermes-agents throughout my homelab, using local
+ models from old hardware, combined with some free tier cloud model use.  I acknowledge that AI
+ also isn't going anywhere, so I'm learning how to...harness it for productivity and automation.
+ It'll be a helpful workplace skill to have.
+ 
+
+ If you know the Adreno/DPU/clock-controller stack, **your review and patches are wanted.**
+ If you are an actual Kernel Engineer, I welcome you to validate this work.  It was done based
+ on years of playing around, and, once again, heavily assisted by AI.  The goal here is to have
+ something the community can build on.  These laptops and this SoC are not going anywhere, even
+ if they're delayed by the RAMpocalypse.
+ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
-## ⚠️ Please read: how this was made (honesty first)
+## ⚠️ Please read:
 
-**This project was heavily AI-assisted, and I am not a kernel developer.** I want that stated
-plainly and up front so nobody mistakes this for authoritative work.
+**This project was heavily AI-assisted, and I am not a kernel developer.** I want to be VERY
+clear about this.  I'm a hobbyist who can only stomach Windows during the work week, and I
+bought this laptop because I'm a firm believer in ARM as the future of mobile computing.  Even
+on Windows, this laptop is GREAT.
 
-- My actual background is **hobbyist**: Hackintoshes, and a little Debian tinkering ~17 years
-  ago. That's it. I am *not* a Qualcomm/DRM/kernel engineer.
 - A large amount of the analysis, device-tree bisection, reverse-engineering, and the writeups
   in this repo were produced **with AI assistance** (and then tested on real hardware). The AI
   was wrong plenty of times along the way — see [`docs/THINGS_TRIED.md`](docs/THINGS_TRIED.md).
-- **Treat every technical claim here as "worked for me / best current understanding," not as
-  verified fact.** Register addresses, StreamIDs, and root-cause theories are RE'd and
-  experimental. Some earlier conclusions were later found to be wrong and corrected.
-- I'm publishing anyway because (1) the machine is genuinely usable today via simplefb and I
+- **YOUR MILEAGE MAY VARY:**  These are the things that worked on my specific device.  It's stable
+  90% of the time, and I'm not done working on it myself.  Register addresses, StreamIDs, and
+  root-cause theories are RE'd and experimental.
+- I'm publishing anyway because (1) the machine is genuinely usable today and I
   want others to be able to share that, and (2) I'd love people who *actually* know this stack
   to validate it, correct me, and push it further.
 
-If you're an expert and something here is wrong or dangerous, please open an issue — I will
-take the correction gladly.
+Again, if you're an expert and something here is wrong or dangerous, please open an issue — I will
+take the correction gladly.  I, and I'm sure a few others, would love community support in making
+this durable!
 
----
-
-## Hardware
-
-| | |
-|---|---|
-| **Model** | ASUS Zenbook A16, UX3607OA |
-| **SoC** | Snapdragon X2 Elite Extreme, codename `glymur` (`sm8750`) |
-| **GPU** | Adreno X2 (X2-45 / X2-85 / X2-90 class), Windows ID `QCOM0F36` @ `0x03D00000` |
-| **Panel** | Samsung ATNA60HR07, 2880x1800, 60/120 Hz, 10bpc (eDP) |
-| **Wi-Fi** | Qualcomm QCC207x (ath12k) |
-| **Audio** | 4x WSA8845 smart speakers (SoundWire) + DMIC array, LPASS/AudioReach |
-| **Firmware** | Retail Windows-on-ARM UEFI (locked; no engineering unlock) |
-
-Full register/bus map: [`docs/HARDWARE_MAP.md`](docs/HARDWARE_MAP.md).
-
----
-
-## Kernel base
-
-Bring-up is done against **mainline Linux v7.1** (`7.1.0-glymur-full`).
-
-> **Do not build on 7.2 / linux-next.** A regression somewhere in the 7.2 cycle broke
-> the working glymur chain. The known-good base is **v7.1** plus the patches in
-> [`kernel/`](kernel/). See [`kernel/README.md`](kernel/README.md).
+This was a fun adventure so far, and I want to keep working at it.  I learned a lot during the process,
+it's really piqued my interest in diving into Kernel Engineering, and the intricacies of it.  Updates will
+continue as long as there are stable breakthroughs.
 
 ---
 
 ## What works / what doesn't
 
-**Current daily-driver device tree: `dts/glymur-a16-test55-usb.dts` (build "test55").**
+**Current daily-driver device tree: `dts/glymur-a16-test55.dts` (build "test55").**
 MDSS disabled, display via `simple-framebuffer`.
 
 ### Working on the device tree
@@ -80,6 +74,35 @@ MDSS disabled, display via `simple-framebuffer`.
 - NVMe — Gen4/Gen5 PHY, boots from internal SSD
 - RTC, fastrpc, ADSP (audio control plane)
 - Display output — UEFI `simple-framebuffer` (no acceleration, no brightness)
+
+---
+
+## Hardware
+
+| | |
+|---|---|
+| **Model** | ASUS Zenbook A16, UX3607OA |
+| **SoC** | Snapdragon X2 Elite Extreme, `glymur` (`sm8750`) |
+| **GPU** | Adreno X2-90 (X2-45 / X2-85 / X2-90 class), `QCOM0F36` @ `0x03D00000` |
+| **Panel** | Samsung ATNA60HR07, 2880x1800, 60/120 Hz, 10bpc (eDP) |
+| **Wi-Fi** | Qualcomm QCC207x (ath12k) |
+| **Audio** | 4x WSA8845 smart speakers (SoundWire) + DMIC array, LPASS/AudioReach |
+| **Firmware** | Retail Windows-on-ARM UEFI (locked; no engineering unlock) |
+
+Full register/bus map: [`docs/HARDWARE_MAP.md`](docs/HARDWARE_MAP.md).
+
+---
+
+## Kernel base
+
+Bring-up is done against **mainline Linux v7.1** (`7.1.0-glymur-full`).
+
+> **Do not build on 7.2 / linux-next.** A regression somewhere in the 7.2 cycle broke
+> the working glymur chain.  At least that's what I think, I started with 7.0.0, then updated
+> to 7.1.0 from CodeLinaro, and then tried linux-next 7.2.  The known-good base is **v7.1** plus
+> the patches in [`kernel/`](kernel/). See [`kernel/README.md`](kernel/README.md).
+
+---
 
 ### Not working yet
 - **Native eDP display** — `msm`/DPU binds, reads EDID, then eDP **link training times out (`-110`)**. Top open problem. See [`docs/display-bringup-findings.md`](docs/display-bringup-findings.md).
@@ -156,7 +179,7 @@ firmware/       What firmware is needed and why it is NOT included
    The recipe (`boot-kit/scripts/build-kernel-native-full.sh`) starts from a distro config and
    force-enables the glymur boot-critical drivers. See [`kernel/README.md`](kernel/README.md).
 2. **Device tree** — build/patch a DTB from [`dts/`](dts/), or use
-   [`prebuilt/glymur-a16-test55-usb.dtb`](prebuilt/).
+   [`prebuilt/glymur-a16-test55.dtb`](prebuilt/).
 3. **Boot** — via GRUB + `dtbloader`; sample entries in
    [`boot-kit/grub.cfg.laptop.example`](boot-kit/grub.cfg.laptop.example).
    **Every glymur boot cmdline must include `efi=noruntime`** (a missing one causes an
