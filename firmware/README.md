@@ -25,12 +25,41 @@ and the Qualcomm SoC package. Extract it from **your own device**.
 Place them under `/lib/firmware/qcom/glymur/` (and the ASUS model subdir
 `/lib/firmware/qcom/glymur/ASUSTeK/UX3607OA/` where drivers expect it).
 
-## Extraction
+## Exact files the glymur drivers request
 
-`../boot-kit/scripts/collect-acpi-hw.sh` and the notes in `../docs/` describe how the ACPI
-tables and driver identities were dumped. A PowerShell helper to pull firmware from the
-Windows driver store (`extract_firmware.ps1`) exists in the original project tree; it is a
-convenience for **your own** extraction, not a redistribution mechanism.
+Create these under `/lib/firmware/` on the target rootfs (these are the paths the drivers on this
+build actually look for):
 
-> If you're packaging ISOs (see `../iso/`), do **not** bundle these blobs into a public image.
-> Document that the user must supply firmware from their own device.
+**Wi‑Fi — ath12k (Qualcomm QCC2072):**
+```
+/lib/firmware/ath12k/QCC2072/hw1.0/amss.bin
+/lib/firmware/ath12k/QCC2072/hw1.0/m3.bin
+/lib/firmware/ath12k/QCC2072/hw1.0/board.bin        # (some builds: board-2.bin)
+/lib/firmware/ath12k/QCC2072/hw1.0/regdb.bin
+/lib/firmware/ath12k/QCC2072/hw1.0/aux_ucode.bin
+```
+**Audio + co‑processors (ADSP / AudioReach):**
+```
+/lib/firmware/qcom/glymur/adsp.mbn
+/lib/firmware/qcom/glymur/GLYMUR-A16-tplg.bin        # AudioReach topology
+/lib/firmware/qcom/glymur/ASUSTeK/UX3607OA/qcadsp8480.mbn
+/lib/firmware/qcom/glymur/cdsp*.mbn , *.jsn          # as your drivers request
+```
+Redistributable (usually already present from your distro's `linux-firmware`):
+`/lib/firmware/regulatory.db` + `regulatory.db.p7s`.
+
+## Where to get them (pick what applies)
+1. **From any Linux you already run on the A16** (including this project's own build) — just copy
+   `/lib/firmware/{ath12k,qcom/glymur}` off it. By far the easiest if you have a working install.
+2. **From your device's Windows install** — the Qualcomm SoC package under
+   `C:\Windows\System32\DriverStore\FileRepository\`. The `.mbn`/board blobs live there; the
+   Windows filenames differ from the Linux names above, so match by role/size.
+3. **Upstream [`linux-firmware`](https://gitlab.com/kernel-firmware/linux-firmware)** carries the
+   generic Qualcomm/ath12k bits for some SoCs; the glymur/ASUSTeK ADSP topology is device-specific
+   and generally must come from your own device.
+
+After placing the files, `sudo depmod -a` (if needed) and reboot — Wi‑Fi + audio should come up.
+
+> **Packaging note:** the images in the Release ship **without** any of the above (only your own,
+> non-redistributable firmware makes Wi‑Fi/audio work). If you build your own image (see
+> `../iso/`), do **not** bundle these blobs into anything you publish.
