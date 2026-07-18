@@ -1,7 +1,9 @@
 # Kernel
 
 The Zenbook A16 bring-up runs on **mainline Linux v7.1** with the glymur boot-critical
-drivers force-enabled. The build tag is `7.1.0-glymur-full`.
+drivers force-enabled. The build shipped in the images is **`7.1.0-glymur-clean+`** (v7.1 +
+patches, with the experimental `msm`/display mapping reverted for stability). A fuller
+`-glymur-full` build with the display experiments also exists but is less stable.
 
 > **Do not build on 7.2 / linux-next.** A regression in the 7.2 cycle broke the working
 > glymur chain. Known-good base = **v7.1**.
@@ -22,7 +24,7 @@ cd linux
 #   see ../boot-kit/scripts/build-kernel-native-full.sh  (starts from a distro config)
 #   or CONFIG_FRAGMENT.md for the raw scripts/config enable list
 git apply ../kernel/patches/night_diff.patch   # optional, review first
-make -j"$(nproc)" bindeb-pkg LOCALVERSION=-glymur-full
+make -j"$(nproc)" bindeb-pkg LOCALVERSION=-glymur-clean   # the stable shipped build
 make -j"$(nproc)" dtbs
 ```
 
