@@ -1,73 +1,60 @@
 # Distro images for the Zenbook A16 (aarch64)
 
-Goal: bootable **Ubuntu**, **Fedora**, and **Arch** media for the A16 carrying the glymur
-v7.1 kernel + the `test55-usb` DTB, so people can try the semi-working platform without
-hand-building everything.
+Prebuilt, **bootable desktop images** for the A16 that carry the glymur `7.1.0-glymur-clean+`
+kernel + the `test55` device tree + firmware/tweak overlays — so you can try the semi-working
+platform without hand-building anything.
 
-## Kernel artifacts (shared by all three)
+## Prebuilt images (recommended)
 
-You already have raw kernel artifacts in the project folder — **no repackaging needed** for
-the Arch image, and they can be injected raw into the Ubuntu/Fedora images too:
+Grab them from this repo's **GitHub Release** and flash with **balenaEtcher** (reads `.img.gz`
+directly) or `gunzip -c img.gz | sudo dd of=/dev/sdX bs=4M` to a **16 GB+** USB stick, then boot
+the A16 from it.
 
-- `vmlinuz-7.1.0-glymur-full-patched`
-- `7.1.0-glymur-full-plus-modules.zip` (contains `lib/modules/7.1.0-glymur-full/`)
-- `boot-kit/test55-usb.dtb` (the daily-driver device tree)
+| Image | Desktop | Status |
+|---|---|---|
+| `arch-manjaro-kde.img.gz` | Manjaro (Arch) + KDE Plasma | **✅ boots to desktop on the A16** |
+| `fedora-glymur-kde.img.gz` | Fedora 44 + KDE Plasma | **✅ boots to desktop on the A16** |
+| `ubuntu-glymur-gnome.img.gz` | Ubuntu + GNOME | built (reuses the Ubuntu desktop rootfs) |
 
-**Mandatory boot cmdline:** `efi=noruntime` (a missing one warm-resets early on this firmware).
-Display comes up on **simplefb** (UEFI framebuffer) — no native panel / brightness yet.
+Confirmed from these images: keyboard + backlight, trackpad, Wi-Fi, USB (incl. USB NIC), audio
+(speakers + internal DMIC), battery %, and the interim thermal guard. Display is
+`simple-framebuffer` (software rendering — usable, not fast). Full works/doesn't list: repo README.
+
+> **Firmware is NOT redistributed.** Proprietary Qualcomm firmware (`ath12k`, `qcom/glymur`,
+> `regulatory.db`) is not shipped in this repo or its Release images. Wi‑Fi/audio need you to drop
+> your own into `/lib/firmware` first — pull it from your device's Windows/WoA install. See
+> [`../firmware/README.md`](../firmware/README.md) and [`../LOCAL-TWEAKS.md`](../LOCAL-TWEAKS.md) §1.
+
+## Mandatory boot cmdline
+`efi=noruntime` (a missing one warm-resets early on this firmware), plus
+`modprobe.blacklist=msm` and `kvm-arm.mode=protected` per the working config.
+
+## How the images are built
+Instead of emulated package installs, each image **reuses a stock desktop rootfs** and swaps in
+our kernel + DTB + initramfs + firmware + tweaks, then writes the boot loader entry. The builder
+is `build-all-overnight.sh` (targets: `arch`, `fedora`, `ubuntu`); the firmware + tweak overlays
+(`a16-fw.tar.gz`, `a16-tweaks.tar.gz` — audio route, kbd backlight, battery autoload, thermal
+guard) are applied by its `addfw()` step.
+
+Source notes:
+- **Manjaro (Arch):** Arch has no aarch64 desktop ISO, so we reuse the **Manjaro ARM KDE** image —
+  the cleanest path to a working Arch-family desktop. (CachyOS is x86-only; don't use it.)
+- **Fedora:** Fedora 44's Live root is an **EROFS with LZMA** that x86 WSL tooling can't read; we
+  extract it natively on the A16 (its kernel has `CONFIG_EROFS_FS_ZIP_LZMA`) and feed the rootfs
+  back to the imager.
+- **Ubuntu:** the casper `minimal` + desktop squashfs layers.
+
+## Building from source (optional)
+On an aarch64 host (or the A16), with the kernel artifacts + overlays staged:
+```bash
+sudo bash build-all-overnight.sh arch fedora ubuntu
+```
+Artifacts used: `vmlinuz-7.1.0-glymur-clean+`, its `lib/modules/7.1.0-glymur-clean+`,
+`glymur-a16-test55.dtb`, plus `a16-fw.tar.gz` + `a16-tweaks.tar.gz`.
 
 ## Boot-testing note
+The glymur kernel targets `sm8750`, so these images **only meaningfully boot on the A16 itself**.
+A generic `qemu-system-aarch64` VM would only exercise the stock distro kernel, not glymur.
 
-The glymur kernel targets `sm8750` hardware, so these images **only meaningfully boot on the
-A16 itself** (USB stick). A generic `qemu-system-aarch64` VM can't exercise the glymur kernel —
-it would only test the stock distro kernel. So: `dd` to USB, boot the A16.
-
-Firmware (Wi-Fi/audio/etc.) is **not** bundled — supply it from your own device under
-`/lib/firmware/qcom/glymur/` (see [`../firmware/README.md`](../firmware/README.md)).
-
----
-
-## Ubuntu  — base you have: `ubuntu-26.04-desktop-arm64.iso`
-Proper arm64 live ISO. `ubuntu/build-ubuntu-iso.sh` repacks it with the glymur kernel + DTB.
-Cleanest if you package the kernel as a `.deb` (the A16 already runs Ubuntu, so you likely have
-one); otherwise inject the raw `vmlinuz` + modules via the hook.
-
-## Fedora — base you have: `Fedora-KDE-Desktop-Live-44-1.7.aarch64.iso`
-Proper aarch64 live ISO. `fedora/build-fedora-iso.sh` uses `mkksiso` (arch-neutral — runs fine
-on x86 Fedora WSL) to inject a custom kickstart + kernel + DTB. Needs the kernel as an aarch64
-`.rpm`, **or** adapt the kickstart `%post` to drop the raw `vmlinuz` + `/lib/modules` you already
-have.
-
-## Arch — no aarch64 ISO exists; use Arch Linux ARM (ALARM)
-> `cachyos-desktop-linux-*.iso` is **x86_64** — CachyOS has no ARM build, so it can't boot the
-> A16. Don't use it.
-
-Arch on ARM is a **rootfs tarball**, not an ISO. `arch/build-arch-image.sh` unpacks the ALARM
-generic aarch64 rootfs, drops in your raw glymur `vmlinuz` + modules + DTB, builds a fat
-(non-hostonly) initramfs, and writes a UEFI-bootable **`.img`** you `dd` to USB.
-
-Download the ALARM base (pick one; verify current URL on the ALARM site):
-- `http://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-generic.tar.gz`
-
-Run (in Fedora WSL, as root):
-```bash
-sudo ./arch/build-arch-image.sh \
-   ArchLinuxARM-aarch64-generic.tar.gz \
-   ../../vmlinuz-7.1.0-glymur-full-patched \
-   ../../7.1.0-glymur-full-plus-modules.zip \
-   ../../boot-kit/test55-usb.dtb
-```
-If your x86 WSL can't run `mkinitcpio` (no aarch64 binfmt), the script sets everything up and
-tells you to generate the initramfs on the A16 after first boot:
-`mkinitcpio -k 7.1.0-glymur-full -g /boot/initramfs-glymur.img --no-hostonly`.
-
----
-
-## Suggested validation order
-1. **Arch (ALARM .img)** — no packaging step, consumes your raw artifacts directly. Fastest to a
-   testable image once the tarball finishes downloading.
-2. **Ubuntu** — closest to the working system (Ubuntu + your kernel `.deb`).
-3. **Fedora** — once you have (or generate) an aarch64 kernel RPM.
-
-Once an image boots on the A16, attach it to a **GitHub Release** (≤2 GB/asset) — never commit
-multi-GB images to the repo.
+The per-distro scripts under `arch/`, `fedora/`, `ubuntu/` are the earlier ISO-injection approach,
+kept for reference; the reuse-rootfs imager above is what produced the validated images.

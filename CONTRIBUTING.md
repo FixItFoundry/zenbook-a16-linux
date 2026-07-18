@@ -23,6 +23,14 @@ I'd especially value a second opinion on:
 - **The MDSS-enabled + `msm`-loaded Wi-Fi regression.** Enabling the display driver kills
   ath12k/PCIe at boot. Shared power domain? NoC vote? SMMU context? This is the biggest
   mystery blocking a display-capable daily driver.
+- **The SPMI PMIC-arb probe failure — gates cooling.** Secondary PMICs fail to probe over SPMI
+  (`pmic-spmi … error -5`; `pmic_arb_wait_for_done: transaction failed`), which blocks **both**
+  `qcom-spmi-temp-alarm` and the PMIC PWM (`pmh0101` / `pm8350c`) that drives the **fan** — so
+  `/sys/class/pwm` stays empty. With no DT `cooling-maps` and no Linux fan control, the SoC hits
+  its 115 °C `critical` trip and protectively shuts down under load (an interim userspace
+  freq-throttle guard mitigates it). Fixing the SPMI arbiter probe likely unlocks the temp alarm,
+  the fan, and real thermal throttling in one shot. See `docs/ROADMAP.md`. (Distinct from the eDP
+  `-110`; this one is `-5`.)
 
 ## 2. Patches
 
