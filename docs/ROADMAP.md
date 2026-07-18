@@ -52,6 +52,10 @@ gap. Battery % + basic charging work; full PD negotiation does not.
 Jack detect exists but there's no rx-macro/WCD9395 codec in the DT yet; DP audio backends exist
 but are gated on GPU/DRM.
 
+### Camera — not working
+The webcam/IR camera is not up — no sensor driver or CCI/CSI device-tree wiring for the glymur
+camera on this platform yet.
+
 ## Notes for contributors
 - The kernel is pinned to **v7.1** + local patches; 7.2/linux-next broke the bring-up chain.
 - `soccp_glink` is a custom (out-of-tree-origin) battery driver, now built in-tree.

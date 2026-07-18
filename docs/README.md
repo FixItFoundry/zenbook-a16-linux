@@ -28,5 +28,5 @@ Curated docs for the Zenbook A16 (glymur / sm8750) Linux bring-up.
 Chronological engineering transcripts (G01–G18) covering battery, audio, SMMU/VMID, and the
 netconsole crash-capture tooling. Raw and unedited; useful for tracing *why* decisions were made.
 
-> Note: these docs are populated from the working project folder by `assemble.sh`. If a link
-> is missing, run the assemble step (see repo root `PUSH_INSTRUCTIONS.md`).
+> Note: these docs are assembled from the maintainer's working project folder via `assemble.sh`.
+> If a link 404s, that source file wasn't copied in — please open an issue.
