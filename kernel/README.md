@@ -8,6 +8,25 @@ patches, with the experimental `msm`/display mapping reverted for stability). A 
 > **Do not build on 7.2 / linux-next.** A regression in the 7.2 cycle broke the working
 > glymur chain. Known-good base = **v7.1**.
 
+## Native eDP (2026-07-24)
+
+The display patches live in the kernel fork on branch
+**[`glymur-edp-hbr3`](https://github.com/FixItFoundry/linux-glymur-a16/tree/glymur-edp-hbr3)**,
+not in this repo. Net delta is ~112 lines over the v7.1 snapshot:
+
+| commit | what | upstreamable? |
+|---|---|---|
+| `drm/msm/dp: make the eDP 1.4 LINK_RATE_SET path actually reachable` | `rate_set`/`use_rate_set` were computed into `panel->link_info` but read from `link->link_params`, so the rate-set path was dead code | **yes** — generic `msm` bug, nothing to do with glymur |
+| `drm/msm/dp: glymur: force HBR3 on the internal eDP panel` | the change that lights the panel | **no** — an unconditional constant; needs a general rule first |
+| `HID: asus: support the ASUS Zenbook A16 (UX3607OA) N-Key keyboard` | device ID + hotkey mappings + a non-`asus-wmi` backlight path | probably, with cleanup |
+
+`drivers/phy/qualcomm/phy-qcom-edp.c` is **unmodified** — every PHY change tried during
+bring-up turned out to be unnecessary. Background: [`../docs/edp-hbr3-linkup.md`](../docs/edp-hbr3-linkup.md).
+
+Build name for the display-enabled kernel is **`7.1.0-glymur-edp1`**
+(`make LOCALVERSION=-glymur-edp1`); `7.1.0-glymur-clean+` remains the stable shipped
+build with `msm` reverted.
+
 ## Contents
 - `CONFIG_FRAGMENT.md` — the exact `scripts/config` enable-list that makes v7.1 boot on glymur.
 - `patches/night_diff.patch` — accumulated working-tree delta (DTS + driver tweaks) captured from the build tree. Review before applying; some hunks are experiment scaffolding.

@@ -6,9 +6,17 @@ laptop built on the **Qualcomm Snapdragon X2 Elite Extreme**, SoC codename **gly
 
 > **Status: mostly-working daily driver.** Most of the machine works on a hand-built
 > device tree today: keyboard, trackpad, touchscreen, Wi-Fi, USB, audio,
-> battery, thermals, NVMe. The two big gaps are **native display (eDP)** and the
-> **GPU** — both blocked on Qualcomm kernel support for this SoC that does not exist
-> upstream yet. The machine is usable now via the UEFI `simple-framebuffer`.
+> battery, thermals, NVMe.
+>
+> **2026-07-24 — native eDP now works.** The panel is driven by the real DPU
+> (`fb0 = msmdrmfb`, 2880x1800@120, `dp_aux_backlight`), not the UEFI
+> `simple-framebuffer`. Link training completes at **HBR3 (8.1 Gbps × 4 lanes)**; the
+> long-standing `-110` failure is gone. Two bugs had to be peeled to get there and one
+> of them is a generic upstream `msm` bug — write-up in
+> [`docs/edp-hbr3-linkup.md`](docs/edp-hbr3-linkup.md).
+>
+> The remaining big gap is the **GPU**, still blocked on `gpucc` support for this SoC
+> that does not exist upstream yet.
 
  **I'm publishing this repo to ask for the community's help.**  I've been tinkering with
  Linux and OSX (Hackintoshes) for almost two decades, and I wanted to test out some frontier
@@ -73,21 +81,25 @@ MDSS disabled, display via `simple-framebuffer`.
 - Fan / basic cooling — EC-driven (⚠️ heavy sustained load can still hit the 115 °C trip and protectively shut down; an interim thermal-guard service mitigates it — see docs/ROADMAP.md)
 - NVMe — Gen4/Gen5 PHY, boots from internal SSD
 - RTC, fastrpc, ADSP (audio control plane)
-- Display output — UEFI `simple-framebuffer` (no acceleration).  Watching videos isn't super enjoyable, still a WIP.  simplefb works for now to the best of its ability (yay 18 cores).
+- **Native eDP display** — DPU-driven panel at 2880x1800@120, 30 bpp, `fb0 = msmdrmfb`, backlight over DP AUX. Needs a patched `msm` and the eDP device tree — see [`docs/edp-hbr3-linkup.md`](docs/edp-hbr3-linkup.md). Still no GPU, so there is no 3D acceleration behind it.
+- Display output (fallback) — UEFI `simple-framebuffer`, no acceleration. What everything before 2026-07-24 ran on.
 
 ---
 
 ### Not working yet
-- **Native eDP display** — `msm`/DPU binds, reads EDID, then eDP **link training times out (`-110`)**. Top open problem. See [`docs/display-bringup-findings.md`](docs/display-bringup-findings.md).
-- **GPU (Adreno X2)** — no `gpu@3d00000` / `gpucc` support for `sm8750` in mainline. Full RE writeup in [`docs/gpu-re/`](docs/gpu-re/).
+- **GPU (Adreno X2)** — no `gpu@3d00000` / `gpucc` support for `sm8750` in mainline. Now the top open problem. Full RE writeup in [`docs/gpu-re/`](docs/gpu-re/).
 - **Fn hotkeys** — Fn brightness/media keys aren't wired (brightness itself works in Settings).
 - **Camera** — no sensor driver / CCI-CSI device-tree wiring yet.
 
 ### Known regression to be aware of
-Any device tree with **MDSS enabled + `msm` loaded** currently **kills Wi-Fi** at boot
-(garbled console -> black screen, box unreachable). Root cause unconfirmed; likely a shared
-power-domain / NoC / SMMU interaction between display bring-up and PCIe/ath12k.
-Treat every display-enabled DTB as **diagnostic-only** — do not make it the default boot.
+**Retired 2026-07-20.** "MDSS enabled + `msm` loaded kills Wi-Fi" no longer reproduces —
+it was a load-ordering problem with `ath12k`, not a power-domain/NoC/SMMU interaction.
+In the test58 log Wi-Fi associates at t+29.4 s with no `ath12k` errors while `msm` binds
+at t+83.5 s. Display-enabled DTBs no longer have to be treated as diagnostic-only.
+
+Caveat when judging this yourself: a USB Ethernet dongle (`r8153_ecm`) holds the default
+route at metric 100 versus Wi-Fi's 600, so a surviving SSH session is **not** evidence
+that Wi-Fi is healthy.
 
 ---
 
@@ -151,10 +163,15 @@ reverse-engineered to recover the hardware ground truth:
   from mainline. Without it Linux cannot power the GPU block, so any grafted Adreno/GMU node
   triggers an immediate SError.
   ([`gpu-investigation-summary.md`](docs/gpu-re/gpu-investigation-summary.md))
-- **Display re-framing (2026-07-15):** the earlier "TrustZone XPU wall" theory was a
-  misdiagnosis. The WoA ACPI shows the display path is **normally clock-gated with no secure
-  VMID gate**. The real, surviving blocker is the eDP **`-110` link-training** failure
-  (DP PHY / panel power sequencing / AUX), not firmware.
+- **Display — SOLVED 2026-07-24.** The "TrustZone XPU wall" theory was a misdiagnosis
+  (the WoA ACPI shows the display path is normally clock-gated, with no secure VMID
+  gate), and so was blaming the DP PHY. The panel was dark for three stacked reasons,
+  each fully masking the next: a `dispcc` `clocks[]` indexing error in our device tree
+  that orphaned the DP3 link clocks and oopsed the kernel; a generic upstream `msm` bug
+  that made the eDP 1.4 `LINK_RATE_SET` path dead code; and the fact that **5.4 Gbps is
+  simply not a working operating point on this panel** — it trains at **HBR3**. The eDP
+  PHY driver needed no changes at all.
+  ([`docs/edp-hbr3-linkup.md`](docs/edp-hbr3-linkup.md))
 
 > These docs contain addresses, StreamIDs, and register maps **derived** from proprietary
 > Qualcomm/ASUS firmware and Windows drivers. The binaries themselves are **not** redistributed
