@@ -1,0 +1,54 @@
+diff --git a/drivers/phy/qualcomm/phy-qcom-edp.c b/drivers/phy/qualcomm/phy-qcom-edp.c
+index a3c893f72..c5f980f3b 100644
+--- a/drivers/phy/qualcomm/phy-qcom-edp.c
++++ b/drivers/phy/qualcomm/phy-qcom-edp.c
+@@ -228,6 +228,40 @@ static const struct qcom_edp_swing_pre_emph_cfg edp_phy_swing_pre_emph_cfg = {
+ 	.pre_emphasis_hbr3_hbr2 = &edp_pre_emp_hbr2_hbr3,
+ };
+ 
++/*
++ * DIAGNOSTIC, NOT A FIX -- glymur eDP HBR2 link training passes CR on all 4
++ * lanes but never sets EQ or SYM, and the sink repeats the same request
++ * (v_level=0, p_level=1) until timeout. Two candidates: the swing/emphasis
++ * values are wrong for this PHY, or the TXn_TX_DRV_LVL/EMP_POST1_LVL writes
++ * are not reaching v8 hardware at all.
++ *
++ * Only the [0][1] cell -- the one the sink actually asks for -- is changed,
++ * and it is deliberately slammed to 0x1f (vs 0x11/0x15) so any effect on the
++ * wire is unmissable. [0][0] is left alone so CR keeps passing and we still
++ * reach the EQ phase. If the sink's requested level does not budge, the write
++ * path is broken and the tables are a red herring.
++ */
++static const u8 edp_swing_hbr2_hbr3_v8[4][4] = {
++	{ 0x0b, 0x1f, 0x17, 0x1c },
++	{ 0x10, 0x19, 0x1f, 0xff },
++	{ 0x19, 0x1f, 0xff, 0xff },
++	{ 0x1f, 0xff, 0xff, 0xff }
++};
++
++static const u8 edp_pre_emp_hbr2_hbr3_v8[4][4] = {
++	{ 0x0c, 0x1f, 0x19, 0x1e },
++	{ 0x0b, 0x15, 0x19, 0xff },
++	{ 0x0e, 0x14, 0xff, 0xff },
++	{ 0x0d, 0xff, 0xff, 0xff }
++};
++
++static const struct qcom_edp_swing_pre_emph_cfg edp_phy_swing_pre_emph_cfg_v8 = {
++	.swing_hbr_rbr = &edp_swing_hbr_rbr,
++	.swing_hbr3_hbr2 = &edp_swing_hbr2_hbr3_v8,
++	.pre_emphasis_hbr_rbr = &edp_pre_emp_hbr_rbr,
++	.pre_emphasis_hbr3_hbr2 = &edp_pre_emp_hbr2_hbr3_v8,
++};
++
+ static const u8 edp_phy_aux_cfg_v4[DP_AUX_CFG_SIZE] = {
+ 	0x00, 0x13, 0x24, 0x00, 0x0a, 0x26, 0x0a, 0x03, 0x37, 0x03, 0x02, 0x02, 0x00,
+ };
+@@ -1085,7 +1119,7 @@ static struct qcom_edp_phy_cfg glymur_phy_cfg = {
+ 	.aux_cfg = edp_phy_aux_cfg_v8,
+ 	.vco_div_cfg = edp_phy_vco_div_cfg_v8,
+ 	.dp_swing_pre_emph_cfg = &dp_phy_swing_pre_emph_cfg_v8,
+-	.edp_swing_pre_emph_cfg = &edp_phy_swing_pre_emph_cfg,
++	.edp_swing_pre_emph_cfg = &edp_phy_swing_pre_emph_cfg_v8,
+ 	.ver_ops = &qcom_edp_phy_ops_v8,
+ };
+ 

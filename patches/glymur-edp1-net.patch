@@ -1,0 +1,209 @@
+diff --git a/drivers/gpu/drm/msm/dp/dp_ctrl.c b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+index 9b447a8b9..047e3509d 100644
+--- a/drivers/gpu/drm/msm/dp/dp_ctrl.c
++++ b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+@@ -188,6 +188,19 @@ static int msm_dp_aux_link_configure(struct drm_dp_aux *aux,
+ 		return err;
+ 
+ 	if (link->use_rate_set) {
++		/*
++		 * Per eDP 1.4b, LINK_RATE_SET is only consulted while
++		 * LINK_BW_SET reads 00h, so the legacy selector has to be
++		 * cleared before the rate-set one is written. Drivers that
++		 * never touch LINK_BW_SET get this for free; we cannot assume
++		 * it, because firmware may have trained the panel and left its
++		 * own selection behind (on the ASUS Zenbook A16 the UEFI
++		 * leaves DP_LINK_BW_5_4 there).
++		 */
++		err = drm_dp_dpcd_writeb(aux, DP_LINK_BW_SET, 0);
++		if (err < 0)
++			return err;
++
+ 		DRM_DEBUG_DP("using LINK_RATE_SET: 0x%02x", link->rate_set);
+ 		err = drm_dp_dpcd_writeb(aux, DP_LINK_RATE_SET, link->rate_set);
+ 	} else {
+@@ -1632,6 +1645,8 @@ static int msm_dp_ctrl_link_train(struct msm_dp_ctrl_private *ctrl,
+ 
+ 	link_info.num_lanes = ctrl->link->link_params.num_lanes;
+ 	link_info.rate = ctrl->link->link_params.rate;
++	link_info.rate_set = ctrl->link->link_params.rate_set;
++	link_info.use_rate_set = ctrl->link->link_params.use_rate_set;
+ 	link_info.capabilities = DP_LINK_CAP_ENHANCED_FRAMING;
+ 
+ 	msm_dp_aux_link_configure(ctrl->aux, &link_info);
+@@ -2299,6 +2314,20 @@ int msm_dp_ctrl_on_link(struct msm_dp_ctrl *msm_dp_ctrl)
+ 		ctrl->link->link_params.rate = rate;
+ 		ctrl->link->link_params.num_lanes =
+ 			ctrl->panel->link_info.num_lanes;
++		/*
++		 * The eDP 1.4 rate-set selection is computed into
++		 * panel->link_info, but every consumer reads link->link_params
++		 * -- without this copy use_rate_set can never be seen by
++		 * msm_dp_aux_link_configure(), and rate_set is always 0 in
++		 * msm_dp_ctrl_link_rate_down_shift().
++		 */
++		ctrl->link->link_params.rate_set =
++			ctrl->panel->link_info.rate_set;
++		ctrl->link->link_params.use_rate_set =
++			ctrl->panel->link_info.use_rate_set;
++		memcpy(ctrl->link->link_params.supported_rates,
++		       ctrl->panel->link_info.supported_rates,
++		       sizeof(ctrl->link->link_params.supported_rates));
+ 		if (ctrl->panel->msm_dp_mode.out_fmt_is_yuv_420)
+ 			pixel_rate >>= 1;
+ 	}
+diff --git a/drivers/gpu/drm/msm/dp/dp_panel.c b/drivers/gpu/drm/msm/dp/dp_panel.c
+index 891211b23..3ecce86dc 100644
+--- a/drivers/gpu/drm/msm/dp/dp_panel.c
++++ b/drivers/gpu/drm/msm/dp/dp_panel.c
+@@ -171,6 +171,46 @@ static int msm_dp_panel_read_dpcd(struct msm_dp_panel *msm_dp_panel)
+ 			/* Only use LINK_RATE_SET if LINK_BW_SET hasn't already been written to */
+ 			if (!bw_set && link_info->rate)
+ 				link_info->use_rate_set = true;
++
++			/*
++			 * HACK (glymur): force HBR3 via the legacy LINK_BW_SET
++			 * path, overriding the rate selection above.
++			 *
++			 * This is empirical and we have no explanation for it.
++			 * The panel -- a Samsung ATNA60HR07-0, eDP 1.5 -- reports
++			 * a maximum of 5.4G everywhere it is asked: its
++			 * SUPPORTED_LINK_RATES table tops out at 540000, and its
++			 * EXTENDED receiver cap block (DPCD 0x2200, taken because
++			 * 0x00e bit7 is set) reports MAX_LINK_RATE = 0x14 =
++			 * DP_LINK_BW_5_4. The UEFI leaves 0x14 in LINK_BW_SET,
++			 * i.e. the firmware selects 5.4G too. Yet 5.4G never
++			 * completes channel equalisation for us, and 8.1G -- a
++			 * rate the sink does not advertise at all -- trains first
++			 * try, on all four lanes, with the stock drive levels.
++			 *
++			 * 5.4G was eliminated exhaustively before resorting to
++			 * this: EQ fails byte-identically at 4, 2 and 1 lanes, at
++			 * every drive level the sink asks for, with the drive
++			 * writes verified to land in the TX blocks, and via both
++			 * the LINK_BW_SET and LINK_RATE_SET selectors. 2.7G and
++			 * 1.62G are dead below this layer -- the PHY never reaches
++			 * C_READY on the v8 PLL constants for those rates.
++			 *
++			 * Between 5.4G and 8.1G, exactly one register differs in
++			 * the whole PHY programming sequence: DP_PHY_VCO_DIV, 0x02
++			 * vs 0x01 (edp_phy_vco_div_cfg_v8[2] vs [3]). Both rates
++			 * share one entry in qcom_edp_com_configure_pll_v8() and
++			 * both land on the same 1.35GHz divided VCO. That makes
++			 * the v8 5400 VCO divider the prime suspect for the real
++			 * bug, and this force a workaround for it, not a fix.
++			 *
++			 * rate_set = 0 keeps msm_dp_ctrl_link_rate_down_shift() on
++			 * its legacy switch, so a train_1 failure falls back
++			 * 810000 -> 540000 rather than into the broken low rates.
++			 */
++			link_info->rate = 810000;
++			link_info->rate_set = 0;
++			link_info->use_rate_set = false;
+ 		}
+ 	}
+ 
+diff --git a/drivers/hid/hid-asus.c b/drivers/hid/hid-asus.c
+index 3f5e96900..bb1f6fb74 100644
+--- a/drivers/hid/hid-asus.c
++++ b/drivers/hid/hid-asus.c
+@@ -353,6 +353,8 @@ static int asus_wmi_send_event(struct asus_drvdata *drvdata, u8 code)
+ 	return 0;
+ }
+ 
++static void asus_schedule_work(struct asus_kbd_leds *led);
++
+ static int asus_event(struct hid_device *hdev, struct hid_field *field,
+ 		      struct hid_usage *usage, __s32 value)
+ {
+@@ -368,11 +370,33 @@ static int asus_event(struct hid_device *hdev, struct hid_field *field,
+ 	if (usage->type == EV_KEY && value) {
+ 		switch (usage->code) {
+ 		case KEY_KBDILLUMUP:
+-			return !asus_hid_event(ASUS_EV_BRTUP);
+ 		case KEY_KBDILLUMDOWN:
+-			return !asus_hid_event(ASUS_EV_BRTDOWN);
+ 		case KEY_KBDILLUMTOGGLE:
+-			return !asus_hid_event(ASUS_EV_BRTTOGGLE);
++			if (drvdata->kbd_backlight) {
++				enum asus_hid_event ev =
++					(usage->code == KEY_KBDILLUMUP) ? ASUS_EV_BRTUP :
++					(usage->code == KEY_KBDILLUMDOWN) ? ASUS_EV_BRTDOWN :
++					ASUS_EV_BRTTOGGLE;
++				if (asus_hid_event(ev) == -ENODEV) {
++					/* asus-wmi unavailable, control backlight directly via HID */
++					unsigned long flags;
++					struct asus_kbd_leds *led = drvdata->kbd_backlight;
++
++					spin_lock_irqsave(&led->lock, flags);
++					if (usage->code == KEY_KBDILLUMUP)
++						led->brightness = min_t(u8, led->brightness + 1,
++								      ASUS_EV_MAX_BRIGHTNESS);
++					else if (usage->code == KEY_KBDILLUMDOWN)
++						led->brightness = max_t(u8, led->brightness - 1, 0);
++					else
++						led->brightness = (led->brightness + 1) %
++								  (ASUS_EV_MAX_BRIGHTNESS + 1);
++					spin_unlock_irqrestore(&led->lock, flags);
++
++					asus_schedule_work(led);
++				}
++			}
++			return 0;
+ 		case KEY_FN_ESC:
+ 			if (drvdata->quirks & QUIRK_HID_FN_LOCK) {
+ 				drvdata->fn_lock = !drvdata->fn_lock;
+@@ -774,6 +798,11 @@ static int asus_kbd_register_leds(struct hid_device *hdev)
+ 	spin_lock_init(&drvdata->kbd_backlight->lock);
+ 
+ 	ret = asus_hid_register_listener(&drvdata->kbd_backlight->listener);
++	if (ret == -ENODEV) {
++		/* asus-wmi not available (e.g., device tree boot), skip listener.
++		 * Keep kbd_backlight for direct HID feature report control. */
++		return 0;
++	}
+ 	if (ret < 0) {
+ 		/* No need to have this still around */
+ 		devm_kfree(&hdev->dev, drvdata->kbd_backlight);
+@@ -1053,6 +1082,11 @@ static int asus_input_mapping(struct hid_device *hdev,
+ 		case 0x4e: asus_map_key_clear(KEY_FN_ESC);		break;
+ 		case 0x7e: asus_map_key_clear(KEY_EMOJI_PICKER);	break;
+ 
++		/* Zenbook A16 (UX3607OA) extra hotkeys */
++		case 0x85: asus_map_key_clear(KEY_KBDILLUMTOGGLE);	break; /* keyboard backlight */
++		case 0x86: asus_map_key_clear(KEY_CAMERA);		break; /* Fn+F11 camera toggle */
++		case 0x5f: asus_map_key_clear(KEY_PROG1);		break; /* ASUS / MyASUS key */
++
+ 		case 0x8b: asus_map_key_clear(KEY_PROG1);	break; /* ProArt Creator Hub key */
+ 		case 0x6b: asus_map_key_clear(KEY_F21);		break; /* ASUS touchpad toggle */
+ 		case 0x38: asus_map_key_clear(KEY_PROG1);	break; /* ROG key */
+@@ -1479,6 +1513,9 @@ static const struct hid_device_id asus_devices[] = {
+ 		USB_DEVICE_ID_ASUSTEK_I2C_KEYBOARD), I2C_KEYBOARD_QUIRKS},
+ 	{ HID_I2C_DEVICE(USB_VENDOR_ID_ASUSTEK,
+ 		USB_DEVICE_ID_ASUSTEK_I2C_TOUCHPAD), I2C_TOUCHPAD_QUIRKS },
++	{ HID_I2C_DEVICE(USB_VENDOR_ID_ASUSTEK,
++		USB_DEVICE_ID_ASUSTEK_ZENBOOK_A16_KEYBOARD),
++	  QUIRK_ROG_NKEY_KEYBOARD },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ASUSTEK,
+ 		USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD1), QUIRK_USE_KBD_BACKLIGHT },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ASUSTEK,
+@@ -1553,5 +1590,7 @@ static struct hid_driver asus_driver = {
+ };
+ module_hid_driver(asus_driver);
+ 
++#if IS_ENABLED(CONFIG_ASUS_WMI)
+ MODULE_IMPORT_NS("ASUS_WMI");
++#endif
+ MODULE_LICENSE("GPL");
+diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
+index 426ff78c1..81e13629e 100644
+--- a/drivers/hid/hid-ids.h
++++ b/drivers/hid/hid-ids.h
+@@ -221,6 +221,7 @@
+ #define USB_DEVICE_ID_ASUSTEK_T304_KEYBOARD	0x184a
+ #define USB_DEVICE_ID_ASUSTEK_I2C_KEYBOARD	0x8585
+ #define USB_DEVICE_ID_ASUSTEK_I2C_TOUCHPAD	0x0101
++#define USB_DEVICE_ID_ASUSTEK_ZENBOOK_A16_KEYBOARD	0x4B42
+ #define USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD1 0x1854
+ #define USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD2 0x1837
+ #define USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD3 0x1822

@@ -1,0 +1,100 @@
+From: Jesse Casco <jesse.casco@gmail.com>
+Subject: [PATCH] clk: qcom: gdsc: remove genpds on unregister and error paths
+
+gdsc_init() calls pm_genpd_init(), which adds the domain to the global
+gpd_list, but nothing ever called pm_genpd_remove(). The struct gdsc (and
+its embedded generic_pm_domain) lives in the clock controller module's
+.data, so after rmmod the global list retains a node pointing into freed
+module memory.
+
+The unload itself is silent and returns 0. The failure surfaces on the
+next modprobe:
+
+  list_add corruption. next->prev should be prev (...), but was 0
+  WARNING: lib/list_debug.c:29 __list_add_valid_or_report
+   pm_genpd_init+0x4c0/0x4d0
+   gdsc_register+0x274/0x6f0
+   qcom_cc_really_probe+0x48c/0x590
+  debugfs: 'gpu_cc_cx_gdsc' already exists in 'pm_genpd'
+
+and any subsequent read of /sys/kernel/debug/pm_genpd/pm_genpd_summary
+oopses in summary_show() while walking the dead node.
+
+Add gdsc_pm_domain_remove() and call it from gdsc_unregister() after the
+subdomains and the provider are gone (pm_genpd_remove() rejects a domain
+that still has subdomains or devices attached).
+
+The same leak exists on two gdsc_register() error paths: a gdsc_init()
+failure returned without unwinding the domains already initialised, and
+the return of of_genpd_add_provider_onecell() was passed through
+unchecked. Both now unwind.
+
+Reproduced and fixed on an ASUS Zenbook A16 (Snapdragon X2 / glymur) with
+gpucc-glymur built as a module; six consecutive rmmod/modprobe cycles are
+now clean. Note CONFIG_QCOM_GDSC is bool, so gdsc.c is built in and this
+requires a kernel rebuild rather than a module swap.
+
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+diff --git a/drivers/clk/qcom/gdsc.c b/drivers/clk/qcom/gdsc.c
+index 95aa07120..d5bf1351a 100644
+--- a/drivers/clk/qcom/gdsc.c
++++ b/drivers/clk/qcom/gdsc.c
+@@ -566,6 +566,18 @@ static void gdsc_pm_subdomain_remove(struct gdsc_desc *desc, size_t num)
+ 	}
+ }
+ 
++static void gdsc_pm_domain_remove(struct gdsc_desc *desc, size_t num)
++{
++	struct gdsc **scs = desc->scs;
++	int i;
++
++	for (i = num - 1; i >= 0; i--) {
++		if (!scs[i])
++			continue;
++		pm_genpd_remove(&scs[i]->pd);
++	}
++}
++
+ int gdsc_register(struct gdsc_desc *desc,
+ 		  struct reset_controller_dev *rcdev, struct regmap *regmap)
+ {
+@@ -606,7 +618,7 @@ int gdsc_register(struct gdsc_desc *desc,
+ 		scs[i]->rcdev = rcdev;
+ 		ret = gdsc_init(scs[i]);
+ 		if (ret)
+-			return ret;
++			goto err_pm_domain_remove;
+ 		data->domains[i] = &scs[i]->pd;
+ 	}
+ 
+@@ -625,10 +637,20 @@ int gdsc_register(struct gdsc_desc *desc,
+ 			goto err_pm_subdomain_remove;
+ 	}
+ 
+-	return of_genpd_add_provider_onecell(dev->of_node, data);
++	ret = of_genpd_add_provider_onecell(dev->of_node, data);
++	if (ret)
++		goto err_pm_subdomain_remove;
++
++	return 0;
+ 
+ err_pm_subdomain_remove:
+ 	gdsc_pm_subdomain_remove(desc, i);
++	gdsc_pm_domain_remove(desc, num);
++
++	return ret;
++
++err_pm_domain_remove:
++	gdsc_pm_domain_remove(desc, i);
+ 
+ 	return ret;
+ }
+@@ -640,6 +662,7 @@ void gdsc_unregister(struct gdsc_desc *desc)
+ 
+ 	gdsc_pm_subdomain_remove(desc, num);
+ 	of_genpd_del_provider(dev->of_node);
++	gdsc_pm_domain_remove(desc, num);
+ }
+ 
+ /*

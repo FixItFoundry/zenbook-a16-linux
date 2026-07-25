@@ -1,16 +1,58 @@
-_*.sh
-_*.txt
-*.log
-MORNING-README.md
-PUSH_INSTRUCTIONS.md
+# --- MUST NOT BE PUBLISHED ---------------------------------------------------
+
+# Internal working notes — NOT project artifacts. They carry local network and
+# host details that should not be published. Verified by scan 2026-07-24.
+# Keep local; publish findings via docs/ instead.
+memory-archive/
+HANDOFF.md
+RESUME-HERE.md
+CLAUDE.md
+
+# Extracted UEFI / vendor firmware binaries and the Ghidra project built from
+# them. Proprietary ASUS/Qualcomm code — the RE *findings* are published in
+# docs/edp-firmware-re-2026-07-24.md, the binaries are not.
+re/
+a16dump/
+
+# Proprietary firmware blobs of any kind. Never publish these.
 *.mbn
+*.mdt
 *.bin
+*.elf
+*.efi
+
+# --- TOO LARGE / NOT OURS ----------------------------------------------------
+
+# 2.1G clone of clo/linux-kernel/kernel-qcom rolling_glymur_next. Reference
+# only; clone it yourself if you need it.
+clo-rolling_glymur_next/
+
+# Prebuilt kernel module blobs (build artifacts, and unsigned .ko at that)
+*.ko
+*.ko.orig
+
+# Boot/initramfs artifacts and images
+*.dtb
 *.img
 *.img.gz
 *.iso
 *.zip
-*.efi
-*.ko
 *.tar.gz
+
+# --- SCRATCH / WORKING ------------------------------------------------------
+# Working files live here and are never committed. Anything meant to be kept
+# gets moved out of scratch/ deliberately.
+scratch/
+
+logs/
+captures/images/
+captures/videos/
+*.log
+_*.sh
+_*.txt
+MORNING-README.md
+PUSH_INSTRUCTIONS.md
+*.swp
+*~
 .DS_Store
 Thumbs.db

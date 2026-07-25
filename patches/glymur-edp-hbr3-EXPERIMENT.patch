@@ -1,0 +1,90 @@
+diff --git a/drivers/gpu/drm/msm/dp/dp_panel.c b/drivers/gpu/drm/msm/dp/dp_panel.c
+index 891211b23..6f13019b1 100644
+--- a/drivers/gpu/drm/msm/dp/dp_panel.c
++++ b/drivers/gpu/drm/msm/dp/dp_panel.c
+@@ -125,7 +125,7 @@ static int msm_dp_panel_read_dpcd(struct msm_dp_panel *msm_dp_panel)
+ 		/* For eDP v1.4+, parse the SUPPORTED_LINK_RATES table */
+ 		if (edp_rev >= DP_EDP_14) {
+ 			__le16 rates[DP_MAX_SUPPORTED_RATES];
+-			u8 bw_set;
++			u8 bw_set, rate_sel;
+ 			int i;
+ 
+ 			rc = drm_dp_dpcd_read_data(panel->aux, DP_SUPPORTED_LINK_RATES,
+@@ -137,6 +137,18 @@ static int msm_dp_panel_read_dpcd(struct msm_dp_panel *msm_dp_panel)
+ 			if (rc)
+ 				return rc;
+ 
++			/*
++			 * What the firmware left behind in 0x100 / 0x115. The
++			 * UEFI trains this panel successfully before we touch
++			 * it, so these two bytes ARE a known-good selection --
++			 * worth more than any amount of guessing.
++			 */
++			drm_dbg_dp(panel->drm_dev, "stale link_bw_set=0x%02x\n", bw_set);
++
++			if (!drm_dp_dpcd_read_byte(panel->aux, DP_LINK_RATE_SET, &rate_sel))
++				drm_dbg_dp(panel->drm_dev,
++					   "stale link_rate_set=0x%02x\n", rate_sel);
++
+ 			/* Find index of max supported link rate that does not exceed dtsi limits */
+ 			for (i = 0; i < ARRAY_SIZE(rates); i++) {
+ 				/*
+@@ -168,9 +180,55 @@ static int msm_dp_panel_read_dpcd(struct msm_dp_panel *msm_dp_panel)
+ 				link_info->rate_set = i;
+ 			}
+ 
+-			/* Only use LINK_RATE_SET if LINK_BW_SET hasn't already been written to */
+-			if (!bw_set && link_info->rate)
++			/*
++			 * EXPERIMENT (glymur, rateset2): select the rate the way
++			 * i915 does -- the existence of a SUPPORTED_LINK_RATES table
++			 * is the whole condition (intel_dp.c intel_dp_set_edp_sink_rates:
++			 * "Use DP_LINK_RATE_SET if DP_SUPPORTED_LINK_RATES are
++			 * available"), never the current contents of LINK_BW_SET.
++			 *
++			 * The previous guards both misfired here: the UEFI trains the
++			 * panel at boot and leaves LINK_BW_SET = 0x14 behind, and this
++			 * panel's EXTENDED receiver cap block (DPCD 0x2200, selected
++			 * because 0x00e bit7 is set) reports MAX_LINK_RATE = 0x14 even
++			 * though the base block at 0x001 reports 0.
++			 */
++			if (link_info->rate)
+ 				link_info->use_rate_set = true;
++
++			/*
++			 * EXPERIMENT (glymur, hbr3): force HBR3 via the legacy
++			 * LINK_BW_SET path, overriding the rate-set selection above.
++			 *
++			 * The rate-set fix (rateset3) provably works -- 0x100 <- 00
++			 * then 0x115 <- 02 -- and the panel still fails channel EQ at
++			 * 5.4G byte-identically to every prior run, at 4/2/1 lanes and
++			 * at every drive level. So a rate MISMATCH is not the failure
++			 * mode, and 5.4G is simply not a working operating point here.
++			 *
++			 * UEFI leaves LINK_BW_SET = 0x14 AND LINK_RATE_SET = 0x02
++			 * behind. Per eDP 1.4b, LINK_RATE_SET is consulted only when
++			 * LINK_BW_SET is 00h -- so the firmware's real, known-good
++			 * selection is HBR3, and the 0x02 is a leftover the sink
++			 * ignores. This panel's SUPPORTED_LINK_RATES table tops out at
++			 * 540000, but its EXTENDED cap block (0x2201) reports
++			 * MAX_LINK_RATE = 0x14, and the dtsi link-frequencies permit
++			 * 8100000000.
++			 *
++			 * 8.1G is also the only rate left to try: 2.7G and 1.62G are
++			 * dead on this PHY (stale v6-copied v8 PLL constants, C_READY
++			 * hard-never-ready even at a 200ms timeout), and 8.1G shares
++			 * its PLL entry with the proven-good 5400 case in
++			 * qcom_edp_com_configure_pll_v8() -- only the VCO post-divide
++			 * differs.
++			 *
++			 * rate_set = 0 keeps msm_dp_ctrl_link_rate_down_shift() on its
++			 * legacy switch, so a train_1 failure falls back 810000 ->
++			 * 540000 rather than into the broken low-rate PLL entries.
++			 */
++			link_info->rate = 810000;
++			link_info->rate_set = 0;
++			link_info->use_rate_set = false;
+ 		}
+ 	}
+ 
