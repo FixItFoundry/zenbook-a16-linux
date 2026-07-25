@@ -122,3 +122,63 @@ climbs past ~86/94 C, releasing (debounced) below ~76 C. **Validated:** full 18-
 
 **Interim only.** The real fix is DT `cooling-maps` binding `cpufreq-cooling` to *passive* trips
 plus wiring the fan as an active cooling device — see `docs/ROADMAP.md` (SPMI / SCMI / thermal).
+
+---
+
+## 7. ADSP firmware in the initramfs (audio at boot) — `tweaks/etc/dracut.conf.d/`
+
+`/etc/dracut.conf.d/99-glymur-adsp.conf`
+
+**Why:** `qcom_q6v5_pas` ships in the initramfs and probes at ~t+1.5s, but the ADSP
+firmware lives on the root filesystem, which is not mounted until ~t+2.5s.
+`request_firmware()` fails `-2` and **remoteproc never retries**, so the ADSP stays
+`offline` for the whole session. Because the `q6prmcc` clock provider lives *inside* the
+ADSP, the lpass-lpi pinctrl never gets its `core` clock and the entire audio stack (2×
+soundwire, 3× codec, the sound card) is stuck in deferred probe. Six failures, one cause.
+
+`install_items+=` ships the firmware inside the initramfs so it is present when the
+driver asks. Costs ~9 MB (49 MB → 58 MB).
+
+**Do not "fix" this with `omit_drivers+=" qcom_q6v5_pas "`.** That also gets the ADSP up,
+but delays it to t+5.3s and card registration to t+11.4s — ~0.8s before PipeWire starts.
+PipeWire then hits `EINVAL` opening `hw:0,0`/`0,1`/`0,2`, WirePlumber does not retry, and
+the **speakers are missing at boot while the microphone works** (`hw:0,3` opens fine).
+Full analysis: `docs/audio-adsp-boot-ordering.md`.
+
+30-second triage if audio is dead:
+
+```sh
+cat /sys/class/remoteproc/remoteproc0/state    # 'offline' + firmware present == this bug
+```
+
+### 7b. `glymur-audio-wait` — PROVISIONAL canary, not a permanent fix
+
+`tweaks/usr/lib/systemd/user/glymur-audio-wait.service` + `tweaks/usr/local/bin/glymur-audio-wait`
+
+Waits for the ALSA sink after WirePlumber starts and restarts WirePlumber if it never
+appears. Written to paper over the `omit_drivers` regression above. With the
+firmware-in-initramfs fix it should be **unnecessary** — it is kept only as a canary:
+
+```sh
+journalctl --user -b -u glymur-audio-wait
+#   "sink present (attempt 1)"        -> real fix works; DELETE this unit
+#   "restarting wireplumber (try N)"  -> race still happening; investigate
+```
+
+## 8. Suspend mode forced to s2idle — `tweaks/etc/tmpfiles.d/`
+
+`/etc/tmpfiles.d/glymur-s2idle.conf` → `w /sys/power/mem_sleep - - - - s2idle`
+
+**Why:** Snapdragon platforms do not implement S3/`deep`, but the kernel was selecting
+`deep`. Note `cat /sys/power/mem_sleep` shows `[s2idle] deep` — **the brackets mark the
+active mode**, so that output means s2idle is selected, not deep.
+
+⚠️ **This does NOT make suspend work.** With s2idle correctly selected the machine still
+panics and reboots on suspend; the journal ends at `PM: suspend entry (s2idle)` with
+nothing after. Still unsolved.
+
+⚠️ **Crash evidence is not collectable on this box.** `efi=noruntime` is mandatory
+(without it you get intermittent warm resets at fbcon commit) and it disables EFI runtime
+services — which is why `/sys/fs/pstore` is empty after every panic. Debugging suspend
+further needs `/sys/power/pm_test` stage bisection (`CONFIG_PM_DEBUG=y`, available) or a
+ramoops region added to the DTB.

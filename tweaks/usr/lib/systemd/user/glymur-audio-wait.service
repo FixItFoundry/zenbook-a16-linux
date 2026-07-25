@@ -1,0 +1,14 @@
+[Unit]
+Description=Work around GLYMUR-A16 PCM readiness race (speakers missing at boot)
+Documentation=https://github.com/FixItFoundry/zenbook-a16-linux/blob/main/docs/audio-adsp-boot-ordering.md
+After=wireplumber.service
+Wants=wireplumber.service
+PartOf=wireplumber.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/glymur-audio-wait
+RemainAfterExit=no
+
+[Install]
+WantedBy=wireplumber.service

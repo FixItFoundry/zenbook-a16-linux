@@ -1,0 +1,31 @@
+#!/bin/bash
+# GLYMUR-A16 speakers missing after boot.
+#
+# The card registers at ~t+11.4s but its PCMs are not openable for roughly another
+# second. PipeWire probes inside that window and gets EINVAL on hw:0,0, hw:0,1 and
+# hw:0,2; WirePlumber logs "Failed to create alsa_output.platform-sound.playback.*"
+# and does NOT retry, so the speakers never appear. hw:0,3 (MultiMedia4 Capture)
+# opens fine, which is why the microphone works at boot and output does not.
+#
+# Reopening later always succeeds -- that is what toggling the card off/on in the
+# desktop did by hand. So: wait for the ALSA sink, and if it is absent, restart
+# wireplumber to force a re-probe.
+#
+# See docs/hardware-status.md.
+
+SINK=alsa_output.platform-sound
+
+for attempt in 1 2 3 4 5; do
+    for _ in $(seq 20); do
+        if pactl list short sinks 2>/dev/null | grep -q "$SINK"; then
+            echo "glymur-audio-wait: sink present (attempt $attempt)"
+            exit 0
+        fi
+        sleep 1
+    done
+    echo "glymur-audio-wait: no $SINK after 20s, restarting wireplumber (try $attempt)"
+    systemctl --user restart wireplumber
+done
+
+echo "glymur-audio-wait: gave up, sink never appeared"
+exit 1
