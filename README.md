@@ -79,7 +79,7 @@ Native eDP via the DPU, lid switch, and USB-C DisplayPort alt-mode.
 - Wi-Fi — ath12k, associates, SSH reachable
 - USB — dwc3 + eUSB2 redrivers (PTN3222 / SMB2370)
 - Audio — 4x WSA8845 speakers (confirmed audible) + internal DMIC capture; ALSA/UCM profile. ⚠️ 4.0 layout, woofers on RL/RR — always test with `speaker-test -c 4`; 2 channels only drives the tweeters. Two boot traps documented in [`docs/audio-adsp-boot-ordering.md`](docs/audio-adsp-boot-ordering.md).
-- **USB-C DisplayPort alt-mode** — external monitor over USB-C. UCSI + PD + orientation detection + alt-mode discovery (`/sys/class/typec/`). See [`docs/usb-c-ucsi-dp-altmode.md`](docs/usb-c-ucsi-dp-altmode.md).
+- **USB-C DisplayPort alt-mode — confirmed working on BOTH USB-C ports.** External monitor over either port, plus UCSI, PD negotiation, orientation detection and alt-mode discovery (`/sys/class/typec/`). See [`docs/usb-c-ucsi-dp-altmode.md`](docs/usb-c-ucsi-dp-altmode.md).
 - **Lid switch** — TLMM GPIO 92, recovered from the Windows-on-ARM ACPI DSDT; `SW_LID` registers and `logind` reads it.
 - **`gpucc` (GPU clock controller)** — 25 `gpu_cc` clocks register, `gpu_cc_pll0` reads back 1.15 GHz. Clock controller only; there is still no GPU.
 - Battery / charge % — via a reverse-engineered SOCCP GLINK path -> `qcom-battmgr`

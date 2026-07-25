@@ -213,3 +213,36 @@ If it persists on a clean boot, look at the topology file next
 Also note: `RX_CODEC_DMA_RX_0 Audio Mixer MultiMedia1`/`MultiMedia2` were both
 `[off]` and had to be switched on by hand. On a clean boot UCM should set these;
 if it does not, that is a separate UCM-application bug worth its own look.
+
+## Reproduction procedure (Jesse's, use this one)
+
+The failure is intermittent, so a single "it played" or "it didn't" proves very little.
+Use a fixed procedure every boot:
+
+1. Boot. Wait for Wi-Fi to associate and connect.
+2. Change the volume — Plasma plays a feedback sound. **That is the test.**
+3. If there is no sound: open audio settings, switch the *Built-in Audio* card
+   **off**, wait ~3 seconds, switch it **on**, and repeat step 2.
+4. If still nothing: try the test button in the settings UI.
+5. If nothing brings audio up, capture `sudo dmesg | grep -E "CMD timeout|DSP returned|ASoC error"`.
+
+⚠️ **`speaker-test` is not a reliable oracle here.** It has both produced clean
+4-channel output (PCM `state: RUNNING`, `hw_ptr` advancing, no DSP errors) *and* hung
+on "Front Left" on a later boot. Do not conclude "audio works" from one successful
+`speaker-test` run — that mistake was made during the 2026-07-25 session.
+
+## What is actually known (2026-07-25)
+
+- The card, the sink, the four WSA884x amps and the UCM profiles all come up.
+- Failures cluster in the **first ~20 seconds**, and always on the *first* DSP
+  interaction: `GET_SPF_STATE` times out then works; the first graph fails then works.
+- Two distinct boot-time failures were captured in one boot:
+  - `t+11.79s  MultiMedia1 Playback: no backend DAIs enabled, possibly missing ALSA
+    mixer-based routing or UCM profile` — the login sound firing 0.8s after the card
+    registered, before WirePlumber applied UCM routing. Silent, no hard error.
+  - `t+18.40s  MultiMedia2: CMD timeout [1001002] (APM_CMD_GRAPH_START), -110`, then
+    repeated `DSP returned error[1001006] 9` (GRAPH_OPEN refused).
+- Later playback in the same session has been observed working cleanly, and also
+  observed hanging. **It is intermittent, not deterministically fixed by time.**
+
+Do not claim this is solved without repeated runs of the procedure above.
