@@ -128,6 +128,40 @@ sudo lsinitrd /boot/initrd.img-7.1.0-glymur-gdsc1 | grep q6v5
 sudo lsinitrd /boot/initrd.img-7.1.0-glymur-gdsc1 | grep qcadsp8480
 ```
 
+## The remaining race: msm costs the second that matters
+
+Measured across builds (all times monotonic):
+
+| build | msm | ADSP up | SPF timeout | card registers |
+|---|---|---|---|---|
+| test57 | blacklisted | 1.76s | 9.19s | **9.34s** |
+| test58-edp | blacklisted | 1.84s | 9.19s | **9.34s** |
+| gdsc1 (`omit_drivers`, 49 MB initrd) | autoloads | 5.3s | ~10.2s | **10.359s** |
+| gdsc1 (firmware in initrd, 58 MB) | autoloads | 1.41s | 10.21s | **10.36s** |
+
+PipeWire starts in the **10.4–12.2s** band, so the margin is 0–2s and it is a coin
+flip which one wins. Two conclusions the numbers force:
+
+- **The 5s `APM_CMD_GET_SPF_STATE` timeout is not new** — it is in every log going
+  back to test57. It is not caused by any recent change.
+- **Initramfs size is irrelevant.** 49 MB and 58 MB both land the card at 10.36s.
+- **msm is the ~1s.** Every boot with the card at 9.34s had
+  `modprobe.blacklist=msm`; every boot at 10.36s autoloads it. msm is a 2 MB module
+  binding through udev in the same window.
+
+### Do NOT "fix" this by deleting the blocking state query
+
+`q6apm_probe()` calls `q6apm_get_apm_state()` and discards the result, which looks
+like 5 wasted seconds begging to be deleted. It is not safe to remove:
+`prm_probe()` in `q6prm.c` calls the same `q6apm_is_adsp_ready()` and returns
+`-EPROBE_DEFER` when the DSP is not ready. It is a real readiness gate. Deleting the
+apm_probe call just moves the identical wait into q6prm's defer loop.
+
+The DSP genuinely is not audio-ready until ~10s from boot. The first query appears to
+be sent before the APM service is listening and is simply dropped (the *second* query
+succeeds immediately). A short-timeout-with-retry instead of one blocking 5s wait is
+the promising direction, but it is unproven.
+
 ### Canary: `glymur-audio-wait.service`
 
 A user unit (`~/.config/systemd/user/glymur-audio-wait.service` +
