@@ -240,9 +240,15 @@ or a panel/DT quirk, not an unconditional constant.
 
 ### 4c. Not yet demonstrated
 
-- Persistence across a **reboot with `msm` not blacklisted** — being addressed by the
-  `7.1.0-glymur-edp1` build; until that boots, `msm`
-  is blacklisted and hand-bound by `scripts/edp-train-probe.sh`.
+**Verified 2026-07-24:** persistence across a reboot with `msm` **not** blacklisted now
+holds. `7.1.0-glymur-edp1` boots with no `modprobe.blacklist=` on the command line;
+`msm` autoloads, binds, and lights the panel unattended — `fb0 = msmdrmfb`,
+`card1-eDP-1` connected + enabled, `dp_aux_backlight` present, no oops or panic, and the
+**stock** `phy_qcom_edp` (srcversion `D981A7A0AE1ECDA17C26A43`).
+`scripts/edp-train-probe.sh` is no longer needed to bring the display up.
+
+Still open:
+
 - Suspend/resume.
 - Whether 30 bpp is the right choice or an artifact of the HBR3 headroom
   (HBR2 ×4 = 17.28 Gbps effective vs ~15.7 Gbps needed at 8 bpc — 5.4 G was
