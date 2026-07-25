@@ -78,7 +78,7 @@ MDSS disabled, display via `simple-framebuffer`.
 - USB — dwc3 + eUSB2 redrivers (PTN3222 / SMB2370)
 - Audio — 4x WSA8845 speakers (confirmed audible) + internal DMIC capture; ALSA/UCM profile
 - Battery / charge % — via a reverse-engineered SOCCP GLINK path -> `qcom-battmgr`
-- Fan / basic cooling — EC-driven (⚠️ heavy sustained load can still hit the 115 °C trip and protectively shut down; an interim thermal-guard service mitigates it — see docs/ROADMAP.md)
+- Fan / basic cooling — EC-driven (⚠️ heavy sustained load can still hit the 115 °C trip and protectively shut down; an interim thermal-guard service mitigates it — see docs/ROADMAP.md) UPDATE 7-24-26:  This isn't really an issue after stress testing throughout the week, but something I encoutered early on, and felt it important to mention.
 - NVMe — Gen4/Gen5 PHY, boots from internal SSD
 - RTC, fastrpc, ADSP (audio control plane)
 - **Native eDP display** — DPU-driven panel at 2880x1800@120, 30 bpp, `fb0 = msmdrmfb`, backlight over DP AUX. Needs a patched `msm` and the eDP device tree — see [`docs/edp-hbr3-linkup.md`](docs/edp-hbr3-linkup.md). Still no GPU, so there is no 3D acceleration behind it.
@@ -88,7 +88,7 @@ MDSS disabled, display via `simple-framebuffer`.
 
 ### Not working yet
 - **GPU (Adreno X2)** — no `gpu@3d00000` / `gpucc` support for `sm8750` in mainline. Now the top open problem. Full RE writeup in [`docs/gpu-re/`](docs/gpu-re/).
-- **Fn hotkeys** — Fn brightness/media keys aren't wired (brightness itself works in Settings).
+- **Fn hotkeys** — Some Fn keys aren't wired, but as of 7-24 update, we just need Fn Lock, KB Brightness, Microphone Mute (just the LED on KB), Camera, and the two ASUS buttons.  Asus Buttons do map though. 
 - **Camera** — no sensor driver / CCI-CSI device-tree wiring yet.
 
 ### Known regression to be aware of
