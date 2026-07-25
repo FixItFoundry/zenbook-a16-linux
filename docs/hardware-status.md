@@ -208,3 +208,52 @@ awk '/Name="gpio-keys"/{p=1} p' /proc/bus/input/devices | grep "^B: SW="   # SW=
 cat /sys/power/mem_sleep                        # [s2idle]  <- BRACKETS mark the ACTIVE mode
 cat /sys/class/drm/card1/card1-eDP-1/status     # connected
 ```
+
+---
+
+## test66 — REGRESSION, do not boot (2026-07-25)
+
+test66 freed TLMM 94 (`regulator-wcn-3p3`) and 246 (`regulator-wwan`) on top of
+test65. **It broke Wi-Fi and audio.** Boot test65 instead.
+
+**Why it broke.** Freeing those two pins let the regulators probe, which unblocked
+the devices waiting on them — and those devices then reached for pins that are
+*still* reserved:
+
+```
+glymur-tlmm: error -EINVAL: pin-150 (1c00000.pci)
+qcom-pcie 1c00000.pci: error -EINVAL: Error applying setting, reverse things back
+glymur-tlmm: error -EINVAL: pin-116 (wcn7850-pmu)
+pwrseq-qcom_wcn wcn7850-pmu: error -EINVAL: Error applying setting, reverse things back
+```
+
+Before test66 those devices sat in **deferred probe, which is harmless**. After, they
+probe and *fail*, leaving the WCN power sequencer half-configured — Wi-Fi then dies
+with endless `Timeout while waiting for regulatory update`. Audio also degraded
+further: a second DSP timeout appeared, `CMD timeout for [1001002]`
+(`APM_CMD_GRAPH_START`), after the card registered — which is why the usual
+off/on toggle did not recover it.
+
+**Lesson: deferred is better than broken.** Do not free a reserved pin unless every
+pin its dependent chain needs is freed in the same change.
+
+The complete set a working test67 would need (traced from the DTS):
+
+| device | pins |
+|---|---|
+| `regulator-wcn-3p3` / `regulator-wcn-0p95` | 94 |
+| `regulator-wwan` | 246 |
+| `wcn7850-pmu` | 116 (bt-enable), 117 (wlan-enable) |
+| `1c00000.pci` | 150 |
+
+i.e. 94, 116, 117, 150, 246 — and even then it may expose a further layer.
+**Judged not worth it:** Wi-Fi already works on test65 *because* these sit deferred.
+The only gains would be a WWAN slot and silencing a cosmetic `gcc sync_state()`
+message.
+
+### Why "just move the ADSP later" does not fix the audio race
+
+Measured, not assumed: the `omit_drivers` build booted the ADSP at **5.3s** instead
+of 1.41s, and the card still registered at **10.359s** vs **10.36s**. Card
+registration is gated by DSP readiness (~10s), not by ADSP driver load time.
+Delaying the ADSP can only make it later.
