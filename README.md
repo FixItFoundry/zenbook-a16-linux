@@ -15,8 +15,9 @@ laptop built on the **Qualcomm Snapdragon X2 Elite Extreme**, SoC codename **gly
 > of them is a generic upstream `msm` bug — write-up in
 > [`docs/edp-hbr3-linkup.md`](docs/edp-hbr3-linkup.md).
 >
-> The remaining big gap is the **GPU**, still blocked on `gpucc` support for this SoC
-> that does not exist upstream yet.
+> The remaining big gaps are the **GPU** (no `gpu`/`gmu`/`adreno_smmu` device-tree
+> nodes), **suspend** (panics reliably), and **USB4** (the binding is an unmerged
+> upstream RFC).
 
  **I'm publishing this repo to ask for the community's help.**  I've been tinkering with
  Linux and OSX (Hackintoshes) for almost two decades, and I wanted to test out some frontier
@@ -67,8 +68,9 @@ continue as long as there are stable breakthroughs.
 
 ## What works / what doesn't
 
-**Current daily-driver device tree: `dts/glymur-a16-test55.dts` (build "test55").**
-MDSS disabled, display via `simple-framebuffer`.
+**Current daily-driver device tree: `dts/test68.dts`.**
+Native eDP via the DPU, lid switch, and USB-C DisplayPort alt-mode.
+(`test55` was the old `simple-framebuffer` baseline.)
 
 ### Working on the device tree
 - Keyboard (i2c-HID, ASUS EC) + backlight control
@@ -76,7 +78,10 @@ MDSS disabled, display via `simple-framebuffer`.
 - Touchscreen + stylus (i2c `0x10`)
 - Wi-Fi — ath12k, associates, SSH reachable
 - USB — dwc3 + eUSB2 redrivers (PTN3222 / SMB2370)
-- Audio — 4x WSA8845 speakers (confirmed audible) + internal DMIC capture; ALSA/UCM profile
+- Audio — 4x WSA8845 speakers (confirmed audible) + internal DMIC capture; ALSA/UCM profile. ⚠️ 4.0 layout, woofers on RL/RR — always test with `speaker-test -c 4`; 2 channels only drives the tweeters. Two boot traps documented in [`docs/audio-adsp-boot-ordering.md`](docs/audio-adsp-boot-ordering.md).
+- **USB-C DisplayPort alt-mode** — external monitor over USB-C. UCSI + PD + orientation detection + alt-mode discovery (`/sys/class/typec/`). See [`docs/usb-c-ucsi-dp-altmode.md`](docs/usb-c-ucsi-dp-altmode.md).
+- **Lid switch** — TLMM GPIO 92, recovered from the Windows-on-ARM ACPI DSDT; `SW_LID` registers and `logind` reads it.
+- **`gpucc` (GPU clock controller)** — 25 `gpu_cc` clocks register, `gpu_cc_pll0` reads back 1.15 GHz. Clock controller only; there is still no GPU.
 - Battery / charge % — via a reverse-engineered SOCCP GLINK path -> `qcom-battmgr`
 - Fan / basic cooling — EC-driven (⚠️ heavy sustained load can still hit the 115 °C trip and protectively shut down; an interim thermal-guard service mitigates it — see docs/ROADMAP.md) UPDATE 7-24-26:  This isn't really an issue after stress testing throughout the week, but something I encoutered early on, and felt it important to mention.
 - NVMe — Gen4/Gen5 PHY, boots from internal SSD
@@ -87,9 +92,14 @@ MDSS disabled, display via `simple-framebuffer`.
 ---
 
 ### Not working yet
-- **GPU (Adreno X2)** — no `gpu@3d00000` / `gpucc` support for `sm8750` in mainline. Now the top open problem. Full RE writeup in [`docs/gpu-re/`](docs/gpu-re/).
+- **GPU (Adreno X2)** — no `gpu@3d00000` / `gmu` / `adreno_smmu` device-tree nodes. Top open problem. ⚠️ Correction: the old claim that `gpucc` is missing from mainline is **wrong** — `drivers/clk/qcom/gpucc-glymur.c` exists in v7.1 and is confirmed working on hardware. The gap is device tree, not clock support. Full RE writeup in [`docs/gpu-re/`](docs/gpu-re/).
+- **Suspend / resume** — panics and reboots reliably, including with `s2idle` correctly selected. No post-mortem is collectable because `efi=noruntime` (mandatory here) disables EFI runtime services, so pstore is always empty.
+- **USB4 / Thunderbolt** — no host-router/NHI node exists in any in-tree qcom device tree, and `drivers/thunderbolt` has no Qualcomm support. The binding is an unmerged upstream **RFC**. The Type-C half of the pipeline (UCSI → typec_mux → QMP PHY) now works; only the host router is missing. See [`docs/usb-c-ucsi-dp-altmode.md`](docs/usb-c-ucsi-dp-altmode.md).
+- **cpufreq scaling** — `scmi-cpufreq -110`, cores pinned at boot clock; interim thermal-guard service mitigates.
 - **Fn hotkeys** — Some Fn keys aren't wired, but as of 7-24 update, we just need Fn Lock, KB Brightness, Microphone Mute (just the LED on KB), Camera, and the two ASUS buttons.  Asus Buttons do map though. 
 - **Camera** — no sensor driver / CCI-CSI device-tree wiring yet.
+- **Dimmable keyboard backlight** — no `asus::kbd_backlight` LED; the A16 entry lacks `QUIRK_USE_KBD_BACKLIGHT`.
+- **Headphone jack / DP audio**, **`qcom-spmi-temp-alarm`**.
 
 ### Known regression to be aware of
 **Retired 2026-07-20.** "MDSS enabled + `msm` loaded kills Wi-Fi" no longer reproduces —
