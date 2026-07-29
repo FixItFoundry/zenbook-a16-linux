@@ -1,0 +1,43 @@
+Subject: [PATCH] soc: qcom: add SOCCP GLINK edge registrar (Zenbook A16 / glymur)
+
+On the ASUS Zenbook A16 (Snapdragon X2 Elite, glymur) pmic_glink is transported over
+the SOCCP GLINK-over-SMEM channel (PMIC_RTR_SOCCP_APPS). The SOCCP is UEFI-loaded and
+already running, but nothing in mainline registers its glink edge - so battery,
+Type-C/UCSI and DisplayPort alt-mode all fail together and SILENTLY (ucsi_glink binds
+and simply never completes).
+
+This adds the Kconfig/Makefile hooks for drivers/soc/qcom/soccp_glink.c, a small
+stand-alone registrar that stands up the SMEM glink transport for the SOCCP host-pid.
+No remoteproc/PAS is needed because the firmware already booted it.
+
+Not upstream-ready: the compatible is vendor-specific (asus,soccp-glink) and would
+need a proper binding. Published for reference/interoperability.
+
+diff --git a/drivers/soc/qcom/Kconfig b/drivers/soc/qcom/Kconfig
+index 2caadbbcf..5e82bf2cc 100644
+--- a/drivers/soc/qcom/Kconfig
++++ b/drivers/soc/qcom/Kconfig
+@@ -295,6 +295,14 @@ config QCOM_PBS
+ 	  This module provides the APIs to the client drivers that wants to send the
+ 	  PBS trigger event to the PBS RAM.
+ 
++config QCOM_SOCCP_GLINK
++	tristate "Qualcomm SOCCP GLINK Edge (Asus Zenbook)"
++	depends on QCOM_SMEM && RPMSG_QCOM_GLINK_SMEM
++	help
++	  Stand-alone registrar for the SOCCP GLINK-over-SMEM edge on
++	  the ASUS Zenbook A16 (Snapdragon X2 Elite). This is required
++	  to receive battery and charger status over PMIC-GLINK.
++
+ endmenu
+ 
+ config QCOM_UBWC_CONFIG
+diff --git a/drivers/soc/qcom/Makefile b/drivers/soc/qcom/Makefile
+index b7f1d2a57..f24e633af 100644
+--- a/drivers/soc/qcom/Makefile
++++ b/drivers/soc/qcom/Makefile
+@@ -40,3 +40,4 @@ qcom_ice-objs			+= ice.o
+ obj-$(CONFIG_QCOM_INLINE_CRYPTO_ENGINE)	+= qcom_ice.o
+ obj-$(CONFIG_QCOM_PBS) +=	qcom-pbs.o
+ obj-$(CONFIG_QCOM_UBWC_CONFIG) += ubwc_config.o
++obj-$(CONFIG_QCOM_SOCCP_GLINK) += soccp_glink.o

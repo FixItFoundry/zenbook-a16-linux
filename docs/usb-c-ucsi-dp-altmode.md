@@ -10,6 +10,54 @@ is not a device-tree problem you can solve locally.
 
 ---
 
+---
+
+## ★★★ PREREQUISITE, learned the hard way (2026-07-29): the SOCCP glink transport
+
+**Everything in this document sits on top of `pmic_glink`, and on this platform
+`pmic_glink`'s transport IS the SOCCP glink channel (`PMIC_RTR_SOCCP_APPS`).**
+
+The SOCCP (SoC Companion Processor) is UEFI-loaded and already running, but **nothing in
+mainline registers its GLINK-over-SMEM edge**. Without that edge there is no transport, and
+**three apparently unrelated subsystems fail at once**:
+
+| symptom | actual cause |
+|---|---|
+| `/sys/class/typec/` empty, `ucsi_glink` bound but **silent** (no `PPM init failed`, no success) | no transport |
+| `qcom-battmgr-bat` present but `energy_now` unreadable | no transport |
+| DP alt-mode never entered | no transport |
+
+⚠️ **The silence is the tell.** The *original* UCSI bug (below) announced itself with
+`PPM init failed, stop trying`. A missing transport prints **nothing at all** — `ucsi_glink`
+probes, binds to `pmic_glink.ucsi.0`, and simply never completes. On 2026-07-29 this was
+misdiagnosed as "the UCSI fix stopped working" and then as a `pmic_glink` device-link
+failure. Both were wrong.
+
+**Fix:** `CONFIG_QCOM_SOCCP_GLINK=m` (`drivers/soc/qcom/soccp_glink.c`) plus the DT node:
+
+```dts
+soccp_glink_edge {
+        compatible = "asus,soccp-glink";
+
+        glink-edge {
+                label = "soccp";
+                interrupts-extended = <&ipcc IPCC_MPROC_SOCCP
+                                             IPCC_MPROC_SIGNAL_GLINK_QMP
+                                             IRQ_TYPE_EDGE_RISING>;
+                mboxes = <&ipcc IPCC_MPROC_SOCCP IPCC_MPROC_SIGNAL_GLINK_QMP>;
+                qcom,remote-pid = <19>;
+        };
+};
+```
+
+Confirm it took: `dmesg | grep soccp` →
+`soccp_glink soccp_glink_edge: SOCCP glink edge registered (remote-pid=19)`.
+
+**⇒ Before debugging Type-C, battery or alt-mode, check the transport first.** Adding this
+one node + driver restored Type-C *and* battery on the merged tree in a single change.
+
+---
+
 ## The symptom
 
 Since the very beginning of this project — long before eDP or `msm` were in the
@@ -113,6 +161,24 @@ connected
 
 Orientation detection works too (`/sys/class/typec/port0/orientation` = `reverse`), and
 PD is live (`port0-partner/supports_usb_power_delivery` = `yes`).
+
+## ★ Observed real-world effect (Jesse, 2026-07-29): USB-C went from intermittent to clean
+
+Worth recording because it is **not** obvious from the sysfs-only view of this fix:
+
+- **Before UCSI was linked up, the USB-C ports were intermittent** — devices dropping and
+  re-enumerating, the USB-C hub NIC unreliable on one port (see the deferred
+  "USB-C NIC hub" workstream).
+- **After the fix the ports are clean**, dwc3 is stable, **and DisplayPort output over
+  USB-C works.**
+
+So the UCSI/role-switch fix is not merely cosmetic "now Linux can see the Type-C stack" — it
+is what made USB-C **reliable** on this machine and what unlocked display-out. Treat any
+future regression in USB-C *stability* as a possible UCSI/`pmic_glink` transport regression,
+not only as a dwc3 or cable problem.
+
+⚠️ The **USB-A** Ethernet adapter has never been affected by any of this and is the reliable
+rescue route when Wi-Fi is down (`ssh -o HostKeyAlias=loazen jcasco@192.168.8.158`).
 
 ## Why this works without a retimer
 

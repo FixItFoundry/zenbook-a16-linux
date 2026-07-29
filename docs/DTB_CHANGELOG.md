@@ -315,7 +315,8 @@ o GPU device was found, which is expected since the GPU node isn't present in th
 - **Analysis:** Disabling simplefb removes the only active consumer of the MDSS GDSC (power domain) during early boot. When the power domain drops, the hardware XPU block loses its TrustZone-programmed VMID configuration. When the msm driver subsequently powers the MDSS back on and writes to VBIF, the XPU is in a default locked state and denies the write (even with pKVM providing the correct VMID), triggering the instant warm-reset.
 - **Lesson:** simplefb (continuous splash) is **MANDATORY** for this firmware-locked device. It serves as a structural placeholder to keep the MDSS power domain alive and preserve the TrustZone XPU grant until the DRM driver successfully completes handoff. We cannot disable it.
 ### test51 RESULT (2026-07-13): Lower Link Rate Test (1080p60) via pKVM
-- **Goal:** Test if the et=-110 link training timeouts are caused by the eDP PHY struggling to train a high-bandwidth native link (2880x1800@120Hz) during the UEFI-to-Linux continuous splash handoff. (Test 49 was already reserved for eDP isolation, and 50 was rejected, so this is test 51).
+- **Goal:** Test if the 
+et=-110 link training timeouts are caused by the eDP PHY struggling to train a high-bandwidth native link (2880x1800@120Hz) during the UEFI-to-Linux continuous splash handoff. (Test 49 was already reserved for eDP isolation, and 50 was rejected, so this is test 51).
 - **Actions:** 
   1. Verified via dtdump that pins 18 and 70 are indeed mathematically absent from the gpio-reserved-ranges block in 	est48.dtb (ranges explicitly skip 18 and 70), confirming the DT is correct.
   2. Booted with ideo=eDP-1:1920x1080@60 + kvm-arm.mode=protected (no modprobe.blacklist=msm and NO simplefb:off).
@@ -403,3 +404,302 @@ o GPU device was found, which is expected since the GPU node isn't present in th
 - **FULLY WORKING on DT:** keyboard, touchpad, touchscreen+stylus, wifi (ath12k), USB (incl. redrivers), fan (EC), NVMe, RTC, ADSP (audio control plane), fastrpc, **battery (SOCCP glink → qcom-battmgr, ~79% shown)**, audio (4× WSA8845 speakers, Mic capture), simplefb UEFI splash.
 - **NOT YET WORKING:** native eDP (link-training `-110`, being debugged), GPU (no adreno node in base DTB; GPU bring-up separate workstream), brightness control (blocked on native eDP).
 - **Key reference docs for the post:** `07_DTB_CHANGELOG.md`, `gpu_smmu_routing_from_WoA_ACPI.md`, `BUILD-PLAN-B-KVM-PKVM-SELFHOST.md`, `G08` (battery), `G13` (audio), `DISPLAY-BRINGUP-FINDINGS.md` (pre-pKVM, now superseded by this UPDATE).
+
+---
+
+# GAP FILLED: 2026-07-16 → 2026-07-28
+
+> The changelog stopped at 2026-07-15 when the work shifted into driver RE and msm bring-up.
+> Everything below reconstructs that period from the repo docs, the on-box logs, and the
+> session records. Milestones are marked ★; retractions are marked ⛔ and are as important as
+> the wins — several confident conclusions in this period were later disproven.
+
+## ★★★ eDP LINK-UP (2026-07-24) — HBR3 was the answer
+
+- **test62 / test63** iterated the eDP link at HBR2 (5.4G) and HBR (2.7G). Every attempt gave
+  the same result: **CR locks on all four lanes, EQ never sets, SYM never locks**, at every
+  drive level and every lane count. `0x202=0x11 0x203=0x11 ALIGN=0`.
+- Drive levels were **fully ruled out**: the write path was proven by readback
+  (`v=0 p=1 → 0x1f/0x1f` at the exact cell the sink requests), and max swing + max
+  pre-emphasis still failed EQ. UEFI DisplayDxe was reverse-engineered (Ghidra) and its
+  swing/emphasis table is **byte-identical to our v8 table**, written to the same offsets.
+- **★ The fix: force HBR3 (810000).** `dp_panel.c`, right after the `use_rate_set = true`
+  line — `rate = 810000, rate_set = 0, use_rate_set = false` (legacy LINK_BW_SET path).
+  Link trains **first try**: `0x202/0x203 = 0x77/0x77 ALIGN=1`, 2880x1800@120 at 30 bpp,
+  `fb0 = msmdrmfb`, `dp_aux_backlight` live.
+- **Confirmation run passed on the STOCK swing table** → the link rate alone was the fix;
+  `phy-qcom-edp.c` needs no patches at all.
+- ⛔ **The rationale was wrong even though the experiment was right.** The in-tree comment
+  claimed UEFI left `LINK_BW_SET = 0x14` meaning "firmware's known-good link is HBR3".
+  `0x14` is **DP_LINK_BW_5_4**; HBR3 is `0x1e`. The firmware selects the rate that fails for
+  us. Corrected in `linux-glymur-a16` commit `b4c376a41`.
+- Panel identified from EDID: **Samsung/SDC ATNA60HR07-0**, 30–120 Hz, max pixel clock
+  710 MHz.
+- ⚠️ Not upstreamable as written: `link_info->rate = 810000` is unconditional.
+
+## ★ Kernel lineage: clean+ → clean2 → edp1 → gpucc1 → gdsc1
+
+- **`7.1.0-glymur-edp1`** — first kernel where `msm` autoloads and binds with **no
+  `modprobe.blacklist=`**; panel lights unattended. Replaced the old arrangement of
+  hand-copied `.ko` files.
+- **gpucc CONFIRMED on hardware** — 25 `gpu_cc` clocks, `gpu_cc_pll0` = 1 149 999 902 Hz.
+  Registration only, no rendering. Corrects the older "gpucc missing from mainline" claim:
+  the driver exists in v7.1; the gap is device tree.
+- **`7.1.0-glymur-gdsc1`** — adds the gdsc genpd teardown fix (see below).
+
+### gdsc genpd teardown fix — and its 2026-07-28 correction
+
+- Found 2026-07-24: `gdsc_init()` calls `pm_genpd_init()` (adds to the global `gpd_list`) but
+  **nothing ever called `pm_genpd_remove()`**, so `rmmod` of any qcom clock controller left
+  the list pointing into freed module memory. Next `modprobe` → `list_add corruption`;
+  reading `pm_genpd_summary` → oops. `gdsc.c` is built-in, so this needed a full kernel
+  rebuild. Verified with 6 clean rmmod/modprobe cycles.
+- ⛔ **2026-07-28: upstream fixed the `gdsc_unregister()` half itself between v7.1 and v7.2.**
+  Our patch is **not novel** there. Only the `gdsc_register()` error-path cleanup is still
+  missing upstream, and that is a leak-on-failure, not a crash fix. Do not describe this as
+  "a real upstream bug we found and fixed".
+- ⛔ It was also suspected of causing the audio regression and was **exonerated by
+  measurement**: 45 genpd domains on both kernels, zero gdsc/genpd errors.
+
+## DTB arc: test64 → test72
+
+| DTB | delta | verdict |
+|---|---|---|
+| test64 | gpucc probe | baseline for gpucc1/gdsc1 |
+| test65 | **lid switch** on TLMM 92 (from the WoA DSDT), frees pin 92 | good |
+| test66 | frees TLMM 94 + 246 (wcn-3p3, wwan) | ⛔ **REGRESSION — never boot it.** Unblocked `wcn7850-pmu` and `1c00000.pci`, which then failed on pins 116/150 (still reserved) → **Wi-Fi dead**, audio worse. *Deferred is better than broken.* |
+| test67 | `dr_mode="otg"` | no-op (`CONFIG_USB_DWC3_HOST=y` forces host) |
+| test68 | **deletes `usb-role-switch` from `usb@a600000`** | ★ **UCSI/Type-C works for the first time** — `/sys/class/typec/` populates, PD negotiates, **USB-C DisplayPort alt-mode on BOTH ports** |
+| test69 | `ramoops@94000000` reserved-memory node | for crash capture; address cross-checked against `/proc/iomem`, not just the DT |
+| test70 | **eDP HPD**: frees pin 119, muxes `edp0_hot` on `&mdss_dp3` | matches upstream; **did not fix the teardown crash** |
+| test71 | drops `VA DMIC2/3` from `audio-routing` (upstream routes two) | correct per upstream; **no audio change** |
+| test72 | test71 + `modprobe.blacklist=msm` | control boot; **audio still fails ⇒ msm exonerated** |
+
+## ★★ THE DISPLAY TEARDOWN CRASH (2026-07-25 → 07-27) — still open
+
+**Symptom:** the SoC hard-resets whenever the eDP panel powers down — idle blank or
+`kscreen-doctor --dpms off`. Deterministic.
+
+**Established, do not re-derive:**
+- **Linux emits no fault at all.** netconsole with a provably empty queue and ramoops on a
+  genuine test69 cycle both came back blank ⇒ `kmsg_dump` never runs ⇒ the SoC is reset
+  externally (TZ / secure watchdog / hardware). **Any plan beginning "capture the Oops" is
+  refuted.** pstore empty across **seven** attempts.
+- **Trigger isolated to `qcom_edp_phy_exit()`**, and **both halves are independently lethal**
+  (`PHYSKIP=1` skips the clk disable → dies; `PHYSKIP=2` skips the regulator disable → dies;
+  `PHYSKIP=3` skips both → survives). ⇒ timing/ordering, not a specific clock or rail.
+- **Bit 64** (defer the PHY power-down 1 s onto a delayed work) — built, booted, **still died**.
+- `qcom_edp_phy_power_off()` **does** run first (marker proved it, +424 ms), so the PHY is not
+  left live. Asserting `DP_PHY_PD_CTL_PSR_PWRDN` again in exit (`PHYSKIP=4`) changes nothing.
+- **Death signature is NOT a discriminator** — four baseline runs gave TZ-fatal at +717 ms,
+  none at all, +2.07 s, and none again. Latency and the presence of a TZ fatal are variance.
+
+**Everything eliminated:** `qcom_wdt` (`state=inactive`, `bootstatus=0`) · PMIC PON reason
+registers (four event types, four byte-identical dumps — the gen3 offsets are not in the
+window we can read) · `sync_state`/interconnect floors (all 52 dropped at runtime, box fine,
+teardown still dies) · idle power-collapse (`has_idle_pc=false` booted, still died) ·
+**EDL/download mode** (see below) · **eDP HPD** (test70).
+
+### ⛔ EDL / download mode — closed properly
+
+- First attempt was **VOID**: `qcom_scm.c:2847` calls `qcom_scm_disable_sdi()` whenever the
+  **probe-time** `download_mode` param is 0, which it always was ⇒ SDI was torn down every
+  boot and runtime arming could never land in EDL.
+- Corrected test: `fedora-glymur-test69-dload` with `qcom_scm.download_mode=full` on the
+  cmdline ⇒ SDI intact, verified. Fired the teardown: **the SoC reset and POSTed by itself
+  23 s later.** ⇒ **download mode is fused off on retail hardware.** Route closed.
+- Also corrected: `qcom,dload-mode`'s phandle `0x2a` **does not resolve** in the live DT, so
+  the IMEM path is unused — arming goes through the SCM call, which *is* available.
+
+## ★★ AUDIO — the long regression hunt (2026-07-27 → 07-28)
+
+**Symptom:** every boot, `CMD timeout [1001021]` (`GET_SPF_STATE`) ~10.2 s and
+`CMD timeout [1001002]` (`GRAPH_START`) ~17.9 s, then a cascade of
+`DSP returned error[1001006]` (**`APM_CMD_SET_CFG`**, *not* "GRAPH_OPEN" as earlier text
+claimed). Card enumerates, DAPM builds, amps `Attached`, `hw_ptr` advances — and no sound.
+
+- ⛔ **"Intermittent" is wrong.** Across the whole persistent kmsg log: **76 boots reached a
+  card, ZERO were clean.** The DSP failure is 100 % deterministic — *and reproducible to the
+  microsecond across different kernels and DTBs*. Only whether the user hears anything varies.
+- ⇒ **A fix can be judged on ONE boot** with `dmesg | grep -aE "CMD timeout|DSP returned"`.
+  `speaker-test` is retired as an oracle.
+- **Eliminated by measurement:** the audio device tree (all nodes byte-identical across
+  test47/52/55/64/71) · the eDP era (test55, display disabled in DT, fails identically) ·
+  msm (test72) · the kernel (clean+, edp1, gdsc1 **and 7.2-rc3** all fail) · the gdsc patch ·
+  `qcom_pd_mapper` (v7.1 *does* have `qcom,glymur`) · `qcom,intents` and
+  `qcom,protection-domain` (identical to upstream) · DMIC routing · mixer state · PipeWire
+  sink · **and the hardware itself — audio works in Windows.**
+- **Topology provenance:** ours descends from **X1E80100-Romulus — a Microsoft Surface
+  topology** (31 892 B, still present as `.romulus.bak`), hand-modified into the current
+  29 496 B file, which matches no public board file. The changelog itself recorded it at
+  test45 as an "x1e A14/Romulus stand-in", and M11 noted a real glymur topology was deferred.
+
+### ★★★ THE FIND (2026-07-28): `tqftpserv` was missing
+
+- The test35 entry records the working-era userspace as **qrtr + pd-mapper (ACTIVE) +
+  tqftpserv (ACTIVE)**, built from source in `~/qrtr ~/pd-mapper ~/tqftpserv`.
+- On 2026-07-28 all three were **gone** — no binaries, no source directories, no units.
+  `pd-mapper` no longer matters (the in-kernel `qcom_pd_mapper` replaced it and is loaded),
+  and QRTR's name service moved into the kernel (`net/qrtr/ns.c`). **But `tqftpserv` has no
+  kernel equivalent** — it is the daemon that answers the DSP's file requests over QRTR.
+- Without it the DSP asks for something, nobody answers, and its commands time out. This fits
+  every otherwise-unexplained observation: identical failure on every kernel/DTB/era (it lives
+  on the shared rootfs), microsecond determinism, Windows unaffected, and nothing we changed
+  in DT or kernel making any difference.
+- **Fix:** `dnf install tqftpserv` (Fedora packages it, 1.1.1-3.fc44) + `systemctl enable
+  --now tqftpserv`. Installed and enabled 2026-07-28 18:34.
+- ⏳ **UNPROVEN until a fresh boot.** Post-boot playback was already error-free before this
+  change; the failure only ever occurs at boot (~13 s). The decisive test is a reboot with
+  tqftpserv running from the start: does `GRAPH_START` still time out?
+
+## ★ The konrad lineage — upstream's own A16 device tree (2026-07-28)
+
+- **2026-07-21 Konrad Dybcio (Qualcomm) posted an upstream DT for this exact laptop**
+  (`arm64: dts: qcom: glymur: Add Asus Zenbook A16 (UX3607OA)`), reviewed by Dmitry Baryshkov
+  and Abel Vesa, **still unmerged**. Saved in `upstream/`; see `docs/konrad-tree-plan.md` and
+  `UPSTREAM-CREDITS.md`.
+- Built as `7.2.0-rc3-konrad1` from a stock `v7.2-rc3` clone. **Stock rc3 is not enough** —
+  his DTS needs the LPASS/audio DT patches accepted 2026-07-01/07-06, which landed after the
+  tag; `glymur.dtsi` was taken from the drive's patched 7.2 tree instead.
+- **Deviations from his DTS (declare these in any upstream report):** `&pcie4_port0_ep` block
+  removed, `&remoteproc_soccp` block removed, the dangling `remote-endpoint` line removed,
+  `&gpu`/`&gmu` disabled, `&remoteproc_cdsp` disabled.
+- **Result 1:** it boots fully — `Startup finished in 16.000s`, `graphical.target`, Plasma
+  Wayland session. ⚠️ It *appeared* not to boot because there was no display and no network.
+  **Check `journalctl --list-boots` before concluding a kernel does not boot.**
+- **Result 2 (first boot):** black screen because his DTS enables `&gpu`; adreno fails `-19`
+  (its `arm-smmu 3da0000` and `gxclkctl 3d64000` time out), and msm is a *component*
+  framework — one failed component fails the whole master bind, so no DRM device at all.
+  **All four DP controllers bound fine**; his display wiring is not at fault.
+- **★ Result 3 (GPU disabled):** msm binds, `panel_samsung_atna33xc20` loads — and **eDP link
+  training fails `-110`**, the exact pre-HBR3 wall. We deliberately left our HBR3 force out to
+  see whether his DT negotiates correctly on its own. **It does not.** ⇒ our HBR3 finding is
+  load-bearing and upstream's A16 tree does not address it. *This is the most reportable
+  result we have.*
+- **Result 4:** Wi-Fi died because `VREG_WCN_3P3` was switched off — dropping the
+  `&pcie4_port0_ep` block also removed the connector↔PCIe-port graph link that keeps the rail
+  claimed. Fixed with `regulator-always-on`.
+- konrad2 (HBR3 force + CDSP disabled + WCN pinned) built 2026-07-28 18:21; msm srcversion
+  `257777F752CF092862B1337`, verified **inside the initrd**.
+
+## Infrastructure notes from this period
+
+- **Screen-blank guard was fake.** `kde-inhibit` ran but never appeared in powerdevil's
+  `ListInhibitions` (`{}`), and Plasma 6.7 appears to ignore the `[AC][DPMSControl]` keys we
+  wrote — so the panel was free to blank itself and hard-reset the box, corrupting an unknown
+  number of results. Replaced 2026-07-28 with `glymur-stayawake.service`: a **logind**
+  inhibitor (`systemd-inhibit --what=idle:sleep:handle-lid-switch --mode=block`, *verified
+  present in `systemd-inhibit --list`*) plus a 45 s `SimulateUserActivity` loop.
+- **ssh:** use `ssh -o HostKeyAlias=loazen jcasco@192.168.8.60`. The IPv6 record
+  (`loazen.internal` → `…ea00::1c0c`) goes stale after reboots and produces phantom
+  "No route to host" while the machine is up and browsing fine. The host key is stored under
+  the bare name `loazen`, which is why plain IPv4 ssh fails verification.
+
+---
+
+# 2026-07-29 — The merged tree: a Zenbook A16 with everything working
+
+This is the entry the whole changelog was building toward, so it is written as a narrative
+rather than a table. Short version: **the machine now boots one device tree on which the
+display, its power-down path, Wi-Fi, battery, Type-C, the keyboard, audio and the Adreno X2
+GPU all work at the same time.**
+
+## Standing on Konrad Dybcio's device tree
+
+On 2026-07-21 **Konrad Dybcio** (Qualcomm, <https://konradybcio.pl/>) posted an upstream
+device tree for this exact laptop — `arm64: dts: qcom: glymur: Add Asus Zenbook A16
+(UX3607OA)`, reviewed by Dmitry Baryshkov and Abel Vesa, still unmerged at time of writing.
+
+Up to that point this project had been a vendor-derived DTB lineage, hand-bisected over
+seventy-odd test builds. Konrad's file is a proper board device tree: the pin map, the
+regulator topology, the WCN and USB wiring, gpio-keys, and the GPU/CDSP/SOCCP nodes. **The
+merged tree in this repo is his file with our fixes added on top, and the structure and board
+knowledge are his.** Full attribution, including which of our deltas replace or extend his,
+is in [`UPSTREAM-CREDITS.md`](../UPSTREAM-CREDITS.md).
+
+Two things worth saying plainly, because they cut both ways:
+
+- **His tree survives the display power-down that ours could not.** That single experiment —
+  same kernel, same `msm`, same initrd, only the DTB swapped — is what proved our long-hunted
+  hard-reset was a device-tree defect on our side rather than silicon or TrustZone.
+- **His tree does not solve the eDP link-training failure.** With our HBR3 rate force removed,
+  link training fails `-110` on his DT exactly as it did on ours. That remains our most
+  reportable finding.
+
+## What we added on top
+
+| Area | What was needed | Why |
+|---|---|---|
+| **eDP link rate** | force HBR3 (8.1 Gbps ×4) in `dp_panel.c` | the panel advertises 5.4 G everywhere and cannot train at it; 8.1 G — never advertised — trains first try. Still unexplained, and not addressed upstream |
+| **Display power-down** | `regulator-always-on` on the eDP PHY rails (`vdda-phy`, `vdda-pll`) | without it the SoC is reset externally when the panel powers down, with no Linux fault at all |
+| **Wi-Fi** | `qcom,wcn7850-pmu` power sequencer + `regulator-always-on` on the WCN rails | the generic `pcie-m2-e-connector` + `pwrseq` path does not bind on 7.2-rc3; and once Linux owns the 3.3 V rail it switches it off 30 s into boot unless pinned |
+| **Battery, Type-C, DP alt-mode** | `soccp_glink` driver + a `soccp_glink_edge` node | `pmic_glink`'s transport on this platform is the SOCCP GLINK channel, and nothing in mainline registers that edge |
+| **Type-C enumeration** | delete `usb-role-switch` where `dr_mode = "host"` | dwc3 only registers a role switch in OTG mode, so UCSI waited forever for one that never appears |
+| **Keyboard / Fn keys** | `hid-asus` support for I2C-HID `0B05:4B42` | the device ID was in no `asus_devices[]` entry, and on a DT boot the driver freed `kbd_backlight` outright |
+| **GPU** | enable `&gpu`/`&gmu` **and stop blacklisting `gpucc`** | see below |
+
+## The GPU, and a lesson about our own workarounds
+
+The GPU had been the headline gap for months. It turned out we were standing on it.
+
+`gxclkctl-kaanapali` lists gpucc as one of its power-domain providers and runtime-resumes it
+at probe. Every GRUB entry we had carried `modprobe.blacklist=gpucc_glymur` — a deliberate
+guard added for the *very first* gpucc probe, back when an unpowered or XPU-gated register
+window could plausibly have hung the SoC. That experiment had long since passed. But the
+blacklist stayed, so gpucc never registered, `gxclkctl` timed out, the Adreno SMMU went with
+it, adreno failed `-19`, and because `msm` is a component framework **the entire DRM device
+failed to bind** — which presented as a black screen and got "fixed" by disabling the GPU
+nodes.
+
+Dropping one stale cmdline token and re-enabling two nodes:
+
+```
+gpucc                     25 clocks
+gxclkctl-kaanapali        bound      (previously -110)
+3da0000.iommu  arm-smmu   bound      SMMUv2, 25 context banks
+3d00000.gpu    adreno     bound
+[drm] Loaded GMU firmware v5.2.38
+```
+
+and in userspace:
+
+```
+GPU0:  deviceName = Adreno (TM) X2-85     driverName = turnip Mesa driver
+       deviceID   = 0x44070041            INTEGRATED_GPU
+```
+
+**Video decode/render runs on it and `nvtop` shows GPU processes and memory in use.**
+Frequency scaling is live: `simple_ondemand` governor, idling at 310 MHz with a 1.85 GHz
+ceiling across 12 operating points.
+
+The takeaway we would offer anyone doing this kind of bring-up: **audit your own debugging
+workarounds as ruthlessly as you audit the hardware.** A guard that was correct when written
+became the single thing standing between this machine and a working GPU, and it cost months.
+
+## Honest limitations
+
+- **`nvtop` reports Memory/Temp/Power as N/A.** Not a broken GPU — an integrated Adreno has
+  no dedicated VRAM to report, there is no hwmon node on the GPU device, and no power sensor.
+  The temperatures *do* exist: 14 GPU thermal zones (`gpu-0-0` … `gpu-3-2`, `gpuss-0/1`) under
+  `/sys/class/thermal/`, which is simply not where nvtop looks. A discovery-path gap.
+- **The device reports as "Adreno X2-85".** That string comes from Mesa, and this Mesa build
+  contains no X2-90 name at all. Our chipid `0x44070041` also does not exactly match any of
+  the three `a8xx` catalog entries in the kernel (`0x44070001`, `0x44050a01`, `0x44010000`).
+  Probably an unmapped SKU/revision; flagged rather than assumed.
+- **No zap shader.** Falls back to `SECVID_TRUST_CNTL`.
+- **No sustained stress testing yet.** Rendering works; thermals and stability under load are
+  unmeasured.
+- **The display teardown has not been re-verified with the GPU enabled.** It passed twice on
+  the merged tree without the GPU. Adding a large new power consumer is exactly the change
+  that regressed it once before, so treat that as open.
+- **Suspend, USB4** — still out. USB4 needs a host-router binding that exists only as an
+  unmerged RFC; do not hand-write device tree against it.
+
+## Why the crash hunt is documented at such length above
+
+The display power-down reset took the largest share of this project's time, and most of that
+was spent eliminating hypotheses rather than confirming one: TrustZone, secure watchdogs, the
+PMIC, download mode, interconnect vote drops, idle power collapse, pin reservations, rail
+voltages, kernel version, panel pinctrl. Each of those has an entry above with the evidence
+that closed it. Several conclusions in this file were later retracted by measurement, and
+those retractions are left in place on purpose — they are the useful part of the record.

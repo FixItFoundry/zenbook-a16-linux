@@ -56,3 +56,6 @@ PUSH_INSTRUCTIONS.md
 *~
 .DS_Store
 Thumbs.db
+DTB_CHANGELOG-internal.md
+HANDOFF-*-archived.md
+dtdiff/

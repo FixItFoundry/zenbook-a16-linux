@@ -1,0 +1,102 @@
+From patchwork Tue Jul 21 17:11:26 2026
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Konrad Dybcio <konradybcio@kernel.org>
+X-Patchwork-Id: 14701407
+Received: from smtp.kernel.org
+ (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id D5F1D3368A2;
+	Tue, 21 Jul 2026 17:11:42 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org;
+ arc=none smtp.client-ip=100.103.45.18
+ARC-Seal: i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1784653906; cv=none;
+ b=SjHg1nRIh0DQOtYQmjjiuIY8qi7yz3/Ttl+j5xTkacbZsaKzGtaRWx30ysFI38PAEycrsYkK4EVpMLrnKFcfnFIrlwo1kHLDJvA8/bZnrLT/4k7ZnRKMWXmKjjfLcBrzytwYh5oAnQz5uBSYyofNNquZuZzlaOU72Af+yY2HhJ8=
+ARC-Message-Signature: i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1784653906; c=relaxed/simple;
+	bh=xzbiQokrOnda82ptLou6HOQGfbrlwUFFQcQsG3Gsdgg=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc;
+ b=AuDgLsz3WwRuJXUcwQZ81oSETcIstksLPV45+4jqHzT0FsTYdj21jztQyduuu3iNbRRVrZcQanHdEbVVsmBEJhbZAktXj746y9yCjRyKA2tExqWayiq0n2TPS3s4/TwPYXn70IxdMw8cclLnRjCQk8pzqBFGkWz4K4RT056z2mc=
+ARC-Authentication-Results: i=1; smtp.subspace.kernel.org;
+ dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org
+ header.b=nT7UnRw0; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org
+ header.b="nT7UnRw0"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id 561BF1F000E9;
+	Tue, 21 Jul 2026 17:11:39 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1784653902;
+	bh=LWkftCiYWW1Hwr8/H2794wlApDOrfKhht6+mw02lnIw=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=nT7UnRw04Ii9lRYDLrpVQDY3dJyRyGiH4aekLR0Z0X2YvVnOV4K6uCryeqHyml5sb
+	 Tk3Rl3B0gp80104VgxP7kIVHiU6STdiM4YYzxI6N5XUYG2Loo1ElORR119PRdb5TYA
+	 EkiZR1hfsypRPWG3lo8+MV+eb9RLmwqERlE5eNUcD/qdPKRl4LS8LiKKwdw2G5eVNi
+	 /dy8eDtr+X0gNdwtl2xFUYm0KMjEyI5i2hwemVFHVY67dxXQiIuDA9/IRAw41zZ3na
+	 +gwNswqzqacPOsAsptemF7PHdkBQ3rhWHK3lyVKRUC0J5ffYtv5+bbBH2SOwT/YkE5
+	 uI5+PF5ir4AMQ==
+From: Konrad Dybcio <konradybcio@kernel.org>
+Date: Tue, 21 Jul 2026 19:11:26 +0200
+Subject: [PATCH 1/3] dt-bindings: arm: qcom: Add Asus Zenbook A16
+ (UX3607OA)
+Precedence: bulk
+X-Mailing-List: linux-arm-msm@vger.kernel.org
+List-Id: <linux-arm-msm.vger.kernel.org>
+List-Subscribe: <mailto:linux-arm-msm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-arm-msm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Message-Id: <20260721-topic-a16_submission-v1-1-8ea213130d05@oss.qualcomm.com>
+References: <20260721-topic-a16_submission-v1-0-8ea213130d05@oss.qualcomm.com>
+In-Reply-To: 
+ <20260721-topic-a16_submission-v1-0-8ea213130d05@oss.qualcomm.com>
+To: Bjorn Andersson <andersson@kernel.org>,
+ Konrad Dybcio <konradybcio@kernel.org>, Rob Herring <robh@kernel.org>,
+ Krzysztof Kozlowski <krzk+dt@kernel.org>,
+ Conor Dooley <conor+dt@kernel.org>
+Cc: linux-arm-msm@vger.kernel.org, devicetree@vger.kernel.org,
+ linux-kernel@vger.kernel.org,
+ Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+X-Mailer: b4 0.15.2
+X-Developer-Signature: v=1; a=ed25519-sha256; t=1784653895; l=1056;
+ i=konrad.dybcio@oss.qualcomm.com; s=20230215; h=from:subject:message-id;
+ bh=SZ8mWC83gUe7PRZMsQpRSXRgv0XvkgAI4L2+UuDah9o=;
+ b=7lS/Dlj684aG4xll4DdqOaw9RfhJPHRGVfPz+R8Ro9l/RBMAhknNa6wWuk9VvtsC8/WVb79x9
+ aDsNJ3j/mgLBvph8ab0iJSh0O7Tez9Vf73/y6ww4CERC3997n5dnLG/
+X-Developer-Key: i=konrad.dybcio@oss.qualcomm.com; a=ed25519;
+ pk=iclgkYvtl2w05SSXO5EjjSYlhFKsJ+5OSZBjOkQuEms=
+
+From: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+
+UX3607OA is a variant of the Asus Zenbook A16 built on the Qualcomm
+Glymur platform. It comes with an 18-core X2 Elite Extreme SoC, 48GiB
+of RAM, NVMe storage, a 2880 x 1800 OLED screen, and the other typical
+Glymur platform capabilities.
+
+The hardware wiring is very different versus the 14" SKU.
+
+Add a compatible for this machine.
+
+[1] https://www.asus.com/us/laptops/for-home/zenbook/asus-zenbook-a16-ux3607/techspec/
+
+Signed-off-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Acked-by: Krzysztof Kozlowski <krzysztof.kozlowski@oss.qualcomm.com>
+---
+ Documentation/devicetree/bindings/arm/qcom.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/arm/qcom.yaml b/Documentation/devicetree/bindings/arm/qcom.yaml
+index c7c9a9279684..0204f80a9501 100644
+--- a/Documentation/devicetree/bindings/arm/qcom.yaml
++++ b/Documentation/devicetree/bindings/arm/qcom.yaml
+@@ -86,6 +86,7 @@ properties:
+ 
+       - items:
+           - enum:
++              - asus,zenbook-a16-ux3607oa
+               - qcom,glymur-crd
+           - const: qcom,glymur
+ 

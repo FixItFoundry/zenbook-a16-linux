@@ -1,0 +1,141 @@
+From a6ffbf7080ce3066db122e7295604750bd37e210 Mon Sep 17 00:00:00 2001
+From: FixItFoundry <jesse.casco@gmail.com>
+Date: Fri, 24 Jul 2026 20:39:12 -0400
+Subject: [PATCH] HID: asus: support the ASUS Zenbook A16 (UX3607OA) N-Key
+ keyboard
+
+The Zenbook A16 exposes its keyboard as I2C-HID 0B05:4B42, which no entry
+in asus_devices[] matched, so hid-asus never bound and the N-Key report
+descriptor was never fixed up.
+
+Add the device ID with QUIRK_ROG_NKEY_KEYBOARD, and map the three hotkeys
+this chassis emits that are not in the shared table: 0x85 (keyboard
+backlight), 0x86 (Fn+F11 camera toggle) and 0x5f (MyASUS key).
+
+On a device-tree boot there is no asus-wmi to listen to, so
+asus_hid_register_listener() returns -ENODEV and the old code freed
+kbd_backlight and gave up -- leaving the illumination keys dead even
+though the backlight itself is reachable over a HID feature report.
+Keep kbd_backlight in that case and drive brightness directly from
+asus_event() when asus_hid_event() reports -ENODEV.
+
+MODULE_IMPORT_NS("ASUS_WMI") is now conditional on CONFIG_ASUS_WMI so the
+driver still links on configurations that do not build asus-wmi at all,
+which is every arm64 config today.
+
+Tested on an ASUS Zenbook A16 UX3607OA (Snapdragon X2 Elite Extreme,
+"glymur") running 7.1.0-glymur-clean2.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+---
+ drivers/hid/hid-asus.c | 45 +++++++++++++++++++++++++++++++++++++++---
+ drivers/hid/hid-ids.h  |  1 +
+ 2 files changed, 43 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/hid/hid-asus.c b/drivers/hid/hid-asus.c
+index 3f5e96900..bb1f6fb74 100644
+--- a/drivers/hid/hid-asus.c
++++ b/drivers/hid/hid-asus.c
+@@ -353,6 +353,8 @@ static int asus_wmi_send_event(struct asus_drvdata *drvdata, u8 code)
+ 	return 0;
+ }
+ 
++static void asus_schedule_work(struct asus_kbd_leds *led);
++
+ static int asus_event(struct hid_device *hdev, struct hid_field *field,
+ 		      struct hid_usage *usage, __s32 value)
+ {
+@@ -368,11 +370,33 @@ static int asus_event(struct hid_device *hdev, struct hid_field *field,
+ 	if (usage->type == EV_KEY && value) {
+ 		switch (usage->code) {
+ 		case KEY_KBDILLUMUP:
+-			return !asus_hid_event(ASUS_EV_BRTUP);
+ 		case KEY_KBDILLUMDOWN:
+-			return !asus_hid_event(ASUS_EV_BRTDOWN);
+ 		case KEY_KBDILLUMTOGGLE:
+-			return !asus_hid_event(ASUS_EV_BRTTOGGLE);
++			if (drvdata->kbd_backlight) {
++				enum asus_hid_event ev =
++					(usage->code == KEY_KBDILLUMUP) ? ASUS_EV_BRTUP :
++					(usage->code == KEY_KBDILLUMDOWN) ? ASUS_EV_BRTDOWN :
++					ASUS_EV_BRTTOGGLE;
++				if (asus_hid_event(ev) == -ENODEV) {
++					/* asus-wmi unavailable, control backlight directly via HID */
++					unsigned long flags;
++					struct asus_kbd_leds *led = drvdata->kbd_backlight;
++
++					spin_lock_irqsave(&led->lock, flags);
++					if (usage->code == KEY_KBDILLUMUP)
++						led->brightness = min_t(u8, led->brightness + 1,
++								      ASUS_EV_MAX_BRIGHTNESS);
++					else if (usage->code == KEY_KBDILLUMDOWN)
++						led->brightness = max_t(u8, led->brightness - 1, 0);
++					else
++						led->brightness = (led->brightness + 1) %
++								  (ASUS_EV_MAX_BRIGHTNESS + 1);
++					spin_unlock_irqrestore(&led->lock, flags);
++
++					asus_schedule_work(led);
++				}
++			}
++			return 0;
+ 		case KEY_FN_ESC:
+ 			if (drvdata->quirks & QUIRK_HID_FN_LOCK) {
+ 				drvdata->fn_lock = !drvdata->fn_lock;
+@@ -774,6 +798,11 @@ static int asus_kbd_register_leds(struct hid_device *hdev)
+ 	spin_lock_init(&drvdata->kbd_backlight->lock);
+ 
+ 	ret = asus_hid_register_listener(&drvdata->kbd_backlight->listener);
++	if (ret == -ENODEV) {
++		/* asus-wmi not available (e.g., device tree boot), skip listener.
++		 * Keep kbd_backlight for direct HID feature report control. */
++		return 0;
++	}
+ 	if (ret < 0) {
+ 		/* No need to have this still around */
+ 		devm_kfree(&hdev->dev, drvdata->kbd_backlight);
+@@ -1053,6 +1082,11 @@ static int asus_input_mapping(struct hid_device *hdev,
+ 		case 0x4e: asus_map_key_clear(KEY_FN_ESC);		break;
+ 		case 0x7e: asus_map_key_clear(KEY_EMOJI_PICKER);	break;
+ 
++		/* Zenbook A16 (UX3607OA) extra hotkeys */
++		case 0x85: asus_map_key_clear(KEY_KBDILLUMTOGGLE);	break; /* keyboard backlight */
++		case 0x86: asus_map_key_clear(KEY_CAMERA);		break; /* Fn+F11 camera toggle */
++		case 0x5f: asus_map_key_clear(KEY_PROG1);		break; /* ASUS / MyASUS key */
++
+ 		case 0x8b: asus_map_key_clear(KEY_PROG1);	break; /* ProArt Creator Hub key */
+ 		case 0x6b: asus_map_key_clear(KEY_F21);		break; /* ASUS touchpad toggle */
+ 		case 0x38: asus_map_key_clear(KEY_PROG1);	break; /* ROG key */
+@@ -1479,6 +1513,9 @@ static const struct hid_device_id asus_devices[] = {
+ 		USB_DEVICE_ID_ASUSTEK_I2C_KEYBOARD), I2C_KEYBOARD_QUIRKS},
+ 	{ HID_I2C_DEVICE(USB_VENDOR_ID_ASUSTEK,
+ 		USB_DEVICE_ID_ASUSTEK_I2C_TOUCHPAD), I2C_TOUCHPAD_QUIRKS },
++	{ HID_I2C_DEVICE(USB_VENDOR_ID_ASUSTEK,
++		USB_DEVICE_ID_ASUSTEK_ZENBOOK_A16_KEYBOARD),
++	  QUIRK_ROG_NKEY_KEYBOARD },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ASUSTEK,
+ 		USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD1), QUIRK_USE_KBD_BACKLIGHT },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ASUSTEK,
+@@ -1553,5 +1590,7 @@ static struct hid_driver asus_driver = {
+ };
+ module_hid_driver(asus_driver);
+ 
++#if IS_ENABLED(CONFIG_ASUS_WMI)
+ MODULE_IMPORT_NS("ASUS_WMI");
++#endif
+ MODULE_LICENSE("GPL");
+diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
+index 426ff78c1..81e13629e 100644
+--- a/drivers/hid/hid-ids.h
++++ b/drivers/hid/hid-ids.h
+@@ -221,6 +221,7 @@
+ #define USB_DEVICE_ID_ASUSTEK_T304_KEYBOARD	0x184a
+ #define USB_DEVICE_ID_ASUSTEK_I2C_KEYBOARD	0x8585
+ #define USB_DEVICE_ID_ASUSTEK_I2C_TOUCHPAD	0x0101
++#define USB_DEVICE_ID_ASUSTEK_ZENBOOK_A16_KEYBOARD	0x4B42
+ #define USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD1 0x1854
+ #define USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD2 0x1837
+ #define USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD3 0x1822
+-- 
+2.55.0
+

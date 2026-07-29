@@ -15,9 +15,33 @@ laptop built on the **Qualcomm Snapdragon X2 Elite Extreme**, SoC codename **gly
 > of them is a generic upstream `msm` bug — write-up in
 > [`docs/edp-hbr3-linkup.md`](docs/edp-hbr3-linkup.md).
 >
-> The remaining big gaps are the **GPU** (no `gpu`/`gmu`/`adreno_smmu` device-tree
-> nodes), **suspend** (panics reliably), and **USB4** (the binding is an unmerged
-> upstream RFC).
+> ## 🎉 2026-07-29 — the GPU works, and everything works *at the same time*
+>
+> There is now a single **merged device tree** on which the display, its power-down path,
+> **Wi-Fi, battery, Type-C/DisplayPort-alt-mode, the keyboard, audio and the Adreno X2 GPU
+> all work together**:
+>
+> ```
+> GPU0:  deviceName = Adreno (TM) X2-85     driverName = turnip Mesa driver
+>        [drm] Loaded GMU firmware v5.2.38   gpucc: 25 clocks
+> ```
+>
+> Video renders on the GPU and `nvtop` shows GPU processes and memory in use. Frequency
+> scaling is live (`simple_ondemand`, 310 MHz idle → 1.85 GHz across 12 OPPs).
+>
+> **The merged tree is built on [Konrad Dybcio](https://konradybcio.pl/)'s upstream A16
+> device tree** (posted 2026-07-21, still unmerged) with our fixes layered on top — see
+> [UPSTREAM-CREDITS.md](UPSTREAM-CREDITS.md).
+>
+> **The GPU was blocked by one of our own debugging workarounds.** A
+> `modprobe.blacklist=gpucc_glymur` guard, added long ago for the very first (then-risky)
+> gpucc probe, was never removed. Because `gxclkctl` runtime-resumes gpucc at probe, that
+> stale token cascaded into the Adreno SMMU timing out, adreno failing `-19`, and — since
+> `msm` is a component framework — the **entire DRM device** failing to bind. It presented
+> as a black screen, and got "fixed" for months by disabling the GPU nodes.
+>
+> Remaining gaps: **suspend** (panics reliably), **USB4** (binding is an unmerged upstream
+> RFC), **camera**, and no sustained GPU stress testing yet.
 
  **I'm publishing this repo to ask for the community's help.**  I've been tinkering with
  Linux and OSX (Hackintoshes) for almost two decades, and I wanted to test out some frontier
@@ -68,9 +92,13 @@ continue as long as there are stable breakthroughs.
 
 ## What works / what doesn't
 
-**Current daily-driver device tree: `dts/test68.dts`.**
-Native eDP via the DPU, lid switch, and USB-C DisplayPort alt-mode.
-(`test55` was the old `simple-framebuffer` baseline.)
+**Current device tree: [`dts/glymur-asus-zenbook-a16-ux3607oa-merged.dts`](dts/glymur-asus-zenbook-a16-ux3607oa-merged.dts)**
+— [Konrad Dybcio](https://konradybcio.pl/)'s upstream A16 board file plus our fixes, on
+`7.2.0-rc3`. Display + power-down, Wi-Fi, battery, Type-C, keyboard, audio and the Adreno X2
+GPU all together.
+
+(`dts/test68.dts` is the previous v7.1 vendor-lineage daily driver — native eDP, lid switch,
+USB-C DP alt-mode, but no GPU. `test55` was the original `simple-framebuffer` baseline.)
 
 ### Working on the device tree
 - Keyboard (i2c-HID, ASUS EC) + backlight control
@@ -81,7 +109,8 @@ Native eDP via the DPU, lid switch, and USB-C DisplayPort alt-mode.
 - Audio — 4x WSA8845 speakers (confirmed audible) + internal DMIC capture; ALSA/UCM profile. ⚠️ 4.0 layout, woofers on RL/RR — always test with `speaker-test -c 4`; 2 channels only drives the tweeters. Two boot traps documented in [`docs/audio-adsp-boot-ordering.md`](docs/audio-adsp-boot-ordering.md).
 - **USB-C DisplayPort alt-mode — confirmed working on BOTH USB-C ports.** External monitor over either port, plus UCSI, PD negotiation, orientation detection and alt-mode discovery (`/sys/class/typec/`). See [`docs/usb-c-ucsi-dp-altmode.md`](docs/usb-c-ucsi-dp-altmode.md).
 - **Lid switch** — TLMM GPIO 92, recovered from the Windows-on-ARM ACPI DSDT; `SW_LID` registers and `logind` reads it.
-- **`gpucc` (GPU clock controller)** — 25 `gpu_cc` clocks register, `gpu_cc_pll0` reads back 1.15 GHz. Clock controller only; there is still no GPU.
+- **GPU — Adreno X2, working (2026-07-29).** `adreno` binds, GMU firmware v5.2.38 loads, the dedicated `adreno_smmu` comes up (SMMUv2, 25 context banks), and Mesa's **turnip** Vulkan driver enumerates the device. Video renders on it; `nvtop` shows GPU processes and memory. Frequency scaling live via devfreq (`simple_ondemand`, 310 MHz → 1.85 GHz, 12 OPPs). Requires `&gpu`/`&gmu` enabled **and** `gpucc_glymur` *not* blacklisted on the cmdline.
+- **`gpucc` (GPU clock controller)** — 25 `gpu_cc` clocks, `gpu_cc_pll0` at 1.15 GHz. Present in mainline v7.1 as `drivers/clk/qcom/gpucc-glymur.c`.
 - Battery / charge % — via a reverse-engineered SOCCP GLINK path -> `qcom-battmgr`
 - Fan / basic cooling — EC-driven (⚠️ heavy sustained load can still hit the 115 °C trip and protectively shut down; an interim thermal-guard service mitigates it — see docs/ROADMAP.md) UPDATE 7-24-26:  This isn't really an issue after stress testing throughout the week, but something I encoutered early on, and felt it important to mention.
 - NVMe — Gen4/Gen5 PHY, boots from internal SSD
@@ -92,7 +121,7 @@ Native eDP via the DPU, lid switch, and USB-C DisplayPort alt-mode.
 ---
 
 ### Not working yet
-- **GPU (Adreno X2)** — no `gpu@3d00000` / `gmu` / `adreno_smmu` device-tree nodes. Top open problem. ⚠️ Correction: the old claim that `gpucc` is missing from mainline is **wrong** — `drivers/clk/qcom/gpucc-glymur.c` exists in v7.1 and is confirmed working on hardware. The gap is device tree, not clock support. Full RE writeup in [`docs/gpu-re/`](docs/gpu-re/).
+- **GPU — partially characterised, not fully instrumented.** The GPU *works* (see above), but: `nvtop`/`btop` report Memory/Temp/Power as **N/A** — an integrated Adreno has no dedicated VRAM, there is no hwmon node on the GPU device, and no power sensor. The temperatures *do* exist as 14 thermal zones (`gpu-0-0` … `gpu-3-2`, `gpuss-0/1`) under `/sys/class/thermal/`, which simply is not where those tools look. **No zap shader** (falls back to `SECVID_TRUST_CNTL`). **No sustained stress testing yet.** Also: Mesa names the device "Adreno X2-85" and this build contains no X2-90 string at all, while our chipid `0x44070041` matches none of the three kernel `a8xx` catalog entries exactly — likely an unmapped SKU/revision.
 - **Suspend / resume** — panics and reboots reliably, including with `s2idle` correctly selected. No post-mortem is collectable because `efi=noruntime` (mandatory here) disables EFI runtime services, so pstore is always empty.
 - **USB4 / Thunderbolt** — no host-router/NHI node exists in any in-tree qcom device tree, and `drivers/thunderbolt` has no Qualcomm support. The binding is an unmerged upstream **RFC**. The Type-C half of the pipeline (UCSI → typec_mux → QMP PHY) now works; only the host router is missing. See [`docs/usb-c-ucsi-dp-altmode.md`](docs/usb-c-ucsi-dp-altmode.md).
 - **cpufreq scaling** — `scmi-cpufreq -110`, cores pinned at boot clock; interim thermal-guard service mitigates.
@@ -169,10 +198,20 @@ reverse-engineered to recover the hardware ground truth:
 - **Ghidra RE of `qcdxkm8480.sys`** (Windows WDDM driver) -> GPU identity, firmware blob
   names, and candidate `gpucc` clock-controller register offsets.
   ([`gpucc-clock-registers.md`](docs/gpu-re/gpucc-clock-registers.md))
-- **Root cause identified:** the **GPU Clock Controller (`gpucc`)** for `sm8750` is absent
-  from mainline. Without it Linux cannot power the GPU block, so any grafted Adreno/GMU node
-  triggers an immediate SError.
-  ([`gpu-investigation-summary.md`](docs/gpu-re/gpu-investigation-summary.md))
+- ⛔ **"Root cause: `gpucc` is absent from mainline" — this was WRONG, twice over, and is
+  retired.** `drivers/clk/qcom/gpucc-glymur.c` has been in mainline v7.1 all along (618
+  lines, compatible `qcom,glymur-gpucc`), the a8xx Adreno driver was already compiled into
+  our `msm.ko`, the catalog entry existed, and the firmware was already on the box. **There
+  was almost nothing to reverse-engineer.** The abandoned RE stub (`gpucc-x2.c`) was 126
+  lines of `TODO`s reimplementing a driver that shipped.
+- ✅ **The actual blocker, found 2026-07-29: our own `modprobe.blacklist=gpucc_glymur`.**
+  `gxclkctl-kaanapali` lists gpucc as a power-domain provider and runtime-resumes it at
+  probe; with gpucc blacklisted that provider never appeared, the resume timed out `-110`,
+  the Adreno SMMU went with it, adreno failed `-19`, and because `msm` is a *component*
+  framework the whole DRM bind failed — a black screen, repeatedly "fixed" by disabling the
+  GPU nodes. Dropping one stale cmdline token and enabling `&gpu`/`&gmu` brought the GPU up.
+  **The lesson we would pass on: audit your own debugging workarounds as ruthlessly as you
+  audit the hardware.**
 - **Display — SOLVED 2026-07-24.** The "TrustZone XPU wall" theory was a misdiagnosis
   (the WoA ACPI shows the display path is normally clock-gated, with no secure VMID
   gate), and so was blaming the DP PHY. The panel was dark for three stacked reasons,
@@ -220,6 +259,21 @@ Distro installer ISOs: see [`iso/README.md`](iso/README.md).
 ---
 
 ## Credits & license
+
+**→ [UPSTREAM-CREDITS.md](UPSTREAM-CREDITS.md) names every upstream author whose work this
+tree carries, with the patch and message-id it came from.** Anything adopted from upstream is
+credited there and is never presented as ours.
+
+**The merged device tree this project now runs on is [Konrad Dybcio](https://konradybcio.pl/)'s.**
+He posted upstream device-tree support for this exact laptop (UX3607OA) on 2026-07-21
+(reviewed by Dmitry Baryshkov and Abel Vesa, still unmerged), along with the A16 keyboard
+support we use. Our tree is his board file with our fixes layered on top: the pin map, the
+regulator topology, the WCN and USB wiring, gpio-keys, and the GPU/CDSP/SOCCP nodes are his
+work. His DT is also what proved our long-hunted display power-down reset was a device-tree
+defect on our side rather than silicon — same kernel, same `msm`, only the DTB swapped, and
+his survived where ours did not. Thank you.
+
+glymur display and eDP PHY v8 support are **Abel Vesa**'s.
 
 Builds on mainline Linux, the Linaro/Qualcomm `qcom-next` efforts, and the broader
 Snapdragon-on-Linux community (the x1e80100 "hamoa" laptops were the reference skeleton for

@@ -1,0 +1,96 @@
+From patchwork Tue Jul 21 17:11:28 2026
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Konrad Dybcio <konradybcio@kernel.org>
+X-Patchwork-Id: 14701409
+Received: from smtp.kernel.org
+ (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id E092B3F5BFA;
+	Tue, 21 Jul 2026 17:11:47 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org;
+ arc=none smtp.client-ip=100.103.45.18
+ARC-Seal: i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1784653909; cv=none;
+ b=uT0U35yzCgkQvqr/Ek5C4qXVImL9K+a7etRJhysKhEO4kgPZ2Ss2KmyGr06K7OCQXfG3Dv/jTMACdOr3aNburTEnIluzBDvKBwPHv3fOwbAJ4R0r3RuEEq3A4Kr2U/spzD8S94393ye1SooYmhMaEViMq7jTeFaMyC/4x7LNoCQ=
+ARC-Message-Signature: i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1784653909; c=relaxed/simple;
+	bh=X1c/Lb+tOc+6ODsxWQDx3n+PICEupS3nb20cc9I9yxY=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc;
+ b=FlOwPBgsP4uq/Z2G91APZmOYqIcpmXlFwO2WbelZ7BKYmmJ7UXLJqIZHDHl5CbolJ3wYKwg2FgEal34E+aEDfHxpdS7EHC8NVkB7Rleoo1P/a96KIJtD0yrEc02rdRJoL1w3/KGJLTPUevXCC+HGF0SDTXdHAhcOR89uFd4FtuQ=
+ARC-Authentication-Results: i=1; smtp.subspace.kernel.org;
+ dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org
+ header.b=lvbZhnCn; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org
+ header.b="lvbZhnCn"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id C9FEF1F00A3F;
+	Tue, 21 Jul 2026 17:11:45 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1784653907;
+	bh=x7VhFCb1HrwokNNBUufWsSIcj9FWRlMftq1UG+a9VJI=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=lvbZhnCn6HuCpINlMe79ncNpboqvAcbIYSX9IaN4lo1iwD6bNSlnfoOIUkMnNisPL
+	 I/UnXO+iNwl5kbGewj9CiYvhuqPCWgVolRIYuSGTxRdFn/VLtnIQoAR4VdSrcEL9yC
+	 59+J6lmWiP88qvCIOYOslu9cIgIXVEEvgeoNAaPJN6LtzuOyabzwPX1KfrqK7TeUNr
+	 MoFdHTeDh8ZLQp7IBomFAc17fRO4alQLoHP4xQ7CdV6eQZ7/6yLuP4UdwpcgM4bK38
+	 hM/JLQvsql144aHQbzu7MxuzLW0dKz9GZXaPPTqja271pRo5JJjLOzPVXYrm/3CCrk
+	 932EVIT2a1AWQ==
+From: Konrad Dybcio <konradybcio@kernel.org>
+Date: Tue, 21 Jul 2026 19:11:28 +0200
+Subject: [PATCH 3/3] firmware: qcom: scm: Allow QSEECOM on Asus Zenbook A16
+ (UX3607OA)
+Precedence: bulk
+X-Mailing-List: linux-arm-msm@vger.kernel.org
+List-Id: <linux-arm-msm.vger.kernel.org>
+List-Subscribe: <mailto:linux-arm-msm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-arm-msm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Message-Id: <20260721-topic-a16_submission-v1-3-8ea213130d05@oss.qualcomm.com>
+References: <20260721-topic-a16_submission-v1-0-8ea213130d05@oss.qualcomm.com>
+In-Reply-To: 
+ <20260721-topic-a16_submission-v1-0-8ea213130d05@oss.qualcomm.com>
+To: Bjorn Andersson <andersson@kernel.org>,
+ Konrad Dybcio <konradybcio@kernel.org>, Rob Herring <robh@kernel.org>,
+ Krzysztof Kozlowski <krzk+dt@kernel.org>,
+ Conor Dooley <conor+dt@kernel.org>
+Cc: linux-arm-msm@vger.kernel.org, devicetree@vger.kernel.org,
+ linux-kernel@vger.kernel.org,
+ Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+X-Mailer: b4 0.15.2
+X-Developer-Signature: v=1; a=ed25519-sha256; t=1784653895; l=981;
+ i=konrad.dybcio@oss.qualcomm.com; s=20230215; h=from:subject:message-id;
+ bh=nBan+J4DGQRSz8p6kj9fFVu4zolOtUagim0rNl39qGc=;
+ b=ahLA996G6Jc6d5AyF8omxzVMLsmk3sITrnZkOAUexjWooyf+WFdItOtZqo8r9Iz9TnF8Xmwb7
+ JCA6P4UTV//AiSkkZbib80w4b3MljFluwdHM/9VXNJ/k0IeJ9CnRhCi
+X-Developer-Key: i=konrad.dybcio@oss.qualcomm.com; a=ed25519;
+ pk=iclgkYvtl2w05SSXO5EjjSYlhFKsJ+5OSZBjOkQuEms=
+
+From: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+
+In line with other Glymur-based machines, the Asus Zenbook A16
+(UX3607OA) exposes EFI variables through the "uefisecapp".
+
+Add it to the QSEECOM allowlist to enable this access.
+
+Signed-off-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Reviewed-by: Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>
+---
+ drivers/firmware/qcom/qcom_scm.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/firmware/qcom/qcom_scm.c b/drivers/firmware/qcom/qcom_scm.c
+index f35f2ee39130..9ec79b445481 100644
+--- a/drivers/firmware/qcom/qcom_scm.c
++++ b/drivers/firmware/qcom/qcom_scm.c
+@@ -2304,6 +2304,7 @@ static const struct of_device_id qcom_scm_qseecom_allowlist[] __maybe_unused = {
+ 	{ .compatible = "asus,vivobook-s15-x1p4" },
+ 	{ .compatible = "asus,zenbook-a14-ux3407qa" },
+ 	{ .compatible = "asus,zenbook-a14-ux3407ra" },
++	{ .compatible = "asus,zenbook-a16-ux3607oa" },
+ 	{ .compatible = "dell,inspiron-14-plus-7441" },
+ 	{ .compatible = "dell,latitude-7455" },
+ 	{ .compatible = "dell,xps13-9345" },
