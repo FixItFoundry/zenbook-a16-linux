@@ -1,0 +1,25 @@
+#!/bin/bash
+# Belt-and-braces ordering for GLYMUR-A16 audio.
+#
+# glymur-audio-route.service is a SYSTEM unit; wireplumber is a USER unit. systemd
+# cannot express ordering across that boundary directly, so this blocks the user
+# session's audio stack until the system route unit has finished.
+#
+# ALWAYS exits 0. If the route unit never becomes active we must not wedge the
+# session -- glymur-audio-wait re-applies the route after the sink appears anyway,
+# so a timeout here degrades to the old behaviour rather than breaking login.
+
+DEADLINE=30      # seconds
+STEP=0.5
+
+end=$(( $(date +%s) + DEADLINE ))
+while [ "$(date +%s)" -lt "$end" ]; do
+    if systemctl is-active --quiet glymur-audio-route; then
+        echo "glymur-wait-for-audio-route: route unit active, continuing"
+        exit 0
+    fi
+    sleep "$STEP"
+done
+
+echo "glymur-wait-for-audio-route: timed out after ${DEADLINE}s, continuing anyway" >&2
+exit 0

@@ -1,0 +1,9 @@
+[Unit]
+Description=Wait for the glymur AudioReach route before the session audio stack starts
+Documentation=https://github.com/FixItFoundry/zenbook-a16-linux/blob/main/docs/audio-adsp-boot-ordering.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/glymur-wait-for-audio-route
+RemainAfterExit=no
+TimeoutStartSec=45

@@ -887,3 +887,126 @@ sudo dmesg | grep -aE "tplg|CMD timeout|DSP returned"
 
 ⚠️ Restore the 29 KB file afterwards either way; the UCM profile and `glymur-audio-route.sh`
 are tuned to it. Recovery if PipeWire loses the sink is in `tplg-public-source.md`.
+
+---
+
+# ★★★ 2026-07-29 — ROOT CAUSE OF THE "SOMETIMES NO AUDIO": a system↔user ordering race
+
+**This is the one that explains weeks of "audio is intermittent".** It is not the ADSP
+firmware, not the topology, and not the DMIC routing. It is a **missing ordering guarantee
+between a system unit and a user unit**, and it was being won by luck.
+
+## The evidence — two boots, same DTB, same kernel, opposite outcome
+
+Both boots are `7.2.0-rc3-konrad1` + `glymur-a16-merged-gpu.dtb`, identical cmdline
+(`blacklist=efi_pstore`), GMU loaded. Only the *timing* differs:
+
+| milestone | boot with WORKING audio | boot with NO audio |
+|---|---|---|
+| `adsp is now up` | 1.765 s | 1.700 s |
+| `CMD timeout for [1001021]` | 9.697 s | 10.210 s |
+| `sound.target` reached | 9.846 s | 10.365 s |
+| **`glymur-audio-route` ran** | **20.395 → 20.485 s** | 16.585 → **18.464 s** |
+| **`wireplumber` started** | **21.167 s** | **11.222 s** |
+| **relative order** | **route → wireplumber** | **wireplumber → route** |
+| `Failed to start APM port 105` | — | 18.413 s |
+| `ASoC error (-110)` on `WSA_CODEC_DMA_RX_0` | — | 18.413 s |
+
+⇒ **Every `-110` in the failing boot lands inside `glymur-audio-route`'s own window
+(16.585 → 18.464 s).** When wireplumber starts first it claims the card and applies its own
+UCM state; `glymur-audio-route`'s `amixer cset` calls then hit a card mid-negotiation, the DSP
+refuses `GRAPH_START`, and the route never takes. Sink present, unmuted, correct 4ch format —
+and silent.
+
+**A ~10 s swing in user-session start time decides whether you have audio.** In the working
+boot wireplumber came up at 21.2 s; in the failing boot at 11.2 s.
+
+⚠️ Consistent with **Correction 3** above: the *first* DSP command
+(`CMD timeout for [1001021]`) times out on **every** boot, working or not. That one is
+harmless. The fatal one is the second round (`[1001002]` → `APM port 105` → `-110`), which
+only appears when the route loses the race.
+
+## Why the race existed
+
+```
+/etc/systemd/system/glymur-audio-route.service     (SYSTEM unit)
+  After=sound.target multi-user.target             <- nothing about wireplumber
+
+wireplumber.service                                (USER unit)
+  start time depends on session/login timing
+```
+
+systemd cannot express ordering across the system/user manager boundary directly, so there was
+never any guarantee. It happened to work for weeks.
+
+Worse, the existing canary was blind to it: `glymur-audio-wait` exited as soon as a **sink
+existed** (`sink present (attempt 1)`) and never checked whether the DSP route was actually
+established. **"Sink present" is not "audio works."**
+
+## The fix — two layers, both installed
+
+Mirrored in the repo under [`tweaks/`](../tweaks/); paths below are the live ones.
+
+**Layer 1 — apply the route *after* wireplumber settles.**
+`/usr/local/bin/glymur-audio-wait` (run by the user unit
+`/usr/lib/systemd/user/glymur-audio-wait.service`, which is already correctly
+`After=wireplumber.service`) now calls `/usr/local/bin/glymur-audio-route.sh` once the sink
+appears. The route script is idempotent — only `amixer cset` calls — and the session user has
+`rw` on `/dev/snd/controlC0` via the logind ACL, so **this needs no privileges**.
+
+**Layer 2 — stop wireplumber starting before the route (belt and braces).**
+
+```
+/etc/systemd/user/glymur-audio-route-wait.service          (oneshot)
+   ExecStart=/usr/local/bin/glymur-wait-for-audio-route
+
+/etc/systemd/user/wireplumber.service.d/10-glymur-audio-route.conf
+   [Unit]
+   Wants=glymur-audio-route-wait.service
+   After=glymur-audio-route-wait.service
+```
+
+`glymur-wait-for-audio-route` polls `systemctl is-active glymur-audio-route` for at most
+**30 s** and **always exits 0**. That bound is deliberate: if the system route unit never
+becomes active we must not wedge the login session — it degrades to the old behaviour, and
+Layer 1 still repairs the route afterwards.
+
+⚠️ Both live in **`/etc/systemd/user/`**, not `~/.config/systemd/user/`, so they are
+machine-wide and survive a home-directory reset. Do not install a second copy under `~` — one
+source of truth.
+
+## Verified
+
+```
+19:30:26  glymur-audio-route-wait: Starting
+19:30:26  glymur-wait-for-audio-route: route unit active, continuing
+19:30:26  glymur-audio-route-wait: Finished
+19:30:26  glymur-audio-wait: Starting
+19:30:27  glymur-audio-wait: sink present (attempt 1)
+19:30:27  glymur-audio-wait: (re)applying AudioReach route
+19:30:27  glymur-audio-wait: route applied
+19:30:27  glymur-audio-wait: Finished
+```
+
+All three units `Result=success`, **zero new kernel audio errors**, sink
+`s16le 4ch 48000Hz`. ⏳ **Still to confirm across a cold boot** — the decisive test is a fresh
+boot where wireplumber would previously have won the race.
+
+## Manual recovery, if it ever bites again
+
+```bash
+sudo systemctl restart glymur-audio-route     # re-establish the route
+# or, as the user:
+/usr/local/bin/glymur-audio-route.sh
+```
+
+Both are idempotent. `pactl set-card-profile alsa_card.platform-sound off` then `on` also
+works (that is what toggling the card in the desktop was doing all along).
+
+## Not in scope, deliberately
+
+`remoteproc1` (**cdsp**) is `offline` — `qcom/glymur/ASUSTeK/UX3607OA/qccdsp8480.mbn` fails
+`-2` at t+1.2 s because the initramfs does not carry CDSP firmware (same shape as the ADSP
+`install_items+=` fix). **This is a deliberate deferral, not a defect**: the priority was a
+working main laptop. CDSP mapping belongs with the next phase — camera RE, peripherals
+(including HDMI validation), hibernate, and CPU/GPU timing and scheduling work.

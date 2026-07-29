@@ -11,14 +11,40 @@
 # desktop did by hand. So: wait for the ALSA sink, and if it is absent, restart
 # wireplumber to force a re-probe.
 #
-# See docs/hardware-status.md.
+# 2026-07-29: a sink existing is NOT sufficient. glymur-audio-route.service is a
+# SYSTEM unit ordered only After=sound.target multi-user.target, while wireplumber
+# is a USER unit whose start time varies with session/login timing. When wireplumber
+# wins that race it claims the card and applies its own UCM state, and the route's
+# amixer settings never take -- the DSP then fails GRAPH_START with
+# "Failed to start APM port 105" / ASoC error (-110) on WSA_CODEC_DMA_RX_0 and there
+# is no audio, even though the sink is present and unmuted. Observed working boot:
+# route at t+20.4s, wireplumber at t+21.2s. Observed broken boot: wireplumber at
+# t+11.2s, route at t+16.6s, with every -110 inside the route window.
+#
+# So after the sink appears, (re)apply the AudioReach route. The route script is
+# idempotent and only issues amixer cset calls, and the session user has rw access
+# to /dev/snd/controlC0 via the logind ACL, so this needs no privileges.
+#
+# See docs/audio-adsp-boot-ordering.md and docs/hardware-status.md.
 
 SINK=alsa_output.platform-sound
+ROUTE=/usr/local/bin/glymur-audio-route.sh
+
+apply_route() {
+    if [ -x "$ROUTE" ]; then
+        echo "glymur-audio-wait: (re)applying AudioReach route"
+        "$ROUTE" && echo "glymur-audio-wait: route applied" \
+                 || echo "glymur-audio-wait: route script returned $?"
+    else
+        echo "glymur-audio-wait: $ROUTE missing, cannot apply route"
+    fi
+}
 
 for attempt in 1 2 3 4 5; do
     for _ in $(seq 20); do
         if pactl list short sinks 2>/dev/null | grep -q "$SINK"; then
             echo "glymur-audio-wait: sink present (attempt $attempt)"
+            apply_route
             exit 0
         fi
         sleep 1
