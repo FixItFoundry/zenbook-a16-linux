@@ -34,11 +34,14 @@ I'd especially value a second opinion on:
 
 ## 2. Patches
 
-- Please target **mainline Linux v7.1** — the known-good base. **7.2 / linux-next broke
-  the chain** (a regression in the 7.2 cycle), so PRs against newer trees can't be tested
-  against the working build yet. Bisecting *what* broke in 7.2 would itself be a huge help.
-- DTS changes: reference `dts/glymur-a16-test55.dts` (the daily driver). Diagnostic
-  display DTBs (`test47`, `test58`) are separate.
+- Please target **mainline Linux v7.2-rc3** — the current daily driver as of 2026-07-30.
+  v7.1 still boots and is kept as a fallback, but new work should go on 7.2.
+- ⚠️ **The old advice here said to target v7.1 because "7.2 broke the chain."** That was
+  wrong about the cause: what broke was our vendor-derived **device tree**, not the kernel.
+  Rebasing onto Konrad Dybcio's upstream A16 DTS made 7.2 work.
+- DTS changes: reference `dts/glymur-asus-zenbook-a16-ux3607oa-merged-gpu.dts` (the current
+  daily driver). `dts/glymur-a16-test55.dts` is the older v7.1 vendor-lineage tree; diagnostic
+  display DTBs (`test47`, `test58`) are separate again.
 - Keep kernel-derived files `SPDX-License-Identifier: GPL-2.0-only`.
 
 ## Reporting

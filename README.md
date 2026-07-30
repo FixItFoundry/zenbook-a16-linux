@@ -166,7 +166,8 @@ A condensed list so contributors do not re-run known-bad experiments. Full detai
 - **Grafting hamoa (x1e) GPU/GMU/IOMMU nodes without `gpucc`** — immediate SError (~0.3s) from unclocked register access.
 - **Gunyah/hypervisor "handshake" emulation for GPU** — dead-end; the GPU is driven natively by Windows, not behind a Gunyah VMID.
 - **100 kHz I2C for the EC keyboard bus** — regressed vs 400 kHz (GENI master command timeout).
-- **Building on 7.2 / linux-next** — broke the working chain; stay on v7.1.
+- ~~**Building on 7.2 / linux-next** — broke the working chain; stay on v7.1.~~
+  **Retired 2026-07-30.** The daily driver is now **7.2.0-rc3**; see *Kernel base*.
 
 ---
 
@@ -188,14 +189,25 @@ Full register/bus map: [`docs/HARDWARE_MAP.md`](docs/HARDWARE_MAP.md).
 
 ## Kernel base
 
-Bring-up is done against **mainline Linux v7.1**. The build shipped in the images is
-**`7.1.0-glymur-clean+`** (v7.1 + patches, with the experimental `msm`/display mapping reverted
-for stability).
+**The daily driver is `7.2.0-rc3` (updated 2026-07-30).** Display, GPU, Wi-Fi, battery,
+Type-C/DP alt-mode, keyboard, audio and — since 2026-07-30 — suspend all work on it.
 
-> **Do not build on 7.2 / linux-next.** A regression somewhere in the 7.2 cycle broke
-> the working glymur chain.  At least that's what I think, I started with 7.0.0, then updated
-> to 7.1.0 from CodeLinaro, and then tried linux-next 7.2.  The known-good base is **v7.1** plus
-> the patches in [`kernel/`](kernel/). See [`kernel/README.md`](kernel/README.md).
+> **The old "do not build on 7.2 / linux-next" warning is retired.** It read: *"A regression
+> somewhere in the 7.2 cycle broke the working glymur chain."* That was an honest reading at
+> the time, but it was wrong about the cause. What actually broke was our **device tree**, not
+> the kernel — a vendor-derived DTB lineage that had accumulated assumptions the newer tree no
+> longer matched. Rebasing onto Konrad Dybcio's upstream A16 DTS made 7.2 work, and several
+> things that had been blamed on the kernel (the display teardown crash among them) turned out
+> to live in that DT. Kept here rather than deleted, because "our own workaround outlived its
+> evidence" is the single most repeated lesson in this project.
+
+**v7.1 remains a supported fallback.** `7.1.0-glymur-clean+` / `7.1.0-glymur-gdsc1` still boot
+and still have a GRUB entry; the 7.1 patch set is in [`kernel/`](kernel/). Use it if you want
+the vendor-lineage DTB, or to reproduce anything dated before 2026-07-28.
+
+⚠️ One caveat inherited by 7.2: **suspend needs a workaround.** Stock, s2idle hard-resets the
+SoC — see *Not working yet* and `docs/hardware-status.md`. It reproduces on the upstream A16 DT,
+so it is a platform gap rather than something the kernel base choice fixes.
 
 ---
 
@@ -257,7 +269,8 @@ firmware/       What firmware is needed and why it is NOT included
 
 ## Building & booting (short version)
 
-1. **Kernel** — mainline Linux **v7.1** + the config recipe and patches in [`kernel/`](kernel/).
+1. **Kernel** — mainline Linux **v7.2-rc3** (or **v7.1** as a fallback) + the config recipe
+   and patches in [`kernel/`](kernel/).
    The recipe (`boot-kit/scripts/build-kernel-native-full.sh`) starts from a distro config and
    force-enables the glymur boot-critical drivers. See [`kernel/README.md`](kernel/README.md).
 2. **Device tree** — build/patch a DTB from [`dts/`](dts/), or use
