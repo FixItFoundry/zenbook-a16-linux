@@ -1284,6 +1284,26 @@
 &uart14 {
 	status = "okay";
 
+	/*
+	 * GLYMUR-A16: WCN7850 Bluetooth. Konrad's tree enables this UART and wires it
+	 * into the pcie-m2-e-connector graph but declares no serdev child, so nothing
+	 * probes a BT controller (bluetooth.service inactive, zero hci devices, no
+	 * Bluetooth in rfkill). Supplies come from the qcom,wcn7850-pmu node we add for
+	 * Wi-Fi, so these labels already resolve. Needs hci_uart + btqca.
+	 */
+	bluetooth {
+		compatible = "qcom,wcn7850-bt";
+		max-speed = <3200000>;
+
+		vddaon-supply = <&vreg_pmu_aon_0p59>;
+		vddwlcx-supply = <&vreg_pmu_wlcx_0p8>;
+		vddwlmx-supply = <&vreg_pmu_wlmx_0p85>;
+		vddrfacmn-supply = <&vreg_pmu_rfa_cmn>;
+		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
+		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
+		vddrfa1p8-supply = <&vreg_pmu_rfa_1p8>;
+	};
+
 	port {
 		uart14_ep: endpoint {
 			remote-endpoint = <&m2_e_uart_ep>;

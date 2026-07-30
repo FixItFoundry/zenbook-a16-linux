@@ -989,8 +989,28 @@ source of truth.
 ```
 
 All three units `Result=success`, **zero new kernel audio errors**, sink
-`s16le 4ch 48000Hz`. ⏳ **Still to confirm across a cold boot** — the decisive test is a fresh
-boot where wireplumber would previously have won the race.
+`s16le 4ch 48000Hz`.
+
+## ✅ VALIDATED across four boots (2026-07-29)
+
+Journals for six boots were exported and diffed. The correlation is perfect, with no
+exceptions:
+
+| boot | `glymur-audio-route` | `wireplumber` started | order | `ASoC error (-110)` | audio |
+|---|---|---|---|---|---|
+| -3 | 20 s → 20 s | 21 s | **route first** | none | ✅ worked |
+| -2 | 16 s → 17 s | **10 s** | wireplumber first | **yes @17 s** | ✗ silent |
+| -1 | 16 s → 18 s | **11 s** | wireplumber first | **yes @18 s** | ✗ silent |
+| **0** (fix active) | 10 s → **16 s** | **16 s** | **route first** | none | ✅ works |
+| cold boot (fix active) | — | — | route first | **0 errors** | ✅ works |
+
+**The causal evidence is boot 0:** wireplumber's start moved from ~11 s to **16 s — exactly
+when the route finished.** That is `glymur-audio-route-wait` holding it back, and the `-110`
+errors disappear with it. Confirmed again on a subsequent cold boot: `0` occurrences of
+`ASoC error (-110)`, route applied, sink healthy.
+
+⇒ **Root cause and fix are both confirmed.** Audio was never intermittent in the hardware
+sense — it was a coin-flip on user-session start time.
 
 ## Manual recovery, if it ever bites again
 
