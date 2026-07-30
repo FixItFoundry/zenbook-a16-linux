@@ -83,9 +83,11 @@ dereferences an error pointer) and is worth reporting separately. It is *not* a 
 | | `efi_pstore` | `ramoops` |
 |---|---|---|
 | Stores in | UEFI variables (**non-volatile flash**) | a reserved DRAM region |
-| Survives warm reset | yes | yes (unverified here) |
+| Survives warm reset | yes | **not demonstrated** — see status below |
 | **Survives power cycle** | **yes** | **NO — DRAM contents are lost** |
-| Status here | **blacklisted on the cmdline** (`modprobe.blacklist=efi_pstore`) | added 2026-07-30, `ramoops@ffc00000`, 2 MB |
+| Worked on 7.1 | **yes** — produced both archived dumps | n/a (no region existed) |
+| Works on 7.2-rc3 | **NO** — loads but cannot register, efivars unavailable | registers, but has captured nothing |
+| Status here | un-blacklisted 2026-07-30; loads and quietly declines | `ramoops@ffc00000`, 2 MB, added 2026-07-30 |
 
 **Why that table matters more than it looks:** a kernel panic does **not** reboot this
 machine. `panic=10` is set and honoured (`kernel.panic=10`), yet `emergency_restart()` hangs
@@ -93,9 +95,10 @@ machine. `panic=10` is set and honoured (`kernel.panic=10`), yet `emergency_rest
 power cycle. So *every real crash here ends in a power cycle*, and a power cycle destroys
 DRAM.
 
-That makes `efi_pstore` — which writes to flash — **strictly better suited to this machine
-than ramoops**, and it is the backend that produced both dumps we actually have. It is
-currently disabled by our own cmdline.
+That makes `efi_pstore` — which writes to flash — **the backend better suited to this
+machine**, and it is the one that produced both dumps we actually have. Unfortunately it
+cannot register on 7.2-rc3 (tested 2026-07-30, see below), so on the current kernel neither
+path works.
 
 ---
 
@@ -132,10 +135,22 @@ property**; the `max_reason` *module parameter* is ignored for a DT-created devi
 `ramoops_max_reason = pdata->max_reason`). Setting it in `/etc/modprobe.d/` had no effect —
 observed `max_reason` staying at `2`.
 
-**Status: unverified.** A clean reboot with `max_reason` confirmed at `4` produced no record,
-and `systemd-pstore` logged `unmet condition check`, meaning `/sys/fs/pstore` was genuinely
-empty. Either the region does not survive a warm reset, or the shutdown dump is not firing.
-Unresolved as of writing.
+**Status: NOT capturing anything (2026-07-30).** Tested properly: the previous boot had
+ramoops registered at `0xffc00000` with `max_reason` confirmed at `4`, `pstore.backend=ramoops`,
+and shut down **cleanly** (2 shutdown markers in `journalctl -b -1`). The following boot found
+`/sys/fs/pstore` empty and the archive still at exactly 30 files. So a clean warm reboot with
+the shutdown dump enabled produced **no surviving record**.
+
+Two candidate causes remain and this test cannot separate them:
+
+- the DRAM region at `0xffc00000` does not survive a warm reset, or
+- `kmsg_dump(KMSG_DUMP_SHUTDOWN)` is not reaching the pstore dumper
+
+Practically it does not matter yet: **ramoops as configured is not a working evidence path.**
+The way to settle it is `CONFIG_PSTORE_CONSOLE=y`, which captures the console *continuously*
+rather than only at a dump event — so any reboot at all leaves content, which tests persistence
+directly, and it is also the only thing that can capture a **silent hang** (the likely shape of
+the suspend fault, given a panic does not reboot this machine). One rebuild answers both.
 
 ---
 
@@ -198,7 +213,26 @@ blacklist `efi_pstore`. Both cannot be simply true. Candidate explanations, none
 - a behaviour change in EFI runtime/variable handling between 7.1 and 7.2-rc3
 - a `CONFIG_EFI_*` difference between our 7.1 build and the 7.2 build
 
-**Do not repeat the "the firmware does not support EFI variable services" claim as settled
-fact** until this is resolved. The next test is cheap: drop
-`modprobe.blacklist=efi_pstore` from the cmdline and see whether `efi_pstore` registers on
-7.2-rc3.
+### Test run 2026-07-30: efi_pstore cannot register on 7.2-rc3
+
+Dropped both `modprobe.blacklist=efi_pstore` and `pstore.backend=ramoops` from the daily
+driver (the latter matters: `pstore_register()` refuses any backend whose name does not match
+`pstore.backend=`, so leaving it set would have voided the test). Result:
+
+- `efi_pstore` module **loaded**
+- it **never registered** — `ramoops` took the backend slot, and there is no
+  `backend 'ramoops' already in use: ignoring 'efi_pstore'` line, so efi_pstore bailed out
+  before attempting registration
+- `GetVariable` still returns `EFI_UNSUPPORTED`; `fsopen("efivarfs")` still fails `EOPNOTSUPP`
+
+**So on 7.2-rc3 as we build it, EFI variable services genuinely are unavailable**, and
+`qcom,uefi-rtc-info` cannot bind. That part of the RTC report stands as an observation.
+
+**The contradiction with 7.1 is still unexplained.** efi_pstore demonstrably wrote records
+under 7.1 on this same firmware. So the correct framing remains "unavailable on our 7.2-rc3
+build", *not* "the firmware does not support it" — the cause has not been isolated, and it
+could still be a config or behaviour difference on our side. Do not state it as a firmware
+property.
+
+Net position: **there is currently no working crash-capture path on 7.2-rc3.** efi_pstore
+cannot register, and ramoops registers but has produced nothing.
