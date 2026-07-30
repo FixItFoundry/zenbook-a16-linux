@@ -124,6 +124,9 @@ This section used to blame mandatory `efi=noruntime`. Corrected 2026-07-30: that
 retired, and efivars are unreachable with or without it. EFI runtime services themselves **do** come up (`Remapping and enabling EFI services.`
 at boot). What this INSYDE firmware does not support is the **variable** subset:
 `GetVariable` returns `EFI_UNSUPPORTED` (status `0x8000000000000003`, logged as
+
+
+⚠️ **Correction (2026-07-30, later the same day):** do not treat "this firmware does not support EFI variable services" as settled. Two archived `efi_pstore` crash dumps prove variable services **worked** on this same machine and firmware under 7.1 kernels. The `EFI_UNSUPPORTED` result above is real but is specific to our 7.2-rc3 build, and the cause is **unresolved**. See [`docs/crash-evidence.md`](docs/crash-evidence.md).
 `integrity: Couldn't get size: 0x8000000000000003` / `MODSIGN: Couldn't get UEFI db list`).
 So `efivar_is_available()` is false and `fsopen("efivarfs")` fails `EOPNOTSUPP`. Not a
 kernel config gap: `CONFIG_EFIVAR_FS=y` and efivarfs is registered in `/proc/filesystems`.

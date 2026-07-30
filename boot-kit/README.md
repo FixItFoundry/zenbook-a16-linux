@@ -38,6 +38,9 @@ kernel onto the Zenbook A16.
   "a missing one warm-resets early on this firmware" claim was never reproducible on a
   clean tree, and dropping it changes no capability (efivars are unreachable either way —
   this firmware reports EFI *variable* services as `EFI_UNSUPPORTED`). Harmless to leave in an old entry, but do not treat it as required. See
+
+
+⚠️ **Correction (2026-07-30, later the same day):** do not treat "this firmware does not support EFI variable services" as settled. Two archived `efi_pstore` crash dumps prove variable services **worked** on this same machine and firmware under 7.1 kernels. The `EFI_UNSUPPORTED` result above is real but is specific to our 7.2-rc3 build, and the cause is **unresolved**. See [`docs/crash-evidence.md`](docs/crash-evidence.md).
   [`../docs/DTB_CHANGELOG.md`](../docs/DTB_CHANGELOG.md).
 - The safe daily default points at `glymur-a16-test55.dtb` (MDSS disabled, simplefb).
 - Display-enabled entries (`msm` loaded) are **diagnostic only** — they currently kill Wi-Fi.

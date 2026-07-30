@@ -828,3 +828,49 @@ The lesson is the same one the GPU chapter taught, which is why it is repeated h
 than assumed: **audit your own debugging workarounds as ruthlessly as you audit the
 hardware.** A flag added in good faith outlived its evidence, spread into five documents as
 received wisdom, and confounded the tests meant to evaluate it.
+
+### ★ Correction, hours later: two crash dumps we did not know we had
+
+The section above concluded that this firmware does not support EFI variable services. That
+conclusion is **not safe**, and the thing that disproved it was sitting on the disk the whole
+time.
+
+While adding a ramoops region — because `pstore.backend=ramoops` turned out to have been on
+the cmdline for *months with no ramoops region declared*, which is the actual reason recent
+crashes left no evidence — a check of where records are archived turned up 30 files in
+`/var/lib/systemd/pstore/`. `systemd-pstore.service` harvests `/sys/fs/pstore` into that
+directory and then **unlinks the originals**, so the live directory being empty had never
+meant anything.
+
+Those 30 files are **two** crash dumps, not thirty: one archived 2026-07-20, one 2026-07-24,
+each an `Oops#1` split across 13–16 `Part` files. Neither is the suspend crash — nothing in
+the archive mentions suspend at all. One is a driver-probe oops from bring-up; the other is an
+oops in a **debugfs summary read**, which is to say our own `regulator_summary` debugging
+crashed the kernel and we never noticed.
+
+The part that matters: both were written by **`efi_pstore`**, which stores records in UEFI
+variables. Writing them required working EFI variable services — on this machine, on this
+firmware (`BIOS UX3607OA.309`). And the kernels that wrote them, `7.1.0-glymur-clean2` and
+`7.1.0-glymur-edp1`, ran from GRUB entries that carried `efi=noruntime` and did **not**
+blacklist `efi_pstore`.
+
+So two measurements now contradict each other, and both look sound:
+
+- on 7.2-rc3, `GetVariable` returns `EFI_UNSUPPORTED` and `efivarfs` refuses to mount
+- on 7.1, `efi_pstore` demonstrably wrote to EFI variables
+
+This is left **unresolved** rather than papered over. It may be a difference between the two
+kernel builds, or the museum GRUB snapshot may not reflect what was actually booted on those
+dates. The next test is cheap — drop `modprobe.blacklist=efi_pstore` and see whether the
+backend registers on 7.2-rc3 — and it might invalidate the RTC report entirely, which is
+precisely why it should happen before that report is sent.
+
+There is also a sharper irony here. `efi_pstore` writes to **flash**, so it survives a power
+cycle. `ramoops` writes to **DRAM**, which does not. And a kernel panic on this machine does
+not reboot — `panic=10` is set and honoured, yet `emergency_restart()` hangs, verified with
+`sysrq c` — so every real crash *ends* in a manual power cycle. The backend that suits this
+hardware is the one we had been blacklisting on the cmdline, and the one we just spent the
+evening adding is the one that a forced power cycle erases.
+
+Full map of where evidence lives, how to read a split dump, and the open contradiction:
+[`docs/crash-evidence.md`](crash-evidence.md).

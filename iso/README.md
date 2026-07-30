@@ -34,6 +34,9 @@ Confirmed from these images: keyboard + backlight, trackpad, Wi-Fi, USB (incl. U
 the warm-reset claim was never reproducible on a clean tree, and dropping it changes no
 capability: efivars are unreachable either way, because this firmware reports EFI *variable*
 services as `EFI_UNSUPPORTED` (`0x8000000000000003`). See
+
+
+⚠️ **Correction (2026-07-30, later the same day):** do not treat "this firmware does not support EFI variable services" as settled. Two archived `efi_pstore` crash dumps prove variable services **worked** on this same machine and firmware under 7.1 kernels. The `EFI_UNSUPPORTED` result above is real but is specific to our 7.2-rc3 build, and the cause is **unresolved**. See [`docs/crash-evidence.md`](docs/crash-evidence.md).
 [`../docs/DTB_CHANGELOG.md`](../docs/DTB_CHANGELOG.md).
 
 ## How the images are built

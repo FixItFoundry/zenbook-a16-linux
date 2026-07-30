@@ -182,6 +182,9 @@ before.** This used to blame mandatory `efi=noruntime`. Corrected 2026-07-30: th
 retired, and efivars are unreachable on this firmware with *or* without it. EFI runtime
 services do come up; this INSYDE firmware simply reports the **variable** subset as
 unsupported (`GetVariable` → `EFI_UNSUPPORTED`, `0x8000000000000003`), so
+
+
+⚠️ **Correction (2026-07-30, later the same day):** do not treat "this firmware does not support EFI variable services" as settled. Two archived `efi_pstore` crash dumps prove variable services **worked** on this same machine and firmware under 7.1 kernels. The `EFI_UNSUPPORTED` result above is real but is specific to our 7.2-rc3 build, and the cause is **unresolved**. See [`docs/crash-evidence.md`](docs/crash-evidence.md).
 `fsopen("efivarfs")` fails `EOPNOTSUPP` and efivars-backed pstore was never there to be
 disabled. `/sys/fs/pstore` is empty after every
 panic regardless. Debugging suspend further needs `/sys/power/pm_test` stage bisection
