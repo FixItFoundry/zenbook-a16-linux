@@ -1,0 +1,270 @@
+GLYMUR DIAGNOSTIC (2026-07-30) — not for upstream, and not a fix.
+
+Runtime knobs used to root-cause the suspend reset on the ASUS Zenbook A16
+(UX3607OA, Snapdragon X2 Elite "glymur"). All default to 0, so a kernel built
+with this patch behaves exactly like stock unless a knob is set.
+
+  drivers/base/power/main.c
+    glymur_pm_skip      bitmask, core_param  -> cmdline "glymur_pm_skip=N"
+                          1 = skip suspend_device_irqs()/resume_device_irqs()
+                          2 = skip dpm_noirq_suspend_devices()/resume
+                          4 = skip dpm_suspend_late()/dpm_resume_early()
+    glymur_pm_skip_bus  comma-separated bus names; skips the noirq suspend
+                        callback for every device on those buses
+    glymur_pm_skip_dev  comma-separated device-name PREFIXES (a PCI domain
+                        prefix such as "0005:" also catches its :pcieNNN
+                        port services)
+
+  drivers/pci/pci-driver.c
+    glymur_pci_skip     bitmask inside pci_pm_suspend_noirq()
+                          1 = skip pci_prepare_to_sleep()  (stay in D0)
+                          2 = skip pm->suspend_noirq()     (driver callback)
+                          4 = skip pci_save_state()
+
+WHAT THIS ESTABLISHED
+
+  pm_test bisect: freezer and devices survive, platform resets the SoC.
+  With s2idle, dpm_suspend_late()+dpm_suspend_noirq() is the whole window --
+  the three platform_suspend_prepare* hooks are no-ops because s2idle_set_ops()
+  is only ever called from drivers/acpi (x86).
+
+  glymur_pm_skip=2 alone survives, so the fault is a per-device noirq callback.
+  Bus and then device bisect narrows it to PCIe, and a single PCIe device
+  performing its noirq suspend is sufficient to reset the SoC.
+
+  Inside pci_pm_suspend_noirq(), skipping BOTH pci_save_state() and
+  pci_prepare_to_sleep() (glymur_pci_skip=5) survives, while skipping either
+  alone does not. Driver noirq callbacks are innocent.
+
+  => PCI config-space access during dpm_suspend_noirq() resets this SoC, and
+     the read and write paths are independently lethal.
+
+  Reproduces identically on the bare upstream A16 device tree, with the GPU
+  disabled, and with the WLAN PCIe branch physically removed. Not PME wakeup
+  arming (already disabled), not D3cold, not any D-state change, and not the
+  PCIe controller being runtime-suspended.
+
+Symmetry note: every knob gates suspend and resume together. For the two skips
+in device_suspend_noirq() no resume-side change is needed -- bailing there
+leaves dev->power.is_noirq_suspended false, which device_resume_noirq() already
+handles as its "suspend aborted in the noirq phase" case.
+
+=== DIFF drivers/base/power/main.c ===
+--- a/drivers/base/power/main.c	2026-07-30 15:14:47.002600736 -0400
++++ b/drivers/base/power/main.c	2026-07-30 16:40:28.637430077 -0400
+@@ -22,6 +22,7 @@
+ #include <linux/export.h>
+ #include <linux/mutex.h>
+ #include <linux/pm.h>
++#include <linux/moduleparam.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/pm-trace.h>
+ #include <linux/pm_wakeirq.h>
+@@ -41,6 +42,25 @@
+ #include "../base.h"
+ #include "power.h"
+ 
++/*
++ * GLYMUR DIAGNOSTIC (2026-07-30, not for upstream).
++ *
++ * Phase-level bisect of the ASUS Zenbook A16 suspend reset. See
++ * DTB_CHANGELOG-internal.md. bit1 = IRQ masking, bit2 = per-device noirq
++ * callbacks, bit4 = the whole late phase. Suspend and resume are gated
++ * together for every bit.
++ */
++int glymur_pm_skip;
++core_param(glymur_pm_skip, glymur_pm_skip, int, 0644);
++char *glymur_pm_skip_bus;
++core_param(glymur_pm_skip_bus, glymur_pm_skip_bus, charp, 0644);
++
++char *glymur_pm_skip_dev;
++core_param(glymur_pm_skip_dev, glymur_pm_skip_dev, charp, 0644);
++
++
++
++
+ typedef int (*pm_callback_t)(struct device *);
+ 
+ /*
+@@ -936,10 +956,13 @@
+  */
+ void dpm_resume_noirq(pm_message_t state)
+ {
+-	dpm_noirq_resume_devices(state);
++	if (!(glymur_pm_skip & 2))
++		dpm_noirq_resume_devices(state);
+ 
+-	resume_device_irqs();
+-	device_wakeup_disarm_wake_irqs();
++	if (!(glymur_pm_skip & 1)) {
++		resume_device_irqs();
++		device_wakeup_disarm_wake_irqs();
++	}
+ }
+ 
+ static void async_resume_early(void *data, async_cookie_t cookie);
+@@ -1032,6 +1055,9 @@
+  */
+ void dpm_resume_early(pm_message_t state)
+ {
++	if (glymur_pm_skip & 4)
++		return;
++
+ 	struct device *dev;
+ 	ktime_t starttime = ktime_get();
+ 
+@@ -1489,6 +1515,48 @@
+  * The driver of @dev will not receive interrupts while this function is being
+  * executed.
+  */
++
++/*
++ * GLYMUR DIAGNOSTIC: does @name appear in the comma-separated @list?
++ * Exact match per element, so "pci" does not match "pci_express".
++ */
++static bool glymur_bus_in_list(const char *list, const char *name)
++{
++	size_t nlen = strlen(name);
++	const char *p = list;
++
++	while (*p) {
++		const char *comma = strchr(p, ',');
++		size_t len = comma ? (size_t)(comma - p) : strlen(p);
++
++		if (len == nlen && !strncmp(p, name, nlen))
++			return true;
++		if (!comma)
++			break;
++		p = comma + 1;
++	}
++	return false;
++}
++
++
++/* GLYMUR DIAGNOSTIC: does @name start with any element of comma-separated @list? */
++static bool glymur_dev_in_list(const char *list, const char *name)
++{
++	const char *p = list;
++
++	while (*p) {
++		const char *comma = strchr(p, ',');
++		size_t len = comma ? (size_t)(comma - p) : strlen(p);
++
++		if (len && !strncmp(p, name, len))
++			return true;
++		if (!comma)
++			break;
++		p = comma + 1;
++	}
++	return false;
++}
++
+ static void device_suspend_noirq(struct device *dev, pm_message_t state, bool async)
+ {
+ 	pm_callback_t callback = NULL;
+@@ -1506,6 +1574,19 @@
+ 	if (dev->power.syscore || dev->power.direct_complete)
+ 		goto Complete;
+ 
++	if (glymur_pm_skip_bus && dev->bus && dev->bus->name &&
++	    glymur_bus_in_list(glymur_pm_skip_bus, dev->bus->name)) {
++		dev_info(dev, "GLYMUR: skipping noirq suspend (bus %s)\n",
++			 dev->bus->name);
++		goto Complete;
++	}
++
++	if (glymur_pm_skip_dev &&
++	    glymur_dev_in_list(glymur_pm_skip_dev, dev_name(dev))) {
++		dev_info(dev, "GLYMUR: skipping noirq suspend (dev match)\n");
++		goto Complete;
++	}
++
+ 	if (dev->pm_domain) {
+ 		info = "noirq power domain ";
+ 		callback = pm_noirq_op(&dev->pm_domain->ops, state);
+@@ -1649,8 +1730,17 @@
+ {
+ 	int ret;
+ 
+-	device_wakeup_arm_wake_irqs();
+-	suspend_device_irqs();
++	if (!(glymur_pm_skip & 1)) {
++		device_wakeup_arm_wake_irqs();
++		suspend_device_irqs();
++	} else {
++		pr_info("GLYMUR: skipping suspend_device_irqs()\n");
++	}
++
++	if (glymur_pm_skip & 2) {
++		pr_info("GLYMUR: skipping dpm_noirq_suspend_devices()\n");
++		return 0;
++	}
+ 
+ 	ret = dpm_noirq_suspend_devices(state);
+ 	if (ret)
+@@ -1778,6 +1868,11 @@
+  */
+ int dpm_suspend_late(pm_message_t state)
+ {
++	if (glymur_pm_skip & 4) {
++		pr_info("GLYMUR: skipping dpm_suspend_late()\n");
++		return 0;
++	}
++
+ 	ktime_t starttime = ktime_get();
+ 	struct device *dev;
+ 	int error;
+=== DIFF drivers/pci/pci-driver.c ===
+--- a/drivers/pci/pci-driver.c	2026-07-30 16:48:28.556690712 -0400
++++ b/drivers/pci/pci-driver.c	2026-07-30 16:48:28.566073197 -0400
+@@ -4,6 +4,7 @@
+  * (C) Copyright 2007 Novell Inc.
+  */
+ 
++#include <linux/moduleparam.h>
+ #include <linux/pci.h>
+ #include <linux/module.h>
+ #include <linux/init.h>
+@@ -880,6 +881,14 @@
+ 	return pm_generic_suspend_late(dev);
+ }
+ 
++/*
++ * GLYMUR DIAGNOSTIC (2026-07-30, not for upstream). See
++ * DTB_CHANGELOG-internal.md. bit1 = skip pci_prepare_to_sleep (stay in D0),
++ * bit2 = skip the driver noirq callback, bit4 = skip pci_save_state (RISKY).
++ */
++static int glymur_pci_skip;
++core_param(glymur_pci_skip, glymur_pci_skip, int, 0644);
++
+ static int pci_pm_suspend_noirq(struct device *dev)
+ {
+ 	struct pci_dev *pci_dev = to_pci_dev(dev);
+@@ -896,7 +905,7 @@
+ 		goto set_unknown;
+ 	}
+ 
+-	if (pm->suspend_noirq) {
++	if (pm->suspend_noirq && !(glymur_pci_skip & 2)) {
+ 		pci_power_t prev = pci_dev->current_state;
+ 		int error;
+ 
+@@ -915,14 +924,16 @@
+ 	}
+ 
+ 	if (!pci_dev->state_saved) {
+-		pci_save_state(pci_dev);
++		if (!(glymur_pci_skip & 4))
++			pci_save_state(pci_dev);
+ 
+ 		/*
+ 		 * If the device is a bridge with a child in D0 below it,
+ 		 * it needs to stay in D0, so check skip_bus_pm to avoid
+ 		 * putting it into a low-power state in that case.
+ 		 */
+-		if (!pci_dev->skip_bus_pm && pci_power_manageable(pci_dev))
++		if (!pci_dev->skip_bus_pm && pci_power_manageable(pci_dev) &&
++		    !(glymur_pci_skip & 1))
+ 			pci_prepare_to_sleep(pci_dev);
+ 	}
+ 

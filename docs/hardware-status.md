@@ -37,7 +37,7 @@ Known-good fallbacks, in order: `fedora-glymur-gdsc1` → `fedora-glymur-edp1` �
 | **UCSI / USB-C PD** | `ucsi_glink ... PPM init failed, stop trying`. No PD or altmode negotiation. Suspected cause of the USB-C hub/NIC issue, and a hard prerequisite for USB4. |
 | **AC / charger detection** | ⚠️ **New 2026-07-24.** With the charger physically plugged in, `qcom-battmgr-ac/online` = `0` and `power_now` is negative (discharging). Likely tied to the UCSI/PD failure. Needs investigation. |
 | **USB4 / Thunderbolt** | Three USB4 controllers exist in silicon (`gcc_usb4_{0,1,2}_gdsc`), but no host-router/NHI node in DT — and none in `hamoa.dtsi` either, so upstream has nothing to copy. Blocked behind UCSI. ⚠️ `usb usb4:` in dmesg is **USB bus 4**, a plain xHCI root hub — not USB4. |
-| **Suspend / resume** | Untested-good. Crashed hard on 2026-07-24 with zero evidence captured. `mem_sleep` was on `deep`; now forced to `s2idle` (see below). Retest pending. |
+| **Suspend / resume** | ⚠️ **WORKING on a workaround, 2026-07-30.** Lid close sleeps, lid open wakes; 3/3 cycles. Stock it hard-resets the SoC. Cause: PCI config-space access during `dpm_suspend_noirq()`; reproduces on the **upstream** A16 DT. Needs the `fedora-linux-arm-suspend` GRUB entry. Saves less power than a correct suspend — a real fix needs a firmware revision. See the Suspend section. |
 | ~~**Lid switch**~~ | **MOVED TO WORKING 2026-07-24** — test65 added it on TLMM 92; verified `EV_SW`/`SW_LID` registered and `logind` reading it. See the lid section. |
 | **Headphone jack / DP audio** | Not working. (`GLYMUR-A16 Headset Jack` input node does appear once the ADSP is up.) |
 | **Dimmable keyboard backlight** | No `asus::kbd_backlight` LED; the A16 device entry lacks `QUIRK_USE_KBD_BACKLIGHT`, so Fn illum keys land nowhere. |
@@ -108,6 +108,62 @@ the late start. Retest from a clean boot before chasing it.
 ---
 
 ## Suspend
+
+**Status: working since 2026-07-30, on a workaround.** Boot the
+**"Fedora Linux on ARM (suspend capable)"** GRUB entry (the default). Close the lid to sleep,
+open it to wake. `logind` also suspends on the power/suspend keys; `IdleAction` is deliberately
+`ignore`, so nothing sleeps unattended.
+
+⚠️ **The workaround is entry-specific.** On any *other* GRUB entry, closing the lid or pressing
+power will **hard-reset the machine**, because the handlers are global but the kernel knob is
+not. The suspend-capable entry is the default and the plain daily driver is the fallback.
+
+### Why it needs a workaround
+
+Stock, s2idle hard-resets the SoC — no panic, no fault, no call trace, and nothing in pstore.
+`/sys/power/pm_test` localises it: `freezer` and `devices` survive, `platform` resets. Under
+s2idle that difference is exactly `dpm_suspend_late()` + `dpm_suspend_noirq()`, since the
+`platform_suspend_prepare*` hooks are no-ops (`s2idle_set_ops()` is x86/ACPI-only).
+
+Narrowing further shows **a single PCIe device performing its noirq suspend is sufficient to
+reset the SoC**, and that inside `pci_pm_suspend_noirq()` the fatal actions are the two
+config-space accesses:
+
+| skipped | result |
+|---|---|
+| `pci_prepare_to_sleep()` only | resets |
+| `pci_save_state()` only | resets |
+| **both** | **survives** |
+| driver `suspend_noirq()` | irrelevant — innocent |
+
+⇒ **PCI config-space access during `dpm_suspend_noirq()` resets this SoC**, read and write
+paths independently lethal.
+
+**This reproduces on the bare upstream A16 device tree**, and with the GPU disabled — so it is
+a platform gap, not a defect in our DT, and not fixable by a device-tree property here. **A
+real fix depends on a firmware revision.** Ruled out by test, not argument: PME wakeup arming
+(already disabled by default), D3cold, any D-state change, the PCIe controller being
+runtime-suspended, the GPU, and every driver with a callback in that window — individually and
+combined.
+
+The workaround is `glymur_pci_skip=5` on the kernel cmdline, from
+`patches/glymur-suspend-noirq-knobs-DIAGNOSTIC.patch`. Because PCI devices then never save
+state or change D-state, **they stay powered through suspend** — the laptop sleeps, but saves
+less power than a correct implementation. Draw in suspend has not been measured.
+
+### Checking it worked
+
+⚠️ Judge by `uptime -s`, never by reachability. Wi-Fi takes minutes to re-associate after a
+resume and the USB-A NIC sometimes does not come back at all, so "I cannot ssh in" looks
+identical to a reset.
+
+```sh
+uptime -s                              # unchanged across a cycle = it resumed, not reset
+cat /sys/power/suspend_stats/success   # increments on each successful cycle
+journalctl -u systemd-logind | tail    # "Lid closed." -> "Suspending..." -> "Operation 'suspend' finished."
+```
+
+### Mode selection
 
 Snapdragon platforms do not implement S3/`deep`; **`s2idle` is the only viable mode**,
 but the kernel was selecting `deep`:
@@ -199,9 +255,9 @@ sudo evtest /dev/input/event2                             # watch live SW_LID ev
 (Also beware parsing those `B:` lines with `awk '{print $3}'` — the field is `$2`,
 e.g. `B: EV=23`. That mistake reports "no switch" on a perfectly working lid.)
 
-⚠️ `logind` has `HandleLidSwitch=suspend`. The moment the switch exists, closing the
-lid **will** suspend. If suspend is not yet known-good, set `HandleLidSwitch=ignore`
-while testing, or verify suspend first.
+⚠️ `logind` has `HandleLidSwitch=suspend` (set 2026-07-30 in
+`tweaks/etc/systemd/logind.conf.d/99-glymur-suspend.conf`), so closing the lid **will** suspend.
+That is safe on the suspend-capable entry and **will hard-reset the machine on any other**.
 
 ---
 

@@ -874,3 +874,105 @@ evening adding is the one that a forced power cycle erases.
 
 Full map of where evidence lives, how to read a split dump, and the open contradiction:
 [`docs/crash-evidence.md`](crash-evidence.md).
+
+---
+
+## Suspend: from "never once completed" to working, and what it cost to find (2026-07-30)
+
+This machine had never suspended. Not "suspended badly" — the attempt had never been made,
+because at some point during the display-teardown hunt every sleep target had been masked to
+`/dev/null` and a `logind` drop-in set every handler to `ignore`. That was a reasonable defence
+when screen-off was resetting the box, but it was written down nowhere, and it silently blocked
+the first test with `Unit suspend.target is masked, refusing operation`.
+
+Unmasked, the answer arrived immediately: `PM: suspend entry (s2idle)` appears in the journal
+for the first time in the project's history, and the journal ends there. No shutdown sequence,
+no fault, no panic. The SoC resets and POSTs by itself about thirty seconds later — the same
+signature as the display teardown crash.
+
+### The instrument that made it tractable
+
+`/sys/power/pm_test` runs the suspend sequence up to a chosen phase and then resumes, without
+ever entering the low-power state. It needs no wake source, no device tree change and no
+reboot, and the box recovers by itself if it dies. That turned a reboot-per-experiment problem
+into a bisect.
+
+Two methodology notes, both of which cost a run before being caught:
+
+- **`systemctl suspend` is asynchronous.** The first harness used it and every level "passed"
+  in five milliseconds, because the call returns as soon as `logind` accepts the D-Bus request.
+  Writing to `/sys/power/state` blocks until resume. The harness now also asserts that a pass
+  took at least three seconds, and flags anything shorter as VOID rather than scoring it.
+- **`processors` and `core` are not valid test levels for s2idle** — the kernel says so
+  explicitly. The usable ladder is `freezer → devices → platform → none`.
+
+### Narrowing
+
+`freezer` and `devices` survive; `platform` resets. With s2idle the difference between those
+two is exactly `dpm_suspend_late()` plus `dpm_suspend_noirq()`, because the three
+`platform_suspend_prepare*` hooks are no-ops — `s2idle_set_ops()` is only ever called from
+`drivers/acpi`, which is x86.
+
+A bitmask added to those two functions showed that skipping the noirq device loop alone is
+enough to survive, so the fault is a per-device noirq callback. Bisecting by bus pointed at
+PCIe; bisecting by device name showed something sharper: **a single PCIe device performing its
+noirq suspend is sufficient to reset the SoC.** Leaving exactly one device — the NVMe endpoint
+— still killed it.
+
+Inside `pci_pm_suspend_noirq()` there are three separable actions. Skipping the driver's own
+callback changes nothing. Skipping the D-state transition changes nothing. Skipping
+`pci_save_state()` changes nothing. Skipping **both** `pci_save_state()` and
+`pci_prepare_to_sleep()` survives.
+
+> **PCI config-space access during `dpm_suspend_noirq()` resets this SoC, and the read and
+> write paths are independently lethal.**
+
+That is the same shape as the eDP teardown, where `clk_bulk_disable_unprepare()` and
+`regulator_bulk_disable()` were each independently fatal.
+
+### It is not our device tree
+
+The obvious next move — and the one that cracked the display teardown — is to hold the kernel
+constant and swap the DTB. Three boots, cmdline byte-identical, `devicetree` the only variable:
+
+| device tree | result |
+|---|---|
+| ours, GPU enabled | resets |
+| ours, GPU disabled | resets |
+| **bare upstream A16 DT** | **resets** |
+
+So this is not a defect we introduced and not something a property on our side will fix. It is
+the **opposite** of the teardown result, where the upstream tree survived and ours died, and
+the analogy should not be carried over. The confound worth naming — that the upstream tree has
+less of the machine powered — does not apply, because one PCIe device is already sufficient and
+that tree still has the NVMe endpoint and both root ports.
+
+Also eliminated, each by test rather than argument: PME wakeup arming (already disabled by
+default), D3cold, any D-state change at all, the PCIe controller being runtime-suspended, the
+GPU, and six drivers with callbacks in the window — individually **and all together**.
+
+### Where it stands
+
+The machine now suspends and resumes. Close the lid, it sleeps; open it, it wakes. Three
+cycles, the last of them a real lid close with no test harness involved, each verified by
+`uptime` being unchanged rather than by the absence of an error.
+
+**This is a workaround and it depends on firmware revisions to become a real fix.** PCI devices
+never save their state and never change D-state, so they stay powered through suspend: the
+laptop sleeps, but saves less power than a correct implementation would, and the draw in
+suspend has not been measured. It lives on its own GRUB entry with the caveat written into the
+entry, and the ordinary entry is one keypress away.
+
+The genuinely open question, and the one worth asking upstream: **why is PCI config space
+unsafe once `dpm_suspend_noirq()` has begun on glymur, when the same `pcie-qcom` driver path
+and the same `qcom,pcie-x1e80100` fallback compatible work on the X1 Elite laptops?**
+
+### A footnote on evidence
+
+Every crash in this hunt left `/sys/fs/pstore` empty, and the reason is now settled rather than
+assumed. `CONFIG_PSTORE_CONSOLE` was enabled and the ramoops node given a console region, which
+should have captured the console continuously into DRAM. It captured nothing — and a canary
+written to the console and then followed by a **clean reboot** did not survive either. The
+region is genuine, correctly reserved System RAM; the firmware simply does not preserve DRAM
+across a reset. That closes ramoops on this hardware for good, and explains every empty pstore
+in this file.

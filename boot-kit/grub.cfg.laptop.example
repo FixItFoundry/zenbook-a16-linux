@@ -47,7 +47,7 @@
 #   Fallback boot options -> "Fedora Linux on ARM (with efi=noruntime)"
 # which is byte-identical to the daily driver except for that one token.
 
-set default="fedora-linux-arm"
+set default="fedora-linux-arm-suspend"
 set timeout=10
 
 insmod part_gpt
@@ -67,6 +67,28 @@ menuentry "Fedora Linux on ARM" --id fedora-linux-arm {
     linux /boot/vmlinuz-7.2.0-rc3-konrad1 root=UUID=7db7b00f-3862-4771-afee-ece1682d2970 rw clk_ignore_unused pd_ignore_unused cma=128M arm64.nopauth console=tty0 ignore_loglevel modprobe.blacklist=efi_pstore pstore.backend=ramoops rd.timeout=60 panic=10 softlockup_panic=1 kvm-arm.mode=protected systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
     initrd /boot/initrd.img-7.2.0-rc3-konrad1
 }
+
+# ---------------------------------------------------------------------------
+# Suspend-capable variant. Identical to the entry above except for an Image
+# built with patches/glymur-suspend-noirq-knobs-DIAGNOSTIC.patch and one extra
+# cmdline token.
+#
+# Stock, s2idle hard-resets this SoC: PCI config-space access during
+# dpm_suspend_noirq() is fatal, and it reproduces on the upstream A16 DT.
+# glymur_pci_skip=5 skips pci_save_state() and pci_prepare_to_sleep().
+#
+# CAVEAT: a workaround, not a fix. PCI devices stay powered through suspend, so
+# it saves less power than a correct implementation; a real fix needs a firmware
+# revision. Note logind's lid/power handlers are GLOBAL -- with them set to
+# suspend, closing the lid on any OTHER entry will hard-reset the machine.
+# ---------------------------------------------------------------------------
+menuentry "Fedora Linux on ARM (suspend capable)" --id fedora-linux-arm-suspend {
+    search --set=root --fs-uuid 7db7b00f-3862-4771-afee-ece1682d2970
+    devicetree /boot/glymur/glymur-a16-merged-gpu.dtb
+    linux /boot/vmlinuz-7.2.0-rc3-konrad1-pmskip root=UUID=7db7b00f-3862-4771-afee-ece1682d2970 rw clk_ignore_unused pd_ignore_unused cma=128M arm64.nopauth console=tty0 ignore_loglevel modprobe.blacklist=efi_pstore pstore.backend=ramoops rd.timeout=60 panic=10 softlockup_panic=1 kvm-arm.mode=protected systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device glymur_pci_skip=5
+    initrd /boot/initrd.img-7.2.0-rc3-konrad1
+}
+
 
 
 menuentry "Windows Boot Manager" --id windows-boot {

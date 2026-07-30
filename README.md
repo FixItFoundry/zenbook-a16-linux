@@ -40,8 +40,9 @@ laptop built on the **Qualcomm Snapdragon X2 Elite Extreme**, SoC codename **gly
 > `msm` is a component framework — the **entire DRM device** failing to bind. It presented
 > as a black screen, and got "fixed" for months by disabling the GPU nodes.
 >
-> Remaining gaps: **suspend** (panics reliably), **USB4** (binding is an unmerged upstream
-> RFC), **camera**, and no sustained GPU stress testing yet.
+> Remaining gaps: **USB4** (binding is an unmerged upstream RFC), **camera**, and no
+> sustained GPU stress testing yet. **Suspend now works** (2026-07-30) but on a
+> workaround that needs a firmware revision to become a real fix — see below.
 
  **I'm publishing this repo to ask for the community's help.**  I've been tinkering with
  Linux and OSX (Hackintoshes) for almost two decades, and I wanted to test out some frontier
@@ -131,7 +132,7 @@ USB-C DP alt-mode, but no GPU. `test55` was the original `simple-framebuffer` ba
 
 ### Not working yet
 - **GPU — partially characterised, not fully instrumented.** The GPU *works* (see above), but: `nvtop`/`btop` report Memory/Temp/Power as **N/A** — an integrated Adreno has no dedicated VRAM, there is no hwmon node on the GPU device, and no power sensor. The temperatures *do* exist as 14 thermal zones (`gpu-0-0` … `gpu-3-2`, `gpuss-0/1`) under `/sys/class/thermal/`, which simply is not where those tools look. **No zap shader** (falls back to `SECVID_TRUST_CNTL`). **No sustained stress testing yet.** Also: Mesa names the device "Adreno X2-85" and this build contains no X2-90 string at all, while our chipid `0x44070041` matches none of the three kernel `a8xx` catalog entries exactly — likely an unmapped SKU/revision.
-- **Suspend / resume** — panics and reboots reliably, including with `s2idle` correctly selected. Post-mortems are still not collectable, but the reason has been corrected: it is *not* `efi=noruntime` (retired 2026-07-30). EFI runtime services **do** come up (`Remapping and enabling EFI services.` at boot); what this INSYDE firmware does not support is the **variable** subset — `GetVariable` returns `EFI_UNSUPPORTED` (`0x8000000000000003`, logged as `integrity: Couldn't get size: 0x8000000000000003`), so `efivar_is_available()` is false and `fsopen("efivarfs")` fails `EOPNOTSUPP`. efivars-backed pstore was therefore never available to lose, with or without that flag. Not a kernel config gap — `CONFIG_EFIVAR_FS=y` and efivarfs is registered in `/proc/filesystems`.
+- **Suspend / resume — ⚠️ works, on a workaround (2026-07-30).** Closing the lid sleeps the machine and opening it wakes it, verified over three cycles. Stock, it hard-resets the SoC with no fault of any kind. Root cause: **PCI config-space access during `dpm_suspend_noirq()` resets this SoC**, with the read (`pci_save_state()`) and write (`pci_prepare_to_sleep()`) paths *independently* lethal and driver noirq callbacks innocent — a single PCIe device performing its noirq suspend is sufficient. **This reproduces on the bare upstream A16 device tree**, so it is a platform gap rather than a defect in ours. The workaround skips both config-space accesses, which means PCI devices stay powered through suspend: it sleeps, but saves less power than a correct implementation, and **a firmware revision is needed for a real fix**. It lives on its own GRUB entry.
 
 
 ⚠️ **Correction (2026-07-30, later the same day):** do not treat "this firmware does not support EFI variable services" as settled. Two archived `efi_pstore` crash dumps prove variable services **worked** on this same machine and firmware under 7.1 kernels. The `EFI_UNSUPPORTED` result above is real but is specific to our 7.2-rc3 build, and the cause is **unresolved**. See [`docs/crash-evidence.md`](docs/crash-evidence.md).
