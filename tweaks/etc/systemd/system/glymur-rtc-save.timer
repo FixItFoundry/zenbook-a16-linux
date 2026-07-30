@@ -1,0 +1,15 @@
+[Unit]
+Description=Periodically save the glymur PMIC RTC counter offset
+Documentation=https://github.com/FixItFoundry/zenbook-a16-linux
+
+[Timer]
+# The offset is a constant -- the counter is monotonic and battery-backed -- so
+# this does not exist to track drift. It exists to (a) capture the offset the
+# first time NTP syncs after install, and (b) self-heal if the RTC domain ever
+# loses power and the counter restarts from zero.
+OnBootSec=3min
+OnUnitActiveSec=1h
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

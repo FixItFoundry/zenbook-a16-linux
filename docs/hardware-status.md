@@ -119,11 +119,17 @@ cat /sys/power/mem_sleep      # want [s2idle], not [deep]
 Forced via `/etc/tmpfiles.d/glymur-s2idle.conf` (`w /sys/power/mem_sleep - - - - s2idle`).
 Chosen over a cmdline `mem_sleep_default=` specifically to avoid another GRUB edit.
 
-⚠️ **Crash evidence is not currently collectable.** `efi=noruntime` is mandatory on this
-box (without it you get intermittent warm resets at fbcon commit), and it disables EFI
-runtime services — which is exactly why `/sys/fs/pstore` was **empty** after the
-2026-07-24 crash. If suspend crashes again, expect no post-mortem unless ramoops or
-netconsole is set up first.
+⚠️ **Crash evidence is not currently collectable — but the reason above was wrong.**
+This section used to blame mandatory `efi=noruntime`. Corrected 2026-07-30: that flag was
+retired, and efivars are unreachable with or without it. EFI runtime services themselves **do** come up (`Remapping and enabling EFI services.`
+at boot). What this INSYDE firmware does not support is the **variable** subset:
+`GetVariable` returns `EFI_UNSUPPORTED` (status `0x8000000000000003`, logged as
+`integrity: Couldn't get size: 0x8000000000000003` / `MODSIGN: Couldn't get UEFI db list`).
+So `efivar_is_available()` is false and `fsopen("efivarfs")` fails `EOPNOTSUPP`. Not a
+kernel config gap: `CONFIG_EFIVAR_FS=y` and efivarfs is registered in `/proc/filesystems`.
+So efivars-backed pstore was never available in the first place, which is why `/sys/fs/pstore` was empty after the 2026-07-24 crash. If suspend
+crashes again, expect no post-mortem unless ramoops or netconsole is set up first — and
+check whether `CONFIG_EFIVAR_FS` is even enabled in our kernel config.
 
 ---
 

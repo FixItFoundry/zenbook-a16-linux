@@ -30,10 +30,15 @@ kernel onto the Zenbook A16.
   panic=10 softlockup_panic=1 kvm-arm.mode=protected
   systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
   ```
-  The load-bearing ones: **`efi=noruntime`** (a missing one warm-resets early on this firmware —
-  easily misdiagnosed as a display/XPU problem), **`modprobe.blacklist=msm`** (the display driver
-  currently kills Wi-Fi), and the **`systemd.mask=dev-tpm*.device`** masks (skip a ~90 s TPM-probe
-  boot stall).
+  The load-bearing ones: **`modprobe.blacklist=msm`** (the display driver kills Wi-Fi on this
+  older 7.1-era baseline) and the **`systemd.mask=dev-tpm*.device`** masks (skip a ~90 s
+  TPM-probe boot stall).
+
+  ⚠️ **`efi=noruntime` above is historical.** It was retired on 2026-07-30: the
+  "a missing one warm-resets early on this firmware" claim was never reproducible on a
+  clean tree, and dropping it changes no capability (efivars are unreachable either way —
+  this firmware reports EFI *variable* services as `EFI_UNSUPPORTED`). Harmless to leave in an old entry, but do not treat it as required. See
+  [`../docs/DTB_CHANGELOG.md`](../docs/DTB_CHANGELOG.md).
 - The safe daily default points at `glymur-a16-test55.dtb` (MDSS disabled, simplefb).
 - Display-enabled entries (`msm` loaded) are **diagnostic only** — they currently kill Wi-Fi.
 - `update-grub` will overwrite hand-edited entries; keep the source of truth in

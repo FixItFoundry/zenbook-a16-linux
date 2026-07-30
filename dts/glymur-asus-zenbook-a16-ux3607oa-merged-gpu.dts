@@ -1009,7 +1009,32 @@
 };
 
 &pmk8850_rtc {
-	qcom,uefi-rtc-info;
+	/*
+	 * GLYMUR-A16: qcom,uefi-rtc-info deliberately REMOVED.
+	 *
+	 * rtc-pm8xxx treats that property as "the epoch offset lives in a UEFI
+	 * variable, go read it", and returns -EPROBE_DEFER forever if efivars are
+	 * unavailable. They are permanently unavailable on this firmware.
+	 *
+	 * EFI runtime services themselves DO come up ("Remapping and enabling EFI
+	 * services." at boot). What this INSYDE firmware does not support is the
+	 * *variable* subset: GetVariable returns EFI_UNSUPPORTED (status
+	 * 0x8000000000000003, visible as "integrity: Couldn't get size:
+	 * 0x8000000000000003" and "MODSIGN: Couldn't get UEFI db list"). So
+	 * efivar_is_available() is false, fsopen("efivarfs") fails EOPNOTSUPP, and
+	 * upstream's property can only ever defer here, never bind. This is not a
+	 * kernel config gap -- CONFIG_EFIVAR_FS=y and efivarfs is registered in
+	 * /proc/filesystems.
+	 *
+	 * Independent of efi=noruntime: verified 2026-07-30 by booting a variant with
+	 * this property restored and that flag dropped.
+	 *
+	 * Without it the driver skips the UEFI lookup and binds. Two caveats remain:
+	 * the RTC is read-only (RTC_SET_TIME returns ENODEV), and its counter is
+	 * free-running rather than a wall clock -- so the epoch offset is supplied
+	 * from userspace by glymur-rtc-restore instead. qcom,no-alarm below is
+	 * upstream's, and means there is still no wake alarm for hibernate.
+	 */
 	qcom,no-alarm;
 };
 

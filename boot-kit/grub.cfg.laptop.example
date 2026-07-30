@@ -12,8 +12,40 @@
 # active bootloader really is this hand-written file, loaded via
 # \EFI\ubuntu\grubaa64.efi -> configfile ($root)/boot/grub/grub.cfg
 #
-# Every glymur boot cmdline MUST include efi=noruntime - a missing one causes an
-# intermittent early-boot warm reset on this firmware.
+# efi=noruntime: RETIRED from the daily driver on 2026-07-30.
+#
+# This file used to say the flag was MANDATORY - "a missing one causes an
+# intermittent early-boot warm reset on this firmware". That claim did not hold up:
+#
+#   - The mechanism was never proven. It was a hypothesis about EFI runtime
+#     services / the simpledrm fbcon commit path, and it was unfalsifiable as set
+#     up, because efi=noruntime itself disables pstore, so no post-mortem was ever
+#     collectable.
+#   - It was intermittent, never deterministic. Our own notes recorded a boot that
+#     survived without it.
+#   - It was established on the 7.1 vendor-lineage tree during the window where
+#     docs/edp-status.md explicitly flags efi=noruntime as a CONFOUND (test55-59).
+#     That is the same era whose "firmware bugs" twice turned out to be our own DT.
+#   - Tested directly on the merged 7.2 tree: 3 boots without it, 0 warm resets.
+#     (One apparent "freeze" during that testing was self-inflicted - running the
+#     plasmalogin binary as root seized the seat. Clean shutdown, no kernel fault.)
+#
+# Dropping it buys no capability. EFI runtime services DO come up ("Remapping and
+# enabling EFI services." at boot) -- what this INSYDE firmware does not support is
+# the *variable* subset: GetVariable returns EFI_UNSUPPORTED (0x8000000000000003,
+# logged as "integrity: Couldn't get size: 0x8000000000000003"). So
+# efivar_is_available() is false, fsopen("efivarfs") fails EOPNOTSUPP, and efivars
+# are unreachable with or without this flag. Not a kernel config gap either --
+# CONFIG_EFIVAR_FS=y and efivarfs is registered in /proc/filesystems.
+#
+# Consequence: the upstream qcom,uefi-rtc-info property can never obtain its epoch
+# offset here and is still deleted in our DT; the RTC gets its offset from
+# glymur-rtc-restore instead.
+# The flag is gone because we could not substantiate it, not because it helped.
+#
+# If intermittent early-boot resets EVER reappear, boot
+#   Fallback boot options -> "Fedora Linux on ARM (with efi=noruntime)"
+# which is byte-identical to the daily driver except for that one token.
 
 set default="fedora-linux-arm"
 set timeout=10
@@ -32,9 +64,10 @@ insmod fdt
 menuentry "Fedora Linux on ARM" --id fedora-linux-arm {
     search --set=root --fs-uuid 7db7b00f-3862-4771-afee-ece1682d2970
     devicetree /boot/glymur/glymur-a16-merged-gpu.dtb
-    linux /boot/vmlinuz-7.2.0-rc3-konrad1 root=UUID=7db7b00f-3862-4771-afee-ece1682d2970 rw clk_ignore_unused pd_ignore_unused cma=128M efi=noruntime arm64.nopauth console=tty0 ignore_loglevel modprobe.blacklist=efi_pstore pstore.backend=ramoops rd.timeout=60 panic=10 softlockup_panic=1 kvm-arm.mode=protected systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
+    linux /boot/vmlinuz-7.2.0-rc3-konrad1 root=UUID=7db7b00f-3862-4771-afee-ece1682d2970 rw clk_ignore_unused pd_ignore_unused cma=128M arm64.nopauth console=tty0 ignore_loglevel modprobe.blacklist=efi_pstore pstore.backend=ramoops rd.timeout=60 panic=10 softlockup_panic=1 kvm-arm.mode=protected systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
     initrd /boot/initrd.img-7.2.0-rc3-konrad1
 }
+
 
 menuentry "Windows Boot Manager" --id windows-boot {
     insmod part_gpt
@@ -51,6 +84,13 @@ menuentry "Windows Boot Manager" --id windows-boot {
 #                 hard-resets on screen-off, but it boots and has Wi-Fi/audio.
 # ---------------------------------------------------------------------------
 submenu "Fallback boot options" --id fallbacks {
+
+    menuentry "Fedora Linux on ARM (with efi=noruntime)" --id fedora-linux-arm-noruntime {
+        search --set=root --fs-uuid 7db7b00f-3862-4771-afee-ece1682d2970
+        devicetree /boot/glymur/glymur-a16-merged-gpu.dtb
+        linux /boot/vmlinuz-7.2.0-rc3-konrad1 root=UUID=7db7b00f-3862-4771-afee-ece1682d2970 rw clk_ignore_unused pd_ignore_unused cma=128M efi=noruntime arm64.nopauth console=tty0 ignore_loglevel modprobe.blacklist=efi_pstore pstore.backend=ramoops rd.timeout=60 panic=10 softlockup_panic=1 kvm-arm.mode=protected systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
+        initrd /boot/initrd.img-7.2.0-rc3-konrad1
+    }
 
     menuentry "Fedora Linux on ARM (no GPU)" --id fedora-linux-arm-nogpu {
         search --set=root --fs-uuid 7db7b00f-3862-4771-afee-ece1682d2970

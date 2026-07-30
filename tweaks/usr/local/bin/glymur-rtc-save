@@ -1,0 +1,37 @@
+#!/bin/bash
+# Save the PMIC-RTC-counter -> wall-clock offset for glymur-rtc-restore.
+#
+# Only ever writes while NTP is synced, so a bogus clock can never poison the
+# saved offset. Because the RTC counter is monotonic and battery-backed the
+# offset is a constant, so re-deriving it costs nothing and self-heals if the RTC
+# domain ever loses power and the counter restarts from zero.
+set -u
+
+OFFSET_FILE=/var/lib/glymur/rtc-offset
+COUNTER=/sys/class/rtc/rtc0/since_epoch
+
+if [[ ! -r $COUNTER ]]; then
+	echo "no $COUNTER -- RTC not bound, nothing to save"
+	exit 0
+fi
+
+synced=$(timedatectl show -p NTPSynchronized --value 2>/dev/null || true)
+if [[ $synced != yes ]]; then
+	echo "NTP not synced (NTPSynchronized=$synced) -- refusing to save a bogus offset"
+	exit 0
+fi
+
+counter=$(<"$COUNTER")
+if [[ ! $counter =~ ^[0-9]+$ ]]; then
+	echo "counter is not an integer ($counter) -- not saving"
+	exit 0
+fi
+
+offset=$(( $(date +%s) - counter ))
+
+mkdir -p "$(dirname "$OFFSET_FILE")"
+# Write via a temp file in the same directory so a crash mid-write cannot leave a
+# half-written offset behind.
+printf '%s\n' "$offset" >"$OFFSET_FILE.tmp" && mv "$OFFSET_FILE.tmp" "$OFFSET_FILE"
+echo "saved offset $offset (counter=$counter, now=$(date))"
+exit 0

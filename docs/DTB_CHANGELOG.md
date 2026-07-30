@@ -703,3 +703,128 @@ PMIC, download mode, interconnect vote drops, idle power collapse, pin reservati
 voltages, kernel version, panel pinctrl. Each of those has an entry above with the evidence
 that closed it. Several conclusions in this file were later retracted by measurement, and
 those retractions are left in place on purpose — they are the useful part of the record.
+
+---
+
+## The RTC, and retiring a workaround we could not justify (2026-07-30)
+
+This machine had no real-time clock. Not a broken one — no `/dev/rtc0` at all, no `hwclock`,
+and journal timestamps that were fiction until NTP came up. The cause turned out to be an
+interaction between two things that were each individually reasonable.
+
+Konrad Dybcio's upstream device tree sets `qcom,uefi-rtc-info` on the PMIC RTC. In
+`rtc-pm8xxx.c` that property means "the epoch offset lives in a UEFI variable, go read it."
+If EFI variables are unavailable and `CONFIG_EFI` is set, the driver returns
+`-EPROBE_DEFER` — forever. We were booting `efi=noruntime`, so efivars were empty, so the
+RTC deferred on every boot for the life of the project:
+
+```
+platform c426000.spmi:pmic@0:rtc@6100: deferred probe pending: (reason unknown)
+```
+
+Dropping the property made the driver skip the UEFI lookup and bind. `/dev/rtc0` appeared,
+`rtc-pm8xxx` bound, zero deferred probes. But calling that "the RTC works" would have been
+wrong in three separate ways, and all three are worth stating:
+
+1. **It is read-only.** `hwclock --systohc` fails with `ioctl(RTC_SET_TIME) … No such device`.
+2. **It has no wake alarm.** The node also carries `qcom,no-alarm`, so
+   `/sys/class/rtc/rtc0/wakealarm` does not exist. Hibernate still has nothing to arm.
+3. **The counter is not a wall clock.** It is a free-running counter. It read
+   `1970-02-26` — roughly 4.94 million seconds, about 57 days since it was last zeroed.
+
+That third point is the interesting one, because it explains what the UEFI variable was
+*for*. Real time on this platform is `counter + offset`, and the firmware keeps the offset.
+Windows does the same thing. Setting the clock in UEFI setup would update the offset
+variable, not the counter — which is why "just fix it in the BIOS" cannot work here.
+
+But the offset is a constant: the counter is monotonic and battery-backed. So we derived it
+ourselves while NTP was synced to 81 microseconds, and now do what the firmware does:
+
+- `glymur-rtc-save` writes the offset, but **only while `NTPSynchronized=yes`**, so a bad
+  clock can never poison it. An hourly timer exists not to track drift — there is none — but
+  to capture the offset after first sync and to self-heal if the RTC domain ever loses power
+  and the counter restarts from zero.
+- `glymur-rtc-restore` runs early at boot and sets the clock to `counter + offset`. It
+  **only ever moves the clock forward**, which makes it impossible for it to stomp an
+  already-correct clock. We verified that by running it against a good clock and watching it
+  decline.
+
+### The better question
+
+Fixing the symptom raised a sharper question, and it came from the user rather than from us:
+*Konrad is the ARM/Qualcomm co-maintainer for this chip family. Why would he ship a property
+that guarantees an infinite probe defer on his own laptop?*
+
+He would not. Which meant the reasonable inference was that EFI runtime services work fine
+on this machine — and that `efi=noruntime` was **our** workaround, not a platform
+requirement.
+
+Re-reading our own justification did not inspire confidence. Five documents in this
+repository called the flag mandatory, on the strength of one 2026-07-15 finding whose
+mechanism was explicitly a hypothesis, which was **unfalsifiable as configured** (because
+`efi=noruntime` disables the very pstore that would capture the fault), which our own notes
+recorded as *intermittent* rather than deterministic, and which was established in exactly
+the window where another document flags this same flag as a **confound**. That is the same
+era whose "firmware bugs" twice turned out to be our own device tree.
+
+So we tested it the way everything else here got tested: one variable. A GRUB entry
+byte-identical to the daily driver except that the DTB restored `qcom,uefi-rtc-info` (a
+one-line device tree delta, verified by decompiling both DTBs and diffing) and the cmdline
+dropped `efi=noruntime` (verified by asserting the token delta was exactly one removal and
+zero additions). `modprobe.blacklist=efi_pstore` was deliberately kept, because efi_pstore
+also touches EFI variables and would have confounded the thing under test.
+
+**The result was a clean answer, and not the one we hoped for.** The machine booted fine —
+three boots, no warm resets. But efivars stayed unreachable, so the RTC deferred exactly as
+before.
+
+The *reason* took two attempts to get right, and the first attempt is left here because it
+is the more instructive one. The initial reading was "EFI runtime services never come up",
+based on `/sys/firmware/efi/runtime` being absent, an empty `runtime-map`, `mount -t efivarfs`
+returning `Operation not supported`, and no remapping message in `dmesg`. Three of those four
+are weak evidence, and the fourth was simply wrong: the grep used to look for the remapping
+message assumed an `efi:` prefix, and the real line does not have one. It was there all along:
+
+```
+[    0.003015] Remapping and enabling EFI services.
+```
+
+EFI runtime services **do** come up. What this INSYDE firmware does not support is the
+**variable** subset, and it says so explicitly:
+
+```
+integrity: Couldn't get size: 0x8000000000000003
+integrity: MODSIGN: Couldn't get UEFI db list
+fsopen("efivarfs", FSOPEN_CLOEXEC) = -1 EOPNOTSUPP
+```
+
+`0x8000000000000003` is `EFI_UNSUPPORTED`. `GetVariable` is unsupported at runtime, so
+`efivar_is_available()` is false and efivarfs refuses to mount. It is also *not* a kernel
+configuration gap, which was the other hypothesis: `CONFIG_EFIVAR_FS=y` and efivarfs is
+registered in `/proc/filesystems`.
+
+That is a firmware property, not a flag we can toggle. `qcom,uefi-rtc-info` can therefore
+never bind on this machine — it can only defer. Our deletion of it stays, and the epoch offset
+is supplied from userspace instead. It also makes this a genuine upstream-reportable finding
+rather than a local workaround: the property is inappropriate for this laptop because the
+firmware does not expose variable services at runtime.
+
+We retired `efi=noruntime` from the daily driver anyway, and it is worth being precise about
+why: **not because removing it helped, but because we could not substantiate keeping it.**
+It bought no capability, and it had been quietly poisoning the evidence for weeks. A
+byte-identical fallback entry that still carries the flag lives one keypress away in the
+fallback submenu, and the five documents that called it mandatory have been corrected in
+place rather than silently edited.
+
+One honest footnote, because it nearly became a false data point: partway through this
+testing the laptop appeared to freeze, and the obvious reading was that we had finally caught
+the intermittent reset. We had not. The journal showed an orderly shutdown with zero kernel
+faults, and the four `SIGABRT`s in the coredump list were `Hyprland --version-json` — a
+greeter version probe, not the compositor. The actual cause was self-inflicted: invoking the
+display-manager binary as root to "check its config" seized the seat and dropped the session.
+The wrong conclusion there would have kept a workaround alive for another month.
+
+The lesson is the same one the GPU chapter taught, which is why it is repeated here rather
+than assumed: **audit your own debugging workarounds as ruthlessly as you audit the
+hardware.** A flag added in good faith outlived its evidence, spread into five documents as
+received wisdom, and confounded the tests meant to evaluate it.

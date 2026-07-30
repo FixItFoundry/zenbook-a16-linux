@@ -27,9 +27,14 @@ Confirmed from these images: keyboard + backlight, trackpad, Wi-Fi, USB (incl. U
 > your own into `/lib/firmware` first — pull it from your device's Windows/WoA install. See
 > [`../firmware/README.md`](../firmware/README.md) and [`../LOCAL-TWEAKS.md`](../LOCAL-TWEAKS.md) §1.
 
-## Mandatory boot cmdline
-`efi=noruntime` (a missing one warm-resets early on this firmware), plus
+## Boot cmdline
 `modprobe.blacklist=msm` and `kvm-arm.mode=protected` per the working config.
+
+⚠️ `efi=noruntime` used to be listed here as mandatory. **It was retired on 2026-07-30** —
+the warm-reset claim was never reproducible on a clean tree, and dropping it changes no
+capability: efivars are unreachable either way, because this firmware reports EFI *variable*
+services as `EFI_UNSUPPORTED` (`0x8000000000000003`). See
+[`../docs/DTB_CHANGELOG.md`](../docs/DTB_CHANGELOG.md).
 
 ## How the images are built
 Instead of emulated package installs, each image **reuses a stock desktop rootfs** and swaps in

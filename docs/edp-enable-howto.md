@@ -263,7 +263,7 @@ Load-bearing cmdline arguments:
 
 | argument | why |
 |---|---|
-| `efi=noruntime` | without it, an intermittent **warm reset at fbcon commit**. Mandatory on every `dt-*` entry |
+| ~~`efi=noruntime`~~ | **RETIRED 2026-07-30 — no longer load-bearing.** The "intermittent warm reset at fbcon commit" was never reproducible on a clean tree, and it was established in the window where this very flag was a documented confound. Dropping it changes no capability. See `docs/DTB_CHANGELOG.md` |
 | `kvm-arm.mode=protected` | **pKVM must stay ON.** Dropping it was correct for test57 and wrong for test58/test62 |
 | `cma=128M` | framebuffer allocation |
 | `modprobe.blacklist=msm` | keeps `msm` off the boot path so it can be bound by hand under instrumentation. Not required for a working display — see §7 |

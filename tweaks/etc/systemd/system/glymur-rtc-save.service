@@ -1,0 +1,8 @@
+[Unit]
+Description=Save glymur PMIC RTC counter offset while NTP is synced
+Documentation=https://github.com/FixItFoundry/zenbook-a16-linux
+ConditionPathExists=/sys/class/rtc/rtc0/since_epoch
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/glymur-rtc-save

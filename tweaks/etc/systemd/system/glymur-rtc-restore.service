@@ -1,0 +1,20 @@
+[Unit]
+Description=Restore system clock from glymur PMIC RTC counter and saved offset
+Documentation=https://github.com/FixItFoundry/zenbook-a16-linux
+# Runs as early as possible: the whole point is to be ahead of anything that
+# might validate a TLS certificate against a 1970 clock. local-fs.target is
+# needed because the saved offset lives under /var.
+DefaultDependencies=no
+Conflicts=shutdown.target
+After=local-fs.target
+Before=sysinit.target shutdown.target
+# If the RTC did not bind, skip silently rather than fail the boot.
+ConditionPathExists=/sys/class/rtc/rtc0/since_epoch
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/glymur-rtc-restore
+
+[Install]
+WantedBy=sysinit.target

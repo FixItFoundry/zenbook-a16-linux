@@ -1,0 +1,62 @@
+#!/bin/bash
+# Set the system clock from the PMIC RTC counter plus a locally-derived offset.
+#
+# The glymur PMIC RTC (pmk8850, rtc-pm8xxx) is a free-running counter, not a
+# wall clock. Real time is counter + offset, and UEFI keeps that offset in a UEFI
+# variable -- which is exactly what the qcom,uefi-rtc-info DT property tells
+# rtc-pm8xxx to go read. This machine must boot efi=noruntime (without it the
+# firmware causes an intermittent early-boot warm reset), so efivars are
+# unavailable and that variable is unreachable. With the property set the driver
+# returns -EPROBE_DEFER forever; with it removed the driver binds but has no
+# offset, so the kernel sets the system clock to ~1970 from the bare counter.
+#
+# So we keep our own copy of the offset. glymur-rtc-save refreshes it whenever
+# NTP is synced; this script applies it early at boot, before chronyd can reach
+# the network.
+#
+# The clock is only ever moved FORWARD. The counter is monotonic and
+# battery-backed, so counter+offset is a lower bound on the true time -- that
+# makes this safe to run unconditionally and impossible to use to stomp an
+# already-correct clock.
+set -u
+
+OFFSET_FILE=/var/lib/glymur/rtc-offset
+COUNTER=/sys/class/rtc/rtc0/since_epoch
+
+if [[ ! -r $COUNTER ]]; then
+	echo "no $COUNTER -- RTC not bound, nothing to do"
+	exit 0
+fi
+if [[ ! -r $OFFSET_FILE ]]; then
+	echo "no saved offset at $OFFSET_FILE yet -- nothing to restore"
+	exit 0
+fi
+
+offset=$(<"$OFFSET_FILE")
+counter=$(<"$COUNTER")
+
+# A corrupt offset file must not be able to throw the clock into the far future,
+# which would be much harder to recover from than being at 1970.
+if [[ ! $offset =~ ^-?[0-9]+$ ]]; then
+	echo "offset file is not an integer ($offset) -- ignoring"
+	exit 0
+fi
+if [[ ! $counter =~ ^[0-9]+$ ]]; then
+	echo "counter is not an integer ($counter) -- ignoring"
+	exit 0
+fi
+
+target=$(( counter + offset ))
+now=$(date +%s)
+
+if (( target <= now )); then
+	echo "clock already at/ahead of RTC estimate ($(date -d "@$now")) -- leaving it alone"
+	exit 0
+fi
+
+if date -s "@$target" >/dev/null; then
+	echo "clock set from RTC counter: $(date -d "@$target")"
+else
+	echo "failed to set clock" >&2
+fi
+exit 0

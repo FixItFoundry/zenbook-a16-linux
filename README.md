@@ -116,7 +116,14 @@ USB-C DP alt-mode, but no GPU. `test55` was the original `simple-framebuffer` ba
 - Battery / charge % — via a reverse-engineered SOCCP GLINK path -> `qcom-battmgr`
 - Fan / basic cooling — EC-driven (⚠️ heavy sustained load can still hit the 115 °C trip and protectively shut down; an interim thermal-guard service mitigates it — see docs/ROADMAP.md) UPDATE 7-24-26:  This isn't really an issue after stress testing throughout the week, but something I encoutered early on, and felt it important to mention.
 - NVMe — Gen4/Gen5 PHY, boots from internal SSD
-- RTC, fastrpc, ADSP (audio control plane)
+- **RTC** — `/dev/rtc0` exists and counts, as of **2026-07-30**. ⚠️ This line previously
+  claimed a working RTC and that was wrong: before that date `rtc-pm8xxx` deferred forever and
+  there was no `/dev/rtc0` at all. Three caveats even now — it is **read-only**
+  (`RTC_SET_TIME` → `ENODEV`), it has **no wake alarm** (`qcom,no-alarm`, so hibernate still
+  has nothing to arm), and its counter is **free-running rather than a wall clock**, so the
+  epoch offset is supplied from userspace by `glymur-rtc-restore`
+  (see [`LOCAL-TWEAKS.md`](LOCAL-TWEAKS.md) §9).
+- fastrpc, ADSP (audio control plane)
 - **Native eDP display** — DPU-driven panel at 2880x1800@120, 30 bpp, `fb0 = msmdrmfb`, backlight over DP AUX. Needs a patched `msm` and the eDP device tree — see [`docs/edp-hbr3-linkup.md`](docs/edp-hbr3-linkup.md). Still no GPU, so there is no 3D acceleration behind it.
 - Display output (fallback) — UEFI `simple-framebuffer`, no acceleration. What everything before 2026-07-24 ran on.
 
@@ -124,7 +131,7 @@ USB-C DP alt-mode, but no GPU. `test55` was the original `simple-framebuffer` ba
 
 ### Not working yet
 - **GPU — partially characterised, not fully instrumented.** The GPU *works* (see above), but: `nvtop`/`btop` report Memory/Temp/Power as **N/A** — an integrated Adreno has no dedicated VRAM, there is no hwmon node on the GPU device, and no power sensor. The temperatures *do* exist as 14 thermal zones (`gpu-0-0` … `gpu-3-2`, `gpuss-0/1`) under `/sys/class/thermal/`, which simply is not where those tools look. **No zap shader** (falls back to `SECVID_TRUST_CNTL`). **No sustained stress testing yet.** Also: Mesa names the device "Adreno X2-85" and this build contains no X2-90 string at all, while our chipid `0x44070041` matches none of the three kernel `a8xx` catalog entries exactly — likely an unmapped SKU/revision.
-- **Suspend / resume** — panics and reboots reliably, including with `s2idle` correctly selected. No post-mortem is collectable because `efi=noruntime` (mandatory here) disables EFI runtime services, so pstore is always empty.
+- **Suspend / resume** — panics and reboots reliably, including with `s2idle` correctly selected. Post-mortems are still not collectable, but the reason has been corrected: it is *not* `efi=noruntime` (retired 2026-07-30). EFI runtime services **do** come up (`Remapping and enabling EFI services.` at boot); what this INSYDE firmware does not support is the **variable** subset — `GetVariable` returns `EFI_UNSUPPORTED` (`0x8000000000000003`, logged as `integrity: Couldn't get size: 0x8000000000000003`), so `efivar_is_available()` is false and `fsopen("efivarfs")` fails `EOPNOTSUPP`. efivars-backed pstore was therefore never available to lose, with or without that flag. Not a kernel config gap — `CONFIG_EFIVAR_FS=y` and efivarfs is registered in `/proc/filesystems`.
 - **USB4 / Thunderbolt** — no host-router/NHI node exists in any in-tree qcom device tree, and `drivers/thunderbolt` has no Qualcomm support. The binding is an unmerged upstream **RFC**. The Type-C half of the pipeline (UCSI → typec_mux → QMP PHY) now works; only the host router is missing. See [`docs/usb-c-ucsi-dp-altmode.md`](docs/usb-c-ucsi-dp-altmode.md).
 - **cpufreq scaling** — `scmi-cpufreq -110`, cores pinned at boot clock; interim thermal-guard service mitigates.
 - **Fn hotkeys** — Some Fn keys aren't wired, but as of 7-24 update, we just need Fn Lock, KB Brightness, Microphone Mute (just the LED on KB), Camera, and the two ASUS buttons.  Asus Buttons do map though. 
@@ -253,8 +260,10 @@ firmware/       What firmware is needed and why it is NOT included
    [`prebuilt/glymur-a16-test55.dtb`](prebuilt/).
 3. **Boot** — via GRUB + `dtbloader`; sample entries in
    [`boot-kit/grub.cfg.laptop.example`](boot-kit/grub.cfg.laptop.example).
-   **Every glymur boot cmdline must include `efi=noruntime`** (a missing one causes an
-   intermittent early-boot warm reset on this firmware).
+   ⚠️ **`efi=noruntime` was retired on 2026-07-30 and is no longer recommended.** This
+   README used to call it mandatory. That claim did not survive testing on the merged
+   7.2 tree — see [`docs/DTB_CHANGELOG.md`](docs/DTB_CHANGELOG.md). Older entries and
+   the archived docs still carry it; that is history, not guidance.
 
 Distro installer ISOs: see [`iso/README.md`](iso/README.md).
 

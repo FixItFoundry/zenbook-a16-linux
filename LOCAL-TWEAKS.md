@@ -177,8 +177,69 @@ active mode**, so that output means s2idle is selected, not deep.
 panics and reboots on suspend; the journal ends at `PM: suspend entry (s2idle)` with
 nothing after. Still unsolved.
 
-⚠️ **Crash evidence is not collectable on this box.** `efi=noruntime` is mandatory
-(without it you get intermittent warm resets at fbcon commit) and it disables EFI runtime
-services — which is why `/sys/fs/pstore` is empty after every panic. Debugging suspend
-further needs `/sys/power/pm_test` stage bisection (`CONFIG_PM_DEBUG=y`, available) or a
-ramoops region added to the DTB.
+⚠️ **Crash evidence is not collectable on this box — but not for the reason stated here
+before.** This used to blame mandatory `efi=noruntime`. Corrected 2026-07-30: the flag was
+retired, and efivars are unreachable on this firmware with *or* without it. EFI runtime
+services do come up; this INSYDE firmware simply reports the **variable** subset as
+unsupported (`GetVariable` → `EFI_UNSUPPORTED`, `0x8000000000000003`), so
+`fsopen("efivarfs")` fails `EOPNOTSUPP` and efivars-backed pstore was never there to be
+disabled. `/sys/fs/pstore` is empty after every
+panic regardless. Debugging suspend further needs `/sys/power/pm_test` stage bisection
+(`CONFIG_PM_DEBUG=y`, available) or a ramoops region added to the DTB. Also worth checking
+whether `CONFIG_EFIVAR_FS` is enabled at all.
+
+## 9. RTC epoch offset — `tweaks/usr/local/bin/glymur-rtc-{save,restore}`
+
+The glymur PMIC RTC (`pmk8850`, `rtc-pm8xxx`) is a **free-running counter, not a wall
+clock**. Real time is `counter + offset`, and the firmware keeps that offset in a UEFI
+variable — which is exactly what upstream's `qcom,uefi-rtc-info` property tells the driver
+to go read.
+
+We cannot read it, and the reason is specific: EFI runtime services themselves **do** come up (`Remapping and enabling EFI services.`
+at boot). What this INSYDE firmware does not support is the **variable** subset:
+`GetVariable` returns `EFI_UNSUPPORTED` (status `0x8000000000000003`, logged as
+`integrity: Couldn't get size: 0x8000000000000003` / `MODSIGN: Couldn't get UEFI db list`).
+So `efivar_is_available()` is false and `fsopen("efivarfs")` fails `EOPNOTSUPP`. Not a
+kernel config gap: `CONFIG_EFIVAR_FS=y` and efivarfs is registered in `/proc/filesystems`.
+
+**This holds with or without `efi=noruntime`** — verified 2026-07-30 by booting a variant
+with the property restored and the flag dropped. With the
+property set the driver returns `-EPROBE_DEFER` forever, so our device tree deletes it. The
+RTC then binds, but starts at ~1970.
+
+So we do what the firmware does. The offset is a **constant**, because the counter is
+monotonic and battery-backed:
+
+```
+counter C = 4941867   now N = 1785382601   offset = N - C = 1780440734
+```
+
+- **`glymur-rtc-save`** → writes the offset to `/var/lib/glymur/rtc-offset`, but **only while
+  `NTPSynchronized=yes`**, so a wrong clock can never poison it. Driven by
+  `glymur-rtc-save.timer` (`OnBootSec=3min`, `OnUnitActiveSec=1h`). The timer is *not* for
+  drift — there is none. It exists to capture the offset after the first NTP sync, and to
+  self-heal if the RTC domain loses power and the counter restarts from zero.
+- **`glymur-rtc-restore`** → early oneshot (`DefaultDependencies=no`, `After=local-fs.target`,
+  `Before=sysinit.target`) that sets the clock to `counter + offset`. It **only ever moves the
+  clock forward**, which makes it impossible to stomp an already-correct clock. Verified by
+  running it against a good clock and watching it decline:
+  `clock already at/ahead of RTC estimate -- leaving it alone`.
+
+Install:
+```
+sudo install -m 0755 tweaks/usr/local/bin/glymur-rtc-{save,restore} /usr/local/bin/
+sudo install -m 0644 tweaks/etc/systemd/system/glymur-rtc-{restore.service,save.service,save.timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo /usr/local/bin/glymur-rtc-save          # seed it while NTP is synced
+sudo systemctl enable --now glymur-rtc-save.timer
+sudo systemctl enable glymur-rtc-restore.service
+```
+
+⚠️ **This does not give you a wake alarm.** `qcom,no-alarm` is upstream's and stays, so
+`/sys/class/rtc/rtc0/wakealarm` does not exist and hibernate still has nothing to arm. The
+RTC also remains **read-only** — `hwclock --systohc` fails with `ENODEV`, and `rtcsync` in
+`/etc/chrony.conf` will silently never succeed.
+
+Without this tweak the machine still recovers: chronyd is configured `makestep 1.0 3`, so it
+*steps* the ~1970 offset rather than slewing it. But there is a window early in boot where the
+clock reads 1970 and TLS validation would fail, which is what this closes.
