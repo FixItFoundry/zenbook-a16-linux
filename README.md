@@ -40,9 +40,35 @@ laptop built on the **Qualcomm Snapdragon X2 Elite Extreme**, SoC codename **gly
 > `msm` is a component framework — the **entire DRM device** failing to bind. It presented
 > as a black screen, and got "fixed" for months by disabling the GPU nodes.
 >
-> Remaining gaps: **USB4** (binding is an unmerged upstream RFC), **camera**, and no
-> sustained GPU stress testing yet. **Suspend now works** (2026-07-30) but on a
-> workaround that needs a firmware revision to become a real fix — see below.
+> ## ⚡ 2026-07-31 — CPU frequency scaling works
+>
+> `scmi-cpufreq` had failed with `-110` since the beginning and the cores ran pinned at
+> boot clock. Root cause: the **PDP0/CPUCP firmware answers SCMI protocol 0x13
+> (Performance) in shared memory but never rings the mailbox doorbell for it**, so every
+> perf transfer waited on an interrupt that never came. Proven by sending the identical
+> message both ways — it returns `status 0` in polling mode and hangs forever in interrupt
+> mode, with the doorbell IRQ counter not moving at all.
+>
+> **The fix is one device-tree property**, `arm,no-completion-irq` on the `scmi` node, which
+> makes the SCMI core poll instead of waiting. No kernel patch.
+>
+> ```
+> policy0   cpus 0-5    355 MHz - 3.61 GHz   20 OPPs
+> policy6   cpus 6-11   355 MHz - 4.45 GHz   21 OPPs
+> policy12  cpus 12-17  355 MHz - 4.45 GHz   21 OPPs
+> scaling_driver = scmi   governor = schedutil (via power-profiles-daemon)
+> ```
+>
+> Three performance domains, exactly as the firmware's own `PROTOCOL_ATTRIBUTES` reply
+> predicted. `cpufreq-cooling` devices now appear on their own, which unblocks real thermal
+> management — see [`docs/power-and-thermal.md`](docs/power-and-thermal.md).
+>
+> Suspend and cpufreq now ship in **one** baseline GRUB entry.
+>
+> Remaining gaps: **USB4** (binding is an unmerged upstream RFC), **camera**, thermal
+> `cooling-maps` (the cooling devices exist but no zone actuates them yet), and no
+> sustained GPU stress testing yet. **Suspend works** (2026-07-30) but on a workaround that
+> needs a firmware revision to become a real fix — see below.
 
  **I'm publishing this repo to ask for the community's help.**  I've been tinkering with
  Linux and OSX (Hackintoshes) for almost two decades, and I wanted to test out some frontier
@@ -115,7 +141,8 @@ USB-C DP alt-mode, but no GPU. `test55` was the original `simple-framebuffer` ba
 - **GPU — Adreno X2, working (2026-07-29).** `adreno` binds, GMU firmware v5.2.38 loads, the dedicated `adreno_smmu` comes up (SMMUv2, 25 context banks), and Mesa's **turnip** Vulkan driver enumerates the device. Video renders on it; `nvtop` shows GPU processes and memory. Frequency scaling live via devfreq (`simple_ondemand`, 310 MHz → 1.85 GHz, 12 OPPs). Requires `&gpu`/`&gmu` enabled **and** `gpucc_glymur` *not* blacklisted on the cmdline.
 - **`gpucc` (GPU clock controller)** — 25 `gpu_cc` clocks, `gpu_cc_pll0` at 1.15 GHz. Present in mainline v7.1 as `drivers/clk/qcom/gpucc-glymur.c`.
 - Battery / charge % — via a reverse-engineered SOCCP GLINK path -> `qcom-battmgr`
-- Fan / basic cooling — EC-driven (⚠️ heavy sustained load can still hit the 115 °C trip and protectively shut down; an interim thermal-guard service mitigates it — see docs/ROADMAP.md) UPDATE 7-24-26:  This isn't really an issue after stress testing throughout the week, but something I encoutered early on, and felt it important to mention.
+- **CPU frequency scaling — working (2026-07-31).** Three SCMI performance domains, 355 MHz to 3.61/4.45 GHz, `scaling_driver = scmi`, `schedutil` under power-profiles-daemon. One DT property (`arm,no-completion-irq`) — see the 2026-07-31 note above and [`docs/power-and-thermal.md`](docs/power-and-thermal.md).
+- Fan / basic cooling — EC-driven (⚠️ heavy sustained load can still hit the 115 °C trip and protectively shut down) UPDATE 7-24-26:  This isn't really an issue after stress testing throughout the week, but something I encoutered early on, and felt it important to mention. ⚠️ **The interim `glymur-thermal-guard` service this line used to recommend was retired on 2026-07-31** — it never fired once in its entire life, because it wrote to a `scaling_max_freq` that did not exist until cpufreq started working. Kept with its rationale in [`tweaks/retired/`](tweaks/retired/).
 - NVMe — Gen4/Gen5 PHY, boots from internal SSD
 - **RTC** — `/dev/rtc0` exists and counts, as of **2026-07-30**. ⚠️ This line previously
   claimed a working RTC and that was wrong: before that date `rtc-pm8xxx` deferred forever and
@@ -137,7 +164,10 @@ USB-C DP alt-mode, but no GPU. `test55` was the original `simple-framebuffer` ba
 
 ⚠️ **Correction (2026-07-30, later the same day):** do not treat "this firmware does not support EFI variable services" as settled. Two archived `efi_pstore` crash dumps prove variable services **worked** on this same machine and firmware under 7.1 kernels. The `EFI_UNSUPPORTED` result above is real but is specific to our 7.2-rc3 build, and the cause is **unresolved**. See [`docs/crash-evidence.md`](docs/crash-evidence.md).
 - **USB4 / Thunderbolt** — no host-router/NHI node exists in any in-tree qcom device tree, and `drivers/thunderbolt` has no Qualcomm support. The binding is an unmerged upstream **RFC**. The Type-C half of the pipeline (UCSI → typec_mux → QMP PHY) now works; only the host router is missing. See [`docs/usb-c-ucsi-dp-altmode.md`](docs/usb-c-ucsi-dp-altmode.md).
-- **cpufreq scaling** — `scmi-cpufreq -110`, cores pinned at boot clock; interim thermal-guard service mitigates.
+- **Thermal `cooling-maps`** — as of the cpufreq fix the kernel creates `cpufreq-cpu0/6/12`
+  cooling devices, but **no thermal zone binds them yet**, so there is no Linux-side CPU
+  thermal *actuation*. The fan is EC/BIOS-autonomous and the 101 critical trips still
+  backstop the hardware; writing the `cooling-maps` is the next thermal task.
 - **Fn hotkeys** — Some Fn keys aren't wired, but as of 7-24 update, we just need Fn Lock, KB Brightness, Microphone Mute (just the LED on KB), Camera, and the two ASUS buttons.  Asus Buttons do map though. 
 - **Camera** — no sensor driver / CCI-CSI device-tree wiring yet.
 - **Dimmable keyboard backlight** — no `asus::kbd_backlight` LED; the A16 entry lacks `QUIRK_USE_KBD_BACKLIGHT`.
@@ -256,10 +286,14 @@ reverse-engineered to recover the hardware ground truth:
 ## Repository layout
 
 ```
-dts/            Device-tree sources (test55 = daily driver; test47/58 diagnostic)
+dts/            Device-tree sources (*-merged-gpu.dts = daily driver; testNN = historical)
 prebuilt/       Prebuilt DTB for the daily driver
 boot-kit/       Build/patch/deploy scripts + example GRUB config
 kernel/         Kernel build recipe, config fragment, patches, gpucc stub, fork-push script
+patches/        Kernel/DT patches: *-UPSTREAM (submittable), *-CONFIRMED (proven on
+                hardware), *-EXPERIMENT (untested), *-DIAGNOSTIC (instrumentation only)
+tweaks/         Userspace config actually installed on the machine (systemd units,
+                dracut/modprobe/wireplumber drop-ins); tweaks/retired/ = removed, with why
 docs/           Full changelog, hardware map, display + GPU-RE findings, analysis logs
 iso/            Reproducible aarch64 installer-ISO build scripts (Arch / Fedora / Ubuntu)
 firmware/       What firmware is needed and why it is NOT included
@@ -273,10 +307,16 @@ firmware/       What firmware is needed and why it is NOT included
    and patches in [`kernel/`](kernel/).
    The recipe (`boot-kit/scripts/build-kernel-native-full.sh`) starts from a distro config and
    force-enables the glymur boot-critical drivers. See [`kernel/README.md`](kernel/README.md).
-2. **Device tree** — build/patch a DTB from [`dts/`](dts/), or use
-   [`prebuilt/glymur-a16-test55.dtb`](prebuilt/).
+2. **Device tree** — build/patch a DTB from [`dts/`](dts/). The current daily driver is
+   `glymur-asus-zenbook-a16-ux3607oa-merged-gpu.dts` **plus the one-line
+   `arm,no-completion-irq` property** from
+   [`patches/glymur-scmi-no-completion-irq-CONFIRMED.patch`](patches/), without which the
+   CPUs stay pinned at boot clock.
 3. **Boot** — via GRUB + `dtbloader`; sample entries in
-   [`boot-kit/grub.cfg.laptop.example`](boot-kit/grub.cfg.laptop.example).
+   [`boot-kit/grub.cfg.laptop.example`](boot-kit/grub.cfg.laptop.example), which mirrors the
+   real menu on the machine: one baseline entry carrying **both** the suspend workaround
+   (`glymur_pci_skip=5`) and the cpufreq DTB, with the previous baselines kept one keypress
+   down as fallbacks.
    ⚠️ **`efi=noruntime` was retired on 2026-07-30 and is no longer recommended.** This
    README used to call it mandatory. That claim did not survive testing on the merged
    7.2 tree — see [`docs/DTB_CHANGELOG.md`](docs/DTB_CHANGELOG.md). Older entries and

@@ -9,9 +9,14 @@ kernel onto the Zenbook A16.
 - `build-kernel-wsl.sh` — cross-build variant for WSL.
 - `patch_dt.py` — decompile → edit → recompile a DTB (the workhorse for DT experiments).
 - `build_test55_usb.py`, `build_test55_msm.py` — build the **diagnostic** variants `test55-usb`
-  (USB/battery focus, MDSS off) and `test55-msm` (display/`msm` diagnostic). The **daily driver is
-  `test55`**, shipped prebuilt in [`../prebuilt/`](../prebuilt/) (or patch it from `dts/` with
-  `patch_dt.py`).
+  (USB/battery focus, MDSS off) and `test55-msm` (display/`msm` diagnostic).
+  ⚠️ **Historical.** `test55` was the daily driver in the v7.1 vendor-lineage era and is no
+  longer. The **current daily driver is
+  `glymur-asus-zenbook-a16-ux3607oa-merged-gpu.dts` built on 7.2-rc3, plus the one-line
+  `arm,no-completion-irq` property** from
+  [`../patches/glymur-scmi-no-completion-irq-CONFIRMED.patch`](../patches/) — installed on the
+  box as `glymur-a16-merged-gpu-scmipoll.dtb`. Without that property the CPUs stay pinned at
+  boot clock.
 - `install-dt-kernel.sh` — install a built kernel + DTB and register a GRUB entry.
 - `install-battery-modules.sh` — install the out-of-tree battery/SOCCP-glink + audio modules.
 - `collect-acpi-hw.sh` — helper to dump ACPI + hardware identity. (The project's RE actually

@@ -40,8 +40,12 @@ I'd especially value a second opinion on:
   wrong about the cause: what broke was our vendor-derived **device tree**, not the kernel.
   Rebasing onto Konrad Dybcio's upstream A16 DTS made 7.2 work.
 - DTS changes: reference `dts/glymur-asus-zenbook-a16-ux3607oa-merged-gpu.dts` (the current
-  daily driver). `dts/glymur-a16-test55.dts` is the older v7.1 vendor-lineage tree; diagnostic
-  display DTBs (`test47`, `test58`) are separate again.
+  daily driver). ⚠️ **The booted DTB is that file plus one property** —
+  `arm,no-completion-irq` on the `scmi` node, from
+  `patches/glymur-scmi-no-completion-irq-CONFIRMED.patch`. Without it `scmi-cpufreq` probes
+  `-110` and the CPUs stay pinned at boot clock, so build with it before reporting anything
+  about performance or thermals. `dts/glymur-a16-test55.dts` is the older v7.1
+  vendor-lineage tree; diagnostic display DTBs (`test47`, `test58`) are separate again.
 - Keep kernel-derived files `SPDX-License-Identifier: GPL-2.0-only`.
 
 ## Reporting

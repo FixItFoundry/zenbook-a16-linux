@@ -1,0 +1,5 @@
+# Let the desktop session drive the keyboard backlight and mic-mute LED without
+# root. asus::kbd_backlight comes from the patched hid-asus; orange:micmute is a
+# device-tree platform LED. brightnessctl needs group write on these.
+ACTION=="add", SUBSYSTEM=="leds", KERNEL=="asus::kbd_backlight", RUN+="/bin/chgrp video /sys/class/leds/%k/brightness", RUN+="/bin/chmod g+w /sys/class/leds/%k/brightness"
+ACTION=="add", SUBSYSTEM=="leds", KERNEL=="orange:micmute",     RUN+="/bin/chgrp video /sys/class/leds/%k/brightness", RUN+="/bin/chmod g+w /sys/class/leds/%k/brightness"

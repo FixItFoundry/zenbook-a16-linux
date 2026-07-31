@@ -157,16 +157,104 @@ The same firmware, over the same channel, in the same session:
 - **never answers** a single message addressed to 0x13
 
 That is not a timeout, not a missing feature, and not a broken transport. Something about
-messages addressed to protocol 0x13 is being dropped. Candidates, none tested:
+messages addressed to protocol 0x13 is being dropped.
 
-1. **0x13 expects a different channel.** SCMI permits per-protocol channels; if the CPUCP
-   expects perf traffic on a second mailbox/shmem pair that our DT doesn't describe, requests
-   would go into a buffer nobody reads. Our `protocol@13` node carries only
-   `#power-domain-cells` and `reg` — **no `mboxes`/`shmem` of its own**. Compare against X1E's
-   node, which is the single highest-value thing to check next.
-2. **The CPUCP needs an initialisation step** we skip — plausibly something the Windows
-   bootloader does, given `Firmware version 0x0`.
-3. **The vendor protocol 0x80 gates it** — i.e. Qualcomm expects you to talk to 0x80 first.
+---
+
+## ★★★ 2. bis — ROOT CAUSE, measured 2026-07-30. The contradiction is resolved.
+
+**The CPUCP firmware processes protocol 0x13 messages and writes correct replies into the
+SCMI shared memory — but it never rings the mailbox doorbell for them.** The kernel waits
+on an interrupt that never arrives, times out, and gives up.
+
+SCMI RAW exposes both a normal interrupt-driven file (`raw/message`) and a **polling** file
+(`raw/message_poll`) that reads the shmem channel status directly and ignores the doorbell.
+Running the *same message* through both settles it:
+
+| message | polling mode | interrupt mode | doorbell IRQ |
+|---|---|---|---|
+| `0x10/0x1` BASE_PROTOCOL_ATTRIBUTES | ✅ status 0 | ✅ status 0 | **+1** |
+| `0x13/0x0` PERF PROTOCOL_VERSION | ✅ replies, status −4 | ⛔ hangs | **+0** |
+| `0x13/0x1` PERF PROTOCOL_ATTRIBUTES | ✅ **status 0** | ⛔ hangs | **+0** |
+
+The doorbell accounting is unambiguous. Eight messages in interrupt mode took IRQ 156 from
+**9 → 16** — exactly one interrupt per reply, and **none** for the 0x13 message. A later
+control took it 16 → 17 while a hanging `0x13/0x1` added nothing.
+
+### The perf protocol is alive and healthy
+
+`0x13/0x1 PROTOCOL_ATTRIBUTES` returns **status 0, attributes `0x00020003`**:
+
+- **3 performance domains**
+- power values reported in mW
+- no statistics shared-memory region
+
+So the CPUCP is fully capable of DVFS and willing to describe it. This was never a firmware
+capability problem — it is a **signalling bug, and nothing else**.
+
+`0x13/0x0 PROTOCOL_VERSION` returns **−4 (NOT_FOUND)**: the firmware simply does not
+implement message 0, which is unfortunately the *first* thing the kernel asks any protocol.
+(Its trailing payload bytes are stale leftovers from the previous transaction — the firmware
+writes the status without shrinking `length`. Only the status field means anything.)
+
+### ★ The fix to try first: one DT property
+
+`arm,no-completion-irq` is a **documented upstream boolean** on the `arm,scmi` node —
+`Documentation/devicetree/bindings/firmware/arm,scmi.yaml:149`, consumed at
+`drivers/firmware/arm_scmi/driver.c:3154`. It sets `cinfo->no_completion_irq`, which makes
+`is_polling_enabled()` true, which makes the core **poll every transfer** instead of waiting
+for a doorbell.
+
+No kernel patch. No C change. One line in the `scmi` node. The mailbox transport already
+advertises `.poll_done = mailbox_poll_done` (`transports/mailbox.c:366`), and we have proven
+empirically that polling works on this box for both 0x10 and 0x13.
+
+If the property alone isn't enough, the C-side equivalent is `.force_polling = true` in
+`scmi_mailbox_desc`, which currently isn't set.
+
+### What this rules out
+
+- ⛔ **The rx-mailbox-channel theory is dead.** Qualcomm's `glymur.dtsi` uses
+  `<&pdp0_mbox 0>, <&pdp0_mbox 1>` where X1E's `hamoa.dtsi` uses channels 0 and 2, and the
+  shmem pair is reversed too — but none of that matters, because the firmware doesn't ring
+  *any* channel for 0x13.
+- ⛔ **"The CPUCP needs a Windows-bootloader init step" is dead** as an explanation. The
+  protocol answers correctly the moment you stop waiting for an interrupt.
+- ⛔ **Ghidra / the PDP0 firmware image is not needed.** No reason to open the NHLOS
+  partitions for this.
+- ⛔ **The memory mapping is correct** and is not a fix path: `pdp_ns_shared_mem` at
+  `0x81e00000` (len `0x200000`, `no-map`) properly carves out the `0x81e08600` shmem, and
+  `/proc/iomem` shows it claimed with no `System RAM` overlap.
+
+### Other facts from the same sweep
+
+- Base `PROTOCOL_ATTRIBUTES` = `0x102` ⇒ **1 agent, 2 protocols**.
+- **Vendor protocol 0x80 is live** — `PROTOCOL_VERSION` = 1.0, status 0. Its
+  `PROTOCOL_ATTRIBUTES`/`MESSAGE_ATTRIBUTES` return −3 DENIED. Unexplored; it may be where
+  Qualcomm put the interesting controls.
+- The firmware **returns errors rather than ignoring**: `0x10/0x7 DISCOVER_AGENT` and
+  `0x10/0x2 MESSAGE_ATTRIBUTES` both come back −3 DENIED *and* ring the doorbell. Silence on
+  0x13 was never "unimplemented" — it was always a missing signal.
+- The failure reproduces identically on `7.2.0-rc3-konrad1`; it is not version-specific.
+
+### Tooling
+
+On loazen, in `~` so it survives a reboot: `glymur-scmi-probe.py` sends one raw message
+(`SCMI_RAW_FILE` picks IRQ vs polling; header = `msg_id | type<<8 | protocol<<10 |
+token<<18`), driven by `glymur-scmi-run.sh`, `glymur-scmi-poll.sh`, `glymur-scmi-poll2.sh`,
+`glymur-scmi-irq13.sh`, logging to `~/scmi-*.log`.
+
+⚠️ Always launch with `sudo setsid nohup … &`. ⚠️ `~` under `sudo` is `/root` — use absolute
+paths inside the scripts. ⚠️ `pkill -f "glymur-scmi-probe.py 0x13"` **kills your own ssh
+session**, because the remote command line self-matches; kill by PID.
+
+---
+
+### The original candidate list, kept for the record — all three now closed
+
+1. ~~0x13 expects a different channel~~ — dead, see above.
+2. ~~The CPUCP needs an initialisation step~~ — dead, see above.
+3. ~~The vendor protocol 0x80 gates it~~ — 0x80 answers fine and gates nothing.
 
 ⚠️ **Trap for whoever runs this next:** a read on `/sys/kernel/debug/scmi/0/raw/message` with no
 reply pending **blocks uninterruptibly** — `timeout` cannot kill it and it will hold your ssh
@@ -210,23 +298,54 @@ SCMI 0x13 times out
 Every symptom on the list — cores pinned at boot clock, thermal shutdowns under load, poor
 battery life, the fan doing whatever it likes — hangs off that one timeout.
 
-### ⚠️ And the mitigation we thought we had is a no-op
+### ⚠️ And the mitigation we thought we had was a no-op — now REMOVED
 
-`glymur-thermal-guard.service` is `active` and has been polling every 2 seconds. It writes to:
+> **★ RESOLVED 2026-07-31: the guard has been removed from the machine.**
+>
+> Sequence: the `arm,no-completion-irq` fix landed, cpufreq policies appeared, and
+> `scaling_max_freq` existed for the first time — so the guard became genuinely capable of
+> throttling. It was retired at that point rather than kept, because its trigger is the max
+> over **every** sensor on the SoC (including ones unrelated to CPU load), it would now
+> compete with the real governor (`schedutil` via power-profiles-daemon), and the kernel's
+> own `cpufreq-cooling` devices now exist so the correct mechanism is `cooling-maps` in the
+> DT rather than a shell loop. Files and rationale kept in `tweaks/retired/`.
+>
+> **★ And the "validated under load" claim it carried is now RETRACTED.** `LOCAL-TWEAKS.md`
+> §6 used to say it held an 18-core load at ~70 °C where the machine had previously crashed
+> every 10–20 minutes. Measured against a **persistent journal covering 62 retained boots**:
+> 33,048 lines from the unit, every one of them the `No such file or directory` error below,
+> and **zero level-change events in its entire recorded history.** It never throttled once,
+> so it cannot have been what stopped the shutdowns. What did is **unknown and was never
+> isolated** — the EC fan and the many DT/kernel changes over that period are both live
+> candidates.
+>
+> **What protects the CPU right now:** 101 critical trip points and the EC/BIOS-autonomous
+> fan. There is no Linux-side thermal *actuation* — the `cpufreq-cpu0/6/12` cooling devices
+> exist but no zone binds them. That is the next task.
+
+The description below is retained as the record of *why it was harmless until 2026-07-31*.
+
+`glymur-thermal-guard.service` was `active` and polling every 2 seconds. It wrote to:
 
 ```
 /sys/devices/system/cpu/cpufreq/policy*/scaling_max_freq
 ```
 
-That path **does not exist**, because there are no cpufreq policies. The journal shows the
-proof, twice a second, since boot:
+That path **did not exist**, because there were no cpufreq policies. The journal shows the
+proof, twice a second, across every retained boot:
 
 ```
 glymur-thermal-guard.sh[2047]: line 14: /sys/devices/system/cpu/cpufreq/policy*/scaling_max_freq:
                                No such file or directory
 ```
 
-It has never throttled anything. It cannot. It is also filling the journal at 0.5 Hz.
+It never throttled anything. It could not. It was also filling the journal at 0.5 Hz —
+33,048 lines across 62 boots.
+
+In practice this has not bitten us — the fans do spin up, autonomously, from the EC/BIOS
+side (Jesse, 2026-07-30). That is the machine defending itself without Linux, not the guard
+working. The goal remains to bring the fan under kernel control; the guard is dead weight
+either way.
 
 This is the **third** time on this project that one of our own workarounds outlived its
 evidence and then quietly confounded the picture — after `modprobe.blacklist=gpucc_glymur`
@@ -251,6 +370,12 @@ So the fan is entirely autonomous inside the embedded controller, exactly as the
 said. The EC has its own view of temperature and its own curve, and Linux is not part of that
 conversation.
 
+★ **This section is superseded by `docs/fan-ec-interface.md` (2026-07-30).** The EC has been
+found and it answers Linux: I2C bus `/dev/i2c-9` (`a84000` / `QUP_1_SE_1`), **EC at 0x76,
+subdevice at 0x5b**, both ACKing on the live box. The fan-curve command set is decoded. The
+one remaining gap is RPM readback, which needs an SSDT dump we never took. Read that doc,
+not the prose below, before doing fan work.
+
 **Getting into it means finding the EC's interface**, and there is a proven route on this
 project: the **Windows-on-Arm ACPI dump**. The lid switch came from there — TLMM GPIO 92,
 recovered from the WoA DSDT and wired into our DT in test65. The same dump will describe the EC:
@@ -273,17 +398,55 @@ also owns charging and power sequencing on these machines. Read first, and read 
 
 ## 5. Suggested order of work
 
-1. **SCMI RAW probe of the Base protocol** — ask the firmware what it supports. No reboot, and
-   it decides between "fix SCMI" and "go find EPSS". Highest information per minute.
-2. **`arm,max-rx-timeout-ms`** — one DT property, one boot. Cheap enough to just eliminate.
-3. Depending on (1): either chase the CPUCP firmware/boot path, or start the EPSS DT
-   archaeology.
-4. **Once cpufreq exists**, the thermal work is mostly free: `cpufreq-cooling` appears by
-   itself, and the job becomes writing `cooling-maps` in the DT so the 101 zones with trip
-   points can actually reach it.
+1. ~~SCMI RAW probe of the Base protocol~~ — **done 2026-07-30, and it found the root cause.**
+   See §2 bis.
+2. ~~`arm,max-rx-timeout-ms`~~ — **dead.** No reply ever arrives on the interrupt path, at any
+   timeout.
+3. ~~★ **Add `arm,no-completion-irq` to the `scmi` node and boot it.**~~ **DONE — PASSED
+   2026-07-31.** Three performance domains, `scaling_driver = scmi`, doorbell IRQ flat at 0,
+   `cpufreq-cooling` created by itself. Full before/after table and the two benign log-noise
+   lines are in `docs/DTB_CHANGELOG.md`. **This section's root-cause analysis is confirmed
+   correct by experiment.** The remaining cpufreq-adjacent work is now (a) pick a governor —
+   all three come up `performance`, i.e. pinned at max — and (b) write `cooling-maps`, since
+   no thermal zone binds the new `cpufreq-cpuN` cooling devices yet.
+   - **⚠️ `glymur-thermal-guard.service` is no longer a no-op.** See §3 below; it now
+     actually clamps `scaling_max_freq`.
+   - Build/staging record, kept because it is how to rebuild it: the property is in
+     `~/kernel-build/konrad/linux-7.2/arch/arm64/boot/dts/qcom/glymur.dtsi` (backup:
+     `glymur.dtsi.bak-pre-scmipoll`; the isolated hunk is
+     `patches/glymur-scmi-no-completion-irq-EXPERIMENT.patch`). DTB installed as
+     `/boot/glymur/glymur-a16-merged-gpu-scmipoll.dtb`; **a `dtc` diff against the
+     currently-booted `glymur-a16-merged-gpu.dtb` is exactly one added line**, so this
+     really is single-variable. GRUB entry **`SCMI poll test (cpufreq)`** appended to
+     `/boot/grub/grub.cfg` (backup `.bak-pre-scmipoll`) — a byte-for-byte clone of the
+     default `fedora-linux-arm-suspend` entry with only the `devicetree` line changed.
+     `set default` is **unchanged**, so the known-good entry still wins on a timeout and
+     the test entry must be selected by hand.
+   - Verdict script: **`~/glymur-scmi-poll-check.sh`** on loazen. It first confirms
+     `arm,no-completion-irq` is actually in `/proc/device-tree` (i.e. you booted the right
+     entry — `/proc/cmdline` cannot tell you, the entries differ only in the DTB), then
+     reports cpufreq policies, per-policy frequencies, scmi/cpufreq dmesg, the doorbell IRQ
+     count, and the cooling-device list.
+   - Pre-test baseline measured the same day: **0 entries** under
+     `/sys/devices/system/cpu/cpufreq/`, **2 cooling devices** (`ath12k_thermal`,
+     `devfreq-3d00000.gpu`).
+   - If the property alone doesn't take, set `.force_polling = true` in `scmi_mailbox_desc`
+     (`drivers/firmware/arm_scmi/transports/mailbox.c`) and rebuild.
+   - EPSS/OSM archaeology is no longer needed unless both of those fail.
+4. ★ **NEXT: write the `cooling-maps`.** Confirmed 2026-07-31 that `cpufreq-cooling` did
+   appear by itself — `cpufreq-cpu0` (20 states), `cpufreq-cpu6` and `cpufreq-cpu12` (21
+   each). But **no thermal zone binds them**, so there is still no Linux-side actuation.
+   The job is now exactly what this line predicted: `cooling-maps` in the DT wiring those
+   cooling devices to *passive* trips, so the zones with trip points can reach them.
+   Check: `for f in /sys/class/thermal/thermal_zone*/cdev*_type; do cat $f; done | grep -c cpufreq`
+   currently returns `0`.
 5. **Fan** is independent of all of the above and can proceed in parallel — it's a WoA ACPI
    mining task first.
-6. **Delete or fix `glymur-thermal-guard.service`** either way. It is currently noise.
+6. ~~**Delete or fix `glymur-thermal-guard.service`**~~ — **DONE 2026-07-31, deleted.**
+   Stopped, disabled, and both files removed from the machine; kept with the full rationale
+   in `tweaks/retired/`. Its "validated under load" claim was retracted at the same time —
+   see §3. Until the `cooling-maps` land, the CPU is protected only by the 101 critical
+   trips and the EC/BIOS-autonomous fan.
 
 ---
 

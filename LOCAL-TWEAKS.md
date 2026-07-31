@@ -63,13 +63,29 @@ enable unless intentionally disabling on‑SoC audio.
 
 ---
 
-## 3. Keyboard backlight (a16-tweaks.tar.gz)
+## 3. ⛔ Keyboard backlight hidraw hack — RETIRED 2026-07-31. Do not reinstall.
 
-- `/usr/local/bin/asus-kbd-init.py` — finds the ASUS keyboard hidraw (VID:PID `0B05:4B42`),
-  sends the `ASUS Tech.Inc.` init handshake + a backlight FEATURE report to stop the default
-  breathing animation and set a steady level. Keys always worked; this is backlight only.
-- `asus-kbd-init.service` — runs it once at boot.
-- `/usr/lib/systemd/system-sleep/asus-kbd-init` — re‑runs it after resume (backlight resets on wake).
+Superseded by the kernel LED. `hid-asus` now registers a real
+`/sys/class/leds/asus::kbd_backlight` (4 levels) — see
+`patches/glymur-hid-asus-a16-7.2.patch` and `docs/keyboard-and-brightness-status.md`.
+
+**Why it had to go, not just become redundant:** the sleep hook re-ran the script after
+*every* resume and forced a fixed level over raw HID, while `asus_resume()` in hid-asus
+restores the LED's own state on the same wake. Two writers, no defined order, and the sysfs
+LED value ends up disagreeing with the hardware. Leaving it installed would have produced
+exactly the kind of "why is the backlight wrong after suspend" ghost this project keeps
+chasing.
+
+Disabled and moved aside on the machine (`*.retired-2026-07-31`); files kept in
+[`tweaks/retired/`](tweaks/retired/).
+
+What it used to be, for the record:
+
+- `/usr/local/bin/asus-kbd-init.py` — found the ASUS keyboard hidraw (VID:PID `0B05:4B42`),
+  sent the `ASUS Tech.Inc.` init handshake + a backlight FEATURE report to stop the default
+  breathing animation and set a steady level. Keys always worked; this was backlight only.
+- `asus-kbd-init.service` — ran it once at boot.
+- `/usr/lib/systemd/system-sleep/asus-kbd-init` — re-ran it after resume.
 
 ---
 
@@ -95,13 +111,25 @@ Both modules ship in the image (`/lib/modules/7.1.0-glymur-clean+`); this file j
 ---
 
 ## Known-not-working (unchanged by these tweaks)
-- **Thermal shutdowns under load** — DT thermal-zones have only a `critical` trip (~115 °C) and no
-  `cooling-maps`, and the fan isn't Linux-controllable (PMIC PWM blocked by the SPMI probe). Under
-  load the SoC reaches 115 °C and protectively shuts down. Mitigated by the thermal guard (§6); the
-  real fix needs SPMI + DT cooling-maps. (CPU freq scaling itself **works** via SCMI regular
-  messaging — only the perf fast-channel fails; UI slowness is from software rendering, not cpufreq.)
-- **UCSI/PD PPM** — `ucsi_glink … PPM init failed`. Charging‑negotiation gap.
-- **GPU/display** — still software rendering (simpledrm); GPU bring‑up is a separate task.
+
+⚠️ This list was written 2026-07-18 and several entries are now **retired**. Corrected
+2026-07-31; where this disagrees with `docs/hardware-status.md`, that file wins.
+
+- **Thermal `cooling-maps`** — the DT zones had only a `critical` trip (~115 °C). A passive
+  trip at 95 °C plus cooling-maps on all 41 cpu/cpullc zones is **staged but not yet
+  boot-tested** (`glymur-a16-merged-gpu-coolmaps.dtb`, GRUB entry "Thermal cooling-maps
+  test"). Until it passes, the CPU is backstopped only by the critical trips and the
+  EC-autonomous fan.
+- ~~**CPU freq scaling**~~ — **works** since 2026-07-31; the old note here about "SCMI
+  regular messaging" was describing a machine where `scmi-cpufreq` probed `-110` and there
+  were no policies at all. Fixed by one DT property, `arm,no-completion-irq`.
+- ~~**UCSI/PD PPM**~~ — **fixed 2026-07-29** by deleting one DT property. `typec/port0` and
+  `port1` are present and DP alt-mode negotiates on both. Charger detection works over
+  USB-C PD (read `qcom-battmgr-usb`, **not** `qcom-battmgr-ac`, which is a Mains rail this
+  laptop does not have).
+- ~~**GPU/display — software rendering**~~ — **wrong since 2026-07-29.** Native eDP at
+  2880x1800@120 over the real DPU, and the Adreno X2 renders under Mesa turnip.
+- **Camera** — no sensor driver or CCI/CSI wiring; there is no `/dev/video*` at all.
 - **Headphone jack, DP audio** — need codec/DRM work.
 
 ## How to re-capture (if the install changes)
@@ -109,19 +137,44 @@ Re-run the pull from a working A16 (`ssh <user>@<your-A16>`): tar `/lib/firmware
 + regdb into `a16-fw.tar.gz`, and the files in sections 2–5 into `a16-tweaks.tar.gz`, drop both in
 `~/glymur-build/`, and `iso/build-all.sh` picks them up automatically via `addfw()`.
 
-## 6. Thermal guard (interim CPU-freq throttle) — a16-tweaks.tar.gz
-`/usr/local/bin/glymur-thermal-guard.sh` + `glymur-thermal-guard.service` (enabled at boot).
+## 6. ⛔ Thermal guard — REMOVED 2026-07-31. Do not reinstall.
+`/usr/local/bin/glymur-thermal-guard.sh` + `glymur-thermal-guard.service` are **gone** from
+the machine. Both files, and the full rationale, are kept in
+[`tweaks/retired/`](tweaks/retired/).
 
-**Why:** the DT thermal-zones expose only a `critical` trip (~115 C hard shutdown) with **no
-`cooling-maps`**, and the fan is **not controllable from Linux** (no pwmchip / fan hwmon). Under
-heavy load the SoC raced to 115 C and did a protective shutdown — which presents as "random
-crashes." This userspace daemon polls the hottest thermal zone every 2 s and steps
-`scaling_max_freq` down in tiers (perf 2.8 -> 2.0 -> 1.1 GHz, eff 2.2 -> 1.5 -> 0.9 GHz) as temp
-climbs past ~86/94 C, releasing (debounced) below ~76 C. **Validated:** full 18-core load held
-~70 C steady (93 C peak) with no shutdown; without it the machine crashed every ~10-20 min.
+**What it was:** a userspace daemon polling the hottest of all 102 thermal zones every 2 s and
+stepping `scaling_max_freq` down in tiers (perf 2.8 → 2.0 → 1.1 GHz, eff 2.2 → 1.5 → 0.9 GHz)
+past ~86/94 C, releasing below ~76 C. Written when the DT thermal zones exposed only a
+`critical` trip (~115 C hard shutdown), there were no `cooling-maps`, and the fan was not
+controllable from Linux.
 
-**Interim only.** The real fix is DT `cooling-maps` binding `cpufreq-cooling` to *passive* trips
-plus wiring the fan as an active cooling device — see `docs/ROADMAP.md` (SPMI / SCMI / thermal).
+**⚠️ CORRECTION — this section used to claim it was validated.** It said: *"Validated: full
+18-core load held ~70 C steady (93 C peak) with no shutdown; without it the machine crashed
+every ~10-20 min."* **That attribution is wrong, and provably so.**
+
+The guard wrote to `/sys/devices/system/cpu/cpufreq/policy*/scaling_max_freq`, which **did not
+exist** for its entire life, because `scmi-cpufreq` was failing to probe with `-110` and there
+were no cpufreq policies. It could not clamp anything. Measured 2026-07-31 against a
+**persistent journal covering 62 retained boots**: 33,048 log lines from the unit, every one of
+them `/bin/sh: ... No such file or directory` followed by `Failed with result 'exit-code'`, and
+**zero** level-change events in its entire recorded history. It never throttled once.
+
+So whatever stopped the thermal shutdowns, it was not this. The plausible candidates are the
+EC/BIOS-autonomous fan (which does spin up without Linux) and the many DT and kernel changes
+over the same period — but the honest position is that **the cause is unknown and was never
+isolated.** This is the third time on this project that one of our own workarounds was credited
+with a fix it could not have produced; see also `modprobe.blacklist=gpucc_glymur` and
+`efi=noruntime`.
+
+**Why it was removed rather than kept:** the `arm,no-completion-irq` fix on 2026-07-31 brought
+cpufreq up, so `scaling_max_freq` finally existed and the guard became genuinely capable of
+throttling for the first time — with a crude trigger (max over every sensor on the SoC) that
+would now compete with the real governor (`schedutil`). Rather than let an unevaluated bandaid
+start acting, it was retired.
+
+**The real fix, now unblocked:** DT `cooling-maps` binding the `cpufreq-cooling` devices —
+which the kernel creates by itself as of the cpufreq fix — to *passive* trips, plus wiring the
+fan as an active cooling device. See `docs/power-and-thermal.md` and `docs/ROADMAP.md`.
 
 ---
 

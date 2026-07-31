@@ -60,3 +60,12 @@ DTB_CHANGELOG-internal.md
 HANDOFF-*-archived.md
 dtdiff/
 docs/UPSTREAMING-PLAN.md
+
+# Hardware dumps and probe captures are NOT published. ACPI dumps in particular
+# carry MSDM, which holds the OEM Windows licence key in plaintext.
+docs/evidence/
+*.dat
+*msdm*
+
+# Desktop-environment config does not belong in a kernel bring-up repo.
+tweaks/dotfiles/

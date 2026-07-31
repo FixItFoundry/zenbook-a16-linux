@@ -2,13 +2,25 @@
 
 ASUS Zenbook A16 UX3607OA · Snapdragon X2 Elite Extreme ("glymur") · box `loazen`
 
-**Last verified: 2026-07-24.** Every "working" claim below has a reproducible check
+**Last verified: 2026-07-31.** Every "working" claim below has a reproducible check
 next to it. If a claim has no check, treat it as unverified.
 
-Current recommended boot entry: **`fedora-glymur-test65`**
-(kernel `7.1.0-glymur-gdsc1`, DTB `glymur-a16-test65.dtb`).
-Known-good fallbacks, in order: `fedora-glymur-gdsc1` → `fedora-glymur-edp1` →
-`fedora-glymur-clean2`. Never edit those in place.
+Current recommended boot entry: **`Fedora Linux on ARM`** (id `fedora-linux-arm`) — the
+single baseline, kernel `7.2.0-rc3-konrad1-pmskip6`, DTB
+`glymur-a16-merged-gpu-scmipoll.dtb`, cmdline carrying `glymur_pci_skip=5`. It is the one
+entry that has **both** the suspend workaround and the cpufreq fix.
+
+Known-good fallbacks, newest first, all under the *Previous baselines and fallbacks*
+submenu: `fedora-linux-arm-prev-suspend` (suspend, no cpufreq — also the single-variable
+control for the cpufreq change) → `fedora-linux-arm-prev-plain` (neither) →
+`fedora-linux-arm-noruntime` → `fedora-linux-arm-nogpu` → `fedora-linux-arm-legacy`
+(7.1 vendor lineage). Never edit those in place.
+
+Sweep re-run on the live box 2026-07-31 08:4x confirming this header: `uname -r` =
+`7.2.0-rc3-konrad1`, model `ASUS Zenbook A16 (UX3607OA)`, 3 cpufreq policies with
+`scaling_driver=scmi` / `governor=schedutil`, `card1` + `renderD128` with
+`gen80100_sqe.fw` loaded, `typec/port0` + `port1` present, eDP `connected` with
+`dp_aux_backlight`, audio card 0 registered, Wi-Fi `connected`.
 
 ---
 
@@ -18,6 +30,7 @@ Known-good fallbacks, in order: `fedora-glymur-gdsc1` → `fedora-glymur-edp1` �
 |---|---|
 | **eDP panel + backlight** | `cat /sys/class/drm/card1/card1-eDP-1/status` = `connected`; `cat /sys/class/graphics/fb0/name` = `msmdrmfb`; `ls /sys/class/backlight/` = `dp_aux_backlight`. HBR3, 2880x1800@120. `msm` autoloads and binds unattended. |
 | **Wi-Fi 7** | ath12k/QCC2072. Associates at boot. Needs Windows-extracted firmware + regdomain `US`. |
+| **CPU frequency scaling** | ✅ **2026-07-31.** `ls /sys/devices/system/cpu/cpufreq/` = `boost policy0 policy6 policy12`; `cat .../policy0/scaling_driver` = `scmi`. Three SCMI performance domains — cpus 0-5 at 355 MHz–3.61 GHz (20 OPPs), cpus 6-11 and 12-17 at 355 MHz–4.45 GHz (21 OPPs each). Governor `schedutil`, selected by power-profiles-daemon. **Requires the `arm,no-completion-irq` DTB** — verify with `cat /proc/device-tree/firmware/scmi/arm,no-completion-irq`. Root cause and evidence: [`power-and-thermal.md`](power-and-thermal.md), [`../patches/glymur-scmi-no-completion-irq-CONFIRMED.patch`](../patches/glymur-scmi-no-completion-irq-CONFIRMED.patch). |
 | **Keyboard + backlight** | ASUS vendor HID handshake. Steady-on at max via userspace hidraw script — see `keyboard-and-brightness-status.md`. Not dimmable (see below). |
 | **Touchpad / touchscreen / stylus** | `grep Name /proc/bus/input/devices` — `hid-over-i2c 093A:3012`, `04F3:4645`. |
 | **NVMe / RTC / USB** | Root on `nvme0n1p17`. USB buses `usb1`..`usb7`. |
@@ -32,10 +45,12 @@ Known-good fallbacks, in order: `fedora-glymur-gdsc1` → `fedora-glymur-edp1` �
 
 | Thing | State |
 |---|---|
-| **GPU / Adreno X2 rendering** | gpucc clock controller confirmed; GPU itself not brought up. Gap is device tree (gpu/gmu/adreno_smmu nodes), **not** drivers — a8xx + firmware are already present. Do NOT start a gpucc decompile. |
-| **cpufreq scaling** | `scmi-cpufreq -110`, cores pinned at boot clock. Bandaid: `glymur-thermal-guard.service` polls every 2s and steps `scaling_max_freq`. No DT thermal zone; only trip point is 115C critical. |
-| **UCSI / USB-C PD** | `ucsi_glink ... PPM init failed, stop trying`. No PD or altmode negotiation. Suspected cause of the USB-C hub/NIC issue, and a hard prerequisite for USB4. |
-| **AC / charger detection** | ⚠️ **New 2026-07-24.** With the charger physically plugged in, `qcom-battmgr-ac/online` = `0` and `power_now` is negative (discharging). Likely tied to the UCSI/PD failure. Needs investigation. |
+| ~~**GPU / Adreno X2 rendering**~~ | **MOVED TO WORKING 2026-07-29** — `adreno` binds, GMU firmware loads, turnip enumerates the device. Re-verified 2026-07-31: `/sys/class/drm/` has `card1` + `renderD128` and `gen80100_sqe.fw` loads. The blocker was our own stale `modprobe.blacklist=gpucc_glymur`, not a missing driver. |
+| ~~**cpufreq scaling**~~ | **MOVED TO WORKING 2026-07-31** — see the Working table. |
+| **Fan RPM readback** | ✅ **2026-07-31.** `/usr/local/bin/glymur-ec-read.sh rpm`. Reads the EC at `0x76` on `i2c-9` with the DSDT's `RECM` command (`0x52`, raw I2C, **no SMBus count byte**), combining `0x0603<<8 | 0x0602` exactly as `\_SB.FAN0.GCFR` does. Validated against load: 2340 RPM @ 44 C idle → 2940 RPM @ 73 C with all 18 cores busy → back to 2340. ⚠️ The old "blocked on an SSDT re-dump" claim is **retracted** — `FAN1` is external and unused; `FAN0` was in the DSDT all along. |
+| **Thermal `cooling-maps`** | ⚠️ **New gap, exposed by the cpufreq fix.** The kernel now creates `cpufreq-cpu0`, `cpufreq-cpu6` and `cpufreq-cpu12` cooling devices, but **no thermal zone binds them**, so Linux has cooling *capability* and no cooling *actuation*. Verify: `for f in /sys/class/thermal/thermal_zone*/cdev*_type; do cat $f; done \| grep -c cpufreq` returns `0`. What protects the machine meanwhile: 101 critical trip points, and the EC/BIOS-autonomous fan. Writing the `cooling-maps` is the next thermal task. |
+| ~~**UCSI / USB-C PD**~~ | ✅ **MOVED TO WORKING 2026-07-29** — fixed by deleting one DT property; see `usb-c-ucsi-dp-altmode.md`. Re-verified 2026-07-31: `/sys/class/typec/port0` and `port1` present, DP alt-mode negotiates on both ports, and charging is reported through `ucsi-source-psy-*`. The old `PPM init failed` symptom is gone. |
+| ~~**AC / charger detection**~~ | ✅ **NOT BROKEN — retracted 2026-07-31.** It was genuinely broken on 2026-07-24, then **fixed as a side effect of the UCSI fix on 07-29**, and nobody re-checked. Verified live while plugging in: `qcom-battmgr-usb/online` = `1`, `ucsi-source-psy-…ucsi.02/online` = `1`, battery `status=Charging` with `energy_now` climbing at ~35 W, and `upower -d` reporting `on-battery: no`. **`qcom-battmgr-ac/online` = 0 is correct**: its `type` is `Mains`, a dedicated AC/barrel-jack rail this laptop does not have — it charges over USB-C PD. Do not read `qcom-battmgr-ac` and conclude "no charger". |
 | **USB4 / Thunderbolt** | Three USB4 controllers exist in silicon (`gcc_usb4_{0,1,2}_gdsc`), but no host-router/NHI node in DT — and none in `hamoa.dtsi` either, so upstream has nothing to copy. Blocked behind UCSI. ⚠️ `usb usb4:` in dmesg is **USB bus 4**, a plain xHCI root hub — not USB4. |
 | **Suspend / resume** | ⚠️ **WORKING on a workaround, 2026-07-30.** Lid close sleeps, lid open wakes; 3/3 cycles. Stock it hard-resets the SoC. Cause: PCI config-space access during `dpm_suspend_noirq()`; reproduces on the **upstream** A16 DT. Needs the `fedora-linux-arm-suspend` GRUB entry. Saves less power than a correct suspend — a real fix needs a firmware revision. See the Suspend section. |
 | ~~**Lid switch**~~ | **MOVED TO WORKING 2026-07-24** — test65 added it on TLMM 92; verified `EV_SW`/`SW_LID` registered and `logind` reading it. See the lid section. |

@@ -976,3 +976,63 @@ written to the console and then followed by a **clean reboot** did not survive e
 region is genuine, correctly reserved System RAM; the firmware simply does not preserve DRAM
 across a reset. That closes ramoops on this hardware for good, and explains every empty pstore
 in this file.
+
+---
+
+## `glymur-a16-merged-gpu-scmipoll.dtb` — 2026-07-31, staged, UNBOOTED
+
+`glymur-a16-merged-gpu.dtb` + **exactly one property**: `arm,no-completion-irq` on the
+`scmi` node in `glymur.dtsi`. Verified single-variable by decompiling both DTBs with
+`dtc -I dtb -O dts` and diffing — the entire delta is one added line.
+
+**Why:** the PDP0/CPUCP firmware answers SCMI protocol 0x13 (Performance) in shmem but
+never rings the mailbox doorbell for it, so every perf transfer times out and
+`scmi-cpufreq` probes `-110`. This documented upstream boolean makes the SCMI core poll
+every transfer instead of waiting for the interrupt. Full reasoning and the SCMI RAW
+measurements are in `docs/power-and-thermal.md` §2 bis and
+`patches/glymur-scmi-no-completion-irq-EXPERIMENT.patch`.
+
+**GRUB entry:** `SCMI poll test (cpufreq)` — a clone of the default
+`fedora-linux-arm-suspend` entry with only the `devicetree` line changed. `set default` is
+untouched; the known-good entry still wins on timeout.
+
+**PASS looks like:** `/sys/devices/system/cpu/cpufreq/` non-empty, three performance
+domains, and `cpufreq-cooling` devices appearing on their own. **Baseline before the test:
+0 cpufreq entries, 2 cooling devices.** Verdict script: `~/glymur-scmi-poll-check.sh`.
+
+**Result: ★ PASS — booted 2026-07-31 08:03. cpufreq is alive on the Zenbook A16.**
+
+| | before | after |
+|---|---|---|
+| cpufreq policies | 0 | **3** — `policy0` cpus 0–5 max 3609600, `policy6` cpus 6–11 and `policy12` cpus 12–17 max 4454400 |
+| `scaling_driver` | — | `scmi` |
+| OPPs per policy | — | 20 / 21 / 21, floor 355200 |
+| cooling devices | 2 | **5** — `cpufreq-cpu0` (20 states), `cpufreq-cpu6`, `cpufreq-cpu12` (21 each) |
+| `apss_cpucp_mbox` IRQ | rising | **0 on every CPU** |
+
+Three domains is exactly what `0x13/0x1 PROTOCOL_ATTRIBUTES` predicted (`0x00020003`).
+`Enabled polling mode TX channel` appears in dmesg and the doorbell is now entirely unused,
+which confirms the mechanism rather than just the outcome. Jesse also reports **shutdown is
+visibly cleaner** on this DTB.
+
+**Benign log noise — do not read these as failures:**
+
+- `Failed to query supported version for protocol 0x13` / `Trying version 0x40000` — the
+  firmware does not implement `0x13/0x0 PROTOCOL_VERSION` and returns -4 NOT_FOUND. Already
+  measured 2026-07-30 in polling mode; predates this change. The kernel falls back and
+  proceeds off `PROTOCOL_ATTRIBUTES`.
+- `Failed to get FC for protocol 13 ... Using regular messaging` — Fast Channels are an
+  optional shared-memory shortcut for perf level set/get. This firmware does not offer them.
+  Functionally complete, just not the fast path.
+
+**Two consequences that are now live:**
+
+1. All three governors come up as **`performance`** — `scaling_max == cpuinfo_max`, so the
+   capability exists but nothing scales down yet. `schedutil` is available; runtime change.
+2. **`glymur-thermal-guard.service` is armed for the first time.** It writes
+   `scaling_max_freq`, which finally exists, and now logs no errors. It is a 2 s poll
+   clamping in 4 steps off the hottest of all 102 zones (up at 86 °C / 94 °C, down after 4
+   samples under 76 °C). It will genuinely throttle now — decide whether to mask it.
+
+**Still to do:** no thermal zone binds a `cpufreq-cpuN` cooling device yet. The cooling
+devices exist but nothing actuates them — that is the `cooling-maps` DT work, now unblocked.

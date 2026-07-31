@@ -1,0 +1,66 @@
+Subject: [EXPERIMENT] arm64: dts: qcom: glymur: poll SCMI instead of waiting for the doorbell
+
+The PDP0/CPUCP firmware on the Snapdragon X2 Elite Extreme processes SCMI
+protocol 0x13 (Performance) messages and writes correct replies into the SCMI
+shmem, but never rings the mailbox doorbell for them. The kernel waits on an
+interrupt that never arrives, every perf transfer hits -ETIMEDOUT, and
+scmi-cpufreq probes -110. Cores stay pinned at boot clock and, because
+cpufreq-cooling is created by the cpufreq driver, the machine ends up with no
+CPU cooling device at all.
+
+Measured 2026-07-30 on an ASUS Zenbook A16 (UX3607OA) by sending the same
+messages both ways through SCMI RAW -- raw/message (interrupt) versus
+raw/message_poll (polling, which reads the shmem status directly and bypasses
+the doorbell):
+
+  message                             poll mode        interrupt mode  doorbell
+  0x10/0x1 BASE_PROTOCOL_ATTRIBUTES   status 0         status 0        +1
+  0x13/0x0 PERF PROTOCOL_VERSION      answers, -4      hangs forever   +0
+  0x13/0x1 PERF PROTOCOL_ATTRIBUTES   status 0         hangs forever   +0
+
+Doorbell accounting is unambiguous: 8 messages sent in interrupt mode took
+IRQ 156 from 9 to 16 -- one per reply, zero for the 0x13 messages.
+
+The perf protocol itself is healthy: 0x13/0x1 returns status 0 with attributes
+0x00020003, i.e. three performance domains, power in mW. This is a signalling
+bug only, not a SKU without DVFS -- BASE_DISCOVER_LIST_PROTOCOLS explicitly
+advertises 0x13.
+
+arm,no-completion-irq is a documented upstream boolean on the arm,scmi node
+(Documentation/devicetree/bindings/firmware/arm,scmi.yaml), consumed in
+drivers/firmware/arm_scmi/driver.c. It sets cinfo->no_completion_irq, which
+makes is_polling_enabled() true, which makes the core poll every transfer.
+The mailbox transport already advertises .poll_done = mailbox_poll_done, and
+polling is empirically proven to work on this box for both 0x10 and 0x13.
+
+Status: ★ BOOT-TESTED AND PASSED 2026-07-31. Three performance domains came up,
+scaling_driver = scmi, the apss_cpucp_mbox doorbell IRQ stayed flat at 0 on every CPU,
+and cpufreq-cooling devices were created without further changes. Built and staged as
+/boot/glymur/glymur-a16-merged-gpu-scmipoll.dtb; a dtc diff against the
+currently-booted DTB is exactly this one added line.
+
+If the property alone is not enough, the C-side equivalent is
+.force_polling = true in scmi_mailbox_desc
+(drivers/firmware/arm_scmi/transports/mailbox.c), which is currently unset.
+
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -412,6 +412,18 @@
+ 			mbox-names = "tx", "rx";
+ 			shmem = <&cpu_scp_lpri1>, <&cpu_scp_lpri0>;
+
++			/*
++			 * The PDP0/CPUCP firmware writes correct replies for
++			 * protocol 0x13 (Performance) into the shmem but never
++			 * rings the mailbox doorbell for them, so every perf
++			 * transfer times out and scmi-cpufreq probes -110.
++			 * Measured 2026-07-30 via SCMI RAW: 0x13/0x1 returns
++			 * status 0 (3 perf domains) in polling mode and hangs
++			 * forever in interrupt mode, with zero doorbell IRQs.
++			 * Poll every transfer instead of waiting for the IRQ.
++			 */
++			arm,no-completion-irq;
++
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+

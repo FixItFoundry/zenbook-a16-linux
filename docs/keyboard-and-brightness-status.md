@@ -1,3 +1,61 @@
+> ## ★★★ SOLVED 2026-07-31 — `asus::kbd_backlight` exists and dims
+>
+> `/sys/class/leds/asus::kbd_backlight`, `max_brightness = 3`, four levels.
+> Patch: [`../patches/glymur-hid-asus-a16-7.2.patch`](../patches/glymur-hid-asus-a16-7.2.patch).
+> Persistent — the initramfs was rebuilt and the srcversion inside it matches on-disk.
+>
+> ### ⚠️ §2.4's "candidate fix" was wrong, and §2.2's diagnosis was only half right
+>
+> Adding `QUIRK_USE_KBD_BACKLIGHT` **is** necessary — without it `asus_kbd_register_leds()`
+> is never called. But it is **not sufficient**, and the doc's claim that it "should register
+> `asus::kbd_backlight` ... at which point UPower/KDE picks up the Fn keys with no further
+> work" is **false on 7.2**. Two further things were needed.
+>
+> **(a) hid-asus no longer registers the LED at all.** Since the LED rework there is no
+> `led_classdev_register` anywhere in `hid-asus.c`. The driver registers a *listener* and
+> **asus-wmi owns the class device**. On a device-tree boot there is no ACPI, so no asus-wmi,
+> so `asus_hid_register_listener()` returns `-ENODEV` and no LED can ever appear. The patch
+> registers a `led_classdev` in that case and drives it through the existing
+> `asus_kbd_backlight_work()`.
+>
+> **(b) ★ A real driver bug: `asus_kbd_get_functions()` sends a short feature report.**
+> It sends 6 bytes; this keyboard silently ignores feature reports shorter than the declared
+> report size. The command never lands, so the follow-up `GET_REPORT` returns the *handshake
+> echo* left by `asus_kbd_init()`:
+>
+> ```
+> raw: 5a 41 53 55 53 20 54 65 63 68 2e 49
+>      5a  A  S  U  S     T  e  c  h  .  I
+> ```
+>
+> `readbuf[6]` is `0x54` — the `'T'` of "Tech" — so `kbd_func` reads `0x54`,
+> `SUPPORT_KBD_BACKLIGHT` (BIT 0) is clear, and the driver decides the keyboard has no
+> backlight. Padding the command to `FEATURE_KBD_REPORT_SIZE` fixes it:
+>
+> ```
+> raw: 5a 05 20 31 00 08 01 61 c1     kbd_func=0x01
+> ```
+>
+> **This is not A16-specific and is worth reporting upstream.**
+>
+> How it was isolated, in case the same shape recurs: the identical query sent from userspace
+> as a **64-byte** `HIDIOCSFEATURE` returned `0x01`, while the kernel's 6-byte form returned
+> the stale handshake. Timing was ruled out explicitly — `msleep` before *and* after the
+> command changed nothing. Only the length mattered.
+>
+> ### Also enabled: `QUIRK_HID_FN_LOCK`
+>
+> `asus_kbd_set_fn_lock()` (`{0x5a, 0xd0, 0x4e, enabled}`) already existed in the driver and
+> is toggled from `KEY_FN_ESC` in `asus_event()`, gated on `QUIRK_HID_FN_LOCK`. Our entry
+> lacked the bit, so Fn+Esc did nothing. Added. **Not yet confirmed by keypress.**
+>
+> ### Unrelated but worth knowing: the mute/camera LEDs already exist
+>
+> `orange:micmute`, `orange:indicator` and `white:indicator` are **platform LEDs from the
+> device tree** (`/sys/devices/platform/leds/`), nothing to do with hid-asus. All
+> `max_brightness = 1`, `trigger = none`. They are present but unwired — attaching triggers
+> is a userspace/DT job, not a driver one.
+
 # Keyboard backlight & brightness controls — what works, what doesn't
 
 **Document date:** 2026-07-24
