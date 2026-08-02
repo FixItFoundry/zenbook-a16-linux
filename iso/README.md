@@ -49,9 +49,24 @@ guard) are applied by its `addfw()` step.
 Source notes:
 - **Manjaro (Arch):** Arch has no aarch64 desktop ISO, so we reuse the **Manjaro ARM KDE** image —
   the cleanest path to a working Arch-family desktop. (CachyOS is x86-only; don't use it.)
-- **Fedora:** Fedora 44's Live root is an **EROFS with LZMA** that x86 WSL tooling can't read; we
-  extract it natively on the A16 (its kernel has `CONFIG_EROFS_FS_ZIP_LZMA`) and feed the rootfs
-  back to the imager.
+- **Fedora:** Fedora 44's Live root is an **EROFS with LZMA** — note the file is still *named*
+  `LiveOS/squashfs.img`, so `unsquashfs` fails on it with "can't find a valid SQUASHFS
+  superblock". Use `erofs-utils`.
+
+  ⚠️ **Corrected 2026-08-02: the old claim that x86 tooling can't read it is obsolete.**
+  `erofs-utils` 1.9.2 on x86_64 Fedora 44 lists `lzma` among its decompressors and extracts it
+  fine. Extracting natively on the A16 is no longer necessary.
+
+  ⛔ **`--path=/` is REQUIRED when extracting.** Without it, `fsck.erofs --extract=DIR` silently
+  writes the *packed inode* as a single ~4.6 GB file instead of a directory tree, and reports
+  success. Correct form:
+
+  ```sh
+  fsck.erofs --extract=<dir> --path=/ --preserve LiveOS/squashfs.img
+  ```
+
+  Extract and repack inside `unshare -r` — `--preserve` restores root ownership, and without a
+  user namespace you cannot then delete or modify the tree unprivileged.
 - **Ubuntu:** the casper `minimal` + desktop squashfs layers.
 
 ## Building from source (optional)
