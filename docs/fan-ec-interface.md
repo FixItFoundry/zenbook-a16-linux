@@ -1,3 +1,134 @@
+> ## ★★★ 2026-07-31 (later) — THE FAN COMMAND MAP IS COMPLETE, AND IT IS GATED
+>
+> The whole three-layer protocol is now derived from the AML and the byte layer is
+> **proven on hardware**. What is *not* working is the EC's block-command engine: it
+> accepts every register write and executes nothing. The missing piece is an enable
+> handshake that Windows performs once at boot. Reproduce everything below with
+> `scripts/ec/glymur-ec-block.sh`.
+>
+> ### Layer 1 — byte ops live on I2C address `0x5b`, NOT `0x76`
+>
+> This is the surprise. The RPM reader uses `0x76` (the `UMPC` connection). The byte-level
+> `ECRB`/`ECWB` primitives that everything else is built on use a *different* slave:
+>
+> ```asl
+> OperationRegion (DV5B, GenericSerialBus, Zero, 0x0100)
+> Field (DV5B, BufferAcc, NoLock, Preserve) {
+>     Connection (SL5B),                              // I2cSerialBusV2 (0x005B, ...)
+>     Offset (0x10), AccessAs (BufferAcc, AttribBytes (0x02)), FC10, 8,
+>                    AccessAs (BufferAcc, AttribBytes (0x01)), FC11, 8
+> }
+> ```
+>
+> The same rule as command `0x52` applies — **the OperationRegion offset IS the command
+> byte, and there is no SMBus count byte.** `C10G` = `{status, len, dev, reg, 0, 0}`, so
+> only `{dev, reg}` go on the wire:
+>
+> ```
+> ECRB(dev,reg)      w3@0x5b 0x10 <dev> <reg>      then  w1@0x5b 0x11 / r1@0x5b
+> ECWB(dev,reg,val)  w3@0x5b 0x10 <dev> <reg>      then  w2@0x5b 0x11 <val>
+> ```
+>
+> ✅ **Verified on hardware 2026-07-31.** `ECRB(0xC9, 0x6F)` returned `0x00`, and every
+> byte written to `0xC9` read back unchanged. The framing is correct.
+>
+> ⚠️ **`0x00` does NOT prove a device exists.** Control run: `ECRB(0xC0, 0x30)` — a device
+> selector with nothing behind it — also returns `0x00`. The read path answers `0x00` for
+> anything it does not know. **The only positive proof of existence is a write that reads
+> back**, which is how `0xC9` was confirmed and why `0xC4` below remains unconfirmed.
+>
+> ### Layer 2 — the block engine on EC-internal device `0xC9`
+>
+> `0x6F` = control/status, `0x6E` = command, `0x40`–`0x6F` = 48-byte data window.
+>
+> | | sequence |
+> |---|---|
+> | `WEBC(cmd,len,buf)` | poll `0x6F` until `0`; write `buf[i]` → `0x40+i`; `0x6F = 0x80`; `0x6E = cmd` |
+> | `REBC(cmd,len)` | poll `0x6F` until `0`; `0x6F = 0x20`; `0x6E = cmd`; poll `0x6F` until bit `0x80`; read `0x40+i`; ack with `0x6F \|= 0x40` |
+>
+> So `0x80` = write pending, `0x20` = read pending, `0x40` = host done/abort.
+>
+> ### Layer 3 — the fan methods, and the selector byte
+>
+> ```
+> GDFC(sel) = WEBC(0x20, 1, {sel}) + REBC(0x21, 16)    read default curve
+> GFLB(sel) = WEBC(0x20, 1, {sel}) + REBC(0x24, 8)     read limits
+> SUFC(sel) = WEBC(0x20, 1, {sel}) + WEBC(0x22, 16, curve)   WRITE user curve
+> ```
+>
+> **`sel` is not a fan index.** The `_DSM` dispatch (`IIA0` = `0x00110024`/`25`/`32` and
+> `0x00110026`/`27`/`33`) shows a bitfield:
+>
+> ```
+> sel = op_class | (group << 2) | index
+>
+>   0x80 0x81 0x82 | 0x84 0x85 0x86 | 0x88 0x89 0x8A    GDFC — 3 groups x 3 curve slots
+>   0x20           | 0x24           | 0x28              GFLB — 3 groups
+>   0x40           | 0x44           | 0x48              SUFC — 3 groups
+> ```
+>
+> That is **nine default curves and three limit blocks** to read, not one. The old doc's
+> "0x20 = select fan (1-byte index)" was right about the mechanism and wrong about the
+> payload.
+>
+> ### ⛔ The gate — the EC accepts writes and executes nothing
+>
+> Ran `GFLB(0x20)` (select group 0, read 8-byte limits). All three writes landed and stuck:
+>
+> ```
+> 0xC9[0x40] = 0x20     <- our selector, in the data window
+> 0xC9[0x6E] = 0x20     <- our command
+> 0xC9[0x6F] = 0x80     <- our control write, still 0x80 five seconds later
+> ```
+>
+> `0x6F` never self-clears, so `REBC` can never start. Writing the sanctioned abort
+> (`0x6F |= 0x40` → `0xC0`) did not clear it either — **the EC is not running the block
+> state machine at all.** From our side `0xC9` behaves as plain RAM.
+>
+> **The prime suspect is an enable handshake we are skipping.** `ECWB` is inert in AML until
+> `ECRD == 1`, and `ECRD` is set in exactly one place — `\_SB.IC10._DSM` — which
+> simultaneously issues:
+>
+> ```asl
+> \_SB.IC10.ECCW (0x02, 0x83, One)      // mailbox on EC-internal device 0xC4
+> ECRD = One
+> ```
+>
+> `ECCW(a,b,c)` is a mailbox on device **`0xC4`**: poll `0x30` until `0`, write `0x31 = b`,
+> `0x32 = c`, then ring `0x30 = a`, then poll `0x30` back to `0`. `ECCR` is the read mirror.
+> Other call sites use `arg0` ∈ {`0x01`, `0x02`} with feature indices `0x81`/`0x83`/`0x84`/
+> `0x87`, so **`arg0` is a bank selector, not read-vs-write.**
+>
+> ⇒ **Windows announces itself to the EC before it ever touches the fan block.** Until we do
+> the same, every block command is ignored.
+>
+> ### ⏭️ The one remaining step, and why it was not taken
+>
+> `ECCW(0x02, 0x83, 1)` — three byte-writes to `0xC4`. It is the documented prerequisite and
+> almost certainly unblocks all nine curves and three limit blocks at once.
+>
+> **It was not run, deliberately.** Setting EC feature `0x83` plausibly means *"an OS driver
+> is present"*, which on ASUS hardware is exactly the flag that hands fan and thermal policy
+> from EC-autonomous to host-driven. On this machine the fan is currently the **only** active
+> thermal actuator. If the flag makes the EC stop managing the fan and nothing on the Linux
+> side takes over, the laptop is left with critical trips and no cooling response.
+> **Jesse's standing instruction is to ask before any EC write; this is the write that
+> warrants it most.**
+>
+> Mitigation if it is attempted: do it with a shell already open, read RPM immediately
+> before and at +5 s / +30 s / +60 s, and have `ECCW(0x02, 0x83, 0)` ready to reverse it.
+>
+> ### State left on the machine
+>
+> `0xC9[0x6E] = 0x20`, `0xC9[0x6F] = 0xC0`, `0xC9[0x40] = 0x20`. Benign — there is no live
+> engine to act on them, fan RPM read `2340` unchanged throughout, and `dmesg` showed **zero**
+> `GPI transfer failed` across ~90 I2C transactions. Cleared by an EC reset or a power cycle.
+>
+> ⚠️ Two-transaction framing was used throughout and the GENI/GPI path stayed clean. The
+> repeated-start ban still stands — that is what this run avoided.
+>
+> ---
+>
 > ## ★★★ SOLVED 2026-07-31 — fan RPM works. No SSDT was ever needed.
 >
 > **Read it with:** `/usr/local/bin/glymur-ec-read.sh rpm`

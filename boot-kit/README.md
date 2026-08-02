@@ -27,6 +27,37 @@ kernel onto the Zenbook A16.
 ## GRUB
 `grub.cfg.laptop.example` is a sanitized sample of the on-box GRUB config.
 
+★★ **CHANGED 2026-07-31 — `/boot/grub/grub.cfg` is GENERATED now, not hand-written.**
+`/etc/grub.d/40_custom` is the source of truth (sanitized sample: `40_custom.laptop.example`).
+Edit that, then `sudo grub2-mkconfig -o /boot/grub/grub.cfg`. Hand-patching `grub.cfg`
+no longer survives — the next mkconfig discards it. Default is `GRUB_DEFAULT` in
+`/etc/default/grub`.
+
+Two things that will silently ruin a regeneration:
+
+- **`insmod fdt` must be emitted at top level from `40_custom`.** Fedora's `00_header` does
+  not load it, and without it every `devicetree` line fails *silently* — the machine boots
+  on the firmware DT instead of ours, which looks like a device-tree regression.
+- **`grub2-mkconfig` executes EVERY executable file in `/etc/grub.d/`, whatever it is
+  named.** Three `40_custom.bak-*` files were sitting there executable on 2026-07-31 and
+  would have injected 14 stale entries carrying retired tokens *and duplicate `--id`
+  values*, which makes `set default` ambiguous. They now live in `/root/grub.d-retired/`.
+  **Never leave a backup of a grub.d script inside `/etc/grub.d/`.**
+
+- **`/etc/grub.d/30_uefi-firmware` is disabled (`chmod -x`).** Left enabled it emits a
+  "UEFI Firmware Settings" entry that renders *above* the baseline, because `30_*` runs
+  before `40_custom`. Harmless to booting (`set default` matches by id, not index) but it
+  puts Fedora boilerplate at the top of the menu. Firmware setup is still reachable with
+  `systemctl reboot --firmware-setup`.
+- **`08_fallback_counting` emits `set default=1` on a failed-boot countdown.** Inert here —
+  it is guarded by `boot_counter`, which only OSTree systems set — but if it ever fired,
+  index 1 is `Windows Boot Manager`.
+
+Same trap, different directory: a stale `hid-asus.ko.bak-pre-kbdbl` is sitting in
+`/lib/modules/7.2.0-rc3-konrad1/kernel/drivers/hid/` and dracut copies it into every
+initrd. Harmless today (`depmod` will not index it) but it is the same pattern — keep
+backups out of directories that get scanned.
+
 **Rules that bit us (don't skip):**
 - **Required boot cmdline** — every `dt-*` entry needs the full working `dt-clean` arg set:
   ```
@@ -38,6 +69,30 @@ kernel onto the Zenbook A16.
   The load-bearing ones: **`modprobe.blacklist=msm`** (the display driver kills Wi-Fi on this
   older 7.1-era baseline) and the **`systemd.mask=dev-tpm*.device`** masks (skip a ~90 s
   TPM-probe boot stall).
+
+  ★★ **UPDATED 2026-07-31 — the block above is the 7.1-era set and is NOT the current
+  cmdline.** Three tokens in it were retired after an audit; the current baseline is:
+
+  ```
+  root=UUID=<your-root> rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0
+  ignore_loglevel rd.timeout=60 panic=10
+  systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device glymur_pci_skip=5
+  ```
+
+  | retired | why |
+  |---|---|
+  | `softlockup_panic=1` | added early to diagnose kernels that would not boot. Long obsolete — and it turned any stall into an automatic reboot, indistinguishable from the external SoC reset that was hunted for weeks. |
+  | `arm64.nopauth` | obsolete; no recorded justification ever existed for it. |
+  | `kvm-arm.mode=protected` | genuinely needed during eDP testing; the konrad1 tree fixed the underlying issue. |
+
+  ⚠️ **`arm64.nopauth` and `kvm-arm.mode=protected` are still carried on the `legacy 7.1`
+  recovery entry**, which predates konrad1 and therefore does not contain the fix.
+  ⚠️ **The TPM masks are NOT optional** — they are the ~90 s boot stall above. They were
+  briefly mislabelled "benign" during the 07-31 audit; Jesse caught it. Keep them.
+  ⏭️ **Still unjustified and worth a single-variable retest:** `clk_ignore_unused` and
+  `pd_ignore_unused`. They mask missing clock/genpd references in our DT — the exact bug
+  class this tree keeps finding — and they already invalidated one experiment (the
+  2026-07-27 gcc `state_synced` write was a silent no-op because of them).
 
   ⚠️ **`efi=noruntime` above is historical.** It was retired on 2026-07-30: the
   "a missing one warm-resets early on this firmware" claim was never reproducible on a

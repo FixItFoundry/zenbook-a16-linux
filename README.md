@@ -65,10 +65,43 @@ laptop built on the **Qualcomm Snapdragon X2 Elite Extreme**, SoC codename **gly
 >
 > Suspend and cpufreq now ship in **one** baseline GRUB entry.
 >
-> Remaining gaps: **USB4** (binding is an unmerged upstream RFC), **camera**, thermal
-> `cooling-maps` (the cooling devices exist but no zone actuates them yet), and no
+> Remaining gaps: **USB4** (binding is an unmerged upstream RFC), **camera**, and no
 > sustained GPU stress testing yet. **Suspend works** (2026-07-30) but on a workaround that
 > needs a firmware revision to become a real fix — see below.
+>
+> ## ✅ 2026-07-31 (later) — thermal `cooling-maps` were never actually broken
+>
+> This section used to list `cooling-maps` as an open gap: *"the cooling devices exist but
+> no zone actuates them."* **That finding was an artefact of a broken check.** Both this
+> repo and the on-box verifier counted `/sys/class/thermal/thermal_zone*/cdev*_type` — an
+> attribute that **does not exist on this kernel.** A bound zone exposes `cdev0` (a
+> symlink), `cdev0_trip_point` and `cdev0_weight`, and no `cdev0_type`, so the check
+> returned `0` whether the maps were bound or not.
+>
+> Measured with a working check: **41 of 41 `cpu*`/`cpullc*` zones are bound** to
+> `cpufreq-cpu0/6/12`, plus 14 GPU zones bound to `devfreq-3d00000.gpu`. Actuation
+> confirmed without any load, via thermal emulation:
+>
+> ```
+> emul_temp  96000 -> cooling_device0 cur_state 1     (passive trip is 95 C)
+> emul_temp 104000 -> cur_state 2
+> emul_temp 112000 -> cur_state 3
+> emul_temp      0 -> cur_state 0
+> ```
+>
+> ⛔ **Never write `emul_temp` at or above the critical trip (115000).** The thermal core
+> calls `hw_protection_shutdown` and powers the machine off on the spot. That was learned
+> the expensive way.
+>
+> **This is the fourth time on this project that our own tooling — not the hardware —
+> produced a negative result**, after `modprobe.blacklist=gpucc_glymur`, `efi=noruntime`
+> and the thermal guard. The pattern is consistent enough to be a rule: *before believing a
+> negative, prove the instrument can report a positive.*
+>
+> Also on 2026-07-31: a **boot-argument audit** retired `softlockup_panic=1`,
+> `arm64.nopauth` and `kvm-arm.mode=protected`, and `/boot/grub/grub.cfg` became a
+> *generated* file with `/etc/grub.d/40_custom` as its source — see
+> [`boot-kit/README.md`](boot-kit/README.md).
 
  **I'm publishing this repo to ask for the community's help.**  I've been tinkering with
  Linux and OSX (Hackintoshes) for almost two decades, and I wanted to test out some frontier
@@ -164,10 +197,11 @@ USB-C DP alt-mode, but no GPU. `test55` was the original `simple-framebuffer` ba
 
 ⚠️ **Correction (2026-07-30, later the same day):** do not treat "this firmware does not support EFI variable services" as settled. Two archived `efi_pstore` crash dumps prove variable services **worked** on this same machine and firmware under 7.1 kernels. The `EFI_UNSUPPORTED` result above is real but is specific to our 7.2-rc3 build, and the cause is **unresolved**. See [`docs/crash-evidence.md`](docs/crash-evidence.md).
 - **USB4 / Thunderbolt** — no host-router/NHI node exists in any in-tree qcom device tree, and `drivers/thunderbolt` has no Qualcomm support. The binding is an unmerged upstream **RFC**. The Type-C half of the pipeline (UCSI → typec_mux → QMP PHY) now works; only the host router is missing. See [`docs/usb-c-ucsi-dp-altmode.md`](docs/usb-c-ucsi-dp-altmode.md).
-- **Thermal `cooling-maps`** — as of the cpufreq fix the kernel creates `cpufreq-cpu0/6/12`
-  cooling devices, but **no thermal zone binds them yet**, so there is no Linux-side CPU
-  thermal *actuation*. The fan is EC/BIOS-autonomous and the 101 critical trips still
-  backstop the hardware; writing the `cooling-maps` is the next thermal task.
+- ~~**Thermal `cooling-maps`**~~ — ✅ **RESOLVED 2026-07-31, and it was never broken.** All
+  41 `cpu*`/`cpullc*` zones bind `cpufreq-cpu0/6/12` and step correctly across the 95 °C
+  passive trip. The "no thermal zone binds them" claim came from a check that counted a
+  sysfs attribute (`cdev*_type`) which does not exist on this kernel, so it could only ever
+  report zero. See the 2026-07-31 note near the top of this file.
 - **Fn hotkeys** — Some Fn keys aren't wired, but as of 7-24 update, we just need Fn Lock, KB Brightness, Microphone Mute (just the LED on KB), Camera, and the two ASUS buttons.  Asus Buttons do map though. 
 - **Camera** — no sensor driver / CCI-CSI device-tree wiring yet.
 - **Dimmable keyboard backlight** — no `asus::kbd_backlight` LED; the A16 entry lacks `QUIRK_USE_KBD_BACKLIGHT`.

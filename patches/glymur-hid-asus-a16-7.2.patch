@@ -347,7 +347,7 @@ index 3f5e96900..9a678c81e 100644
 +		 */
 +		case 0x85: asus_map_key_clear(KEY_CAMERA);		break; /* camera toggle */
 +		case 0x86: asus_map_key_clear(KEY_PROG1);		break; /* MyASUS key (Fn+F12) */
-+		case 0x5f: asus_map_key_clear(KEY_PROG1);		break; /* ASUS / MyASUS key */
++		case 0x5f: asus_map_key_clear(KEY_PROG2);		break; /* S-shaped programmable key (Konrad, upstream) */
 +
  		case 0x8b: asus_map_key_clear(KEY_PROG1);	break; /* ProArt Creator Hub key */
  		case 0x6b: asus_map_key_clear(KEY_F21);		break; /* ASUS touchpad toggle */

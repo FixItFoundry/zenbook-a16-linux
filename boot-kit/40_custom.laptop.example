@@ -1,0 +1,451 @@
+#!/bin/sh
+exec tail -n +3 $0
+# ===========================================================================
+# GLYMUR-A16 boot menu - THE SOURCE OF TRUTH.
+#
+# Jesse uses grub2-mkconfig, so this file is authoritative and
+# /boot/grub/grub.cfg is GENERATED. Do not hand-edit grub.cfg any more; edit
+# this file and regenerate:
+#
+#     sudo grub2-mkconfig -o /boot/grub/grub.cfg
+#
+# ⚠️ The EFI stub (\EFI\ubuntu\grubaa64.efi) does `configfile ($root)/boot/grub/grub.cfg`,
+#    so the -o path MUST be /boot/grub/grub.cfg. Fedora's default output path is
+#    NOT what this machine boots.
+#
+# ⚠️ insmod fdt is emitted below, at top level, and is LOAD-BEARING. Fedora's
+#    00_header does not load it, and without it every `devicetree` line fails
+#    silently and the machine boots on the firmware DT instead of ours.
+#
+# ⚠️ grub2-mkconfig executes EVERY executable file in /etc/grub.d/, whatever it
+#    is named. Three 40_custom.bak-* files were sitting there executable on
+#    2026-07-31 and would have injected 14 stale entries with duplicate --id
+#    values. They were moved to /root/grub.d-retired/. Never leave a backup of
+#    this file in /etc/grub.d/.
+#
+# ── Boot arguments retired 2026-07-31 (Jesse's call) ────────────────────────
+#   softlockup_panic=1     added early to diagnose non-booting kernels; long
+#                          obsolete, and it turned any stall into an automatic
+#                          reboot indistinguishable from the SoC reset we spent
+#                          weeks chasing. Removed EVERYWHERE.
+#   arm64.nopauth          obsolete.
+#   kvm-arm.mode=protected was genuinely needed during eDP testing; the konrad1
+#                          tree fixed the underlying issue.
+#
+#   ⚠️ Both of the latter two are KEPT on the "legacy 7.1 baseline" entry alone.
+#      That entry predates konrad1, so the fix that made them unnecessary is not
+#      in it, and its whole value is being a recovery path that boots exactly as
+#      it did when last proven. Everything on the 7.2/konrad lineage - baseline,
+#      all fallbacks, and every Diagnostics entry - has them stripped.
+#
+#   Diagnostics entries were stripped too, deliberately: each exists to differ
+#   from the baseline by ONE variable, so leaving retired tokens on them would
+#   have quietly made every one of them a four-variable test.
+# ===========================================================================
+# GRUB configuration - ASUS Zenbook A16 (UX3607OA), Snapdragon X2 Elite Extreme "glymur"
+#
+# Restructured 2026-07-31, when cpufreq started working. Top level is now ONE
+# Linux entry - the current baseline - plus Windows. Everything superseded or
+# diagnostic is one keypress down in a submenu.
+#
+# The full 49-entry development menu (every test DTB from the bring-up) is preserved at:
+#   /boot/grub/grub.cfg.MUSEUM-2026-07-29-full-49-entries
+# Restore it with:
+#   sudo cp /boot/grub/grub.cfg.MUSEUM-2026-07-29-full-49-entries /boot/grub/grub.cfg
+#
+# The immediately-previous menu is at /boot/grub/grub.cfg.bak-pre-baseline-2026-07-31
+#
+# These entries are ALSO kept in /etc/grub.d/40_custom so that they survive a
+# `grub2-mkconfig`.
+#
+# ⚠️ MEASURED 2026-07-31: THAT MIRROR IS STALE. 40_custom has 7 menuentries
+# against this file's 22. Baseline, Windows, prev-suspend, prev-plain, no-GPU
+# and legacy 7.1 all match line-for-line - but:
+#   - the "efi=noruntime" entry in 40_custom carries an EXTRA
+#     `modprobe.blacklist=efi_pstore pstore.backend=ramoops` that this file does not;
+#   - the entire Diagnostics submenu (13 entries) and the Thermal cooling-maps
+#     test entry exist ONLY here.
+# So a `grub2-mkconfig` would still yield a bootable baseline, but not this menu.
+# The recovery paths survive; the diagnostics do not. Sync it before relying on it.
+# Note that /etc/grub.d/ is otherwise empty on this machine, so the
+# active bootloader really is this hand-written file, loaded via
+# \EFI\ubuntu\grubaa64.efi -> configfile ($root)/boot/grub/grub.cfg
+#
+# efi=noruntime: RETIRED from the daily driver on 2026-07-30.
+#
+# This file used to say the flag was MANDATORY - "a missing one causes an
+# intermittent early-boot warm reset on this firmware". That claim did not hold up:
+#
+#   - The mechanism was never proven. It was a hypothesis about EFI runtime
+#     services / the simpledrm fbcon commit path, and it was unfalsifiable as set
+#     up, because efi=noruntime itself disables pstore, so no post-mortem was ever
+#     collectable.
+#   - It was intermittent, never deterministic. Our own notes recorded a boot that
+#     survived without it.
+#   - It was established on the 7.1 vendor-lineage tree during the window where
+#     docs/edp-status.md explicitly flags efi=noruntime as a CONFOUND (test55-59).
+#     That is the same era whose "firmware bugs" twice turned out to be our own DT.
+#   - Tested directly on the merged 7.2 tree: 3 boots without it, 0 warm resets.
+#     (One apparent "freeze" during that testing was self-inflicted - running the
+#     plasmalogin binary as root seized the seat. Clean shutdown, no kernel fault.)
+#
+# Dropping it buys no capability. EFI runtime services DO come up ("Remapping and
+# enabling EFI services." at boot) -- what this INSYDE firmware does not support is
+# the *variable* subset: GetVariable returns EFI_UNSUPPORTED (0x8000000000000003,
+# logged as "integrity: Couldn't get size: 0x8000000000000003"). So
+# efivar_is_available() is false, fsopen("efivarfs") fails EOPNOTSUPP, and efivars
+# are unreachable with or without this flag. Not a kernel config gap either --
+# CONFIG_EFIVAR_FS=y and efivarfs is registered in /proc/filesystems.
+#
+# Consequence: the upstream qcom,uefi-rtc-info property can never obtain its epoch
+# offset here and is still deleted in our DT; the RTC gets its offset from
+# glymur-rtc-restore instead.
+# The flag is gone because we could not substantiate it, not because it helped.
+#
+# If intermittent early-boot resets EVER reappear, boot
+#   Previous baselines and fallbacks -> "Fedora Linux on ARM (with efi=noruntime)"
+# which is byte-identical to the pre-cpufreq daily driver except for that one token.
+
+# ===========================================================================
+# BOOT ARGUMENT AUDIT - 2026-07-31. Provenance of every token on the baseline
+# cmdline. Recorded because this project's recurring failure mode is a
+# workaround outliving its evidence (gpucc blacklist, efi=noruntime, the
+# thermal guard - three so far). A flag with no recorded justification is a
+# suspect, not a settled decision.
+#
+#   TOKEN                        VERDICT
+#   root=UUID=... rw             required
+#   cma=128M                     required - display buffers
+#   console=tty0                 keep
+#   ignore_loglevel              keep during bring-up; the kmsg fsync logger
+#                                (/var/log/glymur-kmsg.log) depends on it
+#   rd.timeout=60                benign
+#   systemd.mask=dev-tpm*.device ** REQUIRED - NOT cosmetic **
+#                                Skips a ~90 s TPM-probe boot stall. Listed as
+#                                load-bearing in boot-kit/README.md alongside
+#                                modprobe.blacklist=msm. Do not drop these.
+#   glymur_pci_skip=5            REQUIRED for suspend. Documented caveat: PCI
+#                                stays powered, so s2idle saves less than it
+#                                should. A workaround, and labelled as one.
+#
+#   clk_ignore_unused            ** UNJUSTIFIED - bring-up crutch, never retested **
+#   pd_ignore_unused             ** UNJUSTIFIED - same **
+#     Both suppress the kernel disabling unused clocks/power domains. They cost
+#     idle power AND they mask missing clock/genpd references in our DT, which
+#     is the exact class of bug this tree keeps finding. Already known to have
+#     invalidated one experiment: the gcc state_synced write on 2026-07-27 was
+#     a NO-OP *because* clk_ignore_unused was set. Retest as a single variable.
+#
+#   arm64.nopauth                ** UNJUSTIFIED - no recorded reason **
+#     Disables pointer authentication. Security-relevant. Probably inherited
+#     from an early bring-up cmdline. Nothing in the repo explains it.
+#
+#   kvm-arm.mode=protected       ** UNJUSTIFIED - no recorded reason **
+#     pKVM. This machine runs no VMs. Protected mode changes stage-2 memory
+#     ownership and host/EL2 behaviour, i.e. it is not free. Nothing in the
+#     repo explains why it is on the daily driver.
+#
+#   panic=10 softlockup_panic=1  ** ACTIVE HAZARD DURING A CRASH HUNT **
+#     Together these turn any softlockup into a panic and an automatic reboot
+#     10 s later. On a machine whose open bug was "hard reset with no kernel
+#     fault", and whose ramoops provably does not survive a reset on this
+#     firmware, a self-inflicted reboot is indistinguishable from the external
+#     SoC reset being investigated. Keep panic=10 if you want unattended
+#     recovery; softlockup_panic=1 should be 0 while anything is being bisected.
+#
+# None of the above has been changed here. Changing a baseline cmdline token is
+# a single-variable boot test, not an edit - add an entry, keep the baseline.
+# ===========================================================================
+
+# NOTE: there is deliberately no `set fallback` here. GRUB resolves $fallback
+# against the entries of the CURRENTLY DISPLAYED menu only, and every recovery
+# entry lives inside the "Previous baselines and fallbacks" submenu -- so a
+# fallback naming one of them silently resolves to nothing and reads as
+# protection that does not exist. Recovery is one keypress: pick the submenu.
+
+insmod part_gpt
+insmod ext2
+insmod fat
+insmod fdt
+
+# ===========================================================================
+# CURRENT BASELINE - everything that works, in one entry.
+#
+# This is not a new combination. It is byte-for-byte the "SCMI poll test"
+# entry that was booted and validated on 2026-07-31 at 08:03, promoted to
+# baseline after it passed. Two independently-proven fixes meet here:
+#
+#   SUSPEND (2026-07-30) -- Image pmskip6, cmdline glymur_pci_skip=5.
+#     PCI config-space access during dpm_suspend_noirq hard-resets this SoC.
+#     glymur_pci_skip=5 skips pci_save_state() and pci_prepare_to_sleep(),
+#     the only known way to make s2idle complete here. Reproduces on the bare
+#     upstream A16 DT, so it is a platform gap, not a local DT bug.
+#     CAVEAT: a diagnostic workaround, not a fix. PCI devices stay powered
+#     through suspend, so it saves less power than a correct implementation.
+#
+#   CPUFREQ (2026-07-31) -- DTB glymur-a16-merged-gpu-scmipoll.dtb, which is
+#     merged-gpu.dtb plus exactly one property, arm,no-completion-irq on the
+#     scmi node. The PDP0/CPUCP firmware answers SCMI protocol 0x13 in shmem
+#     but never rings the mailbox doorbell, so every perf transfer timed out
+#     and scmi-cpufreq probed -110. The property makes the SCMI core poll
+#     instead of waiting for the interrupt.
+#     RESULT: 3 performance domains (cpus 0-5 @ 3.61 GHz, 6-11 and 12-17 @
+#     4.45 GHz), scaling_driver = scmi, 20/21/21 OPPs down to 355 MHz,
+#     cpufreq-cooling created unaided, and the apss_cpucp_mbox doorbell IRQ
+#     flat at 0 on every CPU.
+#
+# Everything else that works is carried by the DTB, the initrd, or userspace
+# and needs no boot knob: eDP at HBR3 + panel brightness, the Adreno X2 GPU
+# (turnip), Wi-Fi 7, audio (ADSP boot ordering fixed in the initrd), battery
+# via soccp_glink, UCSI/Type-C and DisplayPort alt-mode on both ports, the
+# lid switch, and the RTC epoch restore.
+#
+#   THERMAL (2026-07-31) -- DTB promoted from ...-scmipoll.dtb to
+#     ...-coolmaps.dtb. Adds a "passive" trip at 95 C and cooling-maps on all
+#     41 cpu/cpullc zones, binding each cluster to its cpufreq cooling device
+#     (cluster 0 -> &cpu0, 1 -> &cpu6, 2 -> &cpu12). Critical stays at 115 C,
+#     polling-delay-passive 100 ms. Measured: scmipoll has 0 cpu cooling-maps,
+#     coolmaps has 41. Rollback is one keypress: "prev: no cooling-maps".
+#
+# SANITY CHECK after booting this entry:
+#   ls /sys/devices/system/cpu/cpufreq/          -> policy0 policy6 policy12
+#   cat /proc/device-tree/firmware/scmi/arm,no-completion-irq   -> exists
+#   systemctl suspend                            -> resumes
+#   thermal cooling-maps bound -> 41:
+#     for z in /sys/class/thermal/thermal_zone*; do \
+#       [ -e "$z/cdev0" ] && cat "$(readlink -f $z/cdev0)/type"; \
+#     done | grep -c cpufreq
+#
+#   ! DO NOT use thermal_zone*/cdev*_type to check this. That attribute does
+#     NOT exist on this kernel -- a bound zone has cdev0, cdev0_trip_point and
+#     cdev0_weight only. The old check returned 0 unconditionally and is what
+#     invented the "no zone binds them" gap in the first place.
+#
+#   Actuation, no load required, verified 2026-07-31 (cur_state 0->1->2->3):
+#     Z=/sys/class/thermal/thermal_zone2                 # cpu-0-0-0-thermal
+#     echo 96000 | sudo tee $Z/emul_temp
+#     cat /sys/class/thermal/cooling_device0/cur_state   # -> 1
+#     echo 0     | sudo tee $Z/emul_temp                 # ALWAYS restore
+#
+#   !! NEVER write emul_temp at or above the critical trip (115000). The
+#      thermal core calls hw_protection_shutdown and powers the machine off
+#      on the spot. Learned at 118000, cost a reboot.
+# ===========================================================================
+menuentry "Fedora Linux on ARM" --id fedora-linux-arm {
+    search --set=root --fs-uuid <your-root-uuid>
+    devicetree /boot/glymur/glymur-a16-merged-gpu-coolmaps.dtb
+    linux /boot/vmlinuz-7.2.0-rc3-konrad1-pmskip6 root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device glymur_pci_skip=5
+    initrd /boot/initrd.img-7.2.0-rc3-konrad1
+}
+
+menuentry "Windows Boot Manager" --id windows-boot {
+    insmod part_gpt
+    insmod fat
+    search --no-floppy --fs-uuid --set=root <your-esp-uuid>
+    chainloader /EFI/Microsoft/Boot/bootmgfw.efi
+}
+
+# ---------------------------------------------------------------------------
+# Previous baselines and fallbacks. Never remove these - they are the
+# known-good recovery paths, ordered newest-first, each one step further back.
+#
+#   prev-suspend : the 2026-07-30 daily driver. Suspend works, cpufreq does
+#                  NOT (cores pinned at boot clock). Differs from the current
+#                  baseline by the devicetree line alone, so it is also the
+#                  single-variable control for the cpufreq change.
+#   prev-plain   : the 2026-07-29 daily driver. Neither suspend nor cpufreq.
+#                  Stock 7.2.0-rc3-konrad1 Image, no PM knobs at all.
+#   noruntime    : prev-plain plus efi=noruntime. Only for intermittent
+#                  early-boot warm resets - see the header.
+#   no-GPU       : same merged tree with &gpu/&gmu disabled. Display teardown
+#                  verified 2/2 here. Use if the GPU causes trouble.
+#   legacy 7.1   : the pre-merge vendor-lineage daily driver. No GPU, and it
+#                  hard-resets on screen-off, but it boots and has Wi-Fi/audio.
+#
+# ⚠️ AUDIT NOTE 2026-07-31 - what the last two entries silently reintroduce.
+# "no-GPU" and "legacy 7.1" still carry, on their cmdlines:
+#     modprobe.blacklist=gpucc_glymur,efi_pstore
+#     pstore.backend=ramoops
+#     efi=noruntime
+# All three are retired on the baseline, and the first is the exact token that
+# blacklisted gpucc, cascaded into adreno -19 and cost us the GPU for weeks -
+# this project's canonical example of a workaround outliving its evidence.
+# ramoops is also known not to survive a reset on this firmware, so it captures
+# nothing. They are LEFT AS THEY ARE on purpose: these entries are frozen
+# known-good recovery paths and their value is that they boot exactly as they
+# did when last proven. Just do not read a fallback boot as a clean baseline -
+# if the GPU is missing there, that is the blacklist, not new breakage.
+# ---------------------------------------------------------------------------
+submenu "Previous baselines and fallbacks" --id fallbacks {
+
+    # ROLLBACK / single-variable control for the cooling-maps promotion
+    # (2026-07-31). Byte-for-byte the baseline entry; ONLY the devicetree line
+    # differs - it loads the pre-coolmaps scmipoll DTB. Boot this if thermal
+    # actuation is ever suspected of causing trouble, and to A/B the maps.
+    menuentry "Fedora Linux on ARM (prev: no cooling-maps)" --id fedora-linux-arm-prev-nocoolmaps {
+        search --set=root --fs-uuid <your-root-uuid>
+        devicetree /boot/glymur/glymur-a16-merged-gpu-scmipoll.dtb
+        linux /boot/vmlinuz-7.2.0-rc3-konrad1-pmskip6 root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device glymur_pci_skip=5
+        initrd /boot/initrd.img-7.2.0-rc3-konrad1
+    }
+
+    menuentry "Fedora Linux on ARM (prev: suspend, no cpufreq)" --id fedora-linux-arm-prev-suspend {
+        search --set=root --fs-uuid <your-root-uuid>
+        devicetree /boot/glymur/glymur-a16-merged-gpu.dtb
+        linux /boot/vmlinuz-7.2.0-rc3-konrad1-pmskip6 root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device glymur_pci_skip=5
+        initrd /boot/initrd.img-7.2.0-rc3-konrad1
+    }
+
+    menuentry "Fedora Linux on ARM (prev: no suspend, no cpufreq)" --id fedora-linux-arm-prev-plain {
+        search --set=root --fs-uuid <your-root-uuid>
+        devicetree /boot/glymur/glymur-a16-merged-gpu.dtb
+        linux /boot/vmlinuz-7.2.0-rc3-konrad1 root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
+        initrd /boot/initrd.img-7.2.0-rc3-konrad1
+    }
+
+    menuentry "Fedora Linux on ARM (with efi=noruntime)" --id fedora-linux-arm-noruntime {
+        search --set=root --fs-uuid <your-root-uuid>
+        devicetree /boot/glymur/glymur-a16-merged-gpu.dtb
+        linux /boot/vmlinuz-7.2.0-rc3-konrad1 root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M efi=noruntime console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
+        initrd /boot/initrd.img-7.2.0-rc3-konrad1
+    }
+
+    menuentry "Fedora Linux on ARM (no GPU)" --id fedora-linux-arm-nogpu {
+        search --set=root --fs-uuid <your-root-uuid>
+        devicetree /boot/glymur/glymur-a16-merged1.dtb
+        linux /boot/vmlinuz-7.2.0-rc3-konrad1 root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M efi=noruntime console=tty0 ignore_loglevel modprobe.blacklist=gpucc_glymur,efi_pstore pstore.backend=ramoops rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
+        initrd /boot/initrd.img-7.2.0-rc3-konrad1
+    }
+
+    menuentry "Fedora Linux on ARM (legacy 7.1 baseline, no GPU)" --id fedora-linux-arm-legacy {
+        search --set=root --fs-uuid <your-root-uuid>
+        devicetree /boot/glymur/glymur-a16-test73.dtb
+        linux /boot/vmlinuz-7.1.0-glymur-gdsc1 root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M efi=noruntime arm64.nopauth console=tty0 ignore_loglevel modprobe.blacklist=gpucc_glymur,efi_pstore pstore.backend=ramoops rd.timeout=60 panic=10 kvm-arm.mode=protected systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
+        initrd /boot/initrd.img-7.1.0-glymur-gdsc1
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Diagnostics. Suspend-reset hunt, 2026-07-30 - kept for provenance now that
+# suspend works. Every knob defaults to 0, so an entry without its token
+# behaves exactly like the pre-cpufreq daily driver.
+#   phase*  bisect the late/noirq window itself (glymur_pm_skip bitmask):
+#             1 = skip suspend_device_irqs()
+#             2 = skip dpm_noirq_suspend_devices()  (incl. pci_pm_suspend_noirq)
+#             4 = skip dpm_suspend_late()
+#             7 = all three; if THIS still dies the fault is outside the window
+#   *skip   per-driver knobs; all five eliminated, kept for combination tests
+#   busskip bus/device-selective noirq skip harness
+#   dttest  DTB comparison (ours vs the bare upstream A16 DT)
+#   pstore  CONFIG_PSTORE_CONSOLE Image + console-size DTB. NOTE: the ramoops
+#           region does not survive a reset on this firmware - proven, see
+#           docs/DTB_CHANGELOG.md - so these capture nothing. Kept only in
+#           case that ever changes.
+#
+# NOTE: every entry below loads the OLD merged-gpu / pstore / merged1 DTBs, so
+# none of them has cpufreq. That is deliberate - they are controls.
+# ---------------------------------------------------------------------------
+submenu "Diagnostics (suspend hunt)" --id diagnostics {
+
+# NOTE: glymur_pm_skip=0 means SKIP NOTHING -- this is the null control for the
+# harness, not a skip test. Change the value to exercise it.
+menuentry "Fedora Linux on ARM (noirq harness, null control)" --id fedora-linux-arm-busskip {
+    search --set=root --fs-uuid <your-root-uuid>
+    devicetree /boot/glymur/glymur-a16-merged-gpu-pstore.dtb
+    linux /boot/vmlinuz-7.2.0-rc3-konrad1-pmskip6 root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device glymur_pm_skip=0
+    initrd /boot/initrd.img-7.2.0-rc3-konrad1
+}
+
+menuentry "DT test: merged1 (our tree, GPU off)" --id dttest-merged1 {
+    search --set=root --fs-uuid <your-root-uuid>
+    devicetree /boot/glymur/glymur-a16-merged1.dtb
+    linux /boot/vmlinuz-7.2.0-rc3-konrad1 root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
+    initrd /boot/initrd.img-7.2.0-rc3-konrad1
+}
+
+menuentry "DT test: konrad bare upstream A16 DT" --id dttest-konrad {
+    search --set=root --fs-uuid <your-root-uuid>
+    devicetree /boot/glymur/konrad-a16.dtb
+    linux /boot/vmlinuz-7.2.0-rc3-konrad1 root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
+    initrd /boot/initrd.img-7.2.0-rc3-konrad1
+}
+
+menuentry "Fedora Linux on ARM (phase: skip suspend_device_irqs)" --id fedora-linux-arm-phase1 {
+    search --set=root --fs-uuid <your-root-uuid>
+    devicetree /boot/glymur/glymur-a16-merged-gpu-pstore.dtb
+    linux /boot/vmlinuz-7.2.0-rc3-konrad1-pmskip3 root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device glymur_pm_skip=1
+    initrd /boot/initrd.img-7.2.0-rc3-konrad1
+}
+
+menuentry "Fedora Linux on ARM (phase: skip noirq device callbacks)" --id fedora-linux-arm-phase2 {
+    search --set=root --fs-uuid <your-root-uuid>
+    devicetree /boot/glymur/glymur-a16-merged-gpu-pstore.dtb
+    linux /boot/vmlinuz-7.2.0-rc3-konrad1-pmskip3 root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device glymur_pm_skip=2
+    initrd /boot/initrd.img-7.2.0-rc3-konrad1
+}
+
+menuentry "Fedora Linux on ARM (phase: skip dpm_suspend_late)" --id fedora-linux-arm-phase4 {
+    search --set=root --fs-uuid <your-root-uuid>
+    devicetree /boot/glymur/glymur-a16-merged-gpu-pstore.dtb
+    linux /boot/vmlinuz-7.2.0-rc3-konrad1-pmskip3 root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device glymur_pm_skip=4
+    initrd /boot/initrd.img-7.2.0-rc3-konrad1
+}
+
+menuentry "Fedora Linux on ARM (phase: skip ALL of late+noirq)" --id fedora-linux-arm-phase7 {
+    search --set=root --fs-uuid <your-root-uuid>
+    devicetree /boot/glymur/glymur-a16-merged-gpu-pstore.dtb
+    linux /boot/vmlinuz-7.2.0-rc3-konrad1-pmskip3 root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device glymur_pm_skip=7
+    initrd /boot/initrd.img-7.2.0-rc3-konrad1
+}
+
+menuentry "Fedora Linux on ARM (pstore-console test)" --id fedora-linux-arm-pstore {
+    search --set=root --fs-uuid <your-root-uuid>
+    devicetree /boot/glymur/glymur-a16-merged-gpu-pstore.dtb
+    linux /boot/vmlinuz-7.2.0-rc3-konrad1-pstore root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
+    initrd /boot/initrd.img-7.2.0-rc3-konrad1
+}
+
+menuentry "Fedora Linux on ARM (genpd skip-poweroff test)" --id fedora-linux-arm-genpdskip {
+    search --set=root --fs-uuid <your-root-uuid>
+    devicetree /boot/glymur/glymur-a16-merged-gpu-pstore.dtb
+    linux /boot/vmlinuz-7.2.0-rc3-konrad1-pmskip2 root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device core.glymur_skip_poweroff=1
+    initrd /boot/initrd.img-7.2.0-rc3-konrad1
+}
+
+menuentry "Fedora Linux on ARM (simple-pm-bus skip-noirq test)" --id fedora-linux-arm-spbskip {
+    search --set=root --fs-uuid <your-root-uuid>
+    devicetree /boot/glymur/glymur-a16-merged-gpu-pstore.dtb
+    linux /boot/vmlinuz-7.2.0-rc3-konrad1-pmskip2 root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device simple_pm_bus.glymur_skip_noirq=1
+    initrd /boot/initrd.img-7.2.0-rc3-konrad1
+}
+
+menuentry "Fedora Linux on ARM (pcie-qcom skip-noirq test)" --id fedora-linux-arm-pcieskip {
+    search --set=root --fs-uuid <your-root-uuid>
+    devicetree /boot/glymur/glymur-a16-merged-gpu-pstore.dtb
+    linux /boot/vmlinuz-7.2.0-rc3-konrad1-pmskip root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device pcie_qcom.glymur_skip_noirq=1
+    initrd /boot/initrd.img-7.2.0-rc3-konrad1
+}
+
+menuentry "Fedora Linux on ARM (i2c-geni skip-noirq test)" --id fedora-linux-arm-geniskip {
+    search --set=root --fs-uuid <your-root-uuid>
+    devicetree /boot/glymur/glymur-a16-merged-gpu-pstore.dtb
+    linux /boot/vmlinuz-7.2.0-rc3-konrad1-pmskip root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device i2c_qcom_geni.glymur_skip_noirq=1
+    initrd /boot/initrd.img-7.2.0-rc3-konrad1
+}
+
+menuentry "Fedora Linux on ARM (bam_dma skip-late test)" --id fedora-linux-arm-bamskip {
+    search --set=root --fs-uuid <your-root-uuid>
+    devicetree /boot/glymur/glymur-a16-merged-gpu-pstore.dtb
+    linux /boot/vmlinuz-7.2.0-rc3-konrad1-pstore root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device bam_dma.glymur_skip_late=1
+    initrd /boot/initrd.img-7.2.0-rc3-konrad1
+}
+
+menuentry "Fedora Linux on ARM (ALL FIVE skips - coalition control)" --id fedora-linux-arm-allskip {
+    search --set=root --fs-uuid <your-root-uuid>
+    devicetree /boot/glymur/glymur-a16-merged-gpu-pstore.dtb
+    linux /boot/vmlinuz-7.2.0-rc3-konrad1-pmskip2 root=UUID=<your-root-uuid> rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device core.glymur_skip_poweroff=1 simple_pm_bus.glymur_skip_noirq=1 pcie_qcom.glymur_skip_noirq=1 i2c_qcom_geni.glymur_skip_noirq=1 bam_dma.glymur_skip_late=1
+    initrd /boot/initrd.img-7.2.0-rc3-konrad1
+}
+
+}
+
