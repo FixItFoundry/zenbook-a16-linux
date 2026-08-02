@@ -1,37 +1,32 @@
-# Documentation index
+# Documentation
 
-Curated docs for the Zenbook A16 (glymur / sm8750) Linux bring-up.
+Four documents. If you are looking for something else, it was working detail and now lives in
+the maintainer's untracked `internal/` archive rather than in this repo.
 
-## Start here
+| Doc | What it answers |
+|---|---|
+| [`hardware.md`](hardware.md) | **What each component is, how it connects, and where it stands.** Start here. |
+| [`modifications.md`](modifications.md) | **Every device-tree and kernel change, and why.** The delta vs upstream. |
+| [`../README.md`](../README.md) | Project overview — what this machine is, what works, how to boot it |
+| [`../LOCAL-TWEAKS.md`](../LOCAL-TWEAKS.md) | Firmware extraction and local system configuration |
 
-- [`../README.md`](../README.md) — project overview, what works / what doesn't
-- [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — how to help (validation + patches)
-- [`THINGS_TRIED.md`](THINGS_TRIED.md) — dead-ends, so you don't repeat them
-- [`STATUS_2026-07-15.md`](STATUS_2026-07-15.md) — most recent full status writeup
+## Component deep-dives
 
-## reverse-engineering
+Kept because they document a protocol or trap that cannot be re-derived cheaply:
 
-- [`HARDWARE_MAP.md`](HARDWARE_MAP.md) — buses, addresses, peripherals
-- [`DTB_CHANGELOG.md`](DTB_CHANGELOG.md) — every test DTB, its delta, result, and lesson (test1 → test59)
-- [`DT_BRINGUP_NOTES.md`](DT_BRINGUP_NOTES.md) — device-tree bring-up notes
+- [`fan-ec-interface.md`](fan-ec-interface.md) — the EC on i2c-9: addresses, decoded commands,
+  and why nothing writes to it
+- [`power-and-thermal.md`](power-and-thermal.md) — the SCMI/cpufreq root cause in full, plus
+  the thermal chain
+- [`audio-adsp-boot-ordering.md`](audio-adsp-boot-ordering.md) — the ADSP boot race, which is
+  what "audio is broken" almost always means
+- [`usb-c-ucsi-dp-altmode.md`](usb-c-ucsi-dp-altmode.md) — the Type-C pipeline and why USB4 is
+  still out of reach
 
-## Display / eDP
+## Contributing
 
-- [`display-bringup-findings.md`](display-bringup-findings.md) — DPU/eDP analysis
-- [`edp-enable-findings.md`](edp-enable-findings.md), [`edp-enable-plan.md`](edp-enable-plan.md)
+See [`../CONTRIBUTING.md`](../CONTRIBUTING.md). Credit for adopted upstream work goes in
+[`../UPSTREAM-CREDITS.md`](../UPSTREAM-CREDITS.md), in the same change that adopts it.
 
-## GPU reverse-engineering (`gpu-re/`)
-
-- [`gpu-re/gpu-investigation-summary.md`](gpu-re/gpu-investigation-summary.md) — the headline: `gpucc` is the blocker
-- [`gpu-re/gpu-smmu-routing-from-woa-acpi.md`](gpu-re/gpu-smmu-routing-from-woa-acpi.md) — authoritative StreamIDs/bases from the WoA ACPI dump
-- [`gpu-re/gpucc-clock-registers.md`](gpu-re/gpucc-clock-registers.md) — candidate clock-controller registers from Ghidra
-- [`gpu-re/gpu-reverse-engineering-plan.md`](gpu-re/gpu-reverse-engineering-plan.md) — the RE approach
-- [`gpu-re/gunyah-dpu-path-scope.md`](gpu-re/gunyah-dpu-path-scope.md), [`gpu-re/pkvm-smmu-findings.md`](gpu-re/pkvm-smmu-findings.md)
-
-## Analysis logs (`analysis/`)
-
-Chronological engineering transcripts (G01–G18) covering battery, audio, SMMU/VMID, and the
-netconsole crash-capture tooling. Raw and unedited; useful for tracing _why_ decisions were made.
-
-> Note: these docs are assembled from the maintainer's working project folder via `assemble.sh`.
-> If a link 404s, that source file wasn't copied in — please open an issue.
+> This project was developed with heavy AI assistance and the maintainer is not a kernel
+> developer by trade. Treat findings as field notes and verify before relying on them.

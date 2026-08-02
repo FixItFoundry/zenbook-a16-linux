@@ -1,8 +1,11 @@
 # glymur config fragment (v7.1)
 
 The working build starts from a distro config (`/boot/config-*-generic`, `make olddefconfig`)
-and then force-enables the glymur boot-critical drivers below. This is the same set applied by
-[`../boot-kit/scripts/build-kernel-native-full.sh`](../boot-kit/scripts/build-kernel-native-full.sh).
+and then force-enables the glymur boot-critical drivers below.
+
+⚠️ This used to cite `boot-kit/scripts/build-kernel-native-full.sh`, which has never existed in
+this repo — the build script lives only on the maintainer's machines. The fragment below is the
+authoritative list.
 
 Distro-config fixups (remove signing keys we don't have, drop heavy debuginfo):
 

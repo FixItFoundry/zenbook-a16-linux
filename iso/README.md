@@ -36,8 +36,8 @@ capability: efivars are unreachable either way, because this firmware reports EF
 services as `EFI_UNSUPPORTED` (`0x8000000000000003`). See
 
 
-⚠️ **Correction (2026-07-30, later the same day):** do not treat "this firmware does not support EFI variable services" as settled. Two archived `efi_pstore` crash dumps prove variable services **worked** on this same machine and firmware under 7.1 kernels. The `EFI_UNSUPPORTED` result above is real but is specific to our 7.2-rc3 build, and the cause is **unresolved**. See [`docs/crash-evidence.md`](docs/crash-evidence.md).
-[`../docs/DTB_CHANGELOG.md`](../docs/DTB_CHANGELOG.md).
+⚠️ **Correction (2026-07-30, later the same day):** do not treat "this firmware does not support EFI variable services" as settled. Two archived `efi_pstore` crash dumps prove variable services **worked** on this same machine and firmware under 7.1 kernels. The `EFI_UNSUPPORTED` result above is real but is specific to our 7.2-rc3 build, and the cause is **unresolved**. See [`../docs/hardware.md`](../docs/hardware.md).
+[`../docs/modifications.md`](../docs/modifications.md).
 
 ## How the images are built
 Instead of emulated package installs, each image **reuses a stock desktop rootfs** and swaps in

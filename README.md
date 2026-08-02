@@ -13,7 +13,7 @@ laptop built on the **Qualcomm Snapdragon X2 Elite Extreme**, SoC codename **gly
 > `simple-framebuffer`. Link training completes at **HBR3 (8.1 Gbps × 4 lanes)**; the
 > long-standing `-110` failure is gone. Two bugs had to be peeled to get there and one
 > of them is a generic upstream `msm` bug — write-up in
-> [`docs/edp-hbr3-linkup.md`](docs/edp-hbr3-linkup.md).
+> [`docs/hardware.md`](docs/hardware.md).
 >
 > ## 🎉 2026-07-29 — the GPU works, and everything works *at the same time*
 >
@@ -132,7 +132,7 @@ on Windows, this laptop is GREAT.
 
 - A large amount of the analysis, device-tree bisection, reverse-engineering, and the writeups
   in this repo were produced **with AI assistance** (and then tested on real hardware). The AI
-  was wrong plenty of times along the way — see [`docs/THINGS_TRIED.md`](docs/THINGS_TRIED.md).
+  was wrong plenty of times along the way — see [`docs/hardware.md`](docs/hardware.md).
 - **YOUR MILEAGE MAY VARY:**  These are the things that worked on my specific device.  It's stable
   90% of the time, and I'm not done working on it myself.  Register addresses, StreamIDs, and
   root-cause theories are RE'd and experimental.
@@ -185,7 +185,7 @@ USB-C DP alt-mode, but no GPU. `test55` was the original `simple-framebuffer` ba
   epoch offset is supplied from userspace by `glymur-rtc-restore`
   (see [`LOCAL-TWEAKS.md`](LOCAL-TWEAKS.md) §9).
 - fastrpc, ADSP (audio control plane)
-- **Native eDP display** — DPU-driven panel at 2880x1800@120, 30 bpp, `fb0 = msmdrmfb`, backlight over DP AUX. Needs a patched `msm` and the eDP device tree — see [`docs/edp-hbr3-linkup.md`](docs/edp-hbr3-linkup.md). Still no GPU, so there is no 3D acceleration behind it.
+- **Native eDP display** — DPU-driven panel at 2880x1800@120, 30 bpp, `fb0 = msmdrmfb`, backlight over DP AUX. Needs a patched `msm` and the eDP device tree — see [`docs/hardware.md`](docs/hardware.md). Still no GPU, so there is no 3D acceleration behind it.
 - Display output (fallback) — UEFI `simple-framebuffer`, no acceleration. What everything before 2026-07-24 ran on.
 
 ---
@@ -195,7 +195,7 @@ USB-C DP alt-mode, but no GPU. `test55` was the original `simple-framebuffer` ba
 - **Suspend / resume — ⚠️ works, on a workaround (2026-07-30).** Closing the lid sleeps the machine and opening it wakes it, verified over three cycles. Stock, it hard-resets the SoC with no fault of any kind. Root cause: **PCI config-space access during `dpm_suspend_noirq()` resets this SoC**, with the read (`pci_save_state()`) and write (`pci_prepare_to_sleep()`) paths *independently* lethal and driver noirq callbacks innocent — a single PCIe device performing its noirq suspend is sufficient. **This reproduces on the bare upstream A16 device tree**, so it is a platform gap rather than a defect in ours. The workaround skips both config-space accesses, which means PCI devices stay powered through suspend: it sleeps, but saves less power than a correct implementation, and **a firmware revision is needed for a real fix**. It lives on its own GRUB entry.
 
 
-⚠️ **Correction (2026-07-30, later the same day):** do not treat "this firmware does not support EFI variable services" as settled. Two archived `efi_pstore` crash dumps prove variable services **worked** on this same machine and firmware under 7.1 kernels. The `EFI_UNSUPPORTED` result above is real but is specific to our 7.2-rc3 build, and the cause is **unresolved**. See [`docs/crash-evidence.md`](docs/crash-evidence.md).
+⚠️ **Correction (2026-07-30, later the same day):** do not treat "this firmware does not support EFI variable services" as settled. Two archived `efi_pstore` crash dumps prove variable services **worked** on this same machine and firmware under 7.1 kernels. The `EFI_UNSUPPORTED` result above is real but is specific to our 7.2-rc3 build, and the cause is **unresolved**. See [`docs/hardware.md`](docs/hardware.md).
 - **USB4 / Thunderbolt** — no host-router/NHI node exists in any in-tree qcom device tree, and `drivers/thunderbolt` has no Qualcomm support. The binding is an unmerged upstream **RFC**. The Type-C half of the pipeline (UCSI → typec_mux → QMP PHY) now works; only the host router is missing. See [`docs/usb-c-ucsi-dp-altmode.md`](docs/usb-c-ucsi-dp-altmode.md).
 - ~~**Thermal `cooling-maps`**~~ — ✅ **RESOLVED 2026-07-31, and it was never broken.** All
   41 `cpu*`/`cpullc*` zones bind `cpufreq-cpu0/6/12` and step correctly across the 95 °C
@@ -222,7 +222,7 @@ that Wi-Fi is healthy.
 ## Things tried that did NOT work (dead-ends / open failures)
 
 A condensed list so contributors do not re-run known-bad experiments. Full detail in
-[`docs/DTB_CHANGELOG.md`](docs/DTB_CHANGELOG.md) and [`docs/THINGS_TRIED.md`](docs/THINGS_TRIED.md).
+[`docs/modifications.md`](docs/modifications.md) and [`docs/hardware.md`](docs/hardware.md).
 
 - **test58 (FAILED)** — display-attack DTB (`x1e80100-asus-vivobook-s15` base + `mdss`/`dispcc`/`mdss_dp3` = okay). Did not bring up native display; recorded here as tried, to be revisited.
 - **`video=simplefb:off` / forced `video=eDP-1:...` modeset** — MDSS GDSC power-cycle -> warm reset. Keep simplefb alive; do not force a resolution.
@@ -247,7 +247,7 @@ A condensed list so contributors do not re-run known-bad experiments. Full detai
 | **Audio** | 4x WSA8845 smart speakers (SoundWire) + DMIC array, LPASS/AudioReach |
 | **Firmware** | Retail Windows-on-ARM UEFI (locked; no engineering unlock) |
 
-Full register/bus map: [`docs/HARDWARE_MAP.md`](docs/HARDWARE_MAP.md).
+Full register/bus map: [`docs/hardware.md`](docs/hardware.md).
 
 ---
 
@@ -283,10 +283,10 @@ reverse-engineered to recover the hardware ground truth:
 - **ACPI dump** (IORT / DSDT / SDEV) -> authoritative SMMU StreamIDs and register bases.
   GPU sits behind a **dedicated `adreno_smmu` @ `0x03DA0000`**, register base `0x03D00000` —
   **matching x1e80100 upstream**, so routing is *not* the blocker.
-  ([`gpu-smmu-routing-from-woa-acpi.md`](docs/gpu-re/gpu-smmu-routing-from-woa-acpi.md))
+  ([`gpu-smmu-routing-from-woa-acpi.md`](docs/hardware.md))
 - **Ghidra RE of `qcdxkm8480.sys`** (Windows WDDM driver) -> GPU identity, firmware blob
   names, and candidate `gpucc` clock-controller register offsets.
-  ([`gpucc-clock-registers.md`](docs/gpu-re/gpucc-clock-registers.md))
+  ([`gpucc-clock-registers.md`](docs/hardware.md))
 - ⛔ **"Root cause: `gpucc` is absent from mainline" — this was WRONG, twice over, and is
   retired.** `drivers/clk/qcom/gpucc-glymur.c` has been in mainline v7.1 all along (618
   lines, compatible `qcom,glymur-gpucc`), the a8xx Adreno driver was already compiled into
@@ -309,7 +309,7 @@ reverse-engineered to recover the hardware ground truth:
   that made the eDP 1.4 `LINK_RATE_SET` path dead code; and the fact that **5.4 Gbps is
   simply not a working operating point on this panel** — it trains at **HBR3**. The eDP
   PHY driver needed no changes at all.
-  ([`docs/edp-hbr3-linkup.md`](docs/edp-hbr3-linkup.md))
+  ([`docs/hardware.md`](docs/hardware.md))
 
 > These docs contain addresses, StreamIDs, and register maps **derived** from proprietary
 > Qualcomm/ASUS firmware and Windows drivers. The binaries themselves are **not** redistributed
@@ -353,7 +353,7 @@ firmware/       What firmware is needed and why it is NOT included
    down as fallbacks.
    ⚠️ **`efi=noruntime` was retired on 2026-07-30 and is no longer recommended.** This
    README used to call it mandatory. That claim did not survive testing on the merged
-   7.2 tree — see [`docs/DTB_CHANGELOG.md`](docs/DTB_CHANGELOG.md). Older entries and
+   7.2 tree — see [`docs/modifications.md`](docs/modifications.md). Older entries and
    the archived docs still carry it; that is history, not guidance.
 
 Distro installer ISOs: see [`iso/README.md`](iso/README.md).

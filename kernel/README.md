@@ -21,7 +21,7 @@ not in this repo. Net delta is ~112 lines over the v7.1 snapshot:
 | `HID: asus: support the ASUS Zenbook A16 (UX3607OA) N-Key keyboard` | device ID + hotkey mappings + a non-`asus-wmi` backlight path | probably, with cleanup |
 
 `drivers/phy/qualcomm/phy-qcom-edp.c` is **unmodified** — every PHY change tried during
-bring-up turned out to be unnecessary. Background: [`../docs/edp-hbr3-linkup.md`](../docs/edp-hbr3-linkup.md).
+bring-up turned out to be unnecessary. Background: [`../docs/hardware.md`](../docs/hardware.md).
 
 Build name for the display-enabled kernel is **`7.1.0-glymur-edp1`**
 (`make LOCALVERSION=-glymur-edp1`); `7.1.0-glymur-clean+` remains the stable shipped

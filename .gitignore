@@ -69,3 +69,6 @@ docs/evidence/
 
 # Desktop-environment config does not belong in a kernel bring-up repo.
 tweaks/dotfiles/
+
+# Internal working archive — kept on disk, never tracked (2026-08-02 docs audit)
+internal/
