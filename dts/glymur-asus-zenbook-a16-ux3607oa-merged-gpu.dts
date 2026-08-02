@@ -18,10 +18,26 @@
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 
+/*
+ * GLYMUR-A16: drop the two secondary PMICs this laptop does not populate, and
+ * the thermal zones left dangling behind them.
+ *
+ * The zones must be deleted BY PATH, not by label. Upstream leaves
+ * pmh0104-l1-thermal and pmh0110-h0-thermal unlabelled (only the i0/j0 zones
+ * carry labels), so `/delete-node/ &pmh0104_l1_thermal;` fails to resolve and
+ * the zone survives with a dangling thermal-sensors phandle into the PMIC we
+ * just removed - which is a hard dtc error:
+ *
+ *   ERROR (phandle_references): /thermal-zones/pmh0104-l1-thermal:
+ *     Reference to non-existent node or label "pmh0104_l_e1_temp_alarm"
+ *
+ * Corrected 2026-08-02. The label form built only against the vendor-patched
+ * tree this DTS was originally developed on; it does not build against upstream.
+ */
 /delete-node/ &pmh0104_l_e1;
-/delete-node/ &pmh0104_l1_thermal;
+/delete-node/ &{/thermal-zones/pmh0104-l1-thermal};
 /delete-node/ &pmh0110_h_e0;
-/delete-node/ &pmh0110_h0_thermal;
+/delete-node/ &{/thermal-zones/pmh0110-h0-thermal};
 
 / {
 	compatible = "asus,zenbook-a16-ux3607oa", "qcom,glymur";
@@ -1413,6 +1429,37 @@
 	vdda-pll-supply = <&vreg_l4f_e1>;
 	refgen-supply = <&vreg_l4f_e1>;
 
+	/*
+	 * GLYMUR-A16: drop com_aux. gcc_usb3_tert_phy_com_aux_clk never leaves
+	 * halt on this instance - phy@88e1000 has no DWC3 behind it (there is no
+	 * tertiary USB controller), so the vote a USB half would normally cast is
+	 * never made. qmp_combo_com_init() then fails -EBUSY after a 200us
+	 * timeout, which kills AUX, EDID and every mode on the HDMI output.
+	 *
+	 * Legal because qmp_combo_clk_init() fetches the fixed list
+	 * {aux, cfg_ahb, ref, com_aux} with devm_clk_bulk_get_optional(): a clock
+	 * absent from the DT comes back NULL and clk_bulk_enable() skips it.
+	 * cfg_ahb already proves this - it is missing from all three combo PHY
+	 * nodes and nothing complains.
+	 *
+	 * Result: 0 clk-branch WARNs, EDID 0 -> 512 bytes, modes 0 -> 32, and the
+	 * compositor no longer wedges in msm_dp_aux_transfer on hotplug.
+	 *
+	 * WORKAROUND, not the correct fix. The DT describes the PHY's clocks
+	 * accurately; the driver is what enables com_aux unconditionally for an
+	 * instance with no USB half. The real fix likely belongs in
+	 * phy-qcom-qmp-combo.c or GCC. Do NOT present this upstream as
+	 * "the DTS was wrong".
+	 *
+	 * Back-ported to source 2026-08-02; previously only in the compiled DTB.
+	 */
+	clocks = <&gcc GCC_USB3_TERT_PHY_AUX_CLK>,
+		 <&tcsr TCSR_USB4_2_CLKREF_EN>,
+		 <&gcc GCC_USB3_TERT_PHY_PIPE_CLK>;
+	clock-names = "aux",
+		      "ref",
+		      "usb3_pipe";
+
 	/delete-property/ mode-switch;
 	/delete-property/ orientation-switch;
 
@@ -1473,4 +1520,848 @@
 	refgen-supply = <&vreg_l4f_e1>;
 
 	status = "okay";
+};
+
+/*
+ * GLYMUR-A16: make the SCMI core poll instead of waiting on the mailbox doorbell.
+ *
+ * scmi-cpufreq probed -110 (-ETIMEDOUT) for this project's entire life. Measured
+ * with SCMI RAW on 2026-07-30: the PDP0/CPUCP firmware answers protocol 0x13
+ * (Performance) in shared memory but NEVER rings the doorbell for it. The same
+ * message returns status 0 in polling mode and hangs forever in interrupt mode;
+ * 8 messages sent in IRQ mode moved IRQ 156 from 9 to 16 (one per reply) and
+ * ZERO times for 0x13.
+ *
+ * arm,no-completion-irq is a documented upstream boolean - no kernel patch needed.
+ * Result: three SCMI performance domains, scaling_driver = scmi, and the
+ * cpufreq-cpu0/6/12 cooling devices appear unaided.
+ *
+ * The scmi node upstream carries no label, so it is reached by path.
+ *
+ * Back-ported to source 2026-08-02; previously only in the compiled DTB.
+ */
+&{/firmware/scmi} {
+	arm,no-completion-irq;
+};
+
+/*
+ * GLYMUR-A16: thermal actuation. Bind the cpufreq cooling devices that the
+ * arm,no-completion-irq fix causes the kernel to create (cpufreq-cpu0/6/12) to a
+ * passive trip on every CPU and CPU-LLC zone. Upstream ships only the 115 C
+ * critical trip, so without this Linux has cooling capability and no actuation.
+ *
+ * Cluster map: the cpu-0-N and cpullc-0-N zones bind cpu0 (cpus 0-5), the cpu-1-N
+ * and cpullc-1-N zones bind cpu6 (cpus 6-11), and the cpu-2-N, cpullc-2-0 and
+ * cpuillc-2-1 zones bind cpu12 (cpus 12-17).
+ *
+ * polling-delay-passive is REQUIRED - without it the thermal core never
+ * re-evaluates the zone once the passive trip is crossed, so cur_state never
+ * steps back down. Verified against the running DTB on 2026-08-02.
+ *
+ * NOTE: this binds 42 zones where the hand-edited DTB on the laptop binds 41.
+ * Upstream glymur.dtsi contains a typo'd zone name, cpuillc-2-1-thermal (three
+ * i's), which the hand edit's cpullc-* pattern missed. It is a real zone with a
+ * real sensor, so it is bound here too.
+ *
+ * Back-ported to source 2026-08-02 and diffed against the live
+ * glymur-a16-hdmi-nocomaux.dtb: trip temperature, hysteresis, polling delay and
+ * cooling-device args all match.
+ */
+
+&{/thermal-zones/cpu-0-0-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_0_0_alert: cpu-0-0-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_0_0_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-0-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_0_1_alert: cpu-0-0-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_0_1_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-1-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_1_0_alert: cpu-0-1-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_1_0_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-1-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_1_1_alert: cpu-0-1-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_1_1_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-2-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_2_0_alert: cpu-0-2-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_2_0_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-2-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_2_1_alert: cpu-0-2-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_2_1_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-3-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_3_0_alert: cpu-0-3-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_3_0_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-3-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_3_1_alert: cpu-0-3-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_3_1_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-4-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_4_0_alert: cpu-0-4-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_4_0_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-4-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_4_1_alert: cpu-0-4-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_4_1_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-5-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_5_0_alert: cpu-0-5-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_5_0_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-5-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_5_1_alert: cpu-0-5-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_5_1_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-0-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_0_0_alert: cpu-1-0-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_0_0_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-0-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_0_1_alert: cpu-1-0-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_0_1_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-1-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_1_0_alert: cpu-1-1-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_1_0_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-1-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_1_1_alert: cpu-1-1-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_1_1_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-2-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_2_0_alert: cpu-1-2-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_2_0_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-2-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_2_1_alert: cpu-1-2-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_2_1_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-3-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_3_0_alert: cpu-1-3-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_3_0_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-3-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_3_1_alert: cpu-1-3-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_3_1_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-4-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_4_0_alert: cpu-1-4-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_4_0_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-4-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_4_1_alert: cpu-1-4-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_4_1_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-5-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_5_0_alert: cpu-1-5-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_5_0_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-5-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_5_1_alert: cpu-1-5-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_5_1_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-0-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_0_0_alert: cpu-2-0-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_0_0_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-0-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_0_1_alert: cpu-2-0-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_0_1_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-1-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_1_0_alert: cpu-2-1-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_1_0_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-1-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_1_1_alert: cpu-2-1-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_1_1_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-2-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_2_0_alert: cpu-2-2-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_2_0_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-2-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_2_1_alert: cpu-2-2-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_2_1_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-3-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_3_0_alert: cpu-2-3-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_3_0_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-3-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_3_1_alert: cpu-2-3-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_3_1_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-4-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_4_0_alert: cpu-2-4-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_4_0_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-4-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_4_1_alert: cpu-2-4-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_4_1_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-5-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_5_0_alert: cpu-2-5-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_5_0_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-5-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_5_1_alert: cpu-2-5-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_5_1_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpuillc-2-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpuillc_2_1_alert: cpuillc-2-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpuillc_2_1_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpullc-0-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpullc_0_0_alert: cpullc-0-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpullc_0_0_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpullc-0-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpullc_0_1_alert: cpullc-0-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpullc_0_1_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpullc-1-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpullc_1_0_alert: cpullc-1-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpullc_1_0_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpullc-1-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpullc_1_1_alert: cpullc-1-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpullc_1_1_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpullc-2-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpullc_2_0_alert: cpullc-2-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpullc_2_0_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
 };

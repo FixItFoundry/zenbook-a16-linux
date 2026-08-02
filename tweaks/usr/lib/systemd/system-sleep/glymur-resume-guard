@@ -1,0 +1,128 @@
+#!/bin/bash
+# glymur-resume-guard — systemd system-sleep hook for the Zenbook A16.
+#
+# Handles BOTH s2idle resume bugs. They are unrelated and need opposite
+# strategies:
+#   USB    PREVENTED  — tear the xHCI controllers down before sleep so no
+#                       stale DMA ring exists to fault on.
+#   ath12k REPAIRED   — cannot be prevented; detect the failure after resume
+#                       and re-enumerate the device.
+#
+# PREVENTS the xHCI Host System Error that s2idle otherwise causes on glymur,
+# instead of reacting to it after the fact.
+#
+# THE BUG (root-caused 2026-08-02):
+#   At suspend entry all three controllers report
+#       usb usbN-portM: device N-M not suspended yet
+#       dwc3-qcom aN00000.usb: port-N HS-PHY not in L2
+#   They go down with live DMA rings. On resume the controller DMAs into a
+#   stale IOVA, the SMMU raises a translation fault (fsr=0x402 [Format=2 TF]),
+#   and xHCI latches a Host System Error. An HSE is FATAL: slot allocation
+#   stops, every enumeration returns "couldn't allocate usb_device", and no
+#   amount of replugging or `authorized` toggling recovers it.
+#
+# WHAT THIS DOES
+#   pre  : unbind the xHCI platform devices, so the controllers are torn down
+#          cleanly and no stale rings exist across the sleep.
+#   post : rebind them, which re-initialises and re-enumerates from scratch.
+#
+#   Controller rebind is PROVEN to clear the HSE (verified 2026-08-02 on
+#   loazen after a real failure). This hook applies the same operation
+#   proactively.
+#
+# ⚠️ This is a WORKAROUND, not the fix. The fix is for the ports to reach L2 —
+#    see glymur-usb-autosuspend.conf and docs/hardware.md. Try that first; if
+#    it works, this hook becomes unnecessary and should be removed, not kept
+#    "just in case".
+#
+# ⛔ EVERY ACTION IS LOGGED to the journal with tag glymur-usb-guard. If you
+#    ever wonder whether this is doing anything, run:
+#        journalctl -t glymur-usb-guard
+#    A hook that has never logged a successful rebind is doing nothing and must
+#    be removed. This project has been burned by a bandaid that ran for 62
+#    boots, logged 33,048 errors, never once fired, and was credited with a fix
+#    it could not have made. Do not repeat that.
+#
+# Install: /usr/lib/systemd/system-sleep/glymur-usb-suspend-guard  (chmod +x)
+
+DRV=/sys/bus/platform/drivers/xhci-hcd
+log() { logger -t glymur-usb-guard "$*"; }
+
+# Find the ath12k device rather than hardcoding 0004:01:00.0 — the BDF is
+# stable on this board but a hardcoded path fails silently if it ever moves.
+ATH_BDF=$(for d in /sys/bus/pci/devices/*/; do
+	[ "$(cat "$d/vendor" 2>/dev/null)" = "0x17cb" ] || continue
+	case "$(cat "$d/class" 2>/dev/null)" in 0x0280*) basename "$d"; break;; esac
+done)
+
+case "$1/$2" in
+pre/suspend|pre/hybrid-sleep)
+	for x in /sys/bus/platform/devices/xhci-hcd.*; do
+		[ -e "$x" ] || continue
+		n=$(basename "$x")
+		[ -e "$x/driver" ] || { log "pre: $n already unbound"; continue; }
+		if echo "$n" > "$DRV/unbind" 2>/dev/null; then
+			log "pre: unbound $n"
+		else
+			log "pre: FAILED to unbind $n"
+		fi
+	done
+	;;
+
+post/suspend|post/hybrid-sleep)
+	for x in /sys/bus/platform/devices/xhci-hcd.*; do
+		[ -e "$x" ] || continue
+		n=$(basename "$x")
+		[ -e "$x/driver" ] && { log "post: $n already bound"; continue; }
+		if echo "$n" > "$DRV/bind" 2>/dev/null; then
+			log "post: rebound $n"
+		else
+			log "post: ⛔ FAILED to rebind $n — USB will be dead"
+		fi
+	done
+	sleep 3
+	n=$(lsusb 2>/dev/null | grep -vc 'root hub')
+	log "post: $n non-root-hub USB device(s) enumerated"
+	[ "$n" -eq 0 ] && log "post: ⛔ NOTHING enumerated — the hook did not save you"
+	# did the fault happen anyway?
+	h=$(dmesg | grep -c 'Host System Error')
+	log "post: Host System Error count this boot = $h"
+
+	# ---------------------------------------------------------------- ath12k
+	# Separate bug, separate fix. ath12k's resume path cannot reload the
+	# device firmware after a long sleep:
+	#     mhi mhi0: Power on setup success        <- bus is fine
+	#     mhi mhi0: MHI did not load AMSS, ret:-5 <- firmware is not
+	# Only re-enumeration redoes the firmware download, so remove+rescan
+	# recovers it where driver rebind does not. 3/3 successful as of
+	# 2026-08-02.
+	#
+	# ⚠️ REACTIVE, unlike the USB half above — we cannot prevent this one, only
+	#    detect and repair it. It therefore only fires when the device has
+	#    ACTUALLY failed, never speculatively.
+	if [ -n "$ATH_BDF" ]; then
+		if journalctl -k -b --since "-2 min" --no-pager 2>/dev/null \
+			| grep -q "failed to power up hif during resume"; then
+			log "post: ath12k failed to resume — re-enumerating $ATH_BDF"
+			if echo 1 > "/sys/bus/pci/devices/$ATH_BDF/remove" 2>/dev/null; then
+				sleep 2
+				echo 1 > /sys/bus/pci/rescan 2>/dev/null
+				sleep 8
+				if [ -e "/sys/bus/pci/devices/$ATH_BDF" ]; then
+					log "post: ath12k re-enumerated OK"
+				else
+					log "post: ⛔ ath12k did NOT come back after rescan"
+				fi
+			else
+				log "post: ⛔ could not write remove for $ATH_BDF"
+			fi
+		else
+			log "post: ath12k resumed cleanly, no action"
+		fi
+	else
+		log "post: no ath12k device found, skipping"
+	fi
+	;;
+esac
+
+exit 0

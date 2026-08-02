@@ -277,6 +277,142 @@ measured.**
 (`qcom,no-alarm`).
 ⚠️ **Wake with the lid.** `HandlePowerKey=poweroff` turns a wake attempt into a fake failure.
 
+### ★ Two devices do not survive resume (root-caused 2026-08-02)
+
+A ~35 minute s2idle cycle **resumed correctly** — `uptime -s` unchanged, `success=1 fail=0`,
+and ADSP, USB-C, battmgr, NVMe and the display all came back. **Two drivers did not.** These are
+device bugs on a working suspend core, not the SoC-reset bug.
+
+**1. ath12k — the device firmware does not reload.**
+
+```
+mhi mhi0: Power on setup success          <- the bus is FINE
+mhi mhi0: MHI did not load AMSS, ret:-5   <- the firmware is not
+ath12k: failed to power up hif during resume: -110
+```
+
+MHI reaches the device successfully; the device never boots AMSS back to SBL/Mission mode, so
+everything downstream times out. The `-110`s are consequences. Recovery — **verified working**,
+and note that driver unbind/rebind does *not* work, because only re-enumeration redoes the
+firmware download:
+
+```sh
+echo 1 | sudo tee /sys/bus/pci/devices/0004:01:00.0/remove
+echo 1 | sudo tee /sys/bus/pci/rescan
+```
+
+⛔ **The `Timeout while waiting for regulatory update` is NOT the cause.** Eliminated three ways
+on 2026-08-02: it appears in a *failing* cycle, in a *passing* cycle, and **not at all** in a
+third failing cycle — and it fires at probe time on a freshly recovered, healthy device (16
+occurrences in one boot). It is chronic noise on this box. Do not spend time on it.
+
+★ **Duration-sensitive, unlike the USB bug.** Three cycles on one boot:
+
+| sleep | ath12k | USB |
+|---|---|---|
+| 2m25s | ✅ firmware loaded normally | ❌ failed |
+| 12m51s | ❌ `MHI did not load AMSS, ret:-5` | — (sleep hook active, survived) |
+| ~35min | ❌ same | ❌ failed |
+
+⇒ **The threshold sits between 2m25s and 12m51s and is unmeasured.** A 5- and 8-minute cycle
+would bracket it. Intermittency is still not ruled out — each duration has only one sample.
+
+`remove` + `rescan` has now recovered it **three times out of three**, firmware reloading
+normally each time (`chip_id 0x21`, `fw_version 0x100581de`).
+
+**2. xHCI — controllers suspend with their PHYs not in L2.**
+
+The fault is at suspend *entry*, not resume:
+
+```
+usb usb1-port1: device 1-1 not suspended yet
+dwc3-qcom a400000.usb: port-1 HS-PHY not in L2       (all three controllers)
+```
+
+On resume the controller DMAs into a stale ring → `arm-smmu 15000000.iommu: Unhandled context
+fault: fsr=0x402 [Format=2 TF]` → `xhci-hcd: WARNING: Host System Error`. An HSE is **fatal**:
+the controller stops allocating slots, so every attempt then fails `couldn't allocate
+usb_device`. That is why replug, `authorized` toggling and USB-device rebinding all do nothing —
+they operate above the controller.
+
+⛔ **The SMMU is not globally broken across suspend.** Exactly two context faults, both from
+xHCI SIDs. `apps_smmu` also serves the GPU, GMU, both PCIe root complexes, fastrpc and the audio
+DAIs, and none of them faulted. The "SMMU context lost on resume" theory is eliminated by
+measurement.
+
+✅ **Recovery CONFIRMED 2026-08-02** — rebinding the controller clears the HSE and everything
+re-enumerates (hubs, card reader, RTL8153). Rebind the *controller*, not the devices:
+[`../scripts/suspend/glymur-usb-recover.sh`](../scripts/suspend/glymur-usb-recover.sh).
+So the HSE is **not** a hardware-latched dead end — no DWC3-level reset is required.
+
+⛔ **Why the PHY never reaches L2 is still UNKNOWN.** One theory was tested and failed.
+
+*Tested and rejected 2026-08-02:* that the leaf devices sitting at `power/control = on`
+(autosuspend disabled) kept the ports busy. A udev rule flipping every USB device to
+`control=auto` was installed and verified applied — and the next suspend produced **4× `not in
+L2`, an HSE on both `xhci-hcd.1.auto` and `.3.auto`, and 7 more allocation failures.** No
+improvement at all.
+
+⚠️ The reasoning error: `power/control` governs *runtime* autosuspend. System suspend calls the
+suspend callbacks regardless, so the setting was never the blocker. Also observed — the r8152
+holds a runtime-PM reference while its link is up, so it reads `active` even at `control=auto`.
+The rule is harmless (no link drops seen) but it is **not a fix**; keep it only if you want the
+power saving.
+
+Next place to look is the dwc3-qcom suspend path itself, not USB power policy.
+
+★ **The USB bug is duration-independent.** It reproduced fully on a **2m25s** sleep. Any framing
+of the form "long sleeps fail, short ones are fine" does not apply to USB.
+
+### ✅ The workaround works — verified 2026-08-02
+
+Tear the controllers down *before* sleeping rather than recover after, applying the proven
+rebind proactively:
+[`../tweaks/usr/lib/systemd/system-sleep/glymur-usb-suspend-guard`](../tweaks/usr/lib/systemd/system-sleep/glymur-usb-suspend-guard).
+
+First real cycle with it installed (12m51s sleep):
+
+```
+pre:  unbound xhci-hcd.1/2/3.auto
+post: rebound xhci-hcd.1/2/3.auto
+post: 4 non-root-hub USB device(s) enumerated
+post: Host System Error count this boot = 3
+```
+
+| counter | before | after | delta |
+|---|---|---|---|
+| `not in L2` | 8 | 12 | +4 — still happens, root cause untouched |
+| **`Host System Error`** | 3 | **3** | **+0** |
+| **`couldn't allocate usb_device`** | 14 | **14** | **+0** |
+
+The PHY still fails to reach L2, but with the controllers unbound there is no live ring to DMA
+into, so no SMMU fault and no HSE. USB survived a suspend for the first time that day.
+
+⚠️ This is a **workaround**. The dwc3-qcom suspend path still puts the PHY down wrong; the hook
+just removes the thing that gets corrupted by it.
+
+Audit it with one command — if it stops earning its place, delete it:
+
+```sh
+journalctl -t glymur-usb-guard
+```
+
+⛔ **Prefer either of those to a reactive watchdog.** The failure is fatal and latched, so a
+watchdog can only ever act after USB is already dead — and if USB is your only network path, you
+may not be able to reach the box to run it. Whatever you install, make it *log every action*:
+this project already shipped one bandaid that ran for 62 boots, logged 33,048 errors, never
+fired once, and was credited with a fix it could not have made.
+
+⚠️ **`glymur_pci_skip=5` is NOT the cause of either.** That hypothesis was reasoned from the
+patch source, predicted the symptom, and is still wrong — `MHI Power on setup success` proves
+config space was intact, and the NVMe on the other root complex resumed fine under the same
+flag. Recorded because it was convincing and false.
+
+⚠️ **"Long sleeps fail, short ones are fine" is not established.** Both bugs may be
+duration-independent. A 2-minute control cycle has not been run.
+
+Full evidence: `docs/evidence/suspend-2026-08-02/ROOT-CAUSE.md` (local, untracked).
+
 Ruled out by test, not argument: PME wakeup arming, D3cold, any D-state change, the PCIe
 controller being runtime-suspended, the GPU, and `bam_dma`/`pcie-qcom`/`geni_i2c`/`qcom-ipcc`/
 genpd power-off/`simple-pm-bus` — individually **and all five combined**.

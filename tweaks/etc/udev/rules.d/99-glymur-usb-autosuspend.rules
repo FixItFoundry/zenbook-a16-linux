@@ -1,0 +1,24 @@
+# glymur: USB autosuspend policy.
+#
+# ⛔ TESTED 2026-08-02 AND IT DOES NOT FIX THE L2 PROBLEM. Kept only for the
+#    power saving. See docs/hardware.md - after applying this rule a 2m25s
+#    suspend still produced 4x "not in L2", HSEs on xhci-hcd.1.auto and
+#    .3.auto, and 7 "couldn.t allocate usb_device". power/control governs
+#    RUNTIME autosuspend; system suspend calls the callbacks regardless.
+#
+# ORIGINAL (now-rejected) RATIONALE, kept so the wrong reasoning is recognisable.
+# Observed at suspend entry:
+#     usb usb1-port1: device 1-1 not suspended yet
+#     dwc3-qcom a400000.usb: port-1 HS-PHY not in L2
+# and the leaf devices were pinned awake:
+#     2-1.3  RTL8153 LAN    power/control = on
+#     2-2    USB3.0-CRW     power/control = on
+# A device at control=on never autosuspends, so its port never idles and the
+# HS-PHY never reaches L2. The controller then suspends with live rings, and on
+# resume DMAs into a stale IOVA -> SMMU translation fault -> fatal HSE.
+#
+# Test procedure if you ever revisit this: apply, suspend, then
+#     journalctl -b -k | grep -cE 'not in L2|Host System Error'
+# Both zero would mean it worked. On 2026-08-02 they were 4 and 1.
+
+ACTION=="add", SUBSYSTEM=="usb", ATTR{power/control}=="on", ATTR{power/control}="auto"

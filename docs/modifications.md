@@ -10,23 +10,55 @@ lineage). Everything below is what this project adds on top. For what each compo
 
 ---
 
-## ⛔ FIRST: the tracked source cannot rebuild the running machine
+## ✅ Source/DTB parity — closed 2026-08-02
 
-**Three fixes that are live on the laptop exist only inside the compiled DTB. They were made by
-decompile → edit → recompile and never back-ported into the DTS source in this repo.**
+Until 2026-08-02 the three fixes below existed **only inside the compiled DTB** — made by
+decompile → edit → recompile and never back-ported — so building the tracked DTS produced a
+machine with no cpufreq, no thermal actuation and dead HDMI.
 
-| Fix | In the running DTB | In `dts/*.dts` |
+**All three are now in the source and verified against the running machine.** The live DTB
+(`/boot/glymur/glymur-a16-hdmi-nocomaux.dtb`) was pulled off `loazen` and diffed property by
+property against a fresh build of `dts/glymur-asus-zenbook-a16-ux3607oa-merged-gpu.dts`:
+
+| Property | live DTB | built from source |
 |---|---|---|
-| `arm,no-completion-irq` on `scmi` (cpufreq) | ✅ | ❌ **absent** |
-| `passive` trip @ 95 °C + `cooling-maps` on 41 zones | ✅ | ❌ **absent** |
-| `com_aux` removed from `phy@88e1000` (HDMI) | ✅ | ❌ **absent** |
+| `arm,no-completion-irq` | 1 | 1 |
+| `cooling-maps` nodes | 55 | **56** |
+| `polling-delay-passive` | 64 | **65** |
+| passive trips @ 95000 | 64 | **65** |
+| `hysteresis` 1000 | 148 | **149** |
+| `phy@88e1000` `clock-names` | `"aux", "ref", "usb3_pipe"` | identical |
 
-Verify: `grep -c "no-completion-irq\|cooling-maps" dts/*.dts` returns 0.
+Every zone matches the live one field for field — same trip temperature, hysteresis, polling
+delay, cooling-device args and phandle.
 
-⇒ **Building the tracked DTS today gives you a machine with no cpufreq, no thermal actuation,
-and dead HDMI.** Back-porting these three into the source is open work. The authoritative
-artifact is currently the binary `/boot/glymur/glymur-a16-merged-gpu-coolmaps.dtb` on the
-laptop, which is *not* in this repo.
+★ **The +1 is deliberate and is an improvement.** Upstream `glymur.dtsi` contains a typo'd zone
+name — `cpuillc-2-1-thermal`, with three i's. The hand-edited DTB matched on `cpullc-*` and
+missed it, binding 41 zones; the source enumerates programmatically and binds **42**. It is a
+real zone with a real sensor.
+
+⚠️ **One thing deliberately NOT carried over:** the live DTB has a `ramoops@ffc00000`
+reserved-memory node. It is left out because **ramoops cannot capture on this hardware** — DRAM
+at that address does not survive a reset (proven with a canary across a clean reboot; the
+firmware scrubs it). Re-adding it would only look like crash capture exists.
+
+⚠️ `CLAUDE.md` still names `glymur-a16-merged-gpu-coolmaps.dtb` as the baseline. The GRUB default
+actually loads **`glymur-a16-hdmi-nocomaux.dtb`** (coolmaps *plus* the `com_aux` removal).
+
+### The DTS also did not build against upstream until this change
+
+Two `/delete-node/` lines referenced labels that exist only in the vendor-patched tree this DTS
+was originally developed on:
+
+```dts
+/delete-node/ &pmh0104_l1_thermal;    /* label does not exist upstream */
+/delete-node/ &pmh0110_h0_thermal;
+```
+
+Upstream leaves those two zones unlabelled, so the deletes silently failed to resolve and left a
+dangling phandle into a PMIC the DTS had just removed — a hard `dtc` error. Now deleted by path
+(`&{/thermal-zones/pmh0104-l1-thermal}`), which works either way. **This is corroborating
+evidence for the provenance problem** described at the end of this document.
 
 ---
 

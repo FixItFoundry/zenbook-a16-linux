@@ -1,0 +1,26 @@
+Corrected 2026-08-02 for upstream linux-next context.
+
+The original patch anchored its Kconfig hunk on `endmenu` after QCOM_PBS.
+Upstream restructured drivers/soc/qcom/Kconfig so that block now ends with
+`endif`, so the hunk failed to apply. Same insertion point, new anchor.
+
+Apply with:
+  cp kernel/soccp_glink.c <tree>/drivers/soc/qcom/
+  git apply patches/glymur-soccp-glink-7.2-hooks.patch.fixed
+  ./scripts/config --module CONFIG_QCOM_SOCCP_GLINK
+
+--- a/drivers/soc/qcom/Kconfig
++++ b/drivers/soc/qcom/Kconfig
+@@ -292,6 +292,14 @@
+ 	  This module provides the APIs to the client drivers that wants to send the
+ 	  PBS trigger event to the PBS RAM.
+ 
++config QCOM_SOCCP_GLINK
++	tristate "Qualcomm SOCCP GLINK Edge (Asus Zenbook)"
++	depends on QCOM_SMEM && RPMSG_QCOM_GLINK_SMEM
++	help
++	  Stand-alone registrar for the SOCCP GLINK-over-SMEM edge on
++	  the ASUS Zenbook A16 (Snapdragon X2 Elite). This is required
++	  to receive battery and charger status over PMIC-GLINK.
++
+ endif
