@@ -314,8 +314,27 @@ occurrences in one boot). It is chronic noise on this box. Do not spend time on 
 | 12m51s | ❌ `MHI did not load AMSS, ret:-5` | — (sleep hook active, survived) |
 | ~35min | ❌ same | ❌ failed |
 
-⇒ **The threshold sits between 2m25s and 12m51s and is unmeasured.** A 5- and 8-minute cycle
-would bracket it. Intermittency is still not ruled out — each duration has only one sample.
+⇒ **The threshold sits between 2m25s and 12m51s and is unmeasured.** Intermittency is still not
+ruled out — each duration has only one sample.
+
+⛔ **`d3cold_allowed=0` is NOT the fix — tested 2026-08-02 over an 18m44s cycle.** Set on both
+the endpoint and the bridge, it did not prevent the failure; it moved it *earlier* in the MHI
+state machine:
+
+| | d3cold allowed | d3cold blocked |
+|---|---|---|
+| MHI stage reached | `Wait for device to enter SBL or Mission mode` | — |
+| failure | `MHI did not load AMSS, ret:-5` | `Device failed to enter MHI Ready` |
+
+MHI boots reset → READY → PBL/SBL → AMSS, so blocking D3cold made the device fail one stage
+sooner. ★ It is still informative: **changing the setting changed the failure mode, which proves
+D3cold entry was really happening.** Blocking it leaves the device half-alive rather than
+cleanly powered off, which is worse, not better. The device's power state across suspend is
+genuinely the variable — the fix is not simply "forbid the low-power state".
+
+⚠️ **Trap:** `remove` + `rescan` re-enumerates the device and **resets its sysfs attributes to
+defaults**, so any per-device experiment (`d3cold_allowed`, ASPM, `power/control`) is silently
+undone by the recovery path. Use a udev rule if a setting must persist.
 
 `remove` + `rescan` has now recovered it **three times out of three**, firmware reloading
 normally each time (`chip_id 0x21`, `fw_version 0x100581de`).
@@ -345,7 +364,31 @@ re-enumerates (hubs, card reader, RTL8153). Rebind the *controller*, not the dev
 [`../scripts/suspend/glymur-usb-recover.sh`](../scripts/suspend/glymur-usb-recover.sh).
 So the HSE is **not** a hardware-latched dead end — no DWC3-level reset is required.
 
-⛔ **Why the PHY never reaches L2 is still UNKNOWN.** One theory was tested and failed.
+### ★ Attached devices are NOT the cause — eliminated by topology, 2026-08-02
+
+The obvious theory is that devices which fail to suspend hold their ports awake. **The
+controller topology refutes it outright, with no test required:**
+
+```
+xhci-hcd.1.auto → a400000.usb → usb1, usb2 → 4 devices (2 hubs, NIC, card reader)
+xhci-hcd.2.auto → a600000.usb → usb3, usb4 → 0 devices
+xhci-hcd.3.auto → a800000.usb → usb5, usb6 → 0 devices
+```
+
+And the warnings, every cycle:
+
+```
+dwc3-qcom a400000.usb: port-1 HS-PHY not in L2     <- has devices
+dwc3-qcom a400000.usb: port-2 HS-PHY not in L2     <- has devices
+dwc3-qcom a600000.usb: port-1 HS-PHY not in L2     <- EMPTY
+dwc3-qcom a800000.usb: port-1 HS-PHY not in L2     <- EMPTY
+```
+
+⇒ **Two controllers with nothing attached fail identically to the populated one.** The fault is
+in the dwc3-qcom suspend path itself, not in USB device suspend ordering. This also means an
+"unplug everything and retry" test is unnecessary — it cannot distinguish anything.
+
+⛔ **Why the PHY never reaches L2 is still UNKNOWN.** Two theories tested and rejected.
 
 *Tested and rejected 2026-08-02:* that the leaf devices sitting at `power/control = on`
 (autosuspend disabled) kept the ports busy. A udev rule flipping every USB device to
@@ -364,7 +407,14 @@ Next place to look is the dwc3-qcom suspend path itself, not USB power policy.
 ★ **The USB bug is duration-independent.** It reproduced fully on a **2m25s** sleep. Any framing
 of the form "long sleeps fail, short ones are fine" does not apply to USB.
 
-### ✅ The workaround works — verified 2026-08-02
+### ⚠️ The workaround works — but nothing is fixed
+
+**Be precise about what this buys.** The controllers still fail on every single resume. The
+hook does not prevent the fault; it destroys and rebuilds the thing the fault corrupts, so the
+damage never becomes visible. "Survives suspend" is the wrong description — the correct one is
+"dies on every resume and is automatically resurrected". The same is true of the ath12k half.
+
+Verified 2026-08-02:
 
 Tear the controllers down *before* sleeping rather than recover after, applying the proven
 rebind proactively:
@@ -390,6 +440,98 @@ into, so no SMMU fault and no HSE. USB survived a suspend for the first time tha
 
 ⚠️ This is a **workaround**. The dwc3-qcom suspend path still puts the PHY down wrong; the hook
 just removes the thing that gets corrupted by it.
+
+### Resume timing — measured, and it is NOT device timeouts
+
+A slow-feeling wake is easy to blame on the `-110`s. The monotonic clock says otherwise:
+
+```
+[ 6947.741] PM: suspend entry (s2idle)
+[ 7065.068] dwc3-qcom: HS-PHY not in L2       <- resume begins
+[ 7065.070] mhi: MHI did not enter READY state
+[ 7065.071] ath12k: failed to power up hif -110
+[ 7065.073] PM: suspend exit
+```
+
+**The entire kernel resume takes 13 milliseconds.** Those `-110`s return immediately; they are
+not 10-second timeouts stacking up.
+
+| stage | elapsed |
+|---|---|
+| kernel resume, all warnings and failures | **13 ms** |
+| this hook (3 controller rebinds + ath12k re-enumerate) | **~14 s** |
+| `System returned from sleep` → `user.slice thawed` | ~14 s |
+
+⚠️ **That 13 ms covers the device-resume portion only, and does NOT account for the whole wake.**
+On 2026-08-02 Jesse pressed space at 12:02 and the kernel logged `PM: suspend exit` at 12:04:54
+— **~2m54s between the input and the kernel resuming.** There is also a 117-second gap inside
+the *entry* path that is unexplained:
+
+```
+[ 6947.741] PM: suspend entry (s2idle)
+[ 6947.792] Filesystems sync: 0.051 seconds
+[ 7065.030] Freezing user space processes     <- 117 s later
+[ 7065.073] PM: suspend exit                  <- everything after fits in 43 ms
+```
+
+★ **Strong candidate: wakeup-lock churn is stopping s2idle from actually sleeping.**
+
+```
+0-0015 (touchpad)   active=55,556   total_ms=3
+qcom-battmgr-bat    active= 8,886   total_ms=156,666    <- 156 SECONDS held
+19-0015 (keyboard)  active= 4,761   total_ms=0
+```
+
+An active wakeup source forces s2idle to wake and re-enter immediately. 156 s of held wakeup
+time lines up closely with the 117 s of unaccounted monotonic time, and would mean the machine
+thrashes in and out of sleep rather than resting — which also finally explains the long-standing
+"suspend saves less power than it should" note that was never measured.
+
+⛔ **NOT PROVEN.** The churn is measured; that it *causes* the slow wake is not. One-line test:
+
+```sh
+echo disabled | sudo tee /sys/class/power_supply/qcom-battmgr-bat/device/power/wakeup
+```
+
+If the monotonic gap collapses on the next cycle, that is the mechanism.
+
+### A third problem: suspend ENTRY stalls, variably
+
+The printk clock does **not** advance during s2idle — confirmed on a 2m35s sleep that consumed
+2 ms of kernel-clock time between `Suspending console(s)` and `Restarting tasks: Done`. So every
+monotonic gap in these logs is **real awake CPU time**, and wake-side latency is structurally
+invisible to it.
+
+With that established, the `Filesystems sync` → `Freezing user space processes` gap is genuine
+awake time inside the **entry** path, and it varies enormously:
+
+| cycle | sleep | sync → freeze |
+|---|---|---|
+| 4 | 18m44s | **117 s** |
+| 5 | 2m35s | **4.8 s** |
+
+That window is the PM notifier chain plus `suspend_freeze_processes()`. Something blocking it
+for 117 seconds is a real defect, distinct from both device bugs above.
+
+⚠️ **It is not the whole explanation for a slow wake.** 117 s from an 11:46:10 entry puts freeze
+at ~11:48 — long before the 12:02 keypress that preceded a 12:04:54 resume. Wake-side latency
+remains unaccounted and cannot be measured from printk timestamps; it needs an external clock.
+
+⏭️ Next step is characterization, not a fix: `echo 1 > /sys/power/pm_debug_messages` for
+per-phase timing on the next long cycle.
+
+★ **Wake latency scales with sleep duration**, like the ath12k failure and unlike the USB one:
+a 2m35s sleep woke instantly; an 18m44s sleep took ~3 minutes.
+
+⛔ **Eliminated:** "the keyboard is not armed as a wakeup source". `19-0015`
+(`hid-over-i2c 0B05:4B42`) is `wakeup=enabled` with 4,761 recorded wakeup events. The keypress
+registers. Also eliminated: that the `-110`s are timeouts burning minutes — they return in
+microseconds.
+
+⛔ **`/usr/lib/systemd/system-sleep/` runs EVERY executable in it**, exactly like
+`/etc/grub.d/`. `asus-kbd-init.retired-2026-07-31` was still `+x` and erroring on every suspend
+(4 times in one boot) long after being "retired". Fixed with `chmod -x` on 2026-08-02.
+Renaming a hook does not disable it.
 
 Audit it with one command — if it stops earning its place, delete it:
 
