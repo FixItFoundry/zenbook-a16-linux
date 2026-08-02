@@ -1,110 +1,112 @@
-# Firmware — what's needed and why it's NOT in this repo
+# Firmware — almost all of it is now upstream and redistributable
 
-The glymur platform needs proprietary Qualcomm/ASUS firmware at runtime. **None of it is
-redistributed here** — it is copyrighted by Qualcomm/ASUS and cannot be legally re-hosted.
-This repo only contains *findings derived from* those blobs (addresses, StreamIDs, register
-maps) for interoperability research.
+⚠️ **This file previously said "none of it is redistributable — extract it from your own
+device." That was true when written and is now WRONG.** Upstream `linux-firmware` has absorbed
+glymur. Verified against tag **20260622** on 2026-08-02.
 
-## Where the firmware comes from
+**Consequence: bootable images for this laptop CAN be published.** The long-standing position
+that no image could ship because firmware was proprietary no longer holds.
 
-The firmware ships with the device's Windows installation. On a stock Windows-on-ARM Zenbook
-A16 it lives under the Windows driver store (`C:\Windows\System32\DriverStore\FileRepository\`)
-and the Qualcomm SoC package. Extract it from **your own device**.
+---
 
-## What the platform needs
+## What is upstream and redistributable
 
-| Blob | Purpose |
-|---|---|
-| `qcvss8480.mbn` | GPU / GMU (zap shader) — needed for any future GPU bring-up |
-| `qcdxkmsuc8480.mbn` | GPU microcode |
-| `qcav1e8480.mbn` | AV1 codec |
-| ADSP audio DSP (`adsp.mbn` / `qcadsp8480.mbn`) | Audio DSP + LPASS (the AudioReach **topology** is open source — see [`tplg/`](tplg/)) |
-| WCN / ath12k firmware | Wi-Fi |
-| Various `.mbn` PIL images | remoteproc-loaded subsystems |
+All of the below are in [`kernel-firmware/linux-firmware`](https://gitlab.com/kernel-firmware/linux-firmware)
+at tag `20260622`.
 
-Place them under `/lib/firmware/qcom/glymur/` (and the ASUS model subdir
-`/lib/firmware/qcom/glymur/ASUSTeK/UX3607OA/` where drivers expect it).
+### Wi-Fi — `ath12k/QCC2072/hw1.0/`
 
-## Exact files the glymur drivers request
-
-Create these under `/lib/firmware/` on the target rootfs (these are the paths the drivers on this
-build actually look for):
-
-**Wi‑Fi — ath12k (Qualcomm QCC2072):**
 ```
-/lib/firmware/ath12k/QCC2072/hw1.0/amss.bin
-/lib/firmware/ath12k/QCC2072/hw1.0/m3.bin
-/lib/firmware/ath12k/QCC2072/hw1.0/board.bin        # (some builds: board-2.bin)
-/lib/firmware/ath12k/QCC2072/hw1.0/regdb.bin
-/lib/firmware/ath12k/QCC2072/hw1.0/aux_ucode.bin
-```
-**Audio + co‑processors (ADSP / AudioReach):**
-```
-/lib/firmware/qcom/glymur/adsp.mbn
-/lib/firmware/qcom/glymur/GLYMUR-A16-tplg.bin        # AudioReach topology — OPEN SOURCE, build from tplg/
-/lib/firmware/qcom/glymur/ASUSTeK/UX3607OA/qcadsp8480.mbn
-/lib/firmware/qcom/glymur/cdsp*.mbn , *.jsn          # as your drivers request
-```
-Redistributable (usually already present from your distro's `linux-firmware`):
-`/lib/firmware/regulatory.db` + `regulatory.db.p7s`.
-
-## Where to get them (pick what applies)
-1. **From any Linux you already run on the A16** (including this project's own build) — just copy
-   `/lib/firmware/{ath12k,qcom/glymur}` off it. By far the easiest if you have a working install.
-2. **From your device's Windows install** — the Qualcomm SoC package under
-   `C:\Windows\System32\DriverStore\FileRepository\`. The `.mbn`/board blobs live there; the
-   Windows filenames differ from the Linux names above, so match by role/size.
-3. **Upstream [`linux-firmware`](https://gitlab.com/kernel-firmware/linux-firmware)** carries the
-   generic Qualcomm/ath12k bits for some SoCs; the glymur/ASUSTeK ADSP topology is device-specific
-   and generally must come from your own device.
-
-After placing the files, `sudo depmod -a` (if needed) and reboot — Wi‑Fi + audio should come up.
-
-> **No prebuilt images are published** — precisely because a *useful* image would have to carry
-> this firmware. Build your own with `../iso/` and bake in your own firmware (below).
-
-## The audio topology is OPEN SOURCE (not a blob)
-
-The sound machine driver on this build is `snd-x1e80100`, which requests
-`qcom/glymur/GLYMUR-A16-tplg.bin`. That file is an **AudioReach topology**, and AudioReach
-topologies are **open source** — they are NOT part of the proprietary firmware.
-
-Upstream [`linux-msm/audioreach-topology`](https://github.com/linux-msm/audioreach-topology)
-(**BSD-3-Clause**, © Linaro Ltd) ships an `m4` topology source for the GLYMUR SoC
-(`GLYMUR-CRD.m4`) plus X1E80100 laptop variants. It compiles to a `.tplg` with open tools
-(`m4` + `alsatplg` from `alsa-topology-utils`) — no proprietary input at any step:
-
-```bash
-sudo dnf install -y alsa-topology-utils m4          # Debian/Ubuntu: alsa-utils m4
-git clone --depth 1 https://github.com/linux-msm/audioreach-topology.git
-cd audioreach-topology
-m4 GLYMUR-CRD.m4 > /tmp/GLYMUR-CRD.conf
-alsatplg -c /tmp/GLYMUR-CRD.conf -o /tmp/GLYMUR-CRD.tplg
-sudo install -Dm644 /tmp/GLYMUR-CRD.tplg /lib/firmware/qcom/glymur/GLYMUR-A16-tplg.bin
+Notice.txt   board-2.bin   firmware-2.bin
 ```
 
-A prebuilt `GLYMUR-CRD.tplg` and a build script are in [`tplg/`](tplg/). **Verified on real
-hardware (2026-07-18):** the upstream topology instantiates the `GLYMUR-A16` card and brings up
-the full 4×WSA8845 speaker control tree — see [`tplg/README.md`](tplg/README.md) for details and
-the note on producing a true no-regression drop-in.
+`WHENCE` says: **`Licence: Redistributable. See LICENSE.QualcommAtheros_ath10k`**
 
-The rest of the audio path — the ADSP image (`adsp.mbn` / `qcadsp8480.mbn`) — is the
-device-specific Qualcomm blob and must come from **your own device**, not linux-firmware.
+★ Version `WLAN.COL.1.0.c2-00074-QCACOLSWPL_V1_TO_SILICONZ-1` — **byte-for-byte the build this
+hardware reports at probe.** Upstream ships exactly what the machine runs.
 
-## Bake firmware into your own build
+⚠️ Note the *modern bundled* layout: `firmware-2.bin` replaces the older loose
+`amss.bin` / `m3.bin` / `aux_ucode.bin` set this document used to list. Do not go hunting for
+files that current ath12k no longer asks for.
 
-Once the files are under `/lib/firmware/...` (paths listed above):
+### Bluetooth — `qca/`
 
-- **On a running install:** drop them into `/lib/firmware`, then `sudo depmod -a` and reboot —
-  Wi‑Fi + audio come up.
-- **Into an image built with `../iso/build-all-overnight.sh`:** the builder's `addfw()` step
-  extracts an overlay tarball `a16-fw.tar.gz` into the rootfs. Build your own overlay:
-  ```bash
-  # stage your firmware under a matching tree (…/lib/firmware/…), then:
-  tar czf a16-fw.tar.gz -C /your/staging \
-      lib/firmware/ath12k lib/firmware/qcom/glymur \
-      lib/firmware/regulatory.db lib/firmware/regulatory.db.p7s
-  # drop a16-fw.tar.gz next to the builder — addfw() picks it up automatically.
-  ```
-  The resulting image works out-of-the-box **on your own device** — just don't redistribute it,
-  since it then contains non-free firmware.
+```
+ornbtfw11.tlv   ornnv11.bin
+```
+
+Listed in `WHENCE` under *"btqca — Qualcomm Atheros Bluetooth support for QCA_QCC2072 chip"*.
+
+### DSPs, GPU and audio — `qcom/glymur/`
+
+```
+adsp.mbn      adsp_dtb.mbn      adspr.jsn  adsps.jsn  adspua.jsn
+cdsp.mbn      cdsp_dtb.mbn      cdspr.jsn
+gen80100_zap.mbn                            <- the GPU zap shader
+GLYMUR-CRD-tplg.bin                         <- audio topology, reference design
+```
+
+★ **`gen80100_zap.mbn` closes a gap `docs/hardware.md` recorded as open.** The Adreno driver
+falls back to `SECVID_TRUST_CNTL` because the file is not installed locally, not because it does
+not exist.
+
+---
+
+## What is genuinely NOT upstream
+
+Two things, and neither is a proprietary blob that must be extracted.
+
+### 1. The A16 audio topology
+
+Upstream ships `GLYMUR-CRD-tplg.bin` — Qualcomm's **CRD reference design**, not this laptop.
+
+The AudioReach driver derives the filename from the `model` property of the `sound` node:
+
+```dts
+sound {
+    model = "GLYMUR-ASUS-Zenbook-A16-UX3607OA";  ->  GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin
+};
+```
+
+So the "missing firmware" is a file named after **our own model string**. It is **open source**
+and built from [`tplg/`](tplg/) in this repo. It is not a redistribution problem.
+
+⚠️ Worth testing: the in-tree upstream A16 DT (`x2e94100-asus-zenbook-a16.dts`) has **no sound
+node at all** — upstream has not done audio on this laptop. Whether `model = "GLYMUR-CRD"` would
+load the reference topology usefully on A16 hardware (4× WSA8845 in a 4.0 layout) is untested,
+and is the cheapest experiment available here.
+
+### 2. `soccp.mbn`
+
+Upstream has `soccp.mbn` for **kaanapali** but not for **glymur**. Probably irrelevant — the
+SOCCP on this laptop is **UEFI-loaded and already running**, which is exactly why the device tree
+deliberately omits `&remoteproc_soccp`.
+
+---
+
+## Getting the firmware
+
+**Preferred — upstream, redistributable:**
+
+```sh
+git clone --depth 1 --branch 20260622 \
+  https://gitlab.com/kernel-firmware/linux-firmware.git
+sudo cp -a linux-firmware/ath12k/QCC2072 /lib/firmware/ath12k/
+sudo cp -a linux-firmware/qcom/glymur    /lib/firmware/qcom/
+sudo cp -a linux-firmware/qca/orn*       /lib/firmware/qca/
+```
+
+Or install your distro's `linux-firmware` once it reaches a tag ≥ 20260622.
+⚠️ Fedora 44 ships `ath12k/QCN9274` and `WCN7850` but **not** `QCC2072` yet, which is why the
+live images in [`../iso/`](../iso/) inject it explicitly.
+
+**Fallback — from your own device:** [`../iso/glymur-fetch-firmware.sh`](../iso/glymur-fetch-firmware.sh)
+still works and remains the answer for anything upstream lacks.
+
+---
+
+## Why this matters
+
+Published live images for this laptop can now carry working Wi-Fi, Bluetooth, audio DSP and the
+GPU zap shader with no proprietary redistribution. The only piece an image cannot ship is the
+A16 audio topology — and that is ours to build and license as we choose.

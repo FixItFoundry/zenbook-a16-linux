@@ -71,8 +71,11 @@ and without it the Adreno SMMU times out and the entire `msm` component bind fai
 
 ⛔ **Do not start a gpucc decompile.** The drivers are in-tree and work.
 
-Remaining: no zap shader (falls back to `SECVID_TRUST_CNTL`), no hwmon so `nvtop` reports
-N/A, and no sustained stress testing.
+Remaining: no hwmon so `nvtop` reports N/A, and no sustained stress testing.
+
+★ **The zap-shader gap is closable and was mis-recorded.** `qcom/glymur/gen80100_zap.mbn` is in
+upstream `linux-firmware` and is redistributable — the driver falls back to `SECVID_TRUST_CNTL`
+only because the file is not installed, not because it does not exist.
 
 ## HDMI — ⚠️ half working, output still black
 
@@ -253,8 +256,18 @@ Secondary PMICs fail to probe over SPMI (`pmic-spmi … error -5`,
 2. the PMIC PWM (`pmh0101`/`pm8350c`) that drives the **fan** — so `/sys/class/pwm` is empty
    and Linux can never spin it as a proper `pwm-fan` cooling device.
 
-Fixing the SPMI arbiter probe unlocks both. There is likely relevant in-kernel 7.x SPMI work to
-pull in.
+⚠️ **Corrected 2026-08-02: this is NOT missing upstream support.** All three layers are present
+in linux-next 20260713:
+
+```
+drivers/spmi/spmi-pmic-arb.c:2165   { .compatible = "qcom,glymur-spmi-pmic-arb" }
+Documentation/devicetree/bindings/spmi/qcom,glymur-spmi-pmic-arb.yaml
+glymur.dtsi                         spmi_bus0 @c426000, spmi_bus1 @c437000
+```
+
+So the failure is narrower than "no driver". Note that **bus0 demonstrably works** — the PMIC
+power key at `c426000.spmi:pmic@0:pon@1300` is functional. The next question is whether the
+failures are confined to `spmi_bus1` or to specific secondary PMICs, which nobody has checked.
 
 ## Suspend / resume ⚠️ works on a workaround
 
@@ -565,12 +578,29 @@ genpd power-off/`simple-pm-bus` — individually **and all five combined**.
 NVMe root on PCIe. RTC is the PMIC RTC — enabled, but **read-only**; `qcom,uefi-rtc-info` is
 deliberately removed from the DT.
 
-## Camera ❌ — not started, and expensive
+## Camera ❌ — one blocker removed, the rest stands
 
-There is **no `camcc-glymur.c`** (only `camcc-kaanapali.c`, the sibling SoC), and
-`drivers/media/platform/qcom/camss/` has **zero** support for this SoC generation — the same is
-true on X1 Elite. Bringing it up means a camera clock-controller driver, CAMSS for a new
-generation, CCI/CSI wiring, and a sensor driver. Scope this in months, not days.
+⚠️ **Corrected 2026-08-02.** This section used to say *"there is no `camcc-glymur.c`"*. **That is
+wrong** — as of linux-next 20260713 the camera clock controller is upstream and builds:
+
+```
+drivers/clk/qcom/camcc-glymur.c
+include/dt-bindings/clock/qcom,glymur-camcc.h
+glymur.dtsi:4894   camcc: clock-controller@ade0000 { compatible = "qcom,glymur-camcc"; }
+```
+
+So the clock controller — one of the four pieces — is **done and in-tree**, and the DT node
+already exists.
+
+**What genuinely remains:**
+
+- **CAMSS does not support this SoC generation.** Supported: `660, 845, 2290, 6150, 6350, 7280,
+  8250, 8280XP, 8300, 8550, 8650`. Nothing for X1 Elite (`x1e80100`) or X2 Elite
+  (`x2e94100`/glymur). This is the real blocker and it is large.
+- CCI/CSI device-tree wiring for this laptop
+- A sensor driver for whatever module ASUS fitted
+
+Still months of work, but the scope is smaller than previously recorded and one piece is free.
 
 ---
 
