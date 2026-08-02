@@ -4,8 +4,6 @@
 # host details that should not be published. Verified by scan 2026-07-24.
 # Keep local; publish findings via docs/ instead.
 memory-archive/
-HANDOFF.md
-RESUME-HERE.md
 CLAUDE.md
 
 # Extracted UEFI / vendor firmware binaries and the Ghidra project built from
@@ -44,7 +42,6 @@ clo-rolling_glymur_next/
 # gets moved out of scratch/ deliberately.
 scratch/
 
-logs/
 captures/images/
 captures/videos/
 *.log
@@ -56,19 +53,44 @@ PUSH_INSTRUCTIONS.md
 *~
 .DS_Store
 Thumbs.db
-DTB_CHANGELOG-internal.md
-HANDOFF-*-archived.md
-dtdiff/
 docs/UPSTREAMING-PLAN.md
 
 # Hardware dumps and probe captures are NOT published. ACPI dumps in particular
 # carry MSDM, which holds the OEM Windows licence key in plaintext.
-docs/evidence/
 *.dat
 *msdm*
 
 # Desktop-environment config does not belong in a kernel bring-up repo.
 tweaks/dotfiles/
 
-# Internal working archive — kept on disk, never tracked (2026-08-02 docs audit)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PRIVATE BY DEFAULT — everything below never leaves this machine.
+#
+# THE RULE: working communications and any notes dropped into the project
+# folder are private. Do not rely on remembering to add each new file here —
+# put it in internal/ and it is private structurally.
+#
+#   internal/   ← the ONLY place private material belongs. Anything in it is
+#                 ignored, including subdirectories created later.
+#
+# What lives there: the working journal (DTB_CHANGELOG-internal.md), rolling
+# state (RESUME-HERE.md), handoffs, upstreaming notes, raw analysis transcripts,
+# the eDP series, decompiled test DTBs, diagnostic-only patches, hardware
+# evidence captures, build logs, dtdiff output, and DRAFT emails/bug reports.
+#
+# ⛔ Draft communications are private until sent. They live in internal/ and
+#    must never be committed.
+# ═══════════════════════════════════════════════════════════════════════════
 internal/
+
+# CLAUDE.md must stay at the repo root — Claude Code loads it from there — so
+# it cannot move into internal/ and is ignored by name instead.
+CLAUDE.md
+
+# Hardware/firmware captures are private wherever they land (post-2026-07-31
+# MSDM leak). Belt and braces alongside internal/.
+docs/evidence/
+**/*.dat
+**/*msdm*
+

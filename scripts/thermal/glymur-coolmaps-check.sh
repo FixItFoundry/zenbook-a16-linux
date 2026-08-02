@@ -6,7 +6,7 @@
 # NOT exist on this kernel - a bound zone has cdev0 (a symlink), cdev0_trip_point
 # and cdev0_weight, and no cdev0_type. So it returned 0 whether the maps were
 # bound or not, and that zero became the "no thermal zone binds them" gap that
-# sat in RESUME-HERE.md and the README. Rewritten 2026-07-31.
+# sat in the project notes and the README. Rewritten 2026-07-31.
 set -u
 echo "=== booted DTB carries cpu cooling-maps? ==="
 echo -n "  cooling-maps nodes in live DT: "

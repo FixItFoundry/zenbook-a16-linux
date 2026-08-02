@@ -485,7 +485,7 @@ the "thin race with PipeWire" model entirely — it is a fixed, reproducible seq
 ## ★★★ THE REGRESSION, LOCATED — it is `GRAPH_START`, and only `GRAPH_START`
 
 Jesse's recollection that audio worked before msm is supported by the archived dmesg
-captures in `logs/` (Jul 20–24, all `modprobe.blacklist=msm`, kernel `clean2`):
+captures kept privately (Jul 20–24, all `modprobe.blacklist=msm`, kernel `clean2`):
 
 | capture | ADSP up | CMD timeouts | DSP errors | card |
 |---|---|---|---|---|
@@ -712,7 +712,7 @@ and ours now removes them.
 
 ### ⏭️ The decisive test — reference already captured
 
-Working-kernel reference saved in `logs/`:
+Working-kernel reference, kept privately:
 - `genpd-edp1-WORKING-AUDIO-2026-07-27.txt` — **45 power domains**, dmesg clean of any
   gdsc/genpd/power-domain error
 - `clk-edp1-WORKING-AUDIO-playing-2026-07-27.txt` — LPASS clock tree during audible playback
@@ -829,7 +829,7 @@ succession is the suspected trigger and must be avoided while testing.
 
 ### Reference captured for the next comparison (no laptop needed)
 
-`logs/srcversion-cleanplus-AUDIO-WORKED.txt` — audio module **source** hashes from
+`srcversion-cleanplus-AUDIO-WORKED.txt` (private) — audio module **source** hashes from
 `modules-7.1.0-glymur-clean+.tar.gz` on the LoA drive, i.e. the era audio was flawless.
 Compare with `modinfo -F srcversion` on `/lib/modules/7.1.0-glymur-gdsc1`; any mismatch is a
 genuine audio-driver source change between then and now. (edp1 vs gdsc1 already matched, so

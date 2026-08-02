@@ -1,7 +1,7 @@
 # Documentation
 
 Four documents. If you are looking for something else, it was working detail and now lives in
-the maintainer's untracked `internal/` archive rather than in this repo.
+the maintainer's private notes rather than in this repo.
 
 | Doc | What it answers |
 |---|---|

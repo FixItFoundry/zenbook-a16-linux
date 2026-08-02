@@ -56,7 +56,7 @@ cat /sys/class/drm/card1/card1-eDP-1/status   # connected
 ls /sys/class/backlight/                       # dp_aux_backlight
 ```
 
-⛔ Do not re-derive the eDP elimination list — it is in `internal/edp/`. In particular the old
+⛔ Do not re-derive the eDP elimination list — it is in the maintainer’s private eDP notes. In particular the old
 reasoning "UEFI left `LINK_BW_SET = 0x14` so the firmware's known-good link is HBR3" is
 **wrong** (`0x14` is 5.4G; HBR3 is `0x1e`). Why 8.1G works is still unexplained.
 
@@ -96,7 +96,7 @@ compositor hang.
 instances get HPD pushed in by `pmic_glink_altmode → aux_hpd_bridge`; the HDMI instance has no
 equivalent, so its HPD register reads 0 forever and the driver tears the mainlink down.
 
-**Four fixes tried, all eliminated** (detail in `DTB_CHANGELOG-internal.md`):
+**Four fixes tried, all eliminated** (detail in the maintainer’s private working journal):
 
 | approach | outcome |
 |---|---|
@@ -463,8 +463,8 @@ not 10-second timeouts stacking up.
 | `System returned from sleep` → `user.slice thawed` | ~14 s |
 
 ⚠️ **That 13 ms covers the device-resume portion only, and does NOT account for the whole wake.**
-On 2026-08-02 Jesse pressed space at 12:02 and the kernel logged `PM: suspend exit` at 12:04:54
-— **~2m54s between the input and the kernel resuming.** There is also a 117-second gap inside
+A wake keypress was observed to precede `PM: suspend exit` by **~2m54s** — that much latency
+between the input and the kernel resuming. There is also a 117-second gap inside
 the *entry* path that is unexplained:
 
 ```
@@ -514,7 +514,7 @@ That window is the PM notifier chain plus `suspend_freeze_processes()`. Somethin
 for 117 seconds is a real defect, distinct from both device bugs above.
 
 ⚠️ **It is not the whole explanation for a slow wake.** 117 s from an 11:46:10 entry puts freeze
-at ~11:48 — long before the 12:02 keypress that preceded a 12:04:54 resume. Wake-side latency
+roughly 14 minutes before the keypress that preceded the resume. Wake-side latency
 remains unaccounted and cannot be measured from printk timestamps; it needs an external clock.
 
 ⏭️ Next step is characterization, not a fix: `echo 1 > /sys/power/pm_debug_messages` for
@@ -553,7 +553,8 @@ flag. Recorded because it was convincing and false.
 ⚠️ **"Long sleeps fail, short ones are fine" is not established.** Both bugs may be
 duration-independent. A 2-minute control cycle has not been run.
 
-Full evidence: `docs/evidence/suspend-2026-08-02/ROOT-CAUSE.md` (local, untracked).
+Full per-cycle evidence is kept in the maintainer’s private notes and is not published; the
+findings above are the complete public record.
 
 Ruled out by test, not argument: PME wakeup arming, D3cold, any D-state change, the PCIe
 controller being runtime-suspended, the GPU, and `bam_dma`/`pcie-qcom`/`geni_i2c`/`qcom-ipcc`/

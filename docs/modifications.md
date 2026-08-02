@@ -172,7 +172,7 @@ be a single boot-time variable:
 ## Kernel patches
 
 Seven patches are tracked. Diagnostic scaffolding that produced findings but is not needed to
-run the machine lives in `internal/patches-diagnostic/` (untracked).
+run the machine is not published — only the patches needed to build and run the machine are here.
 
 | Patch | What it does | Status |
 |---|---|---|

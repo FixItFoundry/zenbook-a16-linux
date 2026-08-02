@@ -68,7 +68,7 @@ handles as its "suspend aborted in the noirq phase" case.
 + * GLYMUR DIAGNOSTIC (2026-07-30, not for upstream).
 + *
 + * Phase-level bisect of the ASUS Zenbook A16 suspend reset. See
-+ * DTB_CHANGELOG-internal.md. bit1 = IRQ masking, bit2 = per-device noirq
++ * docs/modifications.md. bit1 = IRQ masking, bit2 = per-device noirq
 + * callbacks, bit4 = the whole late phase. Suspend and resume are gated
 + * together for every bit.
 + */
@@ -231,7 +231,7 @@ handles as its "suspend aborted in the noirq phase" case.
  
 +/*
 + * GLYMUR DIAGNOSTIC (2026-07-30, not for upstream). See
-+ * DTB_CHANGELOG-internal.md. bit1 = skip pci_prepare_to_sleep (stay in D0),
++ * docs/modifications.md. bit1 = skip pci_prepare_to_sleep (stay in D0),
 + * bit2 = skip the driver noirq callback, bit4 = skip pci_save_state (RISKY).
 + */
 +static int glymur_pci_skip;
