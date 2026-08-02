@@ -55,10 +55,26 @@ was originally developed on:
 /delete-node/ &pmh0110_h0_thermal;
 ```
 
-Upstream leaves those two zones unlabelled, so the deletes silently failed to resolve and left a
-dangling phandle into a PMIC the DTS had just removed — a hard `dtc` error. Now deleted by path
-(`&{/thermal-zones/pmh0104-l1-thermal}`), which works either way. **This is corroborating
-evidence for the provenance problem** described at the end of this document.
+⛔ **RETRACTED 2026-08-02. The label form was correct; my tree was stale.**
+
+Konrad's upstream series (2026-07-21, `20260721-topic-a16_submission-v1-2`) **adds those exact
+labels** as part of the A16 submission:
+
+```diff
+-		pmh0104-l1-thermal {
++		pmh0104_l1_thermal: pmh0104-l1-thermal {
+```
+
+The build failed only because it was attempted against linux-next **20260713** — eight days
+older than the patch. Nothing was wrong with the DTS.
+
+⚠️ **I originally recorded this as "corroborating evidence for the provenance problem." It is
+not evidence of anything except a stale checkout.** The path form
+(`&{/thermal-zones/pmh0104-l1-thermal}`) is retained because it works against both old and new
+trees, but the label form is what upstream expects and neither is a defect.
+
+★ **Build against a tree that includes Konrad's 2026-07-21 series**, or apply
+`upstream/patches/0002-*.mbox` on top, or this failure recurs and looks like a DTS bug.
 
 ---
 
