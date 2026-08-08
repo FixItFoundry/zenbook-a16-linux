@@ -1,0 +1,56 @@
+From 6e5124330b4915db3b4ed69784f85911c2f6ec5a Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Sat, 8 Aug 2026 08:20:29 -0400
+Subject: [PATCH 1/7] arm64: dts: qcom: glymur: use polling mode for SCMI
+ transfers
+
+On glymur the CPUCP firmware writes correct SCMI replies into the shared
+memory but never rings the mailbox doorbell for them. Every transfer that
+waits for the completion interrupt therefore times out, scmi-cpufreq
+fails to probe with -110, and the machine ends up with no cpufreq at all
+-- all CPUs pinned at their boot OPP.
+
+Measured on an ASUS Zenbook A16 (UX3607OA) through the SCMI RAW debugfs
+interface: a Performance protocol (0x13) PROTOCOL_ATTRIBUTES request
+returns status 0 and reports three performance domains when the transport
+polls for completion, and never completes when it waits for the doorbell.
+The mailbox interrupt count stays at zero throughout, so the reply is
+being produced but never signalled.
+
+Mark the transport arm,no-completion-irq so it polls. With this applied
+scmi-cpufreq probes, three performance domains appear, and
+cpu0/cpufreq/scaling_driver reads "scmi".
+
+The property is documented in
+Documentation/devicetree/bindings/firmware/arm,scmi.yaml, is consumed by
+drivers/firmware/arm_scmi/driver.c, and is already used in-tree by
+renesas/r8a78000-ironhide.
+
+Assisted-by: Anthropic:Claude-Opus-5
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ arch/arm64/boot/dts/qcom/glymur.dtsi | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index f04058d2e..b9db81a19 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -412,6 +412,12 @@ scmi {
+ 			mbox-names = "tx", "rx";
+ 			shmem = <&cpu_scp_lpri1>, <&cpu_scp_lpri0>;
+ 
++			/*
++			 * The CPUCP writes SCMI replies into the shmem but
++			 * never rings the completion doorbell, so poll.
++			 */
++			arm,no-completion-irq;
++
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+ 
+
+base-commit: 6b8c8af514d739d0335f5579b585e02babe8a727
+-- 
+2.55.0
+

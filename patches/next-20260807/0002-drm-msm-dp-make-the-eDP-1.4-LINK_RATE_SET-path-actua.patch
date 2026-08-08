@@ -1,10 +1,11 @@
-From 528016c84998c87c35c57add8a9d95793921b361 Mon Sep 17 00:00:00 2001
+From 2ad456ab895e7d07ddf71389d386baa8b0ccd087 Mon Sep 17 00:00:00 2001
 From: Jesse Casco <jesse.casco@gmail.com>
 Date: Sat, 8 Aug 2026 08:20:29 -0400
 Subject: [PATCH 2/7] drm/msm/dp: make the eDP 1.4 LINK_RATE_SET path actually
  reachable
 
 Assisted-by: Anthropic:Claude-Opus-5
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
 ---
  drivers/gpu/drm/msm/dp/dp_ctrl.c | 29 +++++++++++++++++++++++++++++
  1 file changed, 29 insertions(+)

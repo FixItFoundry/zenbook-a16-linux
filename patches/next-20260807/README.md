@@ -1,5 +1,10 @@
 # Delta against `next-20260807`
 
+**Three of these were sent upstream on 2026-08-08** — `0001` (SCMI polling),
+`0003` (push_idle guard) and, separately, the eDP PHY behaviour as a bug
+report rather than a patch. Archived Message-IDs are in the project notes;
+search lore.kernel.org for `jesse.casco@gmail.com` to find the threads.
+
 The full stack that turns a stock linux-next snapshot into the kernel this laptop
 daily-drives. Generated with `git format-patch --base=next-20260807`, so each patch carries a
 real `index` line and applies with `git am`.

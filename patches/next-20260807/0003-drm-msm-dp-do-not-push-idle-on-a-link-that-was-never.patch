@@ -1,10 +1,11 @@
-From e1dbfb10c2c64a83999d9013c555c37bc4018cf2 Mon Sep 17 00:00:00 2001
+From c009d226c9924abfd9e78f6bcfd79f2891d6f53d Mon Sep 17 00:00:00 2001
 From: Jesse Casco <jesse.casco@gmail.com>
 Date: Sat, 8 Aug 2026 08:20:29 -0400
 Subject: [PATCH 3/7] drm/msm/dp: do not push idle on a link that was never
  powered on
 
 Assisted-by: Anthropic:Claude-Opus-5
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
 ---
  drivers/gpu/drm/msm/dp/dp_display.c | 14 ++++++++++++++
  1 file changed, 14 insertions(+)

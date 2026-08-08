@@ -1,4 +1,4 @@
-From 645fb93c6c22252dbe96bc4dafccc08b9da377c8 Mon Sep 17 00:00:00 2001
+From 0b2f70489bf276acd8137c7d47736d4f29f42588 Mon Sep 17 00:00:00 2001
 From: Jesse Casco <jesse.casco@gmail.com>
 Date: Sat, 8 Aug 2026 08:20:29 -0400
 Subject: [PATCH 4/7] LOCAL: drm/msm/dp: force the internal eDP panel to the DT

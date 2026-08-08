@@ -1,4 +1,4 @@
-From cc77b01f1c8165f324590c67f0e6c5c82a75a915 Mon Sep 17 00:00:00 2001
+From 132d2a14ac4078e372f98fb7f9b01f81f16396f3 Mon Sep 17 00:00:00 2001
 From: Jesse Casco <jesse.casco@gmail.com>
 Date: Sat, 8 Aug 2026 08:22:24 -0400
 Subject: [PATCH 5/7] LOCAL: PCI: add glymur_pci_skip to work around the

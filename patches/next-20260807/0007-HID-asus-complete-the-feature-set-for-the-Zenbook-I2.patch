@@ -1,4 +1,4 @@
-From bba4e5659a41d6e7242f378ce7ce560b87802880 Mon Sep 17 00:00:00 2001
+From 53bf67ffa25b48bfd6037cd429f7f9620859ae5e Mon Sep 17 00:00:00 2001
 From: Jesse Casco <jesse.casco@gmail.com>
 Date: Sat, 8 Aug 2026 09:18:45 -0400
 Subject: [PATCH 7/7] HID: asus: complete the feature set for the Zenbook I2C
@@ -45,6 +45,7 @@ asus::kbd_backlight with max_brightness 3 and the Fn+F4 cycle key steps
 it through its four levels.
 
 Assisted-by: Anthropic:Claude-Opus-5
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
 ---
  drivers/hid/hid-asus.c | 174 ++++++++++++++++++++++++++++++++++++++---
  1 file changed, 162 insertions(+), 12 deletions(-)
