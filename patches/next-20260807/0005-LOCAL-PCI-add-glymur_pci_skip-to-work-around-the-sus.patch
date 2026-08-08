@@ -1,0 +1,69 @@
+From cc77b01f1c8165f324590c67f0e6c5c82a75a915 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Sat, 8 Aug 2026 08:22:24 -0400
+Subject: [PATCH 5/7] LOCAL: PCI: add glymur_pci_skip to work around the
+ suspend_noirq SoC reset
+
+Assisted-by: Anthropic:Claude-Opus-5
+---
+ drivers/pci/pci-driver.c | 17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
+index e16aa59dd..570a0e259 100644
+--- a/drivers/pci/pci-driver.c
++++ b/drivers/pci/pci-driver.c
+@@ -4,6 +4,7 @@
+  * (C) Copyright 2007 Novell Inc.
+  */
+ 
++#include <linux/moduleparam.h>
+ #include <linux/pci.h>
+ #include <linux/module.h>
+ #include <linux/init.h>
+@@ -903,6 +904,14 @@ static int pci_pm_suspend_late(struct device *dev)
+ 	return pm_generic_suspend_late(dev);
+ }
+ 
++/*
++ * GLYMUR DIAGNOSTIC (2026-07-30, not for upstream). See
++ * the project changelog. bit1 = skip pci_prepare_to_sleep (stay in D0),
++ * bit2 = skip the driver noirq callback, bit4 = skip pci_save_state (RISKY).
++ */
++static int glymur_pci_skip;
++core_param(glymur_pci_skip, glymur_pci_skip, int, 0644);
++
+ static int pci_pm_suspend_noirq(struct device *dev)
+ {
+ 	struct pci_dev *pci_dev = to_pci_dev(dev);
+@@ -919,7 +928,7 @@ static int pci_pm_suspend_noirq(struct device *dev)
+ 		goto set_unknown;
+ 	}
+ 
+-	if (pm->suspend_noirq) {
++	if (pm->suspend_noirq && !(glymur_pci_skip & 2)) {
+ 		pci_power_t prev = pci_dev->current_state;
+ 		int error;
+ 
+@@ -938,14 +947,16 @@ static int pci_pm_suspend_noirq(struct device *dev)
+ 	}
+ 
+ 	if (!pci_dev->state_saved) {
+-		pci_save_state(pci_dev);
++		if (!(glymur_pci_skip & 4))
++			pci_save_state(pci_dev);
+ 
+ 		/*
+ 		 * If the device is a bridge with a child in D0 below it,
+ 		 * it needs to stay in D0, so check skip_bus_pm to avoid
+ 		 * putting it into a low-power state in that case.
+ 		 */
+-		if (!pci_dev->skip_bus_pm && pci_power_manageable(pci_dev))
++		if (!pci_dev->skip_bus_pm && pci_power_manageable(pci_dev) &&
++		    !(glymur_pci_skip & 1))
+ 			pci_prepare_to_sleep(pci_dev);
+ 	}
+ 
+-- 
+2.55.0
+

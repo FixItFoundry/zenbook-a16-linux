@@ -1,0 +1,49 @@
+From 645fb93c6c22252dbe96bc4dafccc08b9da377c8 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Sat, 8 Aug 2026 08:20:29 -0400
+Subject: [PATCH 4/7] LOCAL: drm/msm/dp: force the internal eDP panel to the DT
+ max link rate
+
+Assisted-by: Anthropic:Claude-Opus-5
+---
+ drivers/gpu/drm/msm/dp/dp_panel.c | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/dp/dp_panel.c b/drivers/gpu/drm/msm/dp/dp_panel.c
+index e76dad0f6..f32748c91 100644
+--- a/drivers/gpu/drm/msm/dp/dp_panel.c
++++ b/drivers/gpu/drm/msm/dp/dp_panel.c
+@@ -172,6 +172,30 @@ static int msm_dp_panel_read_dpcd(struct msm_dp_panel *msm_dp_panel)
+ 			if (!bw_set && link_info->rate)
+ 				link_info->use_rate_set = true;
+ 		}
++
++		/*
++		 * LOCAL WORKAROUND (glymur / Snapdragon X2 Elite, v8 eDP PHY).
++		 *
++		 * Measured 2026-08-07 on ASUS Zenbook A16 UX3607OA: the v8 eDP
++		 * PHY only brings up a usable link at HBR3.  RBR and HBR fail
++		 * clock recovery outright; HBR2 completes clock recovery and
++		 * then never completes channel equalization.  Only 8.1 Gbps
++		 * trains, and it trains on the first attempt.
++		 *
++		 * This panel (SDC ATNA60HR07-0) advertises HBR2 as its maximum
++		 * in both the eDP SUPPORTED_LINK_RATES table and the extended
++		 * receiver caps, so the rate selected above is precisely the
++		 * one rate that cannot work, and the panel never lights.
++		 *
++		 * Override it with the ceiling the DT link-frequencies property
++		 * allows.  eDP only - external DP is left alone.
++		 *
++		 * NOT UPSTREAMABLE AS-IS: this drives the link above the sink's
++		 * advertised maximum.  The real fix belongs in phy-qcom-edp.c.
++		 */
++		link_info->rate = link->max_dp_link_rate;
++		link_info->use_rate_set = false;
++		link_info->rate_set = 0;
+ 	}
+ 
+ 	/* Fall back on MAX_LINK_RATE/LINK_BW_SET (DP, eDP <= v1.3) */
+-- 
+2.55.0
+

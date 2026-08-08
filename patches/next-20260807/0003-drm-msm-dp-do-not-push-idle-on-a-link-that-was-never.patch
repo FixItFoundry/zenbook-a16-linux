@@ -1,0 +1,39 @@
+From e1dbfb10c2c64a83999d9013c555c37bc4018cf2 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Sat, 8 Aug 2026 08:20:29 -0400
+Subject: [PATCH 3/7] drm/msm/dp: do not push idle on a link that was never
+ powered on
+
+Assisted-by: Anthropic:Claude-Opus-5
+---
+ drivers/gpu/drm/msm/dp/dp_display.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/dp/dp_display.c b/drivers/gpu/drm/msm/dp/dp_display.c
+index bc646d172..5d2ddf180 100644
+--- a/drivers/gpu/drm/msm/dp/dp_display.c
++++ b/drivers/gpu/drm/msm/dp/dp_display.c
+@@ -1458,6 +1458,20 @@ void msm_dp_display_atomic_disable(struct msm_dp *dp)
+ 
+ 	msm_dp_display = container_of(dp, struct msm_dp_display_private, msm_dp_display);
+ 
++	/*
++	 * If .atomic_enable() bailed out - link training failure is the common
++	 * case - the mainlink was never brought up and ->power_on stayed false.
++	 * Driving the PUSH_IDLE pattern into a controller that was never
++	 * enabled times out, and .atomic_post_disable() then drops the
++	 * controller's runtime-PM reference without tearing the PHY back down,
++	 * because msm_dp_display_disable() returns early on !power_on.  On
++	 * glymur (Snapdragon X2 Elite) that combination is answered by a
++	 * TrustZone-level SOCCP/ADSP force-stop and a silent SoC reset.
++	 * There is nothing to push idle, so leave it alone.
++	 */
++	if (!dp->power_on)
++		return;
++
+ 	msm_dp_ctrl_push_idle(msm_dp_display->ctrl);
+ }
+ 
+-- 
+2.55.0
+

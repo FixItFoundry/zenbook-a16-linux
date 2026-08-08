@@ -1,0 +1,282 @@
+From 8d8e8b3b5aab0eab1cc4c67ef8e2c0b4bcd929ed Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Sat, 8 Aug 2026 09:18:45 -0400
+Subject: [PATCH 7/7] HID: asus: support the ASUS Zenbook A16 (UX3607OA) N-Key
+ keyboard
+
+Assisted-by: Anthropic:Claude-Opus-5
+---
+ drivers/hid/hid-asus.c | 167 ++++++++++++++++++++++++++++++++++++++---
+ drivers/hid/hid-ids.h  |   1 +
+ 2 files changed, 157 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/hid/hid-asus.c b/drivers/hid/hid-asus.c
+index ec966fc0a..b82e464bb 100644
+--- a/drivers/hid/hid-asus.c
++++ b/drivers/hid/hid-asus.c
+@@ -100,6 +100,21 @@ MODULE_DESCRIPTION("Asus HID Keyboard and TouchPad");
+ #define QUIRK_ROG_ALLY_XPAD		BIT(13)
+ #define QUIRK_HID_FN_LOCK		BIT(14)
+ #define QUIRK_FILTER_CAMERA_COMPANION	BIT(15)
++/*
++ * Some ASUS I2C-HID keyboards (Zenbook A16 UX3607OA) ignore feature reports
++ * shorter than the declared report size; pad them out. Kept behind a quirk so
++ * ROG keyboards and the ROG Ally, whose MCU version check is a short report,
++ * keep their existing behaviour.
++ */
++#define QUIRK_PAD_FEATURE_REPORTS	BIT(16)
++/* Power on with Fn lock OFF so the multimedia keys are primary. */
++#define QUIRK_FN_LOCK_DEFAULT_OFF	BIT(17)
++
++/*
++ * The A16 keyboard controller gives four usable backlight steps and takes the
++ * level index (0-3) directly, not a PWM duty value.
++ */
++#define ASUS_KBD_BACKLIGHT_MAX		3
+ 
+ #define I2C_KEYBOARD_QUIRKS			(QUIRK_FIX_NOTEBOOK_REPORT | \
+ 						 QUIRK_NO_INIT_REPORTS | \
+@@ -137,6 +152,15 @@ struct asus_work_action {
+ };
+ 
+ struct asus_worker {
++	/*
++	 * cdev/own_cdev are used only when asus-wmi is unavailable (device-tree
++	 * boot). Upstream relies on asus-wmi to own the asus::kbd_backlight LED
++	 * and merely registers a listener; with no ACPI there is no asus-wmi,
++	 * so we register the LED ourselves and drive it over the HID feature
++	 * report.
++	 */
++	struct led_classdev cdev;
++	bool own_cdev;
+ 	struct hid_device *hdev;
+ 	struct work_struct work;
+ 	struct list_head actions;
+@@ -465,11 +489,31 @@ static int asus_event(struct hid_device *hdev, struct hid_field *field,
+ 	if (usage->type == EV_KEY && value) {
+ 		switch (usage->code) {
+ 		case KEY_KBDILLUMUP:
+-			return !asus_hid_event(ASUS_EV_BRTUP);
+ 		case KEY_KBDILLUMDOWN:
+-			return !asus_hid_event(ASUS_EV_BRTDOWN);
+-		case KEY_KBDILLUMTOGGLE:
+-			return !asus_hid_event(ASUS_EV_BRTTOGGLE);
++		case KEY_KBDILLUMTOGGLE: {
++			enum asus_hid_event ev =
++				(usage->code == KEY_KBDILLUMUP) ? ASUS_EV_BRTUP :
++				(usage->code == KEY_KBDILLUMDOWN) ? ASUS_EV_BRTDOWN :
++				ASUS_EV_BRTTOGGLE;
++			int ev_ret = asus_hid_event(ev);
++
++			/*
++			 * asus-wmi took it: consume the key exactly as upstream
++			 * did, so it is not delivered to userspace as well.
++			 */
++			if (ev_ret != -ENODEV)
++				return !ev_ret;
++
++			/*
++			 * asus-wmi is unavailable (device-tree boot), so we own
++			 * asus::kbd_backlight and userspace owns the policy:
++			 * pass the key through and let whatever is bound to it
++			 * write the LED. Cycling the level here as well would
++			 * advance it TWICE per press and leave the LED class out
++			 * of step with the hardware.
++			 */
++			return 0;
++		}
+ 		case KEY_FN_ESC:
+ 			if (drvdata->quirks & QUIRK_HID_FN_LOCK) {
+ 				ret = asus_kbd_fn_lock_set(drvdata, !drvdata->fn_lock);
+@@ -576,16 +620,32 @@ static int asus_raw_event(struct hid_device *hdev,
+ 
+ static int asus_kbd_set_report(struct hid_device *hdev, const u8 *buf, size_t buf_size)
+ {
+-	u8 *dmabuf __free(kfree) = kmemdup(buf, buf_size, GFP_KERNEL);
++	struct asus_drvdata *drvdata = hid_get_drvdata(hdev);
++	size_t dma_size = buf_size;
++
++	/*
++	 * Some ASUS I2C-HID keyboards (seen on the Zenbook A16 UX3607OA)
++	 * silently ignore feature reports shorter than the declared report
++	 * size: the command never lands and a following GET_REPORT returns
++	 * whatever the previous exchange left behind. Pad every command out to
++	 * FEATURE_KBD_REPORT_SIZE so the device actually sees it.
++	 */
++	if ((drvdata->quirks & QUIRK_PAD_FEATURE_REPORTS) &&
++	    buf[0] == FEATURE_KBD_REPORT_ID && dma_size < FEATURE_KBD_REPORT_SIZE)
++		dma_size = FEATURE_KBD_REPORT_SIZE;
++
++	u8 *dmabuf __free(kfree) = kzalloc(dma_size, GFP_KERNEL);
++
+ 	if (!dmabuf)
+ 		return -ENOMEM;
++	memcpy(dmabuf, buf, buf_size);
+ 
+ 	/*
+ 	 * The report ID should be set from the incoming buffer due to LED and key
+ 	 * interfaces having different pages
+ 	 */
+-	return hid_hw_raw_request(hdev, buf[0], dmabuf, buf_size, HID_FEATURE_REPORT,
+-				  HID_REQ_SET_REPORT);
++	return hid_hw_raw_request(hdev, buf[0], dmabuf, dma_size,
++				  HID_FEATURE_REPORT, HID_REQ_SET_REPORT);
+ }
+ 
+ static int asus_kbd_init(struct hid_device *hdev, u8 report_id)
+@@ -833,6 +893,28 @@ static void asus_worker_stop(struct asus_worker *worker)
+ 	cancel_work_sync(&worker->work);
+ }
+ 
++/*
++ * asus::kbd_backlight, registered by us only when asus-wmi is absent. Both
++ * ends go through the same queue upstream uses for the asus-wmi path, so the
++ * feature report is never sent from the caller's context.
++ */
++static void asus_kbd_backlight_cdev_set(struct led_classdev *led_cdev,
++					enum led_brightness brightness)
++{
++	struct asus_worker *worker = container_of(led_cdev, struct asus_worker, cdev);
++	struct asus_drvdata *drvdata = hid_get_drvdata(worker->hdev);
++
++	asus_kbd_backlight_set(&drvdata->listener, brightness);
++}
++
++static enum led_brightness asus_kbd_backlight_cdev_get(struct led_classdev *led_cdev)
++{
++	struct asus_worker *worker = container_of(led_cdev, struct asus_worker, cdev);
++	struct asus_drvdata *drvdata = hid_get_drvdata(worker->hdev);
++
++	return drvdata->kbd_backlight_brightness;
++}
++
+ /*
+  * We don't care about any other part of the string except the version section.
+  * Example strings: FGA80100.RC72LA.312_T01, FGA80100.RC71LS.318_T01
+@@ -971,6 +1053,42 @@ static int asus_kbd_register_leds(struct hid_device *hdev)
+ 
+ 	drvdata->listener.brightness_set = asus_kbd_backlight_set;
+ 	ret = asus_hid_register_listener(&drvdata->listener);
++	if (ret == -ENODEV) {
++		/*
++		 * asus-wmi is unavailable, which is the normal case on a
++		 * device-tree boot: there is no ACPI, so nothing ever creates
++		 * asus::kbd_backlight. Register the LED ourselves so userspace
++		 * still has something to drive.
++		 *
++		 * max_brightness is the level INDEX, not a PWM duty. The A16
++		 * controller quantises internally and gives four usable steps
++		 * from the index; feeding it a duty value collapses the upper
++		 * steps together. Do NOT "improve" this into a duty ramp --
++		 * 0x00/0x55/0xAA/0xFF and 0x00/0x20/0x70/0xFF were both tried
++		 * and both were visibly worse.
++		 */
++		drvdata->worker->cdev.name = "asus::kbd_backlight";
++		drvdata->worker->cdev.max_brightness = ASUS_KBD_BACKLIGHT_MAX;
++		drvdata->worker->cdev.brightness_set = asus_kbd_backlight_cdev_set;
++		drvdata->worker->cdev.brightness_get = asus_kbd_backlight_cdev_get;
++
++		ret = devm_led_classdev_register(&hdev->dev, &drvdata->worker->cdev);
++		if (ret < 0) {
++			hid_err(hdev, "Unable to register asus::kbd_backlight: %d\n", ret);
++			drvdata->listener.brightness_set = NULL;
++			return ret;
++		}
++
++		drvdata->worker->own_cdev = true;
++		/*
++		 * The listener was never registered, and the remove paths use
++		 * brightness_set as the "did we register it" flag -- leaving it
++		 * set would unregister a listener that is not on the list.
++		 */
++		drvdata->listener.brightness_set = NULL;
++		hid_info(hdev, "registered asus::kbd_backlight (no asus-wmi)\n");
++		return 0;
++	}
+ 	if (ret < 0) {
+ 		hid_err(hdev, "Unable to register kbd brightness listener: %d\n", ret);
+ 		drvdata->listener.brightness_set = NULL;
+@@ -1195,9 +1313,20 @@ static int asus_input_configured(struct hid_device *hdev, struct hid_input *hi)
+ 
+ 	drvdata->input = input;
+ 
+-	if ((drvdata->quirks & QUIRK_HID_FN_LOCK) &&
+-	    (asus_kbd_fn_lock_set(drvdata, true)))
+-		hid_warn(hdev, "Error while setting FN lock to ON\n");
++	if (drvdata->quirks & QUIRK_HID_FN_LOCK) {
++		/*
++		 * QUIRK_FN_LOCK_DEFAULT_OFF leaves the multimedia/brightness
++		 * keys primary, which is what the XF86* bindings in a desktop
++		 * session expect. Forcing Fn lock on makes F1-F12 send plain
++		 * function keys and silently breaks every media binding.
++		 * Fn+Esc still toggles it at runtime via asus_event().
++		 */
++		bool on = !(drvdata->quirks & QUIRK_FN_LOCK_DEFAULT_OFF);
++
++		if (asus_kbd_fn_lock_set(drvdata, on))
++			hid_warn(hdev, "Error while setting FN lock to %s\n",
++				 on ? "ON" : "OFF");
++	}
+ 
+ 	return 0;
+ }
+@@ -1250,6 +1379,14 @@ static int asus_input_mapping(struct hid_device *hdev,
+ 		case 0x4e: asus_map_key_clear(KEY_FN_ESC);		break;
+ 		case 0x7e: asus_map_key_clear(KEY_EMOJI_PICKER);	break;
+ 
++		/*
++		 * The Zenbook A16 (UX3607OA) hotkeys we carried locally --
++		 * 0x85 camera, 0x86 MyASUS, 0x5f programmable key -- are all
++		 * upstream as of next-20260807 with the same values, including
++		 * the 0x85 KEY_CAMERA fix (it used to be KEY_KBDILLUMTOGGLE,
++		 * which collided with 0xc7 and made the camera key change the
++		 * keyboard backlight). Nothing to add here any more.
++		 */
+ 		case 0x8b: asus_map_key_clear(KEY_PROG1);	break; /* ProArt Creator Hub key */
+ 		case 0x5f: asus_map_key_clear(KEY_PROG2);	break; /* S-shaped programmable key */
+ 		case 0x6b: asus_map_key_clear(KEY_F21);		break; /* ASUS touchpad toggle */
+@@ -1369,7 +1506,8 @@ static int __maybe_unused asus_resume(struct hid_device *hdev)
+ 	 * in case of error do not fail: most models restore the backlight
+ 	 * automatically, and the error is non-fatal.
+ 	 */
+-	if (drvdata->listener.brightness_set)
++	if (drvdata->listener.brightness_set ||
++	    (drvdata->worker && drvdata->worker->own_cdev))
+ 		asus_kbd_backlight_set(&drvdata->listener, drvdata->kbd_backlight_brightness);
+ 
+ 	return 0;
+@@ -1675,6 +1813,11 @@ static const struct hid_device_id asus_devices[] = {
+ 	  I2C_KEYBOARD_QUIRKS | QUIRK_FILTER_CAMERA_COMPANION },
+ 	{ HID_I2C_DEVICE(USB_VENDOR_ID_ASUSTEK,
+ 		USB_DEVICE_ID_ASUSTEK_I2C_TOUCHPAD), I2C_TOUCHPAD_QUIRKS },
++	{ HID_I2C_DEVICE(USB_VENDOR_ID_ASUSTEK,
++		USB_DEVICE_ID_ASUSTEK_ZENBOOK_A16_KEYBOARD),
++	  QUIRK_ROG_NKEY_KEYBOARD | QUIRK_USE_KBD_BACKLIGHT |
++	  QUIRK_HID_FN_LOCK | QUIRK_PAD_FEATURE_REPORTS |
++	  QUIRK_FN_LOCK_DEFAULT_OFF },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ASUSTEK,
+ 		USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD1), QUIRK_USE_KBD_BACKLIGHT },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ASUSTEK,
+@@ -1752,5 +1895,7 @@ static struct hid_driver asus_driver = {
+ };
+ module_hid_driver(asus_driver);
+ 
++#if IS_ENABLED(CONFIG_ASUS_WMI)
+ MODULE_IMPORT_NS("ASUS_WMI");
++#endif
+ MODULE_LICENSE("GPL");
+diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
+index 19ab36489..2a36ed416 100644
+--- a/drivers/hid/hid-ids.h
++++ b/drivers/hid/hid-ids.h
+@@ -222,6 +222,7 @@
+ #define USB_DEVICE_ID_ASUSTEK_I2C_KEYBOARD	0x8585
+ #define USB_DEVICE_ID_ASUSTEK_I2C_ZENBOOK_KEYBOARD	0x4b42
+ #define USB_DEVICE_ID_ASUSTEK_I2C_TOUCHPAD	0x0101
++#define USB_DEVICE_ID_ASUSTEK_ZENBOOK_A16_KEYBOARD	0x4B42
+ #define USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD1 0x1854
+ #define USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD2 0x1837
+ #define USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD3 0x1822
+-- 
+2.55.0
+

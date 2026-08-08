@@ -1,0 +1,39 @@
+From 86ae6bb52976db1fbbacee42b2e84c16dedbca2d Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Sat, 8 Aug 2026 08:20:29 -0400
+Subject: [PATCH 1/7] arm64: dts: qcom: glymur: poll SCMI transfers, the CPUCP
+ never rings the doorbell
+
+Assisted-by: Anthropic:Claude-Opus-5
+---
+ arch/arm64/boot/dts/qcom/glymur.dtsi | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index f04058d2e..8fc34af1c 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -412,6 +412,18 @@ scmi {
+ 			mbox-names = "tx", "rx";
+ 			shmem = <&cpu_scp_lpri1>, <&cpu_scp_lpri0>;
+ 
++			/*
++			 * The PDP0/CPUCP firmware writes correct replies for
++			 * protocol 0x13 (Performance) into the shmem but never
++			 * rings the mailbox doorbell for them, so every perf
++			 * transfer times out and scmi-cpufreq probes -110.
++			 * Measured 2026-07-30 via SCMI RAW: 0x13/0x1 returns
++			 * status 0 (3 perf domains) in polling mode and hangs
++			 * forever in interrupt mode, with zero doorbell IRQs.
++			 * Poll every transfer instead of waiting for the IRQ.
++			 */
++			arm,no-completion-irq;
++
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+ 
+
+base-commit: 6b8c8af514d739d0335f5579b585e02babe8a727
+-- 
+2.55.0
+
