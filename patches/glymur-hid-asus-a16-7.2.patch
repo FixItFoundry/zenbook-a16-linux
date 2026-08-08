@@ -66,7 +66,7 @@ Tested on an ASUS Zenbook A16 UX3607OA (Snapdragon X2 Elite Extreme,
 /sys/class/leds/asus::kbd_backlight appears with max_brightness 3 and all
 four levels drive the keyboard.
 
-Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+Assisted-by: Anthropic:Claude-Opus-5
 ---
 diff --git a/drivers/hid/hid-asus.c b/drivers/hid/hid-asus.c
 index 3f5e96900..9a678c81e 100644

@@ -1,0 +1,38 @@
+From 0d3187c5e5788374720e997be0974e2e4b0c47c1 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Tue, 4 Aug 2026 22:07:30 -0400
+Subject: [PATCH] arm64: dts: qcom: glymur: enable SCMI polling mode
+
+The CPUCP on glymur services the SCMI Performance protocol correctly but
+never raises the completion interrupt for a reply. Every transaction
+therefore runs to the 30 ms rx timeout, protocol probe fails, and the
+platform comes up with no cpufreq at all: the CPUs are left parked at
+whatever OPP the bootloader chose.
+
+Set arm,no-completion-irq on the SCMI node so the transport falls back to
+polling for completion, which the firmware does support.
+
+Tested on an ASUS Zenbook A16 (UX3607OA, X2E94100). Without the property
+there are no cpufreq policies; with it all three policies register and
+scale, and the SCMI core reports "Enabled polling mode TX channel".
+
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ arch/arm64/boot/dts/qcom/glymur.dtsi | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index f04058d2e089..38f9d39fb612 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -411,6 +411,7 @@ scmi {
+ 			mboxes = <&pdp0_mbox 0>, <&pdp0_mbox 1>;
+ 			mbox-names = "tx", "rx";
+ 			shmem = <&cpu_scp_lpri1>, <&cpu_scp_lpri0>;
++			arm,no-completion-irq;
+ 
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+-- 
+2.55.0
+
