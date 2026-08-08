@@ -9,7 +9,7 @@ Build name: **`7.2.0-rc6-ZenbookA16-20260807`** (see [`../../kernel/README.md`](
 | patch | what | upstreamable? |
 |---|---|---|
 | `0001` SCMI polling | the CPUCP answers protocol 0x13 but never rings the doorbell, so every perf transfer times out and `scmi-cpufreq` probes `-110`. One DT property. | **yes** — sent as a DT change |
-| `0002` eDP `LINK_RATE_SET` | `rate_set`/`use_rate_set` were computed into `panel->link_info` but read from `link->link_params`, so the eDP 1.4 rate-set path was dead code. Also clears `LINK_BW_SET` first, which the spec requires and firmware leaves dirty. | **yes** — generic `msm` bug |
+| `0002` eDP `LINK_RATE_SET` | `rate_set`/`use_rate_set` were computed into `panel->link_info` but read from `link->link_params`, so the eDP 1.4 rate-set path was dead code. Also clears `LINK_BW_SET` first, which the spec requires and firmware leaves dirty. | ⛔ **not on its own** — see below |
 | `0003` DP `push_idle` guard | `msm_dp_ctrl_push_idle()` on a controller that was never powered on times out, and the PHY is then left up. On glymur that is answered by a TrustZone force-stop and a silent SoC reset. | **yes** — this is upstream mail #1 |
 | `0004` force eDP max rate | **LOCAL.** Drives the internal panel above its advertised maximum. The v8 PHY only trains at HBR3; the panel advertises HBR2 as its max, so the spec-correct choice is the one rate that cannot work. | **no** — the real fix belongs in `phy-qcom-edp.c` |
 | `0005` `glymur_pci_skip` | **LOCAL.** Suspend workaround: PCI config access in `dpm_suspend_noirq` resets the SoC. `=5` skips `pci_prepare_to_sleep` and `pci_save_state`. | **no** — a diagnostic knob doing production duty |
@@ -17,6 +17,20 @@ Build name: **`7.2.0-rc6-ZenbookA16-20260807`** (see [`../../kernel/README.md`](
 
 (`0006` is a build-tree convenience that drops `localversion-next`; it is not part of the
 hardware delta and is not published here.)
+
+## ⛔ `0002` is correct and must not be sent alone
+
+It makes the eDP 1.4 rate-set path reachable, which is a real bug fix — and on this laptop
+that is exactly what breaks the display. The panel advertises HBR2 as its maximum, the v8
+PHY can only train at HBR3, so honouring `LINK_RATE_SET` lands the link on the one rate
+that provably cannot train: `link training #2 on phy 0 failed. ret=-110`.
+
+It behaves here only because `0004` overrides the selected rate immediately afterwards.
+Measured over 14 boots: 8 boots without it, zero link-training failures; 6 boots with it
+and without `0004`, failures on every one.
+
+Sending it by itself would regress every machine with this panel/PHY pairing. The PHY
+limitation has to be understood first — that is what the eDP bug report is for.
 
 ## ⛔ Before sending any of these upstream
 
