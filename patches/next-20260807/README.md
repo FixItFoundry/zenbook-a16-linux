@@ -13,7 +13,7 @@ Build name: **`7.2.0-rc6-ZenbookA16-20260807`** (see [`../../kernel/README.md`](
 | `0003` DP `push_idle` guard | `msm_dp_ctrl_push_idle()` on a controller that was never powered on times out, and the PHY is then left up. On glymur that is answered by a TrustZone force-stop and a silent SoC reset. | **yes** — this is upstream mail #1 |
 | `0004` force eDP max rate | **LOCAL.** Drives the internal panel above its advertised maximum. The v8 PHY only trains at HBR3; the panel advertises HBR2 as its max, so the spec-correct choice is the one rate that cannot work. | **no** — the real fix belongs in `phy-qcom-edp.c` |
 | `0005` `glymur_pci_skip` | **LOCAL.** Suspend workaround: PCI config access in `dpm_suspend_noirq` resets the SoC. `=5` skips `pci_prepare_to_sleep` and `pci_save_state`. | **no** — a diagnostic knob doing production duty |
-| `0007` HID A16 keyboard | device ID, short-feature-report padding, Fn-lock defaulting off, and registering `asus::kbd_backlight` when asus-wmi is absent. | **mostly** — see below |
+| `0007` HID Zenbook keyboard | the device ID is already upstream; this adds the backlight, N-Key and Fn-lock quirks it is missing, plus short-feature-report padding and an `asus::kbd_backlight` for device-tree boots. | **yes** — see below |
 
 (`0006` is a build-tree convenience that drops `localversion-next`; it is not part of the
 hardware delta and is not published here.)
@@ -39,7 +39,23 @@ been carrying:
   upstream with identical values, including the `0x85 → KEY_CAMERA` correction, which upstream
   arrived at independently
 
-The most interesting piece left is not A16-specific at all: upstream leaves
-`asus::kbd_backlight` to asus-wmi, which cannot exist on a device-tree boot, so *any* ASUS
-keyboard booted from DT has no backlight LED. That is a better patch to send than a
-Zenbook-specific one.
+Then the boot test found the bigger one. **`next-20260807` added this keyboard's device ID**:
+
+```c
+#define USB_DEVICE_ID_ASUSTEK_I2C_ZENBOOK_KEYBOARD	0x4b42     /* upstream, new */
+#define USB_DEVICE_ID_ASUSTEK_ZENBOOK_A16_KEYBOARD	0x4B42     /* ours -- same device */
+```
+
+Upstream's entry sits earlier in `asus_devices[]`, so it matched first and ours was never
+reached. Its quirk set is `I2C_KEYBOARD_QUIRKS | QUIRK_FILTER_CAMERA_COMPANION` — no
+backlight, no N-Key fixup, no Fn lock. Symptom on a booted machine: `hid-asus` binds
+normally and the keyboard types fine, but `asus::kbd_backlight` never appears and the
+"Fixing up Asus N-Key report descriptor" message is gone.
+
+So `0007` is now a much better patch than the one we were carrying: it adds the missing
+quirks to an entry upstream already owns, rather than proposing a duplicate device ID. Our
+duplicate `#define` is deleted, and `hid-ids.h` is untouched.
+
+The part worth their attention is not A16-specific at all: `asus_kbd_register_leds()` leaves
+`asus::kbd_backlight` to asus-wmi, which cannot exist on a device-tree boot. **Any ASUS
+keyboard booted from DT has no backlight LED**, not just this one.

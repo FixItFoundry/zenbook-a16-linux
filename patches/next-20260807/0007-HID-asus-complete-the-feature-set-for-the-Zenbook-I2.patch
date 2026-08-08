@@ -1,17 +1,56 @@
-From 8d8e8b3b5aab0eab1cc4c67ef8e2c0b4bcd929ed Mon Sep 17 00:00:00 2001
+From bba4e5659a41d6e7242f378ce7ce560b87802880 Mon Sep 17 00:00:00 2001
 From: Jesse Casco <jesse.casco@gmail.com>
 Date: Sat, 8 Aug 2026 09:18:45 -0400
-Subject: [PATCH 7/7] HID: asus: support the ASUS Zenbook A16 (UX3607OA) N-Key
+Subject: [PATCH 7/7] HID: asus: complete the feature set for the Zenbook I2C
  keyboard
+
+USB_DEVICE_ID_ASUSTEK_I2C_ZENBOOK_KEYBOARD (0x4b42) is matched with
+I2C_KEYBOARD_QUIRKS | QUIRK_FILTER_CAMERA_COMPANION, but on the ASUS
+Zenbook A16 (UX3607OA) that device has more to it:
+
+ - a keyboard backlight on the vendor feature report at 0x5a
+ - an N-Key report descriptor whose 0x5a report count needs the usual
+   fixup, so QUIRK_ROG_NKEY_KEYBOARD applies
+ - an Fn lock
+
+so add QUIRK_USE_KBD_BACKLIGHT, QUIRK_ROG_NKEY_KEYBOARD and
+QUIRK_HID_FN_LOCK to the existing entry.
+
+Two new quirks are needed alongside them.
+
+QUIRK_PAD_FEATURE_REPORTS: this controller silently ignores feature
+reports shorter than the declared report size. The command never lands
+and a following GET_REPORT returns whatever the previous exchange left
+behind, so asus_kbd_get_functions() reports no backlight support. Pad
+commands out to FEATURE_KBD_REPORT_SIZE. It is behind a quirk because
+ROG keyboards and the ROG Ally use a short report for the MCU version
+check and must keep their current behaviour.
+
+QUIRK_FN_LOCK_DEFAULT_OFF: asus_input_configured() forces Fn lock on,
+which makes F1-F12 send plain function keys and silently breaks every
+XF86 media binding in a desktop session. Default it off for this
+keyboard; Fn+Esc still toggles it at runtime.
+
+Finally, asus_kbd_register_leds() relies on asus-wmi to own
+asus::kbd_backlight and only registers a listener. On a device-tree
+boot there is no ACPI, so asus-wmi never exists and the LED is never
+created -- the backlight is unreachable from userspace on any ASUS
+keyboard booted from DT, not just this one. When the listener
+registration returns -ENODEV, register the LED class device directly
+and drive it over the HID feature report.
+
+Tested on an ASUS Zenbook A16 UX3607OA booted from device tree on
+linux-next (next-20260807): the backlight appears as
+asus::kbd_backlight with max_brightness 3 and the Fn+F4 cycle key steps
+it through its four levels.
 
 Assisted-by: Anthropic:Claude-Opus-5
 ---
- drivers/hid/hid-asus.c | 167 ++++++++++++++++++++++++++++++++++++++---
- drivers/hid/hid-ids.h  |   1 +
- 2 files changed, 157 insertions(+), 11 deletions(-)
+ drivers/hid/hid-asus.c | 174 ++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 162 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/hid/hid-asus.c b/drivers/hid/hid-asus.c
-index ec966fc0a..b82e464bb 100644
+index ec966fc0a..939c07f36 100644
 --- a/drivers/hid/hid-asus.c
 +++ b/drivers/hid/hid-asus.c
 @@ -100,6 +100,21 @@ MODULE_DESCRIPTION("Asus HID Keyboard and TouchPad");
@@ -245,19 +284,28 @@ index ec966fc0a..b82e464bb 100644
  		asus_kbd_backlight_set(&drvdata->listener, drvdata->kbd_backlight_brightness);
  
  	return 0;
-@@ -1675,6 +1813,11 @@ static const struct hid_device_id asus_devices[] = {
- 	  I2C_KEYBOARD_QUIRKS | QUIRK_FILTER_CAMERA_COMPANION },
+@@ -1670,9 +1808,19 @@ static const __u8 *asus_report_fixup(struct hid_device *hdev, __u8 *rdesc,
+ static const struct hid_device_id asus_devices[] = {
  	{ HID_I2C_DEVICE(USB_VENDOR_ID_ASUSTEK,
- 		USB_DEVICE_ID_ASUSTEK_I2C_TOUCHPAD), I2C_TOUCHPAD_QUIRKS },
-+	{ HID_I2C_DEVICE(USB_VENDOR_ID_ASUSTEK,
-+		USB_DEVICE_ID_ASUSTEK_ZENBOOK_A16_KEYBOARD),
+ 		USB_DEVICE_ID_ASUSTEK_I2C_KEYBOARD), I2C_KEYBOARD_QUIRKS},
++	/*
++	 * Zenbook A16 (UX3607OA) and siblings. The device ID is upstream but
++	 * the feature set was not: this keyboard has a backlight at 0x5a, an
++	 * N-Key report descriptor that needs the count fixed up, and an Fn
++	 * lock. It also silently ignores feature reports shorter than the
++	 * declared report size, so they have to be padded.
++	 */
+ 	{ HID_I2C_DEVICE(USB_VENDOR_ID_ASUSTEK,
+ 		USB_DEVICE_ID_ASUSTEK_I2C_ZENBOOK_KEYBOARD),
+-	  I2C_KEYBOARD_QUIRKS | QUIRK_FILTER_CAMERA_COMPANION },
++	  I2C_KEYBOARD_QUIRKS | QUIRK_FILTER_CAMERA_COMPANION |
 +	  QUIRK_ROG_NKEY_KEYBOARD | QUIRK_USE_KBD_BACKLIGHT |
 +	  QUIRK_HID_FN_LOCK | QUIRK_PAD_FEATURE_REPORTS |
 +	  QUIRK_FN_LOCK_DEFAULT_OFF },
+ 	{ HID_I2C_DEVICE(USB_VENDOR_ID_ASUSTEK,
+ 		USB_DEVICE_ID_ASUSTEK_I2C_TOUCHPAD), I2C_TOUCHPAD_QUIRKS },
  	{ HID_USB_DEVICE(USB_VENDOR_ID_ASUSTEK,
- 		USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD1), QUIRK_USE_KBD_BACKLIGHT },
- 	{ HID_USB_DEVICE(USB_VENDOR_ID_ASUSTEK,
-@@ -1752,5 +1895,7 @@ static struct hid_driver asus_driver = {
+@@ -1752,5 +1900,7 @@ static struct hid_driver asus_driver = {
  };
  module_hid_driver(asus_driver);
  
@@ -265,18 +313,6 @@ index ec966fc0a..b82e464bb 100644
  MODULE_IMPORT_NS("ASUS_WMI");
 +#endif
  MODULE_LICENSE("GPL");
-diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
-index 19ab36489..2a36ed416 100644
---- a/drivers/hid/hid-ids.h
-+++ b/drivers/hid/hid-ids.h
-@@ -222,6 +222,7 @@
- #define USB_DEVICE_ID_ASUSTEK_I2C_KEYBOARD	0x8585
- #define USB_DEVICE_ID_ASUSTEK_I2C_ZENBOOK_KEYBOARD	0x4b42
- #define USB_DEVICE_ID_ASUSTEK_I2C_TOUCHPAD	0x0101
-+#define USB_DEVICE_ID_ASUSTEK_ZENBOOK_A16_KEYBOARD	0x4B42
- #define USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD1 0x1854
- #define USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD2 0x1837
- #define USB_DEVICE_ID_ASUSTEK_ROG_KEYBOARD3 0x1822
 -- 
 2.55.0
 
