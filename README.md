@@ -1,237 +1,200 @@
 # Linux on the ASUS Zenbook A16 (Snapdragon X2 Elite Extreme)
 
 Mainline-based Linux bring-up for the **ASUS Zenbook A16 (UX3607OA)** — a Windows-on-ARM
-laptop built on the **Qualcomm Snapdragon X2 Elite Extreme**, SoC codename **glymur**
-(`sm8750`), Adreno X2 GPU.
+laptop built on the **Qualcomm Snapdragon X2 Elite Extreme**, SoC codename **glymur**,
+Adreno X2 GPU.
 
-> **Status: mostly-working daily driver.** Most of the machine works on a hand-built
-> device tree today: keyboard, trackpad, touchscreen, Wi-Fi, USB, audio,
-> battery, thermals, NVMe.
->
-> **2026-07-24 — native eDP now works.** The panel is driven by the real DPU
-> (`fb0 = msmdrmfb`, 2880x1800@120, `dp_aux_backlight`), not the UEFI
-> `simple-framebuffer`. Link training completes at **HBR3 (8.1 Gbps × 4 lanes)**; the
-> long-standing `-110` failure is gone. Two bugs had to be peeled to get there and one
-> of them is a generic upstream `msm` bug — write-up in
-> [`docs/hardware.md`](docs/hardware.md).
->
-> ## 🎉 2026-07-29 — the GPU works, and everything works *at the same time*
->
-> There is now a single **merged device tree** on which the display, its power-down path,
-> **Wi-Fi, battery, Type-C/DisplayPort-alt-mode, the keyboard, audio and the Adreno X2 GPU
-> all work together**:
->
-> ```
-> GPU0:  deviceName = Adreno (TM) X2-85     driverName = turnip Mesa driver
->        [drm] Loaded GMU firmware v5.2.38   gpucc: 25 clocks
-> ```
->
-> Video renders on the GPU and `nvtop` shows GPU processes and memory in use. Frequency
-> scaling is live (`simple_ondemand`, 310 MHz idle → 1.85 GHz across 12 OPPs).
->
-> **The merged tree is built on [Konrad Dybcio](https://konradybcio.pl/)'s upstream A16
-> device tree** (posted 2026-07-21, still unmerged) with our fixes layered on top — see
-> [UPSTREAM-CREDITS.md](UPSTREAM-CREDITS.md).
->
-> **The GPU was blocked by one of our own debugging workarounds.** A
-> `modprobe.blacklist=gpucc_glymur` guard, added long ago for the very first (then-risky)
-> gpucc probe, was never removed. Because `gxclkctl` runtime-resumes gpucc at probe, that
-> stale token cascaded into the Adreno SMMU timing out, adreno failing `-19`, and — since
-> `msm` is a component framework — the **entire DRM device** failing to bind. It presented
-> as a black screen, and got "fixed" for months by disabling the GPU nodes.
->
-> ## ⚡ 2026-07-31 — CPU frequency scaling works
->
-> `scmi-cpufreq` had failed with `-110` since the beginning and the cores ran pinned at
-> boot clock. Root cause: the **PDP0/CPUCP firmware answers SCMI protocol 0x13
-> (Performance) in shared memory but never rings the mailbox doorbell for it**, so every
-> perf transfer waited on an interrupt that never came. Proven by sending the identical
-> message both ways — it returns `status 0` in polling mode and hangs forever in interrupt
-> mode, with the doorbell IRQ counter not moving at all.
->
-> **The fix is one device-tree property**, `arm,no-completion-irq` on the `scmi` node, which
-> makes the SCMI core poll instead of waiting. No kernel patch.
->
-> ```
-> policy0   cpus 0-5    355 MHz - 3.61 GHz   20 OPPs
-> policy6   cpus 6-11   355 MHz - 4.45 GHz   21 OPPs
-> policy12  cpus 12-17  355 MHz - 4.45 GHz   21 OPPs
-> scaling_driver = scmi   governor = schedutil (via power-profiles-daemon)
-> ```
->
-> Three performance domains, exactly as the firmware's own `PROTOCOL_ATTRIBUTES` reply
-> predicted. `cpufreq-cooling` devices now appear on their own, which unblocks real thermal
-> management — see [`docs/power-and-thermal.md`](docs/power-and-thermal.md).
->
-> Suspend and cpufreq now ship in **one** baseline GRUB entry.
->
-> Remaining gaps: **USB4** (binding is an unmerged upstream RFC), **camera**, and no
-> sustained GPU stress testing yet. **Suspend works** (2026-07-30) but on a workaround that
-> needs a firmware revision to become a real fix — see below.
->
-> ## ✅ 2026-07-31 (later) — thermal `cooling-maps` were never actually broken
->
-> This section used to list `cooling-maps` as an open gap: *"the cooling devices exist but
-> no zone actuates them."* **That finding was an artefact of a broken check.** Both this
-> repo and the on-box verifier counted `/sys/class/thermal/thermal_zone*/cdev*_type` — an
-> attribute that **does not exist on this kernel.** A bound zone exposes `cdev0` (a
-> symlink), `cdev0_trip_point` and `cdev0_weight`, and no `cdev0_type`, so the check
-> returned `0` whether the maps were bound or not.
->
-> Measured with a working check: **41 of 41 `cpu*`/`cpullc*` zones are bound** to
-> `cpufreq-cpu0/6/12`, plus 14 GPU zones bound to `devfreq-3d00000.gpu`. Actuation
-> confirmed without any load, via thermal emulation:
->
-> ```
-> emul_temp  96000 -> cooling_device0 cur_state 1     (passive trip is 95 C)
-> emul_temp 104000 -> cur_state 2
-> emul_temp 112000 -> cur_state 3
-> emul_temp      0 -> cur_state 0
-> ```
->
-> ⛔ **Never write `emul_temp` at or above the critical trip (115000).** The thermal core
-> calls `hw_protection_shutdown` and powers the machine off on the spot. That was learned
-> the expensive way.
->
-> **This is the fourth time on this project that our own tooling — not the hardware —
-> produced a negative result**, after `modprobe.blacklist=gpucc_glymur`, `efi=noruntime`
-> and the thermal guard. The pattern is consistent enough to be a rule: *before believing a
-> negative, prove the instrument can report a positive.*
->
-> Also on 2026-07-31: a **boot-argument audit** retired `softlockup_panic=1`,
-> `arm64.nopauth` and `kvm-arm.mode=protected`, and `/boot/grub/grub.cfg` became a
-> *generated* file with `/etc/grub.d/40_custom` as its source — see
-> [`boot-kit/README.md`](boot-kit/README.md).
+**Status: a working daily driver.** Display, GPU, Wi-Fi, Bluetooth, audio, battery,
+Type-C/DisplayPort alt-mode, input, NVMe, CPU frequency scaling, thermal management and
+suspend all work together on one kernel and one device tree. Fedora 44 KDE aarch64 is what
+it runs day to day.
 
- **I'm publishing this repo to ask for the community's help.**  I've been tinkering with
- Linux and OSX (Hackintoshes) for almost two decades, and I wanted to test out some frontier
- AI, their reasoning, limits, and compare different models.  I specifically bought one month
- of Claude MAX for Fable 5 and Opus 4.8, and I have a gemini subscription as the added Youtube
- and Google Drive (3-2-1 offsite), as well as easy integration for AI tools within the google
- ecosystem.  Aside from that, I have a swarm of hermes-agents throughout my homelab, using local
- models from old hardware, combined with some free tier cloud model use.  I acknowledge that AI
- also isn't going anywhere, so I'm learning how to...harness it for productivity and automation.
- It'll be a helpful workplace skill to have.
- 
-
- If you know the Adreno/DPU/clock-controller stack, **your review and patches are wanted.**
- If you are an actual Kernel Engineer, I welcome you to validate this work.  It was done based
- on years of playing around, and, once again, heavily assisted by AI.  The goal here is to have
- something the community can build on.  These laptops and this SoC are not going anywhere, even
- if they're delayed by the RAMpocalypse.
- See [CONTRIBUTING.md](CONTRIBUTING.md).
+> **2026-08-07 — the display now comes up on current linux-next.** `next-20260803`
+> (7.2-rc6) plus the two patches in [The deltas that matter](#the-deltas-that-matter)
+> boots, trains eDP, lights the panel and runs a Wayland session. Before this, no
+> unmodified upstream kernel had ever lit this panel. The pinned `7.2.0-rc3` build is
+> still the daily driver until the new base has more hours on it.
 
 ---
 
-## ⚠️ Please read:
+## Start here
 
-**This project was heavily AI-assisted, and I am not a kernel developer.** I want to be VERY
-clear about this.  I'm a hobbyist who can only stomach Windows during the work week, and I
-bought this laptop because I'm a firm believer in ARM as the future of mobile computing.  Even
-on Windows, this laptop is GREAT.
-
-- A large amount of the analysis, device-tree bisection, reverse-engineering, and the writeups
-  in this repo were produced **with AI assistance** (and then tested on real hardware). The AI
-  was wrong plenty of times along the way — see [`docs/hardware.md`](docs/hardware.md).
-- **YOUR MILEAGE MAY VARY:**  These are the things that worked on my specific device.  It's stable
-  90% of the time, and I'm not done working on it myself.  Register addresses, StreamIDs, and
-  root-cause theories are RE'd and experimental.
-- I'm publishing anyway because (1) the machine is genuinely usable today and I
-  want others to be able to share that, and (2) I'd love people who *actually* know this stack
-  to validate it, correct me, and push it further.
-
-Again, if you're an expert and something here is wrong or dangerous, please open an issue — I will
-take the correction gladly.  I, and I'm sure a few others, would love community support in making
-this durable!
-
-This was a fun adventure so far, and I want to keep working at it.  I learned a lot during the process,
-it's really piqued my interest in diving into Kernel Engineering, and the intricacies of it.  Updates will
-continue as long as there are stable breakthroughs.
+| If you want to… | Read |
+|---|---|
+| know whether a given component works, with a check you can run | [`docs/hardware.md`](docs/hardware.md) — **authoritative**; where it and this file disagree, it wins |
+| build and boot it yourself | [Building and booting](#building-and-booting) |
+| understand *why* something is the way it is | [CHANGELOG.md](CHANGELOG.md) — history, root causes, and the conclusions that turned out to be wrong |
+| see what is carried on top of upstream, and why | [`docs/modifications.md`](docs/modifications.md) |
+| know whose upstream work this tree carries | [UPSTREAM-CREDITS.md](UPSTREAM-CREDITS.md) |
+| contribute or correct something | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 ---
 
-## What works / what doesn't
+## Please read
 
-**Current device tree: [`dts/glymur-asus-zenbook-a16-ux3607oa-merged.dts`](dts/glymur-asus-zenbook-a16-ux3607oa-merged.dts)**
-— [Konrad Dybcio](https://konradybcio.pl/)'s upstream A16 board file plus our fixes, on
-`7.2.0-rc3`. Display + power-down, Wi-Fi, battery, Type-C, keyboard, audio and the Adreno X2
-GPU all together.
+**This project was heavily AI-assisted, and I am not a kernel developer.** I want to be
+very clear about that. I'm a hobbyist who can only stomach Windows during the work week,
+and I bought this laptop because I'm a firm believer in ARM as the future of mobile
+computing — even on Windows, it's a great machine.
 
-(`dts/test68.dts` is the previous v7.1 vendor-lineage daily driver — native eDP, lid switch,
-USB-C DP alt-mode, but no GPU. `test55` was the original `simple-framebuffer` baseline.)
+Most of the analysis, device-tree bisection, reverse-engineering and write-ups here were
+produced with AI assistance and then tested on real hardware. The AI was wrong plenty of
+times along the way, and where a conclusion was later disproved the record of that is kept
+rather than quietly deleted. **Your mileage may vary:** these are the things that worked on
+my specific device. Register addresses, StreamIDs and root-cause theories are
+reverse-engineered and experimental.
 
-### Working on the device tree
-- Keyboard (i2c-HID, ASUS EC) + backlight control
-- Trackpad (i2c-HID)
-- Touchscreen + stylus (i2c `0x10`)
-- Wi-Fi — ath12k, associates, SSH reachable
-- USB — dwc3 + eUSB2 redrivers (PTN3222 / SMB2370)
-- **Audio — working, and the long-standing "sometimes silent after boot" bug is FIXED (2026-07-29).** 4x WSA8845 speakers + internal DMIC capture. The intermittency was never the ADSP or the topology: `glymur-audio-route.service` (system) raced `wireplumber` (user), and whichever won decided whether you had sound. Fixed with a bounded ordering guard plus re-applying the route after the sink appears — validated across four boots.
-  ⚠️ 4.0 layout, woofers on RL/RR — always test with `speaker-test -c 4`; 2 channels only drives the tweeters. Full write-up and the two boot traps: [`docs/audio-adsp-boot-ordering.md`](docs/audio-adsp-boot-ordering.md).
-- **Bluetooth — working (2026-07-29).** WCN7850 BT over UART14 (`hci0`, `hci_uart` + `btqca`). Konrad's tree enables the UART and wires it into the connector graph but declares no serdev child, so nothing probed a controller — there was no Bluetooth entry in `rfkill` at all. Adding a `qcom,wcn7850-bt` node under `&uart14`, consuming the `wcn7850-pmu` rails we already add for Wi-Fi, brings it up.
-- **USB-C DisplayPort alt-mode — confirmed working on BOTH USB-C ports.** External monitor over either port, plus UCSI, PD negotiation, orientation detection and alt-mode discovery (`/sys/class/typec/`). See [`docs/usb-c-ucsi-dp-altmode.md`](docs/usb-c-ucsi-dp-altmode.md).
-- **Lid switch** — TLMM GPIO 92, recovered from the Windows-on-ARM ACPI DSDT; `SW_LID` registers and `logind` reads it.
-- **GPU — Adreno X2, working (2026-07-29).** `adreno` binds, GMU firmware v5.2.38 loads, the dedicated `adreno_smmu` comes up (SMMUv2, 25 context banks), and Mesa's **turnip** Vulkan driver enumerates the device. Video renders on it; `nvtop` shows GPU processes and memory. Frequency scaling live via devfreq (`simple_ondemand`, 310 MHz → 1.85 GHz, 12 OPPs). Requires `&gpu`/`&gmu` enabled **and** `gpucc_glymur` *not* blacklisted on the cmdline.
-- **`gpucc` (GPU clock controller)** — 25 `gpu_cc` clocks, `gpu_cc_pll0` at 1.15 GHz. Present in mainline v7.1 as `drivers/clk/qcom/gpucc-glymur.c`.
-- Battery / charge % — via a reverse-engineered SOCCP GLINK path -> `qcom-battmgr`
-- **CPU frequency scaling — working (2026-07-31).** Three SCMI performance domains, 355 MHz to 3.61/4.45 GHz, `scaling_driver = scmi`, `schedutil` under power-profiles-daemon. One DT property (`arm,no-completion-irq`) — see the 2026-07-31 note above and [`docs/power-and-thermal.md`](docs/power-and-thermal.md).
-- Fan / basic cooling — EC-driven (⚠️ heavy sustained load can still hit the 115 °C trip and protectively shut down) UPDATE 7-24-26:  This isn't really an issue after stress testing throughout the week, but something I encoutered early on, and felt it important to mention. ⚠️ **The interim `glymur-thermal-guard` service this line used to recommend was retired on 2026-07-31** — it never fired once in its entire life, because it wrote to a `scaling_max_freq` that did not exist until cpufreq started working. Kept with its rationale in [`tweaks/retired/`](tweaks/retired/).
-- NVMe — Gen4/Gen5 PHY, boots from internal SSD
-- **RTC** — `/dev/rtc0` exists and counts, as of **2026-07-30**. ⚠️ This line previously
-  claimed a working RTC and that was wrong: before that date `rtc-pm8xxx` deferred forever and
-  there was no `/dev/rtc0` at all. Three caveats even now — it is **read-only**
-  (`RTC_SET_TIME` → `ENODEV`), it has **no wake alarm** (`qcom,no-alarm`, so hibernate still
-  has nothing to arm), and its counter is **free-running rather than a wall clock**, so the
-  epoch offset is supplied from userspace by `glymur-rtc-restore`
-  (see [`LOCAL-TWEAKS.md`](LOCAL-TWEAKS.md) §9).
-- fastrpc, ADSP (audio control plane)
-- **Native eDP display** — DPU-driven panel at 2880x1800@120, 30 bpp, `fb0 = msmdrmfb`, backlight over DP AUX. Needs a patched `msm` and the eDP device tree — see [`docs/hardware.md`](docs/hardware.md). Still no GPU, so there is no 3D acceleration behind it.
-- Display output (fallback) — UEFI `simple-framebuffer`, no acceleration. What everything before 2026-07-24 ran on.
+I'm publishing anyway because the machine is genuinely usable today and others should be
+able to share that — and because I'd love people who *actually* know this stack to
+validate it, correct me, and push it further. **If you know the Adreno/DPU/clock-controller
+stack, your review and patches are wanted.** If something here is wrong or dangerous,
+please open an issue; I'll take the correction gladly.
 
 ---
 
-### Not working yet
-- **GPU — partially characterised, not fully instrumented.** The GPU *works* (see above), but: `nvtop`/`btop` report Memory/Temp/Power as **N/A** — an integrated Adreno has no dedicated VRAM, there is no hwmon node on the GPU device, and no power sensor. The temperatures *do* exist as 14 thermal zones (`gpu-0-0` … `gpu-3-2`, `gpuss-0/1`) under `/sys/class/thermal/`, which simply is not where those tools look. **No zap shader** (falls back to `SECVID_TRUST_CNTL`). **No sustained stress testing yet.** Also: Mesa names the device "Adreno X2-85" and this build contains no X2-90 string at all, while our chipid `0x44070041` matches none of the three kernel `a8xx` catalog entries exactly — likely an unmapped SKU/revision.
-- **Suspend / resume — ⚠️ works, on a workaround (2026-07-30).** Closing the lid sleeps the machine and opening it wakes it, verified over three cycles. Stock, it hard-resets the SoC with no fault of any kind. Root cause: **PCI config-space access during `dpm_suspend_noirq()` resets this SoC**, with the read (`pci_save_state()`) and write (`pci_prepare_to_sleep()`) paths *independently* lethal and driver noirq callbacks innocent — a single PCIe device performing its noirq suspend is sufficient. **This reproduces on the bare upstream A16 device tree**, so it is a platform gap rather than a defect in ours. The workaround skips both config-space accesses, which means PCI devices stay powered through suspend: it sleeps, but saves less power than a correct implementation, and **a firmware revision is needed for a real fix**. It lives on its own GRUB entry.
+## Current phase: upstream-first
 
+For most of its life this project existed because there was no in-tree support for this
+laptop. **There is now.**
 
-⚠️ **Correction (2026-07-30, later the same day):** do not treat "this firmware does not support EFI variable services" as settled. Two archived `efi_pstore` crash dumps prove variable services **worked** on this same machine and firmware under 7.1 kernels. The `EFI_UNSUPPORTED` result above is real but is specific to our 7.2-rc3 build, and the cause is **unresolved**. See [`docs/hardware.md`](docs/hardware.md).
-- **USB4 / Thunderbolt** — no host-router/NHI node exists in any in-tree qcom device tree, and `drivers/thunderbolt` has no Qualcomm support. The binding is an unmerged upstream **RFC**. The Type-C half of the pipeline (UCSI → typec_mux → QMP PHY) now works; only the host router is missing. See [`docs/usb-c-ucsi-dp-altmode.md`](docs/usb-c-ucsi-dp-altmode.md).
-- ~~**Thermal `cooling-maps`**~~ — ✅ **RESOLVED 2026-07-31, and it was never broken.** All
-  41 `cpu*`/`cpullc*` zones bind `cpufreq-cpu0/6/12` and step correctly across the 95 °C
-  passive trip. The "no thermal zone binds them" claim came from a check that counted a
-  sysfs attribute (`cdev*_type`) which does not exist on this kernel, so it could only ever
-  report zero. See the 2026-07-31 note near the top of this file.
-- **Fn hotkeys** — Some Fn keys aren't wired, but as of 7-24 update, we just need Fn Lock, KB Brightness, Microphone Mute (just the LED on KB), Camera, and the two ASUS buttons.  Asus Buttons do map though. 
-- **Camera** — no sensor driver / CCI-CSI device-tree wiring yet.
-- **Dimmable keyboard backlight** — no `asus::kbd_backlight` LED; the A16 entry lacks `QUIRK_USE_KBD_BACKLIGHT`.
-- **Headphone jack / DP audio**, **`qcom-spmi-temp-alarm`**.
+Konrad Dybcio's board file was merged as `e8fbbca94db7 arm64: dts: qcom: glymur: Add Asus
+Zenbook A16 (UX3607OA)` and is in linux-next as of `next-20260803`, reviewed by Abel Vesa
+and Dmitry Baryshkov, applied by Bjorn Andersson. The binding landed with it, and both
+prerequisites that had blocked it (`remoteproc_soccp`, `pcie4_port0_ep`) landed by
+`next-20260731`, so it builds standalone.
 
-### Known regression to be aware of
-**Retired 2026-07-20.** "MDSS enabled + `msm` loaded kills Wi-Fi" no longer reproduces —
-it was a load-ordering problem with `ath12k`, not a power-domain/NoC/SMMU interaction.
-In the test58 log Wi-Fi associates at t+29.4 s with no `ath12k` errors while `msm` binds
-at t+83.5 s. Display-enabled DTBs no longer have to be treated as diagnostic-only.
+That makes the old goal — maintain a rival device tree — obsolete. The goal now is to
+**shrink this repository into upstream**: reconcile our board file against the merged one,
+send the fixes that are genuinely generic, and report what upstream cannot yet do on real
+hardware. Expect `dts/` here to get smaller, not bigger.
 
-Caveat when judging this yourself: a USB Ethernet dongle (`r8153_ecm`) holds the default
-route at metric 100 versus Wi-Fi's 600, so a surviving SSH session is **not** evidence
-that Wi-Fi is healthy.
+## The deltas that matter
+
+Everything above rests on a small number of changes. If you reproduce nothing else,
+reproduce these.
+
+1. **eDP: force HBR3.** The v8 eDP PHY on this SoC brings up a usable link **only at
+   8.1 Gbps**. Measured 2026-08-07 by forcing each rate in turn on otherwise identical
+   kernels:
+
+   | link rate | clock recovery | equalization | result |
+   |---|---|---|---|
+   | 1620 (RBR) | fail | — | no link |
+   | 2700 (HBR) | fail | — | no link |
+   | 5400 (HBR2) | pass | **fail** | no link |
+   | **8100 (HBR3)** | pass | pass | **panel lights, first attempt** |
+
+   The panel (SDC `ATNA60HR07-0`) advertises **HBR2 as its maximum** — in both the eDP
+   `SUPPORTED_LINK_RATES` table and the extended receiver caps at DPCD `0x2201` — so an
+   unmodified kernel correctly selects HBR2, the one rate that cannot train, and the screen
+   stays black. Our tree overrides the rate to the device-tree ceiling.
+   ⚠️ **This override is deliberately not proposed upstream**: it drives the link above the
+   sink's advertised maximum. The real fix belongs in `phy-qcom-edp.c` and has been reported
+   to its author. `phy-qcom-edp.c` is byte-identical at `next-20260713` and `next-20260803`,
+   so this is a long-standing gap, not a regression.
+
+2. **`drm/msm/dp`: don't push idle into a link that was never enabled.** When eDP training
+   fails, `msm_dp_display_atomic_enable()` returns early leaving `->power_on` false, but
+   `msm_dp_display_atomic_disable()` writes `DP_STATE_CTRL_PUSH_IDLE` anyway. Elsewhere the
+   teardown is gated on that flag; this one write is not. On glymur it is fatal — TrustZone
+   force-stops the SOCCP and ADSP and the SoC resets silently ~50 ms later, no oops, no
+   panic. Reproducible with no compositor and no GPU involved:
+   `echo 1 > /sys/class/graphics/fb0/blank`. A one-line guard fixes it. This one **is**
+   generic and is being sent upstream.
+
+3. **`arm,no-completion-irq` on the `scmi` node** — one property. The PDP0/CPUCP firmware
+   writes correct replies for the SCMI Performance protocol into shared memory but never
+   rings the mailbox doorbell, so every transfer times out and `scmi-cpufreq` probes `-110`.
+   Without this the CPUs stay pinned at boot clock. In [`patches/`](patches/).
+
+4. **Remove `com_aux` from the `phy@88e1000` clock list** — the QMP combo PHY enables a
+   `com_aux` clock on an instance that has no USB half, and `phy_init()` fails `-EBUSY`.
+   Removing it takes HDMI EDID from 0 to 512 bytes and modes from 0 to 32, and removes a
+   compositor hang. Still present upstream.
+
+5. **`glymur_pci_skip=5`** — PCI config-space access during `dpm_suspend_noirq()` resets
+   this SoC, read and write paths independently. This skips both. A **diagnostic
+   workaround, not a fix**, and deliberately not proposed upstream.
+
+6. **`systemd.mask=dev-tpm0.device dev-tpmrm0.device`** on the kernel cmdline — required,
+   not cosmetic. Without them the boot stalls about 90 seconds.
 
 ---
 
-## Things tried that did NOT work (dead-ends / open failures)
+## What works
 
-A condensed list so contributors do not re-run known-bad experiments. Full detail in
-[`docs/modifications.md`](docs/modifications.md) and [`docs/hardware.md`](docs/hardware.md).
+| | |
+|---|---|
+| **Display** | Native eDP, DPU-driven, 2880x1800@120 at 30 bpp, `fb0 = msmdrmfb`. Backlight over DP AUX. **HBR3 only** — see delta 1. |
+| **GPU** | Adreno X2 under Mesa **turnip**. GMU firmware v5.2.38, `gpucc` 25 clocks, devfreq 310 MHz → 1.85 GHz across 12 OPPs. |
+| **CPU frequency** | Three SCMI performance domains, 355 MHz → 3.61/4.45 GHz, `scaling_driver = scmi`, `schedutil`. |
+| **Thermal** | 41/41 CPU zones bound to `cpufreq-cpu0/6/12`, plus 14 GPU zones. Actuation verified. |
+| **Wi-Fi / Bluetooth** | ath12k (QCC2072) and WCN7850 BT over UART14. |
+| **Audio** | 4× WSA8845 speakers (SoundWire) + internal DMIC capture. ⚠️ 4.0 layout, woofers on RL/RR — test with `speaker-test -c 4`; two channels only drives the tweeters. |
+| **Battery / charging** | Over USB-C PD, via the SOCCP GLINK path → `qcom-battmgr`. ⚠️ `qcom-battmgr-ac/online = 0` is *correct* — that barrel-jack rail does not exist on this laptop. |
+| **Type-C** | UCSI, PD negotiation, orientation detection, **DisplayPort alt-mode on both ports**. |
+| **Input** | Keyboard (i2c-HID, ASUS EC) + dimmable backlight (`asus::kbd_backlight`, 0–3), trackpad, touchscreen + stylus, lid switch. |
+| **Storage** | NVMe, Gen4/Gen5 PHY, boots from the internal SSD. |
+| **Fan** | RPM readback via the EC on i2c-9. |
+| **RTC** | `/dev/rtc0` counts. ⚠️ Read-only, no wake alarm, free-running counter — the epoch offset is restored from userspace. |
 
-- **test58 (FAILED)** — display-attack DTB (`x1e80100-asus-vivobook-s15` base + `mdss`/`dispcc`/`mdss_dp3` = okay). Did not bring up native display; recorded here as tried, to be revisited.
-- **`video=simplefb:off` / forced `video=eDP-1:...` modeset** — MDSS GDSC power-cycle -> warm reset. Keep simplefb alive; do not force a resolution.
-- **msm_gem CMA rewrite** — abandoned; solved the wrong problem (SMMU translation was never the fault).
-- **Grafting hamoa (x1e) GPU/GMU/IOMMU nodes without `gpucc`** — immediate SError (~0.3s) from unclocked register access.
-- **Gunyah/hypervisor "handshake" emulation for GPU** — dead-end; the GPU is driven natively by Windows, not behind a Gunyah VMID.
-- **100 kHz I2C for the EC keyboard bus** — regressed vs 400 kHz (GENI master command timeout).
-- ~~**Building on 7.2 / linux-next** — broke the working chain; stay on v7.1.~~
-  **Retired 2026-07-30.** The daily driver is now **7.2.0-rc3**; see *Kernel base*.
+## What partly works
+
+- **Suspend / resume** — works on a workaround, and two resume failures remain.
+  s2idle completes and the machine wakes, but stock it hard-resets the SoC (delta 5), which
+  leaves PCI devices powered through sleep — it sleeps, but saves less power than a correct
+  implementation. This reproduces on the bare upstream A16 device tree, so it is a platform
+  gap rather than a defect in ours, and a firmware revision is needed for a real fix.
+  On resume, two devices do not come back on their own: **xHCI** (suspends with the HS-PHY
+  not in L2 → stale ring → SMMU translation fault → fatal Host System Error) and **ath12k**
+  (MHI reaches the device but never reloads AMSS, on sleeps beyond roughly 2.5 minutes).
+  Both are handled by a recovery hook; neither is fixed.
+- **HDMI** — the PHY is fixed (delta 4), the port is not. The output is still black because
+  nothing delivers HPD to `af64000`. Four approaches eliminated; TLMM 126 cannot be a GPIO
+  without killing USB-C DP alt-mode.
+- **SPMI** — all three buses enumerate and `qcom-spmi-temp-alarm` is bound on nine PMICs.
+  One device, `2-0b` on `spmi_bus2`, fails `-5`.
+- **Fan control** — RPM readback only. `/sys/class/pwm` is empty and the cause is
+  unidentified. SPMI is *not* why; that coupling was never true.
+
+## What doesn't work
+
+- **Camera** — no `/dev/video*`. `camcc` now probes (94 clocks), which was step one, but
+  CAMSS has no support for this SoC generation: `x1e80100` is supported and glymur is a
+  delta from it, but no upstream device tree has a camss node for *either* SoC, and the
+  sensor ASUS fitted is still unidentified — it does not appear in the Windows DSDT. This
+  is a driver port, not a device-tree job.
+- **GPU zap shader** — the DT node is correct and does remove the `-ENODEV` fallback, but
+  TrustZone then rejects the upstream-signed image (`-EINVAL`), and `a8xx_gpu.c` tolerates
+  only `-ENODEV`, so adding the node costs the entire GPU. The `SECVID_TRUST_CNTL` fallback
+  is correct on this machine. Not fixable from Linux.
+- **USB4 / Thunderbolt** — blocked upstream. `drivers/thunderbolt` has no Qualcomm support
+  and the host-router binding is an unmerged RFC. The Type-C half of the pipeline works.
+- **Headphone jack, DP audio** — needs an rx-macro/WCD9395 codec node in the device tree.
+  The `wcd939x` driver is in-tree, so this really is just DT.
+- **GPU instrumentation** — `nvtop`/`btop` report memory, temperature and power as N/A.
+  An integrated Adreno has no dedicated VRAM, there is no hwmon node and no power sensor.
+  The temperatures do exist, as 14 thermal zones under `/sys/class/thermal/`.
+- **Some Fn hotkeys** — Fn Lock, mic-mute LED, and the camera key are unwired. The two
+  ASUS buttons do map.
+
+## Dead ends — do not re-run these
+
+- **`video=simplefb:off` / forced `video=eDP-1:` modeset** — MDSS GDSC power-cycle → warm
+  reset.
+- **msm_gem CMA rewrite** — solved the wrong problem; SMMU translation was never the fault.
+- **Grafting hamoa (x1e) GPU/GMU/IOMMU nodes without `gpucc`** — immediate SError from
+  unclocked register access.
+- **Gunyah/hypervisor "handshake" emulation for the GPU** — the GPU is driven natively by
+  Windows, not behind a Gunyah VMID.
+- **100 kHz I2C for the EC keyboard bus** — regresses vs 400 kHz (GENI master command
+  timeout).
+- **`d3cold_allowed=0` for the ath12k resume failure** — moves the failure one MHI stage
+  earlier rather than fixing it.
+- **Selecting eDP HBR2 "correctly"** — clearing `LINK_BW_SET` so `LINK_RATE_SET` is honoured
+  is right per eDP 1.4b, and it makes things *worse* here: it lands the link squarely on
+  HBR2, which cannot train (delta 1). `patches/glymur-edp-rate-set-UPSTREAM.patch` does
+  exactly this. ⚠️ **Despite its filename it is not submittable** and should not be sent.
 
 ---
 
@@ -240,150 +203,90 @@ A condensed list so contributors do not re-run known-bad experiments. Full detai
 | | |
 |---|---|
 | **Model** | ASUS Zenbook A16, UX3607OA |
-| **SoC** | Snapdragon X2 Elite Extreme, `glymur` (`sm8750`) |
-| **GPU** | Adreno X2-90 (X2-45 / X2-85 / X2-90 class), `QCOM0F36` @ `0x03D00000` |
-| **Panel** | Samsung ATNA60HR07, 2880x1800, 60/120 Hz, 10bpc (eDP) |
-| **Wi-Fi** | Qualcomm QCC207x (ath12k) |
-| **Audio** | 4x WSA8845 smart speakers (SoundWire) + DMIC array, LPASS/AudioReach |
+| **SoC** | Snapdragon X2 Elite Extreme, `glymur` (X2E94100) |
+| **GPU** | Adreno X2, `QCOM0F36` @ `0x03D00000` |
+| **Panel** | Samsung/SDC `ATNA60HR07-0`, 2880x1800, 60/120 Hz, 10 bpc, DSC 1.2 capable (eDP) |
+| **Wi-Fi** | Qualcomm QCC2072 (ath12k) |
+| **Audio** | 4× WSA8845 smart speakers (SoundWire) + DMIC array, LPASS/AudioReach |
 | **Firmware** | Retail Windows-on-ARM UEFI (locked; no engineering unlock) |
 
-Full register/bus map: [`docs/hardware.md`](docs/hardware.md).
+Full register and bus map: [`docs/hardware.md`](docs/hardware.md).
 
----
+## Kernel base and device tree
 
-## Kernel base
+The daily driver is **7.2.0-rc3** on a linux-next base. `next-20260803` (7.2-rc6) is
+validated as of 2026-08-07 with deltas 1 and 2 applied and will replace it. v7.1 still boots
+as a fallback and its patch set is in [`kernel/`](kernel/); use it to reproduce anything
+dated before 2026-07-28.
 
-**The daily driver is `7.2.0-rc3` (updated 2026-07-30).** Display, GPU, Wi-Fi, battery,
-Type-C/DP alt-mode, keyboard, audio and — since 2026-07-30 — suspend all work on it.
+The device tree is Konrad Dybcio's A16 board file with our fixes layered on top —
+[`dts/glymur-asus-zenbook-a16-ux3607oa-merged.dts`](dts/).
 
-> **The old "do not build on 7.2 / linux-next" warning is retired.** It read: *"A regression
-> somewhere in the 7.2 cycle broke the working glymur chain."* That was an honest reading at
-> the time, but it was wrong about the cause. What actually broke was our **device tree**, not
-> the kernel — a vendor-derived DTB lineage that had accumulated assumptions the newer tree no
-> longer matched. Rebasing onto Konrad Dybcio's upstream A16 DTS made 7.2 work, and several
-> things that had been blamed on the kernel (the display teardown crash among them) turned out
-> to live in that DT. Kept here rather than deleted, because "our own workaround outlived its
-> evidence" is the single most repeated lesson in this project.
+Because upstream has no Adreno X2 or DPU support for this SoC, the Windows-on-ARM stack was
+reverse-engineered to recover hardware ground truth: the ACPI dump (IORT/DSDT/SDEV) gave
+authoritative SMMU StreamIDs and register bases, and Ghidra analysis of the Windows WDDM
+driver gave GPU identity and firmware blob names. Those documents contain addresses and
+register maps **derived** from proprietary Qualcomm/ASUS firmware; the binaries themselves
+are **not** redistributed here (see [`firmware/README.md`](firmware/README.md)). This is
+interoperability research.
 
-**v7.1 remains a supported fallback.** `7.1.0-glymur-clean+` / `7.1.0-glymur-gdsc1` still boot
-and still have a GRUB entry; the 7.1 patch set is in [`kernel/`](kernel/). Use it if you want
-the vendor-lineage DTB, or to reproduce anything dated before 2026-07-28.
+## Building and booting
 
-⚠️ One caveat inherited by 7.2: **suspend needs a workaround.** Stock, s2idle hard-resets the
-SoC — see *Not working yet* and `docs/hardware-status.md`. It reproduces on the upstream A16 DT,
-so it is a platform gap rather than something the kernel base choice fixes.
+1. **Kernel** — mainline **v7.2-rc3** (or v7.1) plus the config recipe and patches in
+   [`kernel/`](kernel/). The recipe starts from a distro config and force-enables the
+   glymur boot-critical drivers.
+2. **Device tree** — build a DTB from [`dts/`](dts/), **plus the one-line
+   `arm,no-completion-irq` property** from
+   [`patches/glymur-scmi-no-completion-irq-CONFIRMED.patch`](patches/), without which the
+   CPUs stay pinned at boot clock.
+3. **Boot** — GRUB + `dtbloader`; sample entries in
+   [`boot-kit/grub.cfg.laptop.example`](boot-kit/). One baseline entry carries both the
+   suspend workaround and the cpufreq DTB, with previous baselines kept one keypress down
+   as fallbacks. Keep a known-good entry as the saved default — a bad DTB can otherwise
+   leave the machine unbootable.
 
----
-
-## The GPU / display reverse-engineering effort
-
-Because upstream has no Adreno X2 or DPU support for `sm8750`, the Windows-on-ARM stack was
-reverse-engineered to recover the hardware ground truth:
-
-- **ACPI dump** (IORT / DSDT / SDEV) -> authoritative SMMU StreamIDs and register bases.
-  GPU sits behind a **dedicated `adreno_smmu` @ `0x03DA0000`**, register base `0x03D00000` —
-  **matching x1e80100 upstream**, so routing is *not* the blocker.
-  ([`gpu-smmu-routing-from-woa-acpi.md`](docs/hardware.md))
-- **Ghidra RE of `qcdxkm8480.sys`** (Windows WDDM driver) -> GPU identity, firmware blob
-  names, and candidate `gpucc` clock-controller register offsets.
-  ([`gpucc-clock-registers.md`](docs/hardware.md))
-- ⛔ **"Root cause: `gpucc` is absent from mainline" — this was WRONG, twice over, and is
-  retired.** `drivers/clk/qcom/gpucc-glymur.c` has been in mainline v7.1 all along (618
-  lines, compatible `qcom,glymur-gpucc`), the a8xx Adreno driver was already compiled into
-  our `msm.ko`, the catalog entry existed, and the firmware was already on the box. **There
-  was almost nothing to reverse-engineer.** The abandoned RE stub (`gpucc-x2.c`) was 126
-  lines of `TODO`s reimplementing a driver that shipped.
-- ✅ **The actual blocker, found 2026-07-29: our own `modprobe.blacklist=gpucc_glymur`.**
-  `gxclkctl-kaanapali` lists gpucc as a power-domain provider and runtime-resumes it at
-  probe; with gpucc blacklisted that provider never appeared, the resume timed out `-110`,
-  the Adreno SMMU went with it, adreno failed `-19`, and because `msm` is a *component*
-  framework the whole DRM bind failed — a black screen, repeatedly "fixed" by disabling the
-  GPU nodes. Dropping one stale cmdline token and enabling `&gpu`/`&gmu` brought the GPU up.
-  **The lesson we would pass on: audit your own debugging workarounds as ruthlessly as you
-  audit the hardware.**
-- **Display — SOLVED 2026-07-24.** The "TrustZone XPU wall" theory was a misdiagnosis
-  (the WoA ACPI shows the display path is normally clock-gated, with no secure VMID
-  gate), and so was blaming the DP PHY. The panel was dark for three stacked reasons,
-  each fully masking the next: a `dispcc` `clocks[]` indexing error in our device tree
-  that orphaned the DP3 link clocks and oopsed the kernel; a generic upstream `msm` bug
-  that made the eDP 1.4 `LINK_RATE_SET` path dead code; and the fact that **5.4 Gbps is
-  simply not a working operating point on this panel** — it trains at **HBR3**. The eDP
-  PHY driver needed no changes at all.
-  ([`docs/hardware.md`](docs/hardware.md))
-
-> These docs contain addresses, StreamIDs, and register maps **derived** from proprietary
-> Qualcomm/ASUS firmware and Windows drivers. The binaries themselves are **not** redistributed
-> here (see [`firmware/README.md`](firmware/README.md)). This is interoperability research.
-
----
+Distro installer ISOs: [`iso/README.md`](iso/README.md).
 
 ## Repository layout
 
 ```
-dts/            Device-tree sources (*-merged-gpu.dts = daily driver; testNN = historical)
-prebuilt/       Prebuilt DTB for the daily driver
-boot-kit/       Build/patch/deploy scripts + example GRUB config
-kernel/         Kernel build recipe, config fragment, patches, gpucc stub, fork-push script
-patches/        Kernel/DT patches: *-UPSTREAM (submittable), *-CONFIRMED (proven on
-                hardware), *-EXPERIMENT (untested), *-DIAGNOSTIC (instrumentation only)
-tweaks/         Userspace config actually installed on the machine (systemd units,
-                dracut/modprobe/wireplumber drop-ins); tweaks/retired/ = removed, with why
-docs/           Full changelog, hardware map, display + GPU-RE findings, analysis logs
-iso/            Reproducible aarch64 installer-ISO build scripts (Arch / Fedora / Ubuntu)
-firmware/       What firmware is needed and why it is NOT included
+dts/        Device-tree sources (*-merged*.dts = daily driver; testNN = historical)
+prebuilt/   Prebuilt DTB for the daily driver
+boot-kit/   Build/patch/deploy scripts + example GRUB config
+kernel/     Kernel build recipe, config fragment, patches, fork-push script
+patches/    Kernel/DT patches: *-UPSTREAM (submittable), *-CONFIRMED (proven on
+            hardware), *-EXPERIMENT (untested), *-DIAGNOSTIC (instrumentation only)
+            ⚠️ glymur-edp-rate-set-UPSTREAM.patch is misnamed — see Dead ends
+tweaks/     Userspace config installed on the machine; tweaks/retired/ = removed, with why
+docs/       Component reference, hardware map, display + GPU findings
+iso/        Reproducible aarch64 installer-ISO build scripts (Arch / Fedora / Ubuntu)
+firmware/   What firmware is needed and where it comes from
 ```
 
 ---
 
-## Building & booting (short version)
-
-1. **Kernel** — mainline Linux **v7.2-rc3** (or **v7.1** as a fallback) + the config recipe
-   and patches in [`kernel/`](kernel/).
-   The recipe (`boot-kit/scripts/build-kernel-native-full.sh`) starts from a distro config and
-   force-enables the glymur boot-critical drivers. See [`kernel/README.md`](kernel/README.md).
-2. **Device tree** — build/patch a DTB from [`dts/`](dts/). The current daily driver is
-   `glymur-asus-zenbook-a16-ux3607oa-merged-gpu.dts` **plus the one-line
-   `arm,no-completion-irq` property** from
-   [`patches/glymur-scmi-no-completion-irq-CONFIRMED.patch`](patches/), without which the
-   CPUs stay pinned at boot clock.
-3. **Boot** — via GRUB + `dtbloader`; sample entries in
-   [`boot-kit/grub.cfg.laptop.example`](boot-kit/grub.cfg.laptop.example), which mirrors the
-   real menu on the machine: one baseline entry carrying **both** the suspend workaround
-   (`glymur_pci_skip=5`) and the cpufreq DTB, with the previous baselines kept one keypress
-   down as fallbacks.
-   ⚠️ **`efi=noruntime` was retired on 2026-07-30 and is no longer recommended.** This
-   README used to call it mandatory. That claim did not survive testing on the merged
-   7.2 tree — see [`docs/modifications.md`](docs/modifications.md). Older entries and
-   the archived docs still carry it; that is history, not guidance.
-
-Distro installer ISOs: see [`iso/README.md`](iso/README.md).
-
----
-
-## Credits & license
+## Credits and license
 
 **→ [UPSTREAM-CREDITS.md](UPSTREAM-CREDITS.md) names every upstream author whose work this
-tree carries, with the patch and message-id it came from.** Anything adopted from upstream is
-credited there and is never presented as ours.
+tree carries, with the patch and message-id it came from.** Anything adopted from upstream
+is credited there and is never presented as ours.
 
-**The merged device tree this project now runs on is [Konrad Dybcio](https://konradybcio.pl/)'s.**
-He posted upstream device-tree support for this exact laptop (UX3607OA) on 2026-07-21
-(reviewed by Dmitry Baryshkov and Abel Vesa, still unmerged), along with the A16 keyboard
-support we use. Our tree is his board file with our fixes layered on top: the pin map, the
-regulator topology, the WCN and USB wiring, gpio-keys, and the GPU/CDSP/SOCCP nodes are his
-work. His DT is also what proved our long-hunted display power-down reset was a device-tree
-defect on our side rather than silicon — same kernel, same `msm`, only the DTB swapped, and
-his survived where ours did not. Thank you.
+**The device tree this project runs on is Konrad Dybcio's.** He posted upstream support for
+this exact laptop, along with the A16 keyboard support we use; the pin map, regulator
+topology, WCN and USB wiring, gpio-keys and the GPU/CDSP/SOCCP nodes are his work. His DT
+is also what proved our long-hunted display power-down reset was a device-tree defect on
+our side rather than silicon — same kernel, same `msm`, only the DTB swapped, and his
+survived where ours did not. Thank you.
 
 glymur display and eDP PHY v8 support are **Abel Vesa**'s.
 
 Builds on mainline Linux, the Linaro/Qualcomm `qcom-next` efforts, and the broader
-Snapdragon-on-Linux community (the x1e80100 "hamoa" laptops were the reference skeleton for
-much of the glymur bring-up).
+Snapdragon-on-Linux community — the x1e80100 "hamoa" laptops were the reference skeleton
+for much of this bring-up.
 
 Kernel-derived sources (DTS, C, patches) are **GPL-2.0-only**, matching the Linux kernel.
 Documentation is provided as-is for research and interoperability. See [LICENSE](LICENSE).
 
-**Disclaimer:** experimental, unofficial, not affiliated with or endorsed by ASUS or Qualcomm.
-Running this can leave the machine unbootable until you restore a known-good boot entry.
-Proceed at your own risk.
+**Disclaimer:** experimental, unofficial, not affiliated with or endorsed by ASUS or
+Qualcomm. Running this can leave the machine unbootable until you restore a known-good boot
+entry. Proceed at your own risk.
