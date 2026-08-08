@@ -37,12 +37,14 @@ and without `0004`, failures on every one.
 Sending it by itself would regress every machine with this panel/PHY pairing. The PHY
 limitation has to be understood first — that is what the eDP bug report is for.
 
-## ⛔ Before sending any of these upstream
+## Sign-off status
 
-**None of them carry a `Signed-off-by`.** Only Jesse can certify the DCO, so it is
-deliberately absent — add it below the `Assisted-by:` trailer on the patches you send.
-`Assisted-by:` is required by `submitting-patches.rst`; an agent must not add
-`Signed-off-by:`.
+`0001`, `0002`, `0003` and `0007` carry `Signed-off-by: Jesse Casco`, below the
+`Assisted-by:` trailer. `Assisted-by:` is required by `submitting-patches.rst`; an agent
+must not add `Signed-off-by:` — only the author can certify the DCO.
+
+The two `LOCAL:` patches (`0004`, `0005`) are deliberately **unsigned**. A DCO
+certification on a patch that must never be sent is an invitation to send it.
 
 ## What `next-20260807` absorbed
 
