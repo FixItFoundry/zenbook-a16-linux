@@ -1,12 +1,30 @@
 # Kernel
 
-The Zenbook A16 bring-up runs on **mainline Linux v7.1** with the glymur boot-critical
-drivers force-enabled. The build shipped in the images is **`7.1.0-glymur-clean+`** (v7.1 +
-patches, with the experimental `msm`/display mapping reverted for stability). A fuller
-`-glymur-full` build with the display experiments also exists but is less stable.
+The Zenbook A16 bring-up now tracks **linux-next**. The A16 device tree is upstream as of
+`next-20260803`, and a linux-next kernel plus two small local deltas boots, trains the
+internal eDP panel at HBR3 and runs a graphical session.
 
-> **Do not build on 7.2 / linux-next.** A regression in the 7.2 cycle broke the working
-> glymur chain. Known-good base = **v7.1**.
+> ⛔ **Retired 2026-08-08:** this file used to say *"Do not build on 7.2 / linux-next — a
+> regression in the 7.2 cycle broke the working glymur chain. Known-good base = v7.1."*
+> **That is false.** The "regression" was a silent reset caused by `msm_dp_ctrl_push_idle()`
+> writing to an untrained link; it is fixed by a one-line guard, and 7.1 was never the
+> cause-free base it appeared to be. Build on linux-next.
+
+## Build naming (2026-08-08)
+
+One name, used for the kernel release string and the DTB, so a boot can always be identified
+from either half:
+
+```
+kernel release   <version>-rc<N>-ZenbookA16     e.g. 7.2.0-rc6-ZenbookA16
+DTB              /boot/glymur/<same string>.dtb e.g. 7.2.0-rc6-ZenbookA16.dtb
+modules          /lib/modules/<same string>/
+```
+
+Built with `LOCALVERSION=-ZenbookA16` and `CONFIG_LOCALVERSION_AUTO=n`. The `<version>-rc<N>`
+half comes from the linux-next snapshot's own `Makefile`, so it moves on its own as the
+merge window does. ⚠️ The release string does **not** record *which* `next-YYYYMMDD` snapshot
+it came from — that goes in the GRUB entry title and the changelog entry for the build.
 
 ## Native eDP (2026-07-24)
 
