@@ -1,0 +1,16 @@
+[Unit]
+Description=Easy Effects Audio Processing Service
+Documentation=man:easyeffects(1)
+After=pipewire.service wireplumber.service
+Wants=pipewire.service wireplumber.service
+PartOf=pipewire.service
+
+[Service]
+Type=simple
+ExecStartPre=/usr/bin/sh -c 'for i in $(seq 1 40); do wpctl status 2>/dev/null | grep -q "alsa_output.platform-sound" && exit 0; sleep 0.5; done; exit 0'
+ExecStart=/usr/bin/easyeffects --service-mode --hide-window
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
