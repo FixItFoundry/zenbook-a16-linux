@@ -290,16 +290,16 @@ Firmware is deliberately **not** shipped in this repo.
 ⚠️ Wi-Fi takes up to ~5 minutes to re-associate after resume. "I cannot ssh in" is not evidence
 of a crash — judge by `uptime -s`.
 
-## Audio ✅ (with two traps)
+## Audio ✅
 
 **Chain:** ADSP (`remoteproc0`, UEFI-loaded) → AudioReach topology → **4× WSA8845 speaker amps
-on SoundWire** + internal DMIC. Speakers are a **4.0 layout** (woofers RL/RR, tweeters FL/FR).
+on SoundWire** + internal DMIC.
 
-**Two things that both look like "audio is broken":**
-1. **ADSP firmware boot race** — check `remoteproc0` state *first*, before suspecting a lost
-   patch. This is the usual cause.
-2. **The 4.0 layout** — a 2-channel test only drives the tweeters. Needs a 4-channel upmix
-   (WirePlumber) or the woofers stay silent.
+**Audio Architecture & Enhancements:**
+1. **Native ALSA UCM2 Integration** — UCM configuration (`HiFi.conf`, `GLYMUR-A16.conf`) with sound card name aliases (`GLYMURASUSZenbo`, `GLYMUR-ASUS-Zenbook-A16-UX3607OA`) enables automatic ALSA initialization at boot.
+2. **SoundWire Auto-Enumeration Recovery** — In-tree kernel driver handles bus clash auto-enumeration recovery on cold boots.
+3. **WirePlumber 2-Channel Stereo Routing** — Configured in `51-glymur-ucm.conf` to map stereo output `[FL FR]` across speakers cleanly and prevent idle suspend timeouts.
+4. **EasyEffects Background Service** — Systemd user service automatically manages DSP effects with hardware sink synchronization.
 
 ❌ **Headphone jack** — jack detect exists, but there is no rx-macro/WCD9395 codec node in the
 DT yet. ❌ **DisplayPort audio** — backends exist but are not wired up.

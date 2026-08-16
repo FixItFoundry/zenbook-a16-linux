@@ -10,6 +10,14 @@ one.
 
 ---
 
+## 2026-08-16 — Audio UCM2 & routing stabilized, Bluetooth verified, GRUB menu cleaned
+
+- **Audio routing & UCM2 auto-matching**: Integrated native ALSA UCM2 profile with sound card name aliases (`GLYMURASUSZenbo`, `GLYMUR-ASUS-Zenbook-A16-UX3607OA`). Added kernel SoundWire bus clash auto-enumeration recovery patch and configured WirePlumber stereo `[FL FR]` channel routing for 4× WSA8845 speakers. EasyEffects user service enabled in background with hardware sink sync.
+- **Bluetooth**: WCN7850 Bluetooth controller verified on `hci0` over UART14 via native power sequencing.
+- **GRUB Bootloader hierarchy**: Reorganized `/etc/grub.d/40_custom` and `/etc/default/grub` to establish clean top-level menu hierarchy (Fedora ARM baseline default, Windows Boot Manager chainloader, UEFI Firmware Settings, and Test DTBs submenu). Configured persistent `saved_entry=zenbook-a16` across both `/boot/grub/grubenv` and `/boot/grub2/grubenv` to survive `grubby` reapplications and reboots.
+
+---
+
 ## 2026-08-15 — external report: DPMS-on wake reset is a separate, upstream-fixed cause
 
 GitHub issue #2 (142spp) reports a hard SoC reset on **DPMS on** (display wake),

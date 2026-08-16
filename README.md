@@ -135,8 +135,8 @@ reproduce these.
 | **GPU** | Adreno X2 under Mesa **turnip**. GMU firmware v5.2.38, `gpucc` 25 clocks, devfreq 310 MHz → 1.85 GHz across 12 OPPs. |
 | **CPU frequency** | Three SCMI performance domains, 355 MHz → 3.61/4.45 GHz, `scaling_driver = scmi`, `schedutil`. |
 | **Thermal** | 41/41 CPU zones bound to `cpufreq-cpu0/6/12`, plus 14 GPU zones. Actuation verified. |
-| **Wi-Fi / Bluetooth** | ath12k (QCC2072) and WCN7850 BT over UART14. |
-| **Audio** | 4× WSA8845 speakers (SoundWire) + internal DMIC capture. ⚠️ 4.0 layout, woofers on RL/RR — test with `speaker-test -c 4`; two channels only drives the tweeters. |
+| **Wi-Fi / Bluetooth** | ath12k (QCC2072) and WCN7850 BT over UART14 (`hci0` initialized natively). |
+| **Audio** | 4× WSA8845 speakers (SoundWire) + internal DMIC capture. Native ALSA UCM2 profile with card name aliases, SoundWire bus clash auto-enumeration recovery, stereo [FL FR] routing via WirePlumber, hardware sink sync, and background EasyEffects audio enhancements. |
 | **Battery / charging** | Over USB-C PD, via the SOCCP GLINK path → `qcom-battmgr`. ⚠️ `qcom-battmgr-ac/online = 0` is *correct* — that barrel-jack rail does not exist on this laptop. |
 | **Type-C** | UCSI, PD negotiation, orientation detection, **DisplayPort alt-mode on both ports**. |
 | **Input** | Keyboard (i2c-HID, ASUS EC) + dimmable backlight (`asus::kbd_backlight`, 0–3), trackpad, touchscreen + stylus, lid switch. |
