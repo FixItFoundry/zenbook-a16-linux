@@ -12,7 +12,10 @@ one.
 
 ## 2026-08-16 — Audio UCM2 & routing stabilized, Bluetooth verified, GRUB menu cleaned
 
-- **Audio routing & UCM2 auto-matching**: Integrated native ALSA UCM2 profile with sound card name aliases (`GLYMURASUSZenbo`, `GLYMUR-ASUS-Zenbook-A16-UX3607OA`). Added kernel SoundWire bus clash auto-enumeration recovery patch and configured WirePlumber stereo `[FL FR]` channel routing for 4× WSA8845 speakers. EasyEffects user service enabled in background with hardware sink sync.
+- **Audio routing & Quad WSA8845 speaker resolution**:
+  - Restored upstream shared `reset-gpios` (`gpio12` Left, `gpio13` Right) and removed conflicting `output-low` pinctrl that clamped speaker amplifiers in reset during boot and triggered startup SoundWire bus clashes.
+  - Standardized kernel sound card driver ([`sound/soc/qcom/x1e80100.c`](file:///home/jcasco/kernel-build/zenbook-next/sound/soc/qcom/x1e80100.c)) 4-channel slot mapping to standard quad layout: `[FL FR LB RB]` (WooferLeft, WooferRight, TweeterLeft, TweeterRight), matching PipeWire quad layout `[FL FR RL RR]`.
+  - Configured WirePlumber with standard quad mapping and automatic stereo upmixing, ensuring EasyEffects and standard stereo clients route cleanly to both Left and Right speaker pairs simultaneously.
 - **Bluetooth**: WCN7850 Bluetooth controller verified on `hci0` over UART14 via native power sequencing.
 - **GRUB Bootloader hierarchy**: Reorganized `/etc/grub.d/40_custom` and `/etc/default/grub` to establish clean top-level menu hierarchy (Fedora ARM baseline default, Windows Boot Manager chainloader, UEFI Firmware Settings, and Test DTBs submenu). Configured persistent `saved_entry=zenbook-a16` across both `/boot/grub/grubenv` and `/boot/grub2/grubenv` to survive `grubby` reapplications and reboots.
 
