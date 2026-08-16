@@ -61,3 +61,18 @@ sudo cp tweaks/retired/asus-kbd-init.py /usr/local/bin/
 sudo cp tweaks/retired/asus-kbd-init.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now asus-kbd-init
 ```
+
+## `glymur-audio-route` & wait services — retired 2026-08-16
+
+A collection of system/user systemd service units and polling shell scripts (`glymur-audio-route.sh`,
+`glymur-wait-for-audio-route`, `glymur-audio-wait`) designed to bridge the cross-boundary race between
+the system-level ALSA mixer route script and user-session WirePlumber.
+
+**Superseded by Native ALSA UCM2 Integration and Kernel Fast-Retry:**
+1. **ALSA UCM2 (`/usr/share/alsa/ucm2/Qualcomm/glymur/HiFi.conf`)**: WirePlumber enables ACP and
+   executes the complete `EnableSequence` (WSA/WSA2 macros, four WSA8845 amplifiers, FE-BE routes, and
+   VA DMIC capture) synchronously and atomically when the sound card device is claimed.
+2. **Kernel APM Fast-Retry**: `q6apm_get_apm_state()` polls `APM_CMD_GET_SPF_STATE` with 100ms intervals
+   instead of a single 5s blocking wait, eliminating the ~5s boot delay and timeout errors.
+
+Files archived in `tweaks/retired/audio-wait-services/`.
