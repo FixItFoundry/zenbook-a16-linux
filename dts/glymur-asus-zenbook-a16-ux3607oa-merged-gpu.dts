@@ -975,24 +975,10 @@
 &pcie4_port0 {
 	reset-gpios = <&tlmm 146 GPIO_ACTIVE_LOW>;
 	wake-gpios = <&tlmm 148 GPIO_ACTIVE_LOW>;
+};
 
-	/* GLYMUR-A16: 7.2-rc3 glymur.dtsi has no pcie4_port0_ep label, so the
-	 * graph endpoint is defined here rather than overridden. */
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		port@0 {
-			reg = <0>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			pcie4_port0_ep: endpoint@0 {
-				reg = <0>;
-				remote-endpoint = <&m2_e_pcie_ep>;
-			};
-		};
-	};
+&pcie4_port0_ep {
+	remote-endpoint = <&m2_e_pcie_ep>;
 };
 
 &pcie5 {
