@@ -1,0 +1,39 @@
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index 55678a30cd..3022ac9999 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -605,7 +605,7 @@ static void qcom_swrm_get_device_status(struct qcom_swrm_ctrl *ctrl)
+ 	ctrl->reg_read(ctrl, SWRM_MCP_SLV_STATUS, &val);
+ 	ctrl->slave_status = val;
+ 
+-	for (i = 1; i <= SDW_MAX_DEVICES; i++) {
++	for (i = 0; i <= SDW_MAX_DEVICES; i++) {
+ 		u32 s;
+ 
+ 		s = (val >> (i * 2));
+@@ -746,7 +746,9 @@ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
+ 			case SWRM_INTERRUPT_STATUS_CHANGE_ENUM_SLAVE_STATUS:
+ 				dev_dbg_ratelimited(ctrl->dev, "SWR new slave attached\n");
+ 				ctrl->reg_read(ctrl, SWRM_MCP_SLV_STATUS, &slave_status);
+-				if (ctrl->slave_status == slave_status) {
++				if (slave_status & 0x3)
++					ctrl->reg_write(ctrl, SWRM_ENUMERATOR_CFG_ADDR, 1);
++				if (ctrl->slave_status == slave_status && (slave_status != 0x01)) {
+ 					dev_dbg(ctrl->dev, "Slave status not changed %x\n",
+ 						slave_status);
+ 				} else {
+@@ -763,6 +765,14 @@ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
+ 				ctrl->reg_write(ctrl,
+ 						ctrl->reg_layout[SWRM_REG_INTERRUPT_CPU_EN],
+ 						ctrl->intr_mask);
++				ctrl->reg_read(ctrl, SWRM_MCP_SLV_STATUS, &slave_status);
++				if (slave_status) {
++					if (slave_status & 0x3)
++						ctrl->reg_write(ctrl, SWRM_ENUMERATOR_CFG_ADDR, 1);
++					qcom_swrm_get_device_status(ctrl);
++					qcom_swrm_enumerate(&ctrl->bus);
++					sdw_handle_slave_status(&ctrl->bus, ctrl->status);
++				}
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_RD_FIFO_OVERFLOW:
+ 				ctrl->reg_read(ctrl,
