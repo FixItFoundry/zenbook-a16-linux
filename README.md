@@ -100,7 +100,11 @@ reproduce these.
    force-stops the SOCCP and ADSP and the SoC resets silently ~50 ms later, no oops, no
    panic. Reproducible with no compositor and no GPU involved:
    `echo 1 > /sys/class/graphics/fb0/blank`. A one-line guard fixes it. This one **is**
-   generic and is being sent upstream.
+    generic and is being sent upstream.
+
+   A separate, upstream-fixed **DPMS-on** wake reset — a zero-rate `dev_pm_opp_set_rate()`
+   in `dpu_core_perf.c`, guarded in `next-20260807` — is recorded in
+   [`CHANGELOG.md`](CHANGELOG.md); together the two guards close both reset directions.
 
 3. **`arm,no-completion-irq` on the `scmi` node** — one property. The PDP0/CPUCP firmware
    writes correct replies for the SCMI Performance protocol into shared memory but never

@@ -10,6 +10,30 @@ one.
 
 ---
 
+## 2026-08-15 — external report: DPMS-on wake reset is a separate, upstream-fixed cause
+
+GitHub issue #2 (142spp) reports a hard SoC reset on **DPMS on** (display wake),
+distinct from the PHY-regulator teardown reset we fixed on the disable/modeset path.
+With the panel and DPTX/DPU cleanly suspended, requesting DPMS on reset the machine —
+no panic, no pstore, reproducible with `kscreen-doctor --dpms off` then `on`.
+
+Root cause: `dpu_core_perf_crtc_update()` computes a zero aggregate DPU core clock
+rate when the CRTC goes offline and passes it to `dev_pm_opp_set_rate()`, which resets
+the SoC. Upstream fixed it in `next-20260807` with a guard in
+`drivers/gpu/drm/msm/disp/dpu1/dpu_core_perf.c`:
+
+    /* If we're going offline, PM callbacks will disable the clocks instead */
+    if (!clk_rate)
+        return 0;
+
+Donggeun Lee backported just that hunk and got 13 consecutive clean DPMS off→on cycles.
+
+This is a **second, independent** reset path: our `PUSH_IDLE` guard (2026-08-07) covers
+the disable/modeset path; the upstream `dpu_core_perf` guard covers the enable/wake
+path. Our `next-20260807` baseline already carries both, so the daily driver is covered.
+
+---
+
 ## 2026-08-07 — the display comes up on current linux-next, and the silent reset is solved
 
 **Two bugs, both found by measurement on hardware, and the machine now boots a working
