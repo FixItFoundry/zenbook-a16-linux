@@ -9,7 +9,7 @@ Type-C/DisplayPort alt-mode, input, NVMe, CPU frequency scaling, thermal managem
 suspend all work together on one kernel and one device tree. Fedora 44 KDE aarch64 is what
 it runs day to day.
 
-> **2026-08-07 — the display now comes up on current linux-next.** `next-20260803`
+> **2026-08-07 — the display now comes up on current linux-next.** `next-20260807`
 > (7.2-rc6) plus the two patches in [The deltas that matter](#the-deltas-that-matter)
 > boots, trains eDP, lights the panel and runs a Wayland session. Before this, no
 > unmodified upstream kernel had ever lit this panel. The pinned `7.2.0-rc3` build is
@@ -214,7 +214,7 @@ Full register and bus map: [`docs/hardware.md`](docs/hardware.md).
 
 ## Kernel base and device tree
 
-The daily driver is **7.2.0-rc6** (`next-20260803`) on a linux-next base, validated as of
+The daily driver is **7.2.0-rc6** (`next-20260807`) on a linux-next base, validated as of
 2026-08-07 with deltas 1 and 2 applied; it replaced the pinned 7.2.0-rc3 build. v7.1 still boots
 as a fallback and its patch set is in [`kernel/`](kernel/); use it to reproduce anything
 dated before 2026-07-28.
@@ -232,7 +232,7 @@ interoperability research.
 
 ## Building and booting
 
-1. **Kernel** — mainline **v7.2-rc6** (`next-20260803`) (or v7.1) plus the config recipe and patches in
+1. **Kernel** — mainline **v7.2-rc6** (`next-20260807`) (or v7.1) plus the config recipe and patches in
    [`kernel/`](kernel/). The recipe starts from a distro config and force-enables the
    glymur boot-critical drivers.
 2. **Device tree** — build a DTB from [`dts/`](dts/), **plus the one-line
