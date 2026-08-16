@@ -305,6 +305,27 @@ Also this day: **audio intermittency fixed** — never the ADSP or the topology,
 `qcom,wcn7850-bt` serdev node under `&uart14`; **UCSI + DP alt-mode confirmed on both
 USB-C ports**, fixed by deleting one DT property (`usb-role-switch` on host-mode dwc3).
 
+## 2026-07-16 → 2026-07-28 — DTB iteration arc (test64–test72) and supporting findings
+
+**DTB changes, one variable per boot:**
+- test64: gpucc probe (baseline for gpucc1/gdsc1).
+- test65: lid switch on TLMM 92 (from the WoA DSDT); frees pin 92.
+- test66: freed TLMM 94 + 246 (wcn-3p3, wwan) — **regression, never boot it:** unblocked `wcn7850-pmu` and `1c00000.pci`, which then failed on pins 116/150 (still reserved) → Wi-Fi dead, audio worse.
+- test67: `dr_mode="otg"` — no-op (`CONFIG_USB_DWC3_HOST=y` forces host).
+- test68: deleted `usb-role-switch` from `usb@a600000` — first UCSI/Type-C bring-up; `/sys/class/typec/` populates, PD negotiates, USB-C DP alt-mode on both ports.
+- test69: `ramoops@94000000` reserved-memory node for crash capture (address cross-checked against `/proc/iomem`).
+- test70: eDP HPD — frees pin 119, muxes `edp0_hot` on `&mdss_dp3`; matches upstream; did not fix the teardown crash.
+- test71: dropped `VA DMIC2/3` from `audio-routing` (upstream routes two); correct per upstream; no audio change.
+- test72: test71 + `modprobe.blacklist=msm` — control boot; audio still fails ⇒ msm exonerated.
+
+**gdsc genpd teardown:** `gdsc_init()` calls `pm_genpd_init()` but nothing called `pm_genpd_remove()`, so `rmmod` of a qcom clock controller left the global `gpd_list` pointing into freed memory (list corruption on next `modprobe`). Upstream fixed the `gdsc_unregister()` half between v7.1 and v7.2; only the `gdsc_register()` error-path cleanup remains outstanding upstream (leak-on-failure, not a crash). Measured innocent of the audio regression (45 genpd domains, zero errors on both kernels).
+
+**Audio root cause (2026-07-28):** the DSP failures (`CMD timeout [1001021]` GET_SPF_STATE, `[1001002]` GRAPH_START, `DSP returned error[1001006]` APM_CMD_SET_CFG) were deterministic across every kernel/DTB and unaffected by msm, the topology, or the kernel — because `tqftpserv` was missing. The in-kernel `qcom_pd_mapper` replaced `pd-mapper`, but `tqftpserv` has no kernel equivalent: it answers the DSP's file requests over QRTR. Fix: `dnf install tqftpserv` + `systemctl enable --now tqftpserv`. (The `glymur-audio-route.service` / wireplumber race noted on 2026-07-29 is a separate, milder intermittency; the missing daemon was the hard failure.)
+
+**Audio topology provenance:** the in-tree topology descends from the X1E80100-Romulus (Microsoft Surface) topology, hand-modified, and matches no public board file. (2026-07-18 shipped it from the public BSD-3 `linux-msm/audioreach-topology` source — same lineage.)
+
+**Display teardown crash (still open):** eDP power-down hard-resets the SoC; trigger isolated to `qcom_edp_phy_exit()` (both clk-disable and regulator-disable halves independently lethal); no Linux fault captured (pstore empty; reset is external). **EDL/download mode closed:** the SoC reset and self-POSTed rather than entering EDL, so download mode is fused off on retail hardware.
+
 ## 2026-07-24 — native eDP
 
 The panel is driven by the real DPU (`fb0 = msmdrmfb`, 2880x1800@120,
