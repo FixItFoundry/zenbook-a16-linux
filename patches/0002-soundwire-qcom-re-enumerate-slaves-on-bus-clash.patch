@@ -1,0 +1,14 @@
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index 55678a30cd..97c7d6b8da 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -763,6 +763,9 @@ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
+ 				ctrl->reg_write(ctrl,
+ 						ctrl->reg_layout[SWRM_REG_INTERRUPT_CPU_EN],
+ 						ctrl->intr_mask);
++				qcom_swrm_get_device_status(ctrl);
++				qcom_swrm_enumerate(&ctrl->bus);
++				sdw_handle_slave_status(&ctrl->bus, ctrl->status);
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_RD_FIFO_OVERFLOW:
+ 				ctrl->reg_read(ctrl,
