@@ -1073,7 +1073,25 @@
 	vdd3-supply = <&vreg_l7b_e0>;
 };
 
+&lpass_tlmm {
+	spkr_01_sd_n_active: spkr-01-sd-n-active-state {
+		pins = "gpio12";
+		function = "gpio";
+		drive-strength = <16>;
+		bias-disable;
+	};
+
+	spkr_23_sd_n_active: spkr-23-sd-n-active-state {
+		pins = "gpio13";
+		function = "gpio";
+		drive-strength = <16>;
+		bias-disable;
+	};
+};
+
 &swr0 {
+	pinctrl-0 = <&wsa_swr_active>, <&spkr_01_sd_n_active>;
+	pinctrl-names = "default";
 	status = "okay";
 
 	/* WSA8845, left woofer */
@@ -1102,6 +1120,8 @@
 };
 
 &swr3 {
+	pinctrl-0 = <&wsa2_swr_active>, <&spkr_23_sd_n_active>;
+	pinctrl-names = "default";
 	status = "okay";
 
 	/* WSA8845, right woofer */
