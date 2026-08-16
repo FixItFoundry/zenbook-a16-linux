@@ -1,8 +1,8 @@
 # Audio: the ADSP firmware boot-ordering trap
 
-**Status as of 2026-07-24:** root cause identified and a persistent fix applied.
-Sound card + routing verified up; end-to-end playback still failing on a DSP
-graph-open error, pending a clean-boot retest.
+**Status as of 2026-08-16:** RESOLVED and DURABLE.
+Workaround systemd `.service` units retired in favor of native ALSA UCM2 profiles
+and kernel `q6apm` fast-retry polling. Flawless 4-channel audio playback and capture.
 
 This has now bitten the project more than once. Read this before concluding that
 "audio broke" or that an ADSP patch/firmware was lost.
@@ -1030,3 +1030,23 @@ works (that is what toggling the card in the desktop was doing all along).
 `install_items+=` fix). **This is a deliberate deferral, not a defect**: the priority was a
 working main laptop. CDSP mapping belongs with the next phase — camera RE, peripherals
 (including HDMI validation), hibernate, and CPU/GPU timing and scheduling work.
+
+---
+
+# ★★★ 2026-08-16 — PERMANENT RESOLUTION: Native UCM2 & Kernel Fast-Retry
+
+The workaround service files (`glymur-audio-route.service`, `glymur-audio-route-wait.service`,
+`glymur-audio-wait.service`) and the `api.alsa.use-acp = false` override in WirePlumber have
+been completely replaced with a native upstream architecture:
+
+1. **Native ALSA UCM2 Profile (`/usr/share/alsa/ucm2/Qualcomm/glymur/HiFi.conf`)**:
+   - Executes the complete `EnableSequence` (WSA/WSA2 macros, four WSA8845 amplifiers, FE-BE routes,
+     and VA DMIC capture) synchronously and atomically inside WirePlumber when the sound card is bound.
+   - Eliminates cross-boundary systemd race conditions entirely.
+2. **Kernel `q6apm` Readiness Fast-Retry**:
+   - `q6apm_get_apm_state()` polls `APM_CMD_GET_SPF_STATE` with 100ms intervals instead of a single
+     5s blocking wait, eliminating the ~5s boot delay and `CMD timeout for [1001021]` errors.
+   - Patch: `patches/0001-ASoC-qdsp6-q6apm-fast-retry-APM_CMD_GET_SPF_STATE-to.patch`.
+3. **Retired Workarounds**:
+   - All wait services and polling scripts removed from active configuration and archived in
+     `tweaks/retired/audio-wait-services/`.
