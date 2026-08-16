@@ -4,6 +4,8 @@ Mainline-based Linux bring-up for the **ASUS Zenbook A16 (UX3607OA)** — a Wind
 laptop built on the **Qualcomm Snapdragon X2 Elite Extreme**, SoC codename **glymur**,
 Adreno X2 GPU.
 
+![Zenbook A16 running Linux](img/screenshot_20260816_080455.png)
+
 **Status: a working daily driver.** Display, GPU, Wi-Fi, Bluetooth, audio, battery,
 Type-C/DisplayPort alt-mode, input, NVMe, CPU frequency scaling, thermal management and
 suspend all work together on one kernel and one device tree. Fedora 44 KDE aarch64 is what
