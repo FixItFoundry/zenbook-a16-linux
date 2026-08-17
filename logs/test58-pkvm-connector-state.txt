@@ -1,0 +1,36 @@
+eDP-1 status: connected 
+eDP-1 enabled: enabled 
+eDP-1 modes: 2880x1800 2880x1800 
+eDP-1 dpms: On 
+=== cmdline ===
+BOOT_IMAGE=/boot/vmlinuz-7.1.0-glymur-clean2 root=UUID=7db7b00f-3862-4771-afee-ece1682d2970 rw clk_ignore_unused pd_ignore_unused cma=128M efi=noruntime arm64.nopauth console=tty0 ignore_loglevel modprobe.blacklist=msm rd.timeout=60 panic=10 softlockup_panic=1 kvm-arm.mode=protected systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
+=== drm ===
+card1
+card1-DP-1
+card1-DP-2
+card1-eDP-1
+card1-Writeback-1
+renderD128
+version
+=== backlight ===
+/sys/class/backlight/dp_aux_backlight/bl_power:4
+/sys/class/backlight/dp_aux_backlight/brightness:716
+/sys/class/backlight/dp_aux_backlight/power/runtime_suspended_time:0
+/sys/class/backlight/dp_aux_backlight/power/runtime_enabled:disabled
+/sys/class/backlight/dp_aux_backlight/actual_brightness:716
+/sys/class/backlight/dp_aux_backlight/power/async:disabled
+/sys/class/backlight/dp_aux_backlight/power/runtime_usage:0
+/sys/class/backlight/dp_aux_backlight/power/runtime_active_kids:0
+/sys/class/backlight/dp_aux_backlight/device/uevent:DRIVER=samsung_atana33xc20
+/sys/class/backlight/dp_aux_backlight/device/uevent:OF_NAME=panel
+/sys/class/backlight/dp_aux_backlight/device/uevent:OF_FULLNAME=/soc@0/display-subsystem@ae00000/displayport-controller@af6c000/aux-bus/panel
+/sys/class/backlight/dp_aux_backlight/device/uevent:OF_COMPATIBLE_0=samsung,atna60cl08
+/sys/class/backlight/dp_aux_backlight/device/uevent:OF_COMPATIBLE_1=samsung,atna33xc20
+/sys/class/backlight/dp_aux_backlight/device/uevent:OF_COMPATIBLE_N=2
+/sys/class/backlight/dp_aux_backlight/device/uevent:MODALIAS=of:NpanelT(null)Csamsung,atna60cl08Csamsung,atna33xc20
+/sys/class/backlight/dp_aux_backlight/power/control:auto
+/sys/class/backlight/dp_aux_backlight/power/runtime_active_time:0
+/sys/class/backlight/dp_aux_backlight/power/runtime_status:unsupported
+/sys/class/backlight/dp_aux_backlight/max_brightness:2047
+/sys/class/backlight/dp_aux_backlight/device/modalias:of:NpanelT(null)Csamsung,atna60cl08Csamsung,atna33xc20
+/sys/class/backlight/dp_aux_backlight/type:raw

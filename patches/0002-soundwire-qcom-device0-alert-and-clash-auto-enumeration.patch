@@ -1,16 +1,16 @@
 diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
-index 55678a30cd..3022ac9999 100644
+index 55678a30cd..14b2468d61 100644
 --- a/drivers/soundwire/qcom.c
 +++ b/drivers/soundwire/qcom.c
-@@ -605,7 +605,7 @@ static void qcom_swrm_get_device_status(struct qcom_swrm_ctrl *ctrl)
- 	ctrl->reg_read(ctrl, SWRM_MCP_SLV_STATUS, &val);
- 	ctrl->slave_status = val;
+@@ -131,7 +131,7 @@
+ 			((reg) | ((id) << 16) | ((dev) << 20) | ((data) << 24))
  
--	for (i = 1; i <= SDW_MAX_DEVICES; i++) {
-+	for (i = 0; i <= SDW_MAX_DEVICES; i++) {
- 		u32 s;
- 
- 		s = (val >> (i * 2));
+ #define MAX_FREQ_NUM						1
+-#define TIMEOUT_MS						100
++#define TIMEOUT_MS						500
+ #define QCOM_SWRM_MAX_RD_LEN					0x1
+ #define DEFAULT_CLK_FREQ					9600000
+ #define SWR_INVALID_PARAM					0xFF
 @@ -746,7 +746,9 @@ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
  			case SWRM_INTERRUPT_STATUS_CHANGE_ENUM_SLAVE_STATUS:
  				dev_dbg_ratelimited(ctrl->dev, "SWR new slave attached\n");
