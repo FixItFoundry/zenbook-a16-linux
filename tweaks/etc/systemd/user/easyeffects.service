@@ -9,6 +9,7 @@ PartOf=pipewire.service
 Type=simple
 ExecStartPre=/usr/bin/sh -c 'for i in $(seq 1 40); do wpctl status 2>/dev/null | grep -q "alsa_output.platform-sound" && exit 0; sleep 0.5; done; exit 0'
 ExecStart=/usr/bin/easyeffects --service-mode --hide-window
+ExecStartPost=/usr/bin/sh -c 'sleep 1; pw-link -d ee_soe_output_level:output_FR alsa_output.platform-sound.HiFi__Speaker__sink:playback_RL 2>/dev/null || true; pw-link ee_soe_output_level:output_FL alsa_output.platform-sound.HiFi__Speaker__sink:playback_FL 2>/dev/null || true; pw-link ee_soe_output_level:output_FL alsa_output.platform-sound.HiFi__Speaker__sink:playback_RL 2>/dev/null || true; pw-link ee_soe_output_level:output_FR alsa_output.platform-sound.HiFi__Speaker__sink:playback_FR 2>/dev/null || true; pw-link ee_soe_output_level:output_FR alsa_output.platform-sound.HiFi__Speaker__sink:playback_RR 2>/dev/null || true'
 Restart=on-failure
 RestartSec=2
 
