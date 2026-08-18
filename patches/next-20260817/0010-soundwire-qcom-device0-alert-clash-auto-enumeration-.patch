@@ -1,0 +1,137 @@
+From 06e1ec26a450855cd753cf42df16903b327e3568 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Mon, 17 Aug 2026 18:32:22 -0400
+Subject: [PATCH 10/13] soundwire: qcom: device0 alert, clash auto-enumeration,
+ and require every DT slave attached before giving up
+
+---
+ drivers/soundwire/qcom.c | 51 +++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 45 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index 55678a30c..5f9e246ed 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -131,7 +131,7 @@
+ 			((reg) | ((id) << 16) | ((dev) << 20) | ((data) << 24))
+ 
+ #define MAX_FREQ_NUM						1
+-#define TIMEOUT_MS						100
++#define TIMEOUT_MS						500
+ #define QCOM_SWRM_MAX_RD_LEN					0x1
+ #define DEFAULT_CLK_FREQ					9600000
+ #define SWR_INVALID_PARAM					0xFF
+@@ -639,7 +639,7 @@ static int qcom_swrm_enumerate(struct sdw_bus *bus)
+ 	struct sdw_slave *slave, *_s;
+ 	struct sdw_slave_id id;
+ 	u32 val1, val2;
+-	bool found;
++	bool found = false;
+ 	u64 addr;
+ 	int i;
+ 	char *buf1 = (char *)&val1, *buf2 = (char *)&val2;
+@@ -663,7 +663,6 @@ static int qcom_swrm_enumerate(struct sdw_bus *bus)
+ 			((u64)buf1[0] << 40);
+ 
+ 		sdw_extract_slave_id(bus, addr, &id);
+-		found = false;
+ 		ctrl->clock_stop_not_supported = false;
+ 		/* Now compare with entries */
+ 		list_for_each_entry_safe(slave, _s, &bus->slaves, node) {
+@@ -680,10 +679,12 @@ static int qcom_swrm_enumerate(struct sdw_bus *bus)
+ 		if (!found) {
+ 			qcom_swrm_set_slave_dev_num(bus, NULL, i);
+ 			sdw_slave_add(bus, &id, NULL);
++			found = true;
+ 		}
+ 	}
+ 
+-	complete(&ctrl->enumeration);
++	if (found)
++		complete(&ctrl->enumeration);
+ 	return 0;
+ }
+ 
+@@ -746,7 +747,9 @@ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
+ 			case SWRM_INTERRUPT_STATUS_CHANGE_ENUM_SLAVE_STATUS:
+ 				dev_dbg_ratelimited(ctrl->dev, "SWR new slave attached\n");
+ 				ctrl->reg_read(ctrl, SWRM_MCP_SLV_STATUS, &slave_status);
+-				if (ctrl->slave_status == slave_status) {
++				if (slave_status & 0x3)
++					ctrl->reg_write(ctrl, SWRM_ENUMERATOR_CFG_ADDR, 1);
++				if (ctrl->slave_status == slave_status && (slave_status != 0x01)) {
+ 					dev_dbg(ctrl->dev, "Slave status not changed %x\n",
+ 						slave_status);
+ 				} else {
+@@ -763,6 +766,14 @@ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
+ 				ctrl->reg_write(ctrl,
+ 						ctrl->reg_layout[SWRM_REG_INTERRUPT_CPU_EN],
+ 						ctrl->intr_mask);
++				ctrl->reg_read(ctrl, SWRM_MCP_SLV_STATUS, &slave_status);
++				if (slave_status) {
++					if (slave_status & 0x3)
++						ctrl->reg_write(ctrl, SWRM_ENUMERATOR_CFG_ADDR, 1);
++					qcom_swrm_get_device_status(ctrl);
++					qcom_swrm_enumerate(&ctrl->bus);
++					sdw_handle_slave_status(&ctrl->bus, ctrl->status);
++				}
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_RD_FIFO_OVERFLOW:
+ 				ctrl->reg_read(ctrl,
+@@ -1547,6 +1558,23 @@ static int swrm_reg_show(struct seq_file *s_file, void *data)
+ DEFINE_SHOW_ATTRIBUTE(swrm_reg);
+ #endif
+ 
++static bool qcom_swrm_all_slaves_attached(struct qcom_swrm_ctrl *ctrl,
++					   struct device *dev)
++{
++	struct sdw_slave *slave;
++	bool all_attached = true;
++
++	list_for_each_entry(slave, &ctrl->bus.slaves, node) {
++		if (!slave->dev_num) {
++			dev_warn(dev, "SWR slave %s not yet attached\n",
++				 dev_name(&slave->dev));
++			all_attached = false;
++		}
++	}
++
++	return all_attached;
++}
++
+ static int qcom_swrm_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+@@ -1554,7 +1582,7 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 	struct sdw_bus_params *params;
+ 	struct qcom_swrm_ctrl *ctrl;
+ 	const struct qcom_swrm_data *data;
+-	int ret;
++	int ret, retries = 3;
+ 	u32 val;
+ 
+ 	ctrl = devm_kzalloc(dev, sizeof(*ctrl), GFP_KERNEL);
+@@ -1678,9 +1706,20 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 		goto err_clk;
+ 	}
+ 
++retry_init:
+ 	qcom_swrm_init(ctrl);
+ 	wait_for_completion_timeout(&ctrl->enumeration,
+ 				    msecs_to_jiffies(TIMEOUT_MS));
++	if (!qcom_swrm_all_slaves_attached(ctrl, dev) && --retries > 0) {
++		dev_warn(dev, "Auto-enumeration incomplete (status %x), resetting and retrying...\n",
++			 ctrl->slave_status);
++		ctrl->reg_write(ctrl, SWRM_COMP_SW_RESET, 0x01);
++		usleep_range(2000, 2050);
++		reinit_completion(&ctrl->enumeration);
++		goto retry_init;
++	}
++	if (!qcom_swrm_all_slaves_attached(ctrl, dev))
++		dev_err(dev, "giving up on enumeration with slaves still missing, audio routing may be incomplete this boot\n");
+ 	ret = qcom_swrm_register_dais(ctrl);
+ 	if (ret)
+ 		goto err_master_add;
+-- 
+2.55.0
+

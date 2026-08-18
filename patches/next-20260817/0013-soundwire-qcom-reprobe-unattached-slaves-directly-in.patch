@@ -1,0 +1,159 @@
+From a1d5502eb21711325acc144188d217c654d45911 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Mon, 17 Aug 2026 21:49:14 -0400
+Subject: [PATCH 13/13] soundwire: qcom: reprobe unattached slaves directly
+ instead of waiting on enumeration retries
+
+A slave stuck at dev_num 0 has virtually always failed because its own
+driver returned -EPROBE_DEFER before it could release the codec's
+physical reset (e.g. its reset-gpios resolve through a GPIO chip gated
+behind a slow-booting co-processor) -- no amount of SoundWire bus-level
+rescanning can attach a chip that is still electrically held in reset.
+
+Linux normally retries a deferred probe automatically on any unrelated
+successful bind elsewhere, but on this platform that can take anywhere
+from under a millisecond to 15+ seconds late in boot, with no
+correlation to how close the actual dependency was to being ready
+(measured 2026-08-17). A longer bus-level retry budget doesn't help
+either: it was tried and made things worse, since it delays the
+sibling SoundWire controller that was incidentally providing the
+trigger. Ask directly instead via device_reprobe(), targeted at the
+specific stuck slave devices, once our own short retry budget (~1.5s,
+unchanged) gives up.
+
+---
+ .../qcom/glymur-asus-zenbook-a16-ux3607oa.dts | 10 ++++
+ drivers/soundwire/qcom.c                      | 56 +++++++++++++++++--
+ 2 files changed, 61 insertions(+), 5 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+index bf7ad120b..a6ca2dd66 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+@@ -1075,6 +1075,15 @@ &smb2370_k_e2_eusb2_repeater {
+ 
+ &swr0 {
+ 	status = "okay";
++	/*
++	 * left_woofer/left_tweeter's reset-gpios resolve through lpass_tlmm,
++	 * gated on the ADSP's APM. NOT fixed with a longer enum-timeout here
++	 * (tried 2026-08-17, made things worse -- see qcom.c's device_reprobe
++	 * comment): bus-level rescanning can't unstick a slave whose driver
++	 * bailed with -EPROBE_DEFER before releasing reset, so a long budget
++	 * only delayed the sibling controller that happened to be triggering
++	 * the real fix. The actual fix is in the driver.
++	 */
+ 
+ 	/* WSA8845, left woofer */
+ 	left_woofer: speaker@0,0 {
+@@ -1103,6 +1112,7 @@ left_tweeter: speaker@0,1 {
+ 
+ &swr3 {
+ 	status = "okay";
++	/* see &swr0 -- same lpass_tlmm/ADSP-APM dependency, same fix */
+ 
+ 	/* WSA8845, right woofer */
+ 	right_woofer: speaker@0,0 {
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index 5f9e246ed..6b3958726 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -132,6 +132,13 @@
+ 
+ #define MAX_FREQ_NUM						1
+ #define TIMEOUT_MS						500
++/* Enumeration retry budget: ~1.5s, unchanged from the original behavior.
++ * A slave stuck at -EPROBE_DEFER (see qcom_swrm_reprobe_unattached_slaves)
++ * won't attach no matter how long this loop waits, so there is no benefit
++ * to raising it -- the fix for a slow-attaching slave is the explicit
++ * reprobe below, not a longer budget here.
++ */
++#define ENUM_RETRIES						3
+ #define QCOM_SWRM_MAX_RD_LEN					0x1
+ #define DEFAULT_CLK_FREQ					9600000
+ #define SWR_INVALID_PARAM					0xFF
+@@ -1575,6 +1582,35 @@ static bool qcom_swrm_all_slaves_attached(struct qcom_swrm_ctrl *ctrl,
+ 	return all_attached;
+ }
+ 
++/*
++ * A slave stuck at dev_num 0 has virtually always failed to attach because
++ * its own driver returned -EPROBE_DEFER (e.g. its reset-gpios resolve
++ * through a GPIO chip gated behind a slow-booting co-processor) -- it never
++ * got far enough to release the codec's physical reset, so no amount of
++ * bus-level rescanning here can help; only re-running the slave's own
++ * .probe() can. Linux normally does that automatically on any unrelated
++ * successful probe elsewhere (driver_bound() -> driver_deferred_probe_
++ * trigger()), but that can take an unbounded, highly variable amount of
++ * time late in boot when little else is left to probe (measured 2026-08-17:
++ * over 15s on one boot, sub-millisecond on another, with no correlation to
++ * how close the actual dependency was to being ready). Ask directly instead
++ * of waiting for a coincidental trigger from elsewhere.
++ */
++static void qcom_swrm_reprobe_unattached_slaves(struct qcom_swrm_ctrl *ctrl)
++{
++	struct sdw_slave *slave;
++
++	list_for_each_entry(slave, &ctrl->bus.slaves, node) {
++		int ret;
++
++		if (slave->dev_num)
++			continue;
++		ret = device_reprobe(&slave->dev);
++		if (ret)
++			dev_dbg(&slave->dev, "reprobe still not ready (%d)\n", ret);
++	}
++}
++
+ static int qcom_swrm_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+@@ -1582,7 +1618,7 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 	struct sdw_bus_params *params;
+ 	struct qcom_swrm_ctrl *ctrl;
+ 	const struct qcom_swrm_data *data;
+-	int ret, retries = 3;
++	int ret, retries = ENUM_RETRIES;
+ 	u32 val;
+ 
+ 	ctrl = devm_kzalloc(dev, sizeof(*ctrl), GFP_KERNEL);
+@@ -1711,15 +1747,17 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 	wait_for_completion_timeout(&ctrl->enumeration,
+ 				    msecs_to_jiffies(TIMEOUT_MS));
+ 	if (!qcom_swrm_all_slaves_attached(ctrl, dev) && --retries > 0) {
+-		dev_warn(dev, "Auto-enumeration incomplete (status %x), resetting and retrying...\n",
+-			 ctrl->slave_status);
++		dev_warn(dev, "Auto-enumeration incomplete (status %x), resetting and retrying (%d left)...\n",
++			 ctrl->slave_status, retries);
+ 		ctrl->reg_write(ctrl, SWRM_COMP_SW_RESET, 0x01);
+ 		usleep_range(2000, 2050);
+ 		reinit_completion(&ctrl->enumeration);
+ 		goto retry_init;
+ 	}
+-	if (!qcom_swrm_all_slaves_attached(ctrl, dev))
+-		dev_err(dev, "giving up on enumeration with slaves still missing, audio routing may be incomplete this boot\n");
++	if (!qcom_swrm_all_slaves_attached(ctrl, dev)) {
++		dev_err(dev, "giving up on enumeration with slaves still missing, reprobing them directly\n");
++		qcom_swrm_reprobe_unattached_slaves(ctrl);
++	}
+ 	ret = qcom_swrm_register_dais(ctrl);
+ 	if (ret)
+ 		goto err_master_add;
+@@ -1887,6 +1925,14 @@ static struct platform_driver qcom_swrm_driver = {
+ 		.name	= "qcom-soundwire",
+ 		.of_match_table = qcom_swrm_of_match,
+ 		.pm = &swrm_dev_pm_ops,
++		/*
++		 * NOT PROBE_PREFER_ASYNCHRONOUS: tried 2026-08-17, caused
++		 * "swrm_wait_for_rd_fifo_avail err read underflow" on the
++		 * second controller when both probed concurrently -- real
++		 * register-level contention between the two instances on
++		 * this platform, not just a timing coincidence. Serial
++		 * (default) probing is required here.
++		 */
+ 	}
+ };
+ module_platform_driver(qcom_swrm_driver);
+-- 
+2.55.0
+

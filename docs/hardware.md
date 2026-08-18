@@ -1,7 +1,7 @@
 # Hardware components — what each one is, how it connects, and where it stands
 
 ASUS Zenbook A16 **UX3607OA** · Qualcomm Snapdragon **X2 Elite Extreme** (`glymur`,
-X2E94100, 18 cores) · kernel `7.2.0-rc3` (linux-next lineage) + local patches.
+X2E94100, 18 cores) · kernel `7.2.0-rc6` (`next-20260817`) + local patches.
 
 This is the single component reference. For the exact device-tree and kernel changes behind
 each "what we changed" line, see [`modifications.md`](modifications.md).

@@ -1,0 +1,1265 @@
+From 771c3bc3470328ce63c8f7e78ce9a76fdd30557b Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Mon, 17 Aug 2026 18:31:45 -0400
+Subject: [PATCH 07/13] arm64: dts: qcom: glymur-asus-zenbook-a16: sync with
+ merged-gpu DTS
+
+---
+ .../qcom/glymur-asus-zenbook-a16-ux3607oa.dts | 1130 ++++++++++++++++-
+ 1 file changed, 1114 insertions(+), 16 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+index 939e1a927..877617c77 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+@@ -18,10 +18,26 @@
+ #include <dt-bindings/leds/common.h>
+ #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
+ 
++/*
++ * GLYMUR-A16: drop the two secondary PMICs this laptop does not populate, and
++ * the thermal zones left dangling behind them.
++ *
++ * The zones must be deleted BY PATH, not by label. Upstream leaves
++ * pmh0104-l1-thermal and pmh0110-h0-thermal unlabelled (only the i0/j0 zones
++ * carry labels), so `/delete-node/ &pmh0104_l1_thermal;` fails to resolve and
++ * the zone survives with a dangling thermal-sensors phandle into the PMIC we
++ * just removed - which is a hard dtc error:
++ *
++ *   ERROR (phandle_references): /thermal-zones/pmh0104-l1-thermal:
++ *     Reference to non-existent node or label "pmh0104_l_e1_temp_alarm"
++ *
++ * Corrected 2026-08-02. The label form built only against the vendor-patched
++ * tree this DTS was originally developed on; it does not build against upstream.
++ */
+ /delete-node/ &pmh0104_l_e1;
+-/delete-node/ &pmh0104_l1_thermal;
++/delete-node/ &{/thermal-zones/pmh0104-l1-thermal};
+ /delete-node/ &pmh0110_h_e0;
+-/delete-node/ &pmh0110_h0_thermal;
++/delete-node/ &{/thermal-zones/pmh0110-h0-thermal};
+ 
+ / {
+ 	compatible = "asus,zenbook-a16-ux3607oa", "qcom,glymur";
+@@ -266,6 +282,16 @@ vreg_wcn_3p3: regulator-wcn-3p3 {
+ 		regulator-min-microvolt = <3300000>;
+ 		regulator-max-microvolt = <3300000>;
+ 
++		/*
++		 * GLYMUR-A16: qcom_wcn pwrseq asserts this rail for the power
++		 * sequence and then releases it, so nothing holds a vote and
++		 * regulator_init_complete() switches it off at t+30s
++		 * (VREG_WCN_3P3: disabling), taking ath12k down ~60s later.
++		 * The 7.1 tree only avoided this by reserving tlmm 94 so the
++		 * regulator never probed and the firmware ON state persisted.
++		 */
++		regulator-always-on;
++
+ 		gpio = <&tlmm 94 GPIO_ACTIVE_HIGH>;
+ 		enable-active-high;
+ 
+@@ -275,6 +301,105 @@ vreg_wcn_3p3: regulator-wcn-3p3 {
+ 		regulator-boot-on;
+ 	};
+ 
++	/*
++	 * GLYMUR-A16: Wi-Fi is brought up with the qcom,wcn7850-pmu power
++	 * sequencer (our verified-working 7.1 mechanism), not the generic
++	 * pcie-m2-e-connector + pwrseq path, which never binds on 7.2-rc3.
++	 */
++	vreg_wcn_0p95: regulator-wcn-0p95 {
++		compatible = "regulator-fixed";
++
++		regulator-name = "VREG_WCN_0P95";
++		regulator-min-microvolt = <950000>;
++		regulator-max-microvolt = <950000>;
++
++		regulator-always-on;
++
++		vin-supply = <&vreg_wcn_3p3>;
++	};
++
++	wcn7850-pmu {
++		compatible = "qcom,wcn7850-pmu";
++
++		vdd-supply = <&vreg_wcn_0p95>;
++		vddio-supply = <&vreg_l15b_e0>;
++		vddaon-supply = <&vreg_l15b_e0>;
++		vdddig-supply = <&vreg_l15b_e0>;
++		vddrfa1p2-supply = <&vreg_l15b_e0>;
++		vddrfa1p8-supply = <&vreg_l15b_e0>;
++
++		wlan-enable-gpios = <&tlmm 117 GPIO_ACTIVE_HIGH>;
++		bt-enable-gpios = <&tlmm 116 GPIO_ACTIVE_HIGH>;
++
++		pinctrl-0 = <&wcn_wlan_bt_en>;
++		pinctrl-names = "default";
++
++		regulators {
++			vreg_pmu_rfa_cmn: ldo0 {
++				regulator-name = "vreg_pmu_rfa_cmn";
++			};
++
++			vreg_pmu_aon_0p59: ldo1 {
++				regulator-name = "vreg_pmu_aon_0p59";
++			};
++
++			vreg_pmu_wlcx_0p8: ldo2 {
++				regulator-name = "vreg_pmu_wlcx_0p8";
++			};
++
++			vreg_pmu_wlmx_0p85: ldo3 {
++				regulator-name = "vreg_pmu_wlmx_0p85";
++			};
++
++			vreg_pmu_btcmx_0p85: ldo4 {
++				regulator-name = "vreg_pmu_btcmx_0p85";
++			};
++
++			vreg_pmu_rfa_0p8: ldo5 {
++				regulator-name = "vreg_pmu_rfa_0p8";
++			};
++
++			vreg_pmu_rfa_1p2: ldo6 {
++				regulator-name = "vreg_pmu_rfa_1p2";
++			};
++
++			vreg_pmu_rfa_1p8: ldo7 {
++				regulator-name = "vreg_pmu_rfa_1p8";
++			};
++
++			vreg_pmu_pcie_0p9: ldo8 {
++				regulator-name = "vreg_pmu_pcie_0p9";
++			};
++
++			vreg_pmu_pcie_1p8: ldo9 {
++				regulator-name = "vreg_pmu_pcie_1p8";
++			};
++		};
++	};
++
++	/*
++	 * GLYMUR-A16: battery. The SOCCP is UEFI-loaded and already running, so
++	 * no remoteproc is needed - just register its GLINK-over-SMEM edge so
++	 * pmic_glink sees PMIC_RTR_SOCCP_APPS and qcom_battmgr populates.
++	 * Bound by drivers/soc/qcom/soccp_glink.c (CONFIG_QCOM_SOCCP_GLINK).
++	 */
++	soccp_glink_edge {
++		compatible = "asus,soccp-glink";
++
++		glink-edge {
++			label = "soccp";
++
++			interrupts-extended = <&ipcc IPCC_MPROC_SOCCP
++						     IPCC_MPROC_SIGNAL_GLINK_QMP
++						     IRQ_TYPE_EDGE_RISING>;
++
++			mboxes = <&ipcc IPCC_MPROC_SOCCP
++					IPCC_MPROC_SIGNAL_GLINK_QMP>;
++
++			qcom,remote-pid = <19>;
++		};
++	};
++
+ 	reserved-memory {
+ 		linux,cma {
+ 			compatible = "shared-dma-pool";
+@@ -336,12 +461,11 @@ wlan-connector {
+ 		vpcie3v3-supply = <&vreg_wcn_3p3>;
+ 		vpcie1v8-supply = <&vreg_l15b_e0>;
+ 
+-		w-disable1-gpios = <&tlmm 117 GPIO_ACTIVE_LOW>;
+-		w-disable2-gpios = <&tlmm 116 GPIO_ACTIVE_LOW>;
+-
+-		pinctrl-0 = <&wcn_wlan_bt_en>;
+-		pinctrl-names = "default";
+-
++		/*
++		 * GLYMUR-A16: pin/gpio ownership (tlmm 116/117, wcn_wlan_bt_en)
++		 * moved to wcn7850-pmu; this node is kept only as the PCIe/UART
++		 * graph anchor so the endpoint labels resolve.
++		 */
+ 		ports {
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+@@ -576,6 +700,14 @@ vreg_l2f_e1: ldo2 {
+ 			regulator-name = "vreg_l2f_e1";
+ 			regulator-min-microvolt = <880000>;
+ 			regulator-max-microvolt = <880000>;
++
++			/*
++			 * GLYMUR-A16: pin the eDP PHY supplies. qcom_edp_phy_exit()
++			 * drops them on display power-down and the SoC is reset
++			 * externally (no Linux fault). Reproduced 2/2 on the 7.1 tree
++			 * as test73; merged1 regressed without it.
++			 */
++			regulator-always-on;
+ 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+ 		};
+ 
+@@ -583,16 +715,34 @@ vreg_l4f_e1: ldo4 {
+ 			regulator-name = "vreg_l4f_e1";
+ 			regulator-min-microvolt = <1200000>;
+ 			regulator-max-microvolt = <1200000>;
++
++			/*
++			 * GLYMUR-A16: pin the eDP PHY supplies. qcom_edp_phy_exit()
++			 * drops them on display power-down and the SoC is reset
++			 * externally (no Linux fault). Reproduced 2/2 on the 7.1 tree
++			 * as test73; merged1 regressed without it.
++			 */
++			regulator-always-on;
+ 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+ 		};
+ 	};
+ };
+ 
+ &gpu {
++	/*
++	 * GLYMUR-A16: requires gpucc_glymur to NOT be blacklisted on the cmdline -
++	 * gxclkctl-kaanapali runtime-resumes gpucc at probe, and without it the
++	 * adreno SMMU times out and the whole msm component bind fails.
++	 */
+ 	status = "okay";
+ };
+ 
+ &gmu {
++	/*
++	 * GLYMUR-A16: requires gpucc_glymur to NOT be blacklisted on the cmdline -
++	 * gxclkctl-kaanapali runtime-resumes gpucc at probe, and without it the
++	 * adreno SMMU times out and the whole msm component bind fails.
++	 */
+ 	status = "okay";
+ };
+ 
+@@ -825,10 +975,24 @@ &pcie4_phy {
+ &pcie4_port0 {
+ 	reset-gpios = <&tlmm 146 GPIO_ACTIVE_LOW>;
+ 	wake-gpios = <&tlmm 148 GPIO_ACTIVE_LOW>;
+-};
+ 
+-&pcie4_port0_ep {
+-	remote-endpoint = <&m2_e_pcie_ep>;
++	/* GLYMUR-A16: 7.2-rc3 glymur.dtsi has no pcie4_port0_ep label, so the
++	 * graph endpoint is defined here rather than overridden. */
++	ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		port@0 {
++			reg = <0>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			pcie4_port0_ep: endpoint@0 {
++				reg = <0>;
++				remote-endpoint = <&m2_e_pcie_ep>;
++			};
++		};
++	};
+ };
+ 
+ &pcie5 {
+@@ -861,7 +1025,32 @@ nvme_reg_en: nvme-reg-en-state {
+ };
+ 
+ &pmk8850_rtc {
+-	qcom,uefi-rtc-info;
++	/*
++	 * GLYMUR-A16: qcom,uefi-rtc-info deliberately REMOVED.
++	 *
++	 * rtc-pm8xxx treats that property as "the epoch offset lives in a UEFI
++	 * variable, go read it", and returns -EPROBE_DEFER forever if efivars are
++	 * unavailable. They are permanently unavailable on this firmware.
++	 *
++	 * EFI runtime services themselves DO come up ("Remapping and enabling EFI
++	 * services." at boot). What this INSYDE firmware does not support is the
++	 * *variable* subset: GetVariable returns EFI_UNSUPPORTED (status
++	 * 0x8000000000000003, visible as "integrity: Couldn't get size:
++	 * 0x8000000000000003" and "MODSIGN: Couldn't get UEFI db list"). So
++	 * efivar_is_available() is false, fsopen("efivarfs") fails EOPNOTSUPP, and
++	 * upstream's property can only ever defer here, never bind. This is not a
++	 * kernel config gap -- CONFIG_EFIVAR_FS=y and efivarfs is registered in
++	 * /proc/filesystems.
++	 *
++	 * Independent of efi=noruntime: verified 2026-07-30 by booting a variant with
++	 * this property restored and that flag dropped.
++	 *
++	 * Without it the driver skips the UEFI lookup and binds. Two caveats remain:
++	 * the RTC is read-only (RTC_SET_TIME returns ENODEV), and its counter is
++	 * free-running rather than a wall clock -- so the epoch offset is supplied
++	 * from userspace by glymur-rtc-restore instead. qcom,no-alarm below is
++	 * upstream's, and means there is still no wake alarm for hibernate.
++	 */
+ 	qcom,no-alarm;
+ };
+ 
+@@ -869,6 +1058,7 @@ &remoteproc_adsp {
+ 	firmware-name = "qcom/glymur/ASUSTeK/UX3607OA/qcadsp8480.mbn",
+ 			"qcom/glymur/ASUSTeK/UX3607OA/adsp_dtbs.elf";
+ 
++
+ 	status = "okay";
+ };
+ 
+@@ -876,13 +1066,16 @@ &remoteproc_cdsp {
+ 	firmware-name = "qcom/glymur/ASUSTeK/UX3607OA/qccdsp8480.mbn",
+ 			"qcom/glymur/ASUSTeK/UX3607OA/cdsp_dtbs.elf";
+ 
++
+ 	status = "okay";
+ };
+ 
+-&remoteproc_soccp {
+-	firmware-name = "qcom/glymur/ASUSTeK/UX3607OA/soccp.mbn",
+-			"qcom/glymur/ASUSTeK/UX3607OA/soccp_dtb.mbn";
+-};
++/*
++ * GLYMUR-A16: &remoteproc_soccp is omitted - the label does not exist in
++ * 7.2-rc3 glymur.dtsi, and soccp.mbn / soccp_dtb.mbn are not present in
++ * linux-firmware for this machine. Battery instead attaches to the
++ * firmware-booted SOCCP via the soccp_glink edge (added with that driver).
++ */
+ 
+ &smb2370_j_e2_eusb2_repeater {
+ 	vdd18-supply = <&vreg_l15b_e0>;
+@@ -1132,6 +1325,26 @@ wake-n-pins {
+ &uart14 {
+ 	status = "okay";
+ 
++	/*
++	 * GLYMUR-A16: WCN7850 Bluetooth. Konrad's tree enables this UART and wires it
++	 * into the pcie-m2-e-connector graph but declares no serdev child, so nothing
++	 * probes a BT controller (bluetooth.service inactive, zero hci devices, no
++	 * Bluetooth in rfkill). Supplies come from the qcom,wcn7850-pmu node we add for
++	 * Wi-Fi, so these labels already resolve. Needs hci_uart + btqca.
++	 */
++	bluetooth {
++		compatible = "qcom,wcn7850-bt";
++		max-speed = <3200000>;
++
++		vddaon-supply = <&vreg_pmu_aon_0p59>;
++		vddwlcx-supply = <&vreg_pmu_wlcx_0p8>;
++		vddwlmx-supply = <&vreg_pmu_wlmx_0p85>;
++		vddrfacmn-supply = <&vreg_pmu_rfa_cmn>;
++		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
++		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
++		vddrfa1p8-supply = <&vreg_pmu_rfa_1p8>;
++	};
++
+ 	port {
+ 		uart14_ep: endpoint {
+ 			remote-endpoint = <&m2_e_uart_ep>;
+@@ -1144,6 +1357,11 @@ &uart21 {
+ };
+ 
+ &usb_0 {
++	/* GLYMUR-A16: UCSI/Type-C only enumerates with the role switch gone
++	 * and the controller pinned to host (our test68 finding). */
++	/delete-property/ usb-role-switch;
++	dr_mode = "host";
++
+ 	status = "okay";
+ };
+ 
+@@ -1173,6 +1391,11 @@ &usb_0_qmpphy_out {
+ };
+ 
+ &usb_1 {
++	/* GLYMUR-A16: UCSI/Type-C only enumerates with the role switch gone
++	 * and the controller pinned to host (our test68 finding). */
++	/delete-property/ usb-role-switch;
++	dr_mode = "host";
++
+ 	status = "okay";
+ };
+ 
+@@ -1206,6 +1429,37 @@ &usb_2_qmpphy {
+ 	vdda-pll-supply = <&vreg_l4f_e1>;
+ 	refgen-supply = <&vreg_l4f_e1>;
+ 
++	/*
++	 * GLYMUR-A16: drop com_aux. gcc_usb3_tert_phy_com_aux_clk never leaves
++	 * halt on this instance - phy@88e1000 has no DWC3 behind it (there is no
++	 * tertiary USB controller), so the vote a USB half would normally cast is
++	 * never made. qmp_combo_com_init() then fails -EBUSY after a 200us
++	 * timeout, which kills AUX, EDID and every mode on the HDMI output.
++	 *
++	 * Legal because qmp_combo_clk_init() fetches the fixed list
++	 * {aux, cfg_ahb, ref, com_aux} with devm_clk_bulk_get_optional(): a clock
++	 * absent from the DT comes back NULL and clk_bulk_enable() skips it.
++	 * cfg_ahb already proves this - it is missing from all three combo PHY
++	 * nodes and nothing complains.
++	 *
++	 * Result: 0 clk-branch WARNs, EDID 0 -> 512 bytes, modes 0 -> 32, and the
++	 * compositor no longer wedges in msm_dp_aux_transfer on hotplug.
++	 *
++	 * WORKAROUND, not the correct fix. The DT describes the PHY's clocks
++	 * accurately; the driver is what enables com_aux unconditionally for an
++	 * instance with no USB half. The real fix likely belongs in
++	 * phy-qcom-qmp-combo.c or GCC. Do NOT present this upstream as
++	 * "the DTS was wrong".
++	 *
++	 * Back-ported to source 2026-08-02; previously only in the compiled DTB.
++	 */
++	clocks = <&gcc GCC_USB3_TERT_PHY_AUX_CLK>,
++		 <&tcsr TCSR_USB4_2_CLKREF_EN>,
++		 <&gcc GCC_USB3_TERT_PHY_PIPE_CLK>;
++	clock-names = "aux",
++		      "ref",
++		      "usb3_pipe";
++
+ 	/delete-property/ mode-switch;
+ 	/delete-property/ orientation-switch;
+ 
+@@ -1267,3 +1521,847 @@ &usb_mp_qmpphy1 {
+ 
+ 	status = "okay";
+ };
++
++/*
++ * GLYMUR-A16: make the SCMI core poll instead of waiting on the mailbox doorbell.
++ *
++ * scmi-cpufreq probed -110 (-ETIMEDOUT) for this project's entire life. Measured
++ * with SCMI RAW on 2026-07-30: the PDP0/CPUCP firmware answers protocol 0x13
++ * (Performance) in shared memory but NEVER rings the doorbell for it. The same
++ * message returns status 0 in polling mode and hangs forever in interrupt mode;
++ * 8 messages sent in IRQ mode moved IRQ 156 from 9 to 16 (one per reply) and
++ * ZERO times for 0x13.
++ *
++ * arm,no-completion-irq is a documented upstream boolean - no kernel patch needed.
++ * Result: three SCMI performance domains, scaling_driver = scmi, and the
++ * cpufreq-cpu0/6/12 cooling devices appear unaided.
++ *
++ * The scmi node upstream carries no label, so it is reached by path.
++ *
++ * Back-ported to source 2026-08-02; previously only in the compiled DTB.
++ */
++&{/firmware/scmi} {
++	arm,no-completion-irq;
++};
++
++/*
++ * GLYMUR-A16: thermal actuation. Bind the cpufreq cooling devices that the
++ * arm,no-completion-irq fix causes the kernel to create (cpufreq-cpu0/6/12) to a
++ * passive trip on every CPU and CPU-LLC zone. Upstream ships only the 115 C
++ * critical trip, so without this Linux has cooling capability and no actuation.
++ *
++ * Cluster map: the cpu-0-N and cpullc-0-N zones bind cpu0 (cpus 0-5), the cpu-1-N
++ * and cpullc-1-N zones bind cpu6 (cpus 6-11), and the cpu-2-N, cpullc-2-0 and
++ * cpuillc-2-1 zones bind cpu12 (cpus 12-17).
++ *
++ * polling-delay-passive is REQUIRED - without it the thermal core never
++ * re-evaluates the zone once the passive trip is crossed, so cur_state never
++ * steps back down. Verified against the running DTB on 2026-08-02.
++ *
++ * NOTE: this binds 42 zones where the hand-edited DTB on the laptop binds 41.
++ * Upstream glymur.dtsi contains a typo'd zone name, cpuillc-2-1-thermal (three
++ * i's), which the hand edit's cpullc-* pattern missed. It is a real zone with a
++ * real sensor, so it is bound here too.
++ *
++ * Back-ported to source 2026-08-02 and diffed against the live
++ * glymur-a16-hdmi-nocomaux.dtb: trip temperature, hysteresis, polling delay and
++ * cooling-device args all match.
++ */
++
++&{/thermal-zones/cpu-0-0-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_0_0_alert: cpu-0-0-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_0_0_alert>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-0-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_0_1_alert: cpu-0-0-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_0_1_alert>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-1-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_1_0_alert: cpu-0-1-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_1_0_alert>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-1-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_1_1_alert: cpu-0-1-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_1_1_alert>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-2-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_2_0_alert: cpu-0-2-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_2_0_alert>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-2-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_2_1_alert: cpu-0-2-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_2_1_alert>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-3-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_3_0_alert: cpu-0-3-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_3_0_alert>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-3-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_3_1_alert: cpu-0-3-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_3_1_alert>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-4-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_4_0_alert: cpu-0-4-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_4_0_alert>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-4-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_4_1_alert: cpu-0-4-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_4_1_alert>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-5-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_5_0_alert: cpu-0-5-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_5_0_alert>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-5-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_5_1_alert: cpu-0-5-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_5_1_alert>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-1-0-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_1_0_0_alert: cpu-1-0-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_1_0_0_alert>;
++			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-1-0-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_1_0_1_alert: cpu-1-0-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_1_0_1_alert>;
++			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-1-1-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_1_1_0_alert: cpu-1-1-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_1_1_0_alert>;
++			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-1-1-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_1_1_1_alert: cpu-1-1-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_1_1_1_alert>;
++			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-1-2-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_1_2_0_alert: cpu-1-2-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_1_2_0_alert>;
++			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-1-2-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_1_2_1_alert: cpu-1-2-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_1_2_1_alert>;
++			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-1-3-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_1_3_0_alert: cpu-1-3-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_1_3_0_alert>;
++			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-1-3-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_1_3_1_alert: cpu-1-3-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_1_3_1_alert>;
++			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-1-4-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_1_4_0_alert: cpu-1-4-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_1_4_0_alert>;
++			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-1-4-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_1_4_1_alert: cpu-1-4-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_1_4_1_alert>;
++			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-1-5-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_1_5_0_alert: cpu-1-5-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_1_5_0_alert>;
++			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-1-5-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_1_5_1_alert: cpu-1-5-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_1_5_1_alert>;
++			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-2-0-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_2_0_0_alert: cpu-2-0-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_2_0_0_alert>;
++			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-2-0-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_2_0_1_alert: cpu-2-0-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_2_0_1_alert>;
++			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-2-1-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_2_1_0_alert: cpu-2-1-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_2_1_0_alert>;
++			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-2-1-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_2_1_1_alert: cpu-2-1-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_2_1_1_alert>;
++			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-2-2-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_2_2_0_alert: cpu-2-2-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_2_2_0_alert>;
++			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-2-2-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_2_2_1_alert: cpu-2-2-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_2_2_1_alert>;
++			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-2-3-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_2_3_0_alert: cpu-2-3-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_2_3_0_alert>;
++			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-2-3-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_2_3_1_alert: cpu-2-3-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_2_3_1_alert>;
++			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-2-4-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_2_4_0_alert: cpu-2-4-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_2_4_0_alert>;
++			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-2-4-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_2_4_1_alert: cpu-2-4-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_2_4_1_alert>;
++			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-2-5-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_2_5_0_alert: cpu-2-5-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_2_5_0_alert>;
++			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-2-5-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_2_5_1_alert: cpu-2-5-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_2_5_1_alert>;
++			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpuillc-2-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpuillc_2_1_alert: cpuillc-2-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpuillc_2_1_alert>;
++			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpullc-0-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpullc_0_0_alert: cpullc-0-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpullc_0_0_alert>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpullc-0-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpullc_0_1_alert: cpullc-0-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpullc_0_1_alert>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpullc-1-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpullc_1_0_alert: cpullc-1-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpullc_1_0_alert>;
++			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpullc-1-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpullc_1_1_alert: cpullc-1-1-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpullc_1_1_alert>;
++			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpullc-2-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpullc_2_0_alert: cpullc-2-0-alert {
++			temperature = <95000>;
++			hysteresis = <1000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpullc_2_0_alert>;
++			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
+-- 
+2.55.0
+

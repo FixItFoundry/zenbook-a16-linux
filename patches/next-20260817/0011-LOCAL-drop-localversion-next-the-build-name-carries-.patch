@@ -1,0 +1,21 @@
+From 025ba2cfeba4b0ad356acb8e6e6ca8c44f10f171 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Mon, 17 Aug 2026 18:32:22 -0400
+Subject: [PATCH 11/13] LOCAL: drop localversion-next, the build name carries
+ the snapshot date
+
+---
+ localversion-next | 1 -
+ 1 file changed, 1 deletion(-)
+ delete mode 100644 localversion-next
+
+diff --git a/localversion-next b/localversion-next
+deleted file mode 100644
+index 94612ceae..000000000
+--- a/localversion-next
++++ /dev/null
+@@ -1 +0,0 @@
+--next-20260817
+-- 
+2.55.0
+

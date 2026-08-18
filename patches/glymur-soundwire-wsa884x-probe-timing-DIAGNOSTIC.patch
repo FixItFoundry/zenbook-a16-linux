@@ -1,0 +1,124 @@
+diff --git a/drivers/pinctrl/qcom/pinctrl-lpass-lpi.c b/drivers/pinctrl/qcom/pinctrl-lpass-lpi.c
+index 5fd4a4eba..71a3f9f5a 100644
+--- a/drivers/pinctrl/qcom/pinctrl-lpass-lpi.c
++++ b/drivers/pinctrl/qcom/pinctrl-lpass-lpi.c
+@@ -503,6 +503,8 @@ int lpi_pinctrl_probe(struct platform_device *pdev)
+ 	struct lpi_pinctrl *pctrl;
+ 	int ret;
+
++	trace_printk("lpi_pinctrl %s: probe entry\n", dev_name(dev));
++
+ 	pctrl = devm_kzalloc(dev, sizeof(*pctrl), GFP_KERNEL);
+ 	if (!pctrl)
+ 		return -ENOMEM;
+@@ -531,11 +533,15 @@ int lpi_pinctrl_probe(struct platform_device *pdev)
+ 					     "Slew resource not provided\n");
+ 	}
+
++	trace_printk("lpi_pinctrl %s: ioremap done, calling devm_pm_clk_create\n",
++		     dev_name(dev));
+ 	ret = devm_pm_clk_create(dev);
+ 	if (ret)
+ 		return ret;
+
+ 	ret = of_pm_clk_add_clks(dev);
++	trace_printk("lpi_pinctrl %s: of_pm_clk_add_clks returned %d\n",
++		     dev_name(dev), ret);
+ 	if (ret < 0 && ret != -ENODEV)
+ 		return ret;
+
+@@ -578,6 +584,8 @@ int lpi_pinctrl_probe(struct platform_device *pdev)
+ 		goto err_pinctrl;
+ 	}
+
++	trace_printk("lpi_pinctrl %s: probe done, gpiochip registered\n",
++		     dev_name(dev));
+ 	return 0;
+
+ err_pinctrl:
+diff --git a/sound/soc/codecs/wsa884x.c b/sound/soc/codecs/wsa884x.c
+index a367c94bf..23ce12a85 100644
+--- a/sound/soc/codecs/wsa884x.c
++++ b/sound/soc/codecs/wsa884x.c
+@@ -2019,21 +2019,35 @@ static void wsa884x_regulator_disable(void *data)
+
+ static int wsa884x_get_reset(struct device *dev, struct wsa884x_priv *wsa884x)
+ {
++	trace_printk("wsa884x %s: calling devm_reset_control_get_optional_shared\n",
++		     dev_name(dev));
+ 	wsa884x->sd_reset = devm_reset_control_get_optional_shared(dev, NULL);
+-	if (IS_ERR(wsa884x->sd_reset))
++	if (IS_ERR(wsa884x->sd_reset)) {
++		trace_printk("wsa884x %s: reset_control get returned error %ld\n",
++			     dev_name(dev), PTR_ERR(wsa884x->sd_reset));
+ 		return dev_err_probe(dev, PTR_ERR(wsa884x->sd_reset),
+ 				     "Failed to get reset\n");
+-	else if (wsa884x->sd_reset)
++	} else if (wsa884x->sd_reset) {
++		trace_printk("wsa884x %s: reset_control get returned a real reset_control\n",
++			     dev_name(dev));
+ 		return 0;
++	}
++	trace_printk("wsa884x %s: reset_control get returned NULL, trying powerdown-gpios\n",
++		     dev_name(dev));
+ 	/*
+ 	 * else: NULL, so use the backwards compatible way for powerdown-gpios,
+ 	 * which does not handle sharing GPIO properly.
+ 	 */
+ 	wsa884x->sd_n = devm_gpiod_get_optional(dev, "powerdown",
+ 						GPIOD_OUT_HIGH);
+-	if (IS_ERR(wsa884x->sd_n))
++	if (IS_ERR(wsa884x->sd_n)) {
++		trace_printk("wsa884x %s: powerdown-gpios get returned error %ld\n",
++			     dev_name(dev), PTR_ERR(wsa884x->sd_n));
+ 		return dev_err_probe(dev, PTR_ERR(wsa884x->sd_n),
+ 				     "Shutdown Control GPIO not found\n");
++	}
++	trace_printk("wsa884x %s: powerdown-gpios get returned %s\n",
++		     dev_name(dev), wsa884x->sd_n ? "a real gpio" : "NULL");
+
+ 	return 0;
+ }
+@@ -2046,6 +2060,8 @@ static int wsa884x_probe(struct sdw_slave *pdev,
+ 	unsigned int i;
+ 	int ret;
+
++	trace_printk("wsa884x %s: probe entry\n", dev_name(dev));
++
+ 	wsa884x = devm_kzalloc(dev, sizeof(*wsa884x), GFP_KERNEL);
+ 	if (!wsa884x)
+ 		return -ENOMEM;
+@@ -2060,9 +2076,11 @@ static int wsa884x_probe(struct sdw_slave *pdev,
+ 	if (ret)
+ 		return dev_err_probe(dev, ret, "Failed to get regulators\n");
+
++	trace_printk("wsa884x %s: calling regulator_bulk_enable\n", dev_name(dev));
+ 	ret = regulator_bulk_enable(WSA884X_SUPPLIES_NUM, wsa884x->supplies);
+ 	if (ret)
+ 		return dev_err_probe(dev, ret, "Failed to enable regulators\n");
++	trace_printk("wsa884x %s: regulators enabled\n", dev_name(dev));
+
+ 	ret = devm_add_action_or_reset(dev, wsa884x_regulator_disable,
+ 				       wsa884x->supplies);
+@@ -2070,8 +2088,12 @@ static int wsa884x_probe(struct sdw_slave *pdev,
+ 		return ret;
+
+ 	ret = wsa884x_get_reset(dev, wsa884x);
+-	if (ret)
++	if (ret) {
++		trace_printk("wsa884x %s: wsa884x_get_reset returned %d, probe bailing out\n",
++			     dev_name(dev), ret);
+ 		return ret;
++	}
++	trace_printk("wsa884x %s: wsa884x_get_reset returned 0\n", dev_name(dev));
+
+ 	dev_set_drvdata(dev, wsa884x);
+ 	wsa884x->slave = pdev;
+@@ -2096,6 +2118,7 @@ static int wsa884x_probe(struct sdw_slave *pdev,
+ 	pdev->prop.scp_int1_mask = SDW_SCP_INT1_BUS_CLASH | SDW_SCP_INT1_PARITY;
+
+ 	wsa884x_reset_deassert(wsa884x);
++	trace_printk("wsa884x %s: reset deasserted\n", dev_name(dev));
+ 	ret = devm_add_action_or_reset(dev, wsa884x_reset_powerdown, wsa884x);
+ 	if (ret)
+ 		return ret;

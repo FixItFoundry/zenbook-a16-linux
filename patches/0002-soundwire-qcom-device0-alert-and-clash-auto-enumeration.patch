@@ -1,17 +1,55 @@
 diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
-index 55678a30cd..14b2468d61 100644
+index 55678a30c..6b3958726 100644
 --- a/drivers/soundwire/qcom.c
 +++ b/drivers/soundwire/qcom.c
-@@ -131,7 +131,7 @@
+@@ -131,7 +131,14 @@
  			((reg) | ((id) << 16) | ((dev) << 20) | ((data) << 24))
  
  #define MAX_FREQ_NUM						1
 -#define TIMEOUT_MS						100
 +#define TIMEOUT_MS						500
++/* Enumeration retry budget: ~1.5s, unchanged from the original behavior.
++ * A slave stuck at -EPROBE_DEFER (see qcom_swrm_reprobe_unattached_slaves)
++ * won't attach no matter how long this loop waits, so there is no benefit
++ * to raising it -- the fix for a slow-attaching slave is the explicit
++ * reprobe below, not a longer budget here.
++ */
++#define ENUM_RETRIES						3
  #define QCOM_SWRM_MAX_RD_LEN					0x1
  #define DEFAULT_CLK_FREQ					9600000
  #define SWR_INVALID_PARAM					0xFF
-@@ -746,7 +746,9 @@ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
+@@ -639,7 +646,7 @@ static int qcom_swrm_enumerate(struct sdw_bus *bus)
+ 	struct sdw_slave *slave, *_s;
+ 	struct sdw_slave_id id;
+ 	u32 val1, val2;
+-	bool found;
++	bool found = false;
+ 	u64 addr;
+ 	int i;
+ 	char *buf1 = (char *)&val1, *buf2 = (char *)&val2;
+@@ -663,7 +670,6 @@ static int qcom_swrm_enumerate(struct sdw_bus *bus)
+ 			((u64)buf1[0] << 40);
+ 
+ 		sdw_extract_slave_id(bus, addr, &id);
+-		found = false;
+ 		ctrl->clock_stop_not_supported = false;
+ 		/* Now compare with entries */
+ 		list_for_each_entry_safe(slave, _s, &bus->slaves, node) {
+@@ -680,10 +686,12 @@ static int qcom_swrm_enumerate(struct sdw_bus *bus)
+ 		if (!found) {
+ 			qcom_swrm_set_slave_dev_num(bus, NULL, i);
+ 			sdw_slave_add(bus, &id, NULL);
++			found = true;
+ 		}
+ 	}
+ 
+-	complete(&ctrl->enumeration);
++	if (found)
++		complete(&ctrl->enumeration);
+ 	return 0;
+ }
+ 
+@@ -746,7 +754,9 @@ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
  			case SWRM_INTERRUPT_STATUS_CHANGE_ENUM_SLAVE_STATUS:
  				dev_dbg_ratelimited(ctrl->dev, "SWR new slave attached\n");
  				ctrl->reg_read(ctrl, SWRM_MCP_SLV_STATUS, &slave_status);
@@ -22,7 +60,7 @@ index 55678a30cd..14b2468d61 100644
  					dev_dbg(ctrl->dev, "Slave status not changed %x\n",
  						slave_status);
  				} else {
-@@ -763,6 +765,14 @@ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
+@@ -763,6 +773,14 @@ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
  				ctrl->reg_write(ctrl,
  						ctrl->reg_layout[SWRM_REG_INTERRUPT_CPU_EN],
  						ctrl->intr_mask);
@@ -37,3 +75,103 @@ index 55678a30cd..14b2468d61 100644
  				break;
  			case SWRM_INTERRUPT_STATUS_RD_FIFO_OVERFLOW:
  				ctrl->reg_read(ctrl,
+@@ -1547,6 +1565,52 @@ static int swrm_reg_show(struct seq_file *s_file, void *data)
+ DEFINE_SHOW_ATTRIBUTE(swrm_reg);
+ #endif
+ 
++static bool qcom_swrm_all_slaves_attached(struct qcom_swrm_ctrl *ctrl,
++					   struct device *dev)
++{
++	struct sdw_slave *slave;
++	bool all_attached = true;
++
++	list_for_each_entry(slave, &ctrl->bus.slaves, node) {
++		if (!slave->dev_num) {
++			dev_warn(dev, "SWR slave %s not yet attached\n",
++				 dev_name(&slave->dev));
++			all_attached = false;
++		}
++	}
++
++	return all_attached;
++}
++
++/*
++ * A slave stuck at dev_num 0 has virtually always failed to attach because
++ * its own driver returned -EPROBE_DEFER (e.g. its reset-gpios resolve
++ * through a GPIO chip gated behind a slow-booting co-processor) -- it never
++ * got far enough to release the codec's physical reset, so no amount of
++ * bus-level rescanning here can help; only re-running the slave's own
++ * .probe() can. Linux normally does that automatically on any unrelated
++ * successful probe elsewhere (driver_bound() -> driver_deferred_probe_
++ * trigger()), but that can take an unbounded, highly variable amount of
++ * time late in boot when little else is left to probe (measured 2026-08-17:
++ * over 15s on one boot, sub-millisecond on another, with no correlation to
++ * how close the actual dependency was to being ready). Ask directly instead
++ * of waiting for a coincidental trigger from elsewhere.
++ */
++static void qcom_swrm_reprobe_unattached_slaves(struct qcom_swrm_ctrl *ctrl)
++{
++	struct sdw_slave *slave;
++
++	list_for_each_entry(slave, &ctrl->bus.slaves, node) {
++		int ret;
++
++		if (slave->dev_num)
++			continue;
++		ret = device_reprobe(&slave->dev);
++		if (ret)
++			dev_dbg(&slave->dev, "reprobe still not ready (%d)\n", ret);
++	}
++}
++
+ static int qcom_swrm_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+@@ -1554,7 +1618,7 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 	struct sdw_bus_params *params;
+ 	struct qcom_swrm_ctrl *ctrl;
+ 	const struct qcom_swrm_data *data;
+-	int ret;
++	int ret, retries = ENUM_RETRIES;
+ 	u32 val;
+ 
+ 	ctrl = devm_kzalloc(dev, sizeof(*ctrl), GFP_KERNEL);
+@@ -1678,9 +1742,22 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 		goto err_clk;
+ 	}
+ 
++retry_init:
+ 	qcom_swrm_init(ctrl);
+ 	wait_for_completion_timeout(&ctrl->enumeration,
+ 				    msecs_to_jiffies(TIMEOUT_MS));
++	if (!qcom_swrm_all_slaves_attached(ctrl, dev) && --retries > 0) {
++		dev_warn(dev, "Auto-enumeration incomplete (status %x), resetting and retrying (%d left)...\n",
++			 ctrl->slave_status, retries);
++		ctrl->reg_write(ctrl, SWRM_COMP_SW_RESET, 0x01);
++		usleep_range(2000, 2050);
++		reinit_completion(&ctrl->enumeration);
++		goto retry_init;
++	}
++	if (!qcom_swrm_all_slaves_attached(ctrl, dev)) {
++		dev_err(dev, "giving up on enumeration with slaves still missing, reprobing them directly\n");
++		qcom_swrm_reprobe_unattached_slaves(ctrl);
++	}
+ 	ret = qcom_swrm_register_dais(ctrl);
+ 	if (ret)
+ 		goto err_master_add;
+@@ -1848,6 +1925,14 @@ static struct platform_driver qcom_swrm_driver = {
+ 		.name	= "qcom-soundwire",
+ 		.of_match_table = qcom_swrm_of_match,
+ 		.pm = &swrm_dev_pm_ops,
++		/*
++		 * NOT PROBE_PREFER_ASYNCHRONOUS: tried 2026-08-17, caused
++		 * "swrm_wait_for_rd_fifo_avail err read underflow" on the
++		 * second controller when both probed concurrently -- real
++		 * register-level contention between the two instances on
++		 * this platform, not just a timing coincidence. Serial
++		 * (default) probing is required here.
++		 */
+ 	}
+ };
+ module_platform_driver(qcom_swrm_driver);

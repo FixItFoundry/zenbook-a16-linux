@@ -1,0 +1,45 @@
+From 3061f0abcbce320851600eb7a764b6194eefdf61 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Mon, 17 Aug 2026 18:31:46 -0400
+Subject: [PATCH 08/13] arm64: dts: qcom: glymur-asus-zenbook-a16: use existing
+ pcie4_port0_ep label
+
+---
+ .../qcom/glymur-asus-zenbook-a16-ux3607oa.dts | 20 +++----------------
+ 1 file changed, 3 insertions(+), 17 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+index 877617c77..bf7ad120b 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+@@ -975,24 +975,10 @@ &pcie4_phy {
+ &pcie4_port0 {
+ 	reset-gpios = <&tlmm 146 GPIO_ACTIVE_LOW>;
+ 	wake-gpios = <&tlmm 148 GPIO_ACTIVE_LOW>;
++};
+ 
+-	/* GLYMUR-A16: 7.2-rc3 glymur.dtsi has no pcie4_port0_ep label, so the
+-	 * graph endpoint is defined here rather than overridden. */
+-	ports {
+-		#address-cells = <1>;
+-		#size-cells = <0>;
+-
+-		port@0 {
+-			reg = <0>;
+-			#address-cells = <1>;
+-			#size-cells = <0>;
+-
+-			pcie4_port0_ep: endpoint@0 {
+-				reg = <0>;
+-				remote-endpoint = <&m2_e_pcie_ep>;
+-			};
+-		};
+-	};
++&pcie4_port0_ep {
++	remote-endpoint = <&m2_e_pcie_ep>;
+ };
+ 
+ &pcie5 {
+-- 
+2.55.0
+

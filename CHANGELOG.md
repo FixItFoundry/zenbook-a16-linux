@@ -10,6 +10,20 @@ one.
 
 ---
 
+## 2026-08-17 — Rebase on `next-20260817`, SoundWire deferred probe resolution, trusted TPM2 fix
+
+- **Baseline rebase to `next-20260817`**:
+  - Reconciled A16 DTS with upstream merged DTS (1130 lines), carrying local fixups (`regulator-always-on` for WCN 3.3V, `wcn7850-pmu` node, path-based thermal zone cleanup).
+  - Maintained 11-patch functional kernel delta (<350 lines): SCMI polling, eDP rate-set reachability, push_idle guard, local HBR3/PCI skip workarounds, HID Zenbook keyboard feature completion, audio q6apm fast-retry, SoundWire auto-enumeration/reprobe, and trusted TPM2 include.
+- **SoundWire & Audio bring-up**:
+  - Isolated root cause for unattached SoundWire slaves: probe deferrals on dependent resources (e.g. `reset-gpios` through LPASS TLMM) leave slaves un-enumerated if the deferred probe queue isn't re-triggered promptly. Added direct `device_reprobe()` on unattached slaves during controller probe.
+  - Added device 0 alert auto-enumeration trigger and bus clash recovery.
+  - Added EasyEffects systemd service hook to guarantee clean 4-channel linking on startup.
+- **Security / Keys**:
+  - Fixed missing `<linux/asn1_decoder.h>` include in `security/keys/trusted-keys/trusted_tpm2.c` for `CONFIG_TRUSTED_KEYS=y`.
+
+---
+
 ## 2026-08-16 — Audio UCM2 & routing stabilized, Bluetooth verified, GRUB menu cleaned
 
 - **Audio routing & Quad WSA8845 speaker resolution**:

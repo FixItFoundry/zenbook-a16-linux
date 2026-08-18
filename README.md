@@ -11,11 +11,12 @@ Type-C/DisplayPort alt-mode, input, NVMe, CPU frequency scaling, thermal managem
 suspend all work together on one kernel and one device tree. Fedora 44 KDE aarch64 is what
 it runs day to day.
 
-> **2026-08-07 — the display now comes up on current linux-next.** `next-20260807`
-> (7.2-rc6) plus the two patches in [The deltas that matter](#the-deltas-that-matter)
-> boots, trains eDP, lights the panel and runs a Wayland session. Before this, no
-> unmodified upstream kernel had ever lit this panel. The pinned `7.2.0-rc3` build is
-> still the daily driver until the new base has more hours on it.
+> **2026-08-17 — running on current linux-next snapshot (`next-20260817`).** `next-20260817`
+> (7.2-rc6) boots cleanly with our 13-patch series. The total diff is 14 files (+1458/-52),
+> dominated by the reconciled upstream DTS sync (1130 lines), with under 350 lines of
+> actual functional kernel/driver changes. Upstream momentum is strong; I'll continue tracking
+> `linux-next` closely, validating on bare metal, and submitting clean, generic fixes to the
+> relevant subsystem mailing lists as remaining hardware support falls into place.
 
 ---
 
@@ -69,6 +70,30 @@ That makes the old goal — maintain a rival device tree — obsolete. The goal 
 **shrink this repository into upstream**: reconcile our board file against the merged one,
 send the fixes that are genuinely generic, and report what upstream cannot yet do on real
 hardware. Expect `dts/` here to get smaller, not bigger.
+
+### Baseline diff summary (`next-20260817`)
+
+Total diff across the 13 commits against vanilla `next-20260817` is 14 files, +1458/-52 lines:
+- **DTS sync (1130 lines)**: Reconciling the A16 board file against upstream's merged DTS (`0007`) and tracking the `pcie4_port0_ep` label rename (`0008`), carrying forward local fixups (`regulator-always-on` for WCN 3.3V rail, `wcn7850-pmu` node).
+- **Functional kernel delta (<350 lines)**:
+
+| Area | Commit / Patch | Lines | Upstream status |
+|---|---|---|---|
+| SCMI | Polling mode (`arm,no-completion-irq`) | 1 property | Sent, already upstream-track |
+| DRM/eDP | `LINK_RATE_SET` reachability & clear `LINK_BW_SET` | +29 | Sent (generic msm bug) |
+| DRM/eDP | `push_idle` guard on unpowered link | +14 | Sent (generic msm bug) |
+| DRM/eDP | **LOCAL:** Force HBR3 on internal panel | +24 | Not proposable (drives above sink max; PHY gap) |
+| PCI | **LOCAL:** `glymur_pci_skip` s2idle workaround | +17 | Not proposable (diagnostic knob in production) |
+| HID | Complete Zenbook keyboard feature set | +174 | Upstreamable with cleanup |
+| DTS | Board file sync with merged upstream | +1110 | Reconciled board file |
+| DTS | Use existing `pcie4_port0_ep` label | -14 | Tracks upstream rename |
+| Audio | `q6apm`/audioreach fast-retry on SPF state | +83 | Local timing fix, unsent |
+| Audio | SoundWire device0 alert, clash recovery & attach count | +51 | Local fix, tested on hardware |
+| Audio | SoundWire direct reprobe on probe deferral | +61 | Local probe deferral fix |
+| Security | Include `asn1_decoder.h` in `trusted_tpm2.c` | +1 | Genuine upstream bug fix (`CONFIG_TRUSTED_KEYS=y`) |
+| Housekeeping | Drop `localversion-next` | -1 | Cosmetic |
+
+Full patch set with headers: [`patches/next-20260817/`](patches/next-20260817/).
 
 ## The deltas that matter
 
@@ -220,10 +245,10 @@ Full register and bus map: [`docs/hardware.md`](docs/hardware.md).
 
 ## Kernel base and device tree
 
-The daily driver is **7.2.0-rc6** (`next-20260807`) on a linux-next base, validated as of
-2026-08-07 with deltas 1 and 2 applied; it replaced the pinned 7.2.0-rc3 build. v7.1 still boots
-as a fallback and its patch set is in [`kernel/`](kernel/); use it to reproduce anything
-dated before 2026-07-28.
+The daily driver is **7.2.0-rc6** (`next-20260817`) on a linux-next base, validated as of
+2026-08-17 with the 13-patch series in [`patches/next-20260817/`](patches/next-20260817/);
+it replaced the earlier `next-20260807` baseline. v7.1 still boots as a fallback and its patch
+set is in [`kernel/`](kernel/); use it to reproduce anything dated before 2026-07-28.
 
 The device tree is Konrad Dybcio's A16 board file with our fixes layered on top —
 [`dts/glymur-asus-zenbook-a16-ux3607oa-merged.dts`](dts/).
@@ -238,8 +263,8 @@ interoperability research.
 
 ## Building and booting
 
-1. **Kernel** — mainline **v7.2-rc6** (`next-20260807`) (or v7.1) plus the config recipe and patches in
-   [`kernel/`](kernel/). The recipe starts from a distro config and force-enables the
+1. **Kernel** — mainline **v7.2-rc6** (`next-20260817`) (or v7.1) plus the config recipe and patches in
+   [`patches/next-20260817/`](patches/next-20260817/) (or [`kernel/`](kernel/)). The recipe starts from a distro config and force-enables the
    glymur boot-critical drivers.
 2. **Device tree** — build a DTB from [`dts/`](dts/), **plus the one-line
    `arm,no-completion-irq` property** from
@@ -277,14 +302,7 @@ firmware/   What firmware is needed and where it comes from
 tree carries, with the patch and message-id it came from.** Anything adopted from upstream
 is credited there and is never presented as ours.
 
-**The device tree this project runs on is Konrad Dybcio's.** He posted upstream support for
-this exact laptop, along with the A16 keyboard support we use; the pin map, regulator
-topology, WCN and USB wiring, gpio-keys and the GPU/CDSP/SOCCP nodes are his work. His DT
-is also what proved our long-hunted display power-down reset was a device-tree defect on
-our side rather than silicon — same kernel, same `msm`, only the DTB swapped, and his
-survived where ours did not. Thank you.
-
-glymur display and eDP PHY v8 support are **Abel Vesa**'s.
+Upstream Zenbook A16 device tree and base keyboard support are by Qualcomm maintainer **Konrad Dybcio**. Glymur display and eDP PHY v8 support are by **Abel Vesa**.
 
 Builds on mainline Linux, the Linaro/Qualcomm `qcom-next` efforts, and the broader
 Snapdragon-on-Linux community — the x1e80100 "hamoa" laptops were the reference skeleton

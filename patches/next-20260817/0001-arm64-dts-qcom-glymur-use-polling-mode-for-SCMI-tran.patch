@@ -1,0 +1,32 @@
+From 8c2ab56d333e583112423abe2e408f0963d06c49 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Mon, 17 Aug 2026 18:30:32 -0400
+Subject: [PATCH 01/13] arm64: dts: qcom: glymur: use polling mode for SCMI
+ transfers
+
+---
+ arch/arm64/boot/dts/qcom/glymur.dtsi | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index f04058d2e..b9db81a19 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -412,6 +412,12 @@ scmi {
+ 			mbox-names = "tx", "rx";
+ 			shmem = <&cpu_scp_lpri1>, <&cpu_scp_lpri0>;
+ 
++			/*
++			 * The CPUCP writes SCMI replies into the shmem but
++			 * never rings the completion doorbell, so poll.
++			 */
++			arm,no-completion-irq;
++
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+ 
+
+base-commit: e6664f2b33db9b6811eb4cec109f06cb2b4f458d
+-- 
+2.55.0
+

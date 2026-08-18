@@ -1,6 +1,6 @@
 # Modifications — every device-tree and kernel change, and why
 
-Baseline is Konrad Dybcio's upstream A16 device tree on kernel **7.2.0-rc3** (linux-next
+Baseline is Konrad Dybcio's upstream A16 device tree on kernel **7.2.0-rc6** (`next-20260817`
 lineage). Everything below is what this project adds on top. For what each component *is*, see
 [`hardware.md`](hardware.md).
 
