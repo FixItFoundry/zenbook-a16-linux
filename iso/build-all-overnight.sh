@@ -179,25 +179,58 @@ build_fedora(){
   need bsdtar fsck.erofs || return 1
   say "FEDORA: extracting LiveOS/squashfs.img from $(basename "$ISO")"
   # NOTE: the file is *named* squashfs.img but Fedora 44 ships EROFS+LZMA in it.
-  bsdtar -xOf "$ISO" LiveOS/squashfs.img > "$EROFS" 2>/dev/null && [ -s "$EROFS" ] || { say "FEDORA: FAIL extract erofs"; return 1; }
-  rm -rf "$SQD"; mkdir -p "$SQD"
-  say "FEDORA: fsck.erofs extract"
+  if [ ! -d "$SQD/usr/bin" ]; then
+    bsdtar -xOf "$ISO" LiveOS/squashfs.img > "$EROFS" 2>/dev/null && [ -s "$EROFS" ] || { say "FEDORA: FAIL extract erofs"; return 1; }
+  fi
+  # Reuse a previous extraction if one is already there: on Fedora 44 this step
+  # is a single-threaded LZMA decompress that took ~26 minutes, and re-running
+  # the build after a downstream failure should not pay that again.
+  if [ -d "$SQD/usr/bin" ]; then
+    say "FEDORA: reusing existing extraction at $SQD (delete it to force a re-extract)"
+    RIMG=""
+  else
+    rm -rf "$SQD"; mkdir -p "$SQD"
+    say "FEDORA: fsck.erofs extract"
   # ⛔ --path=/ is REQUIRED. Without it fsck.erofs writes the packed inode as a
   # single ~4.6G file instead of a directory tree, and still reports success.
-  fsck.erofs --extract="$SQD" --path=/ --preserve "$EROFS" >/dev/null 2>&1 || { say "FEDORA: FAIL fsck.erofs"; return 1; }
+    fsck.erofs --extract="$SQD" --path=/ --preserve "$EROFS" >/dev/null 2>&1 || { say "FEDORA: FAIL fsck.erofs"; return 1; }
+  fi
+  # Two layouts exist. Older Fedora nests a rootfs.img inside the EROFS and it
+  # has to be loop-mounted. Fedora 44 (verified 2026-08-08) does NOT: the EROFS
+  # *is* the root filesystem, so the extracted tree is already usable and the
+  # old `find -name rootfs.img` fails after ~26 minutes of extraction work.
   RIMG=$(find "$SQD" -name 'rootfs.img' | head -1)
-  [ -n "$RIMG" ] || { say "FEDORA: FAIL no rootfs.img inside erofs"; return 1; }
-  MNT2=$(mktemp -d)
-  mount -o loop,ro "$RIMG" "$MNT2" || { say "FEDORA: FAIL mount rootfs.img"; return 1; }
-  rm -rf "$RD"; mkdir -p "$RD"
-  say "FEDORA: copying KDE rootfs"
-  cp -a "$MNT2"/. "$RD"/ 2>/dev/null
-  umount "$MNT2" 2>/dev/null; rmdir "$MNT2" 2>/dev/null
+  if [ -n "$RIMG" ]; then
+    say "FEDORA: nested rootfs.img found, loop-mounting it"
+    MNT2=$(mktemp -d)
+    mount -o loop,ro "$RIMG" "$MNT2" || { say "FEDORA: FAIL mount rootfs.img"; return 1; }
+    rm -rf "$RD"; mkdir -p "$RD"
+    say "FEDORA: copying KDE rootfs"
+    cp -a "$MNT2"/. "$RD"/ 2>/dev/null
+    umount "$MNT2" 2>/dev/null; rmdir "$MNT2" 2>/dev/null
+  elif [ -d "$SQD/usr/bin" ]; then
+    say "FEDORA: EROFS is the rootfs itself (no nested rootfs.img) -- using it directly"
+    RD="$SQD"
+  else
+    say "FEDORA: FAIL extracted tree is neither a rootfs nor contains rootfs.img"
+    return 1
+  fi
   [ -d "$RD/usr/bin" ] || { say "FEDORA: FAIL rootfs empty"; rm -rf "$RD" "$SQD" "$EROFS"; return 1; }
+
+  # Stash a bootloader for the other distros: Ubuntu's casper layers do not
+  # ship systemd-bootaa64.efi, and without one mkimg() writes a loader entry
+  # that nothing can read -- an unbootable stick that still reports DONE.
+  if [ ! -f "$STAGE/systemd-bootaa64.efi" ] && \
+     [ -f "$RD/usr/lib/systemd/boot/efi/systemd-bootaa64.efi" ]; then
+    cp "$RD/usr/lib/systemd/boot/efi/systemd-bootaa64.efi" "$STAGE/systemd-bootaa64.efi"
+    say "FEDORA: staged systemd-bootaa64.efi for the other targets"
+  fi
   addmods "$RD" || { say "FEDORA: FAIL staging modules"; return 1; }
   addfw "$RD"
   mkimg "$RD" "$STAGE/fedora-glymur-kde.img" "fedora"
-  rm -rf "$RD" "$SQD" "$EROFS"
+  # Keep $SQD if it IS the rootfs -- re-extracting costs ~26 minutes.
+  [ "$RD" = "$SQD" ] || rm -rf "$RD"
+  rm -f "$EROFS"
   say "FEDORA(KDE-Live reuse): === END ==="
 }
 
