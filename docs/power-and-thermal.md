@@ -3,6 +3,15 @@
 *Written 2026-07-30, after suspend landed. Everything below is measured on the box, not
 inferred — where something is a guess it says so.*
 
+⚠️ **Stale-status note added 2026-08-21: cooling-maps, described as "★ NEXT" in §5 item 4
+below, landed and have been live since 2026-07-31** (commits `a313e68`/`cf16569`, and
+source/DTB parity closed 2026-08-02 — see `docs/modifications.md`). Verified again live on
+this boot (`7.2.0-ZenbookA16-20260819+`): cpufreq policies exist on all three domains
+(`schedutil`, not stuck at `performance`), and every `cpu*`/`cpullc*`/`gpu*`/`gpuss*`
+thermal zone has a bound `cdevN`. **`docs/hardware.md`'s "Thermal ✅" section and
+`docs/modifications.md` are the current status — read this file for the root-cause
+narrative (§§1–2, still accurate and worth keeping), not for what's still outstanding.**
+
 Two goals: **unlock the `scmi-cpufreq -110`**, and **get fan control into Linux instead of
 leaving it to the EC**. This document is the map. It starts with how the pieces are supposed
 to fit, because the failure only makes sense once you can see the shape of the working system.
@@ -433,7 +442,8 @@ also owns charging and power sequencing on these machines. Read first, and read 
    - If the property alone doesn't take, set `.force_polling = true` in `scmi_mailbox_desc`
      (`drivers/firmware/arm_scmi/transports/mailbox.c`) and rebuild.
    - EPSS/OSM archaeology is no longer needed unless both of those fail.
-4. ★ **NEXT: write the `cooling-maps`.** Confirmed 2026-07-31 that `cpufreq-cooling` did
+4. ~~★ **NEXT: write the `cooling-maps`.**~~ **DONE — landed 2026-07-31, source/DTB parity
+   closed 2026-08-02.** Confirmed 2026-07-31 that `cpufreq-cooling` did
    appear by itself — `cpufreq-cpu0` (20 states), `cpufreq-cpu6` and `cpufreq-cpu12` (21
    each). But **no thermal zone binds them**, so there is still no Linux-side actuation.
    The job is now exactly what this line predicted: `cooling-maps` in the DT wiring those

@@ -10,6 +10,52 @@ one.
 
 ---
 
+## 2026-08-21 — Windows-partition cross-check: thermal doc reconciliation, camera sensor IDs
+
+- **Repo sync**: pulled 2 commits from the workstation (`ff91ad5` eDP v8 PHY power-on
+  sequencing fix retiring the HBR3-force hack + wsa884x `pm_runtime` fix, `012bddf`
+  UPSTREAM-CREDITS.md trim) that hadn't reached `origin/main` or `loazen` yet. Fast-forward,
+  no conflicts.
+- **New method: mounting the BitLocker-encrypted Windows partition (`nvme0n1p14`) read-only**
+  for driver/ACPI archaeology, via `cryptsetup bitlkOpen` (native BitLocker support in
+  `cryptsetup` 2.8+, no `dislocker` needed) + `ntfs-3g`. The BitLocker header reports a
+  volume size larger than the partition (~950 GiB vs. the actual 929 GiB) — a stale FVE
+  metadata field left over from whatever shrank the partition to make room for the Fedora
+  install; NTFS's own on-disk geometry matches the real partition exactly, so this is
+  cosmetic, not corruption. `ntfs-3g` independently refused read-write on its own (Windows
+  Fast Startup left the volume hibernated/dirty) regardless of the mount flags requested —
+  worth knowing that safety net exists and fires correctly.
+- **Camera — sensor identity partially unblocked.** `docs/hardware.md`'s camera section
+  says the sensor part number is "blocked on identifying the module, which needs the
+  Windows driver store." Pulled from `qccamauxsensor8480.sys` / `qccamfrontsensor8480.sys`
+  strings and `qcSensorsConfigCRD8480.inf`:
+  - **Aux/IR sensor (Windows Hello) = Azurewave module on OmniVision OV9234**, confirmed by
+    literal driver strings (`"...starts probing Azurewave OV9234"`,
+    `com.qti.sensormodule.azurewave_ov9234.bin`). Binds `ACPI\VEN_QCOM&DEV_0F99` = `CAMI`
+    in the existing DSDT table.
+  - **Front/main sensor is runtime-I2C-probed, not statically declared** (`ProbeImageSensor()`
+    does live I2C detection at 400 kHz). The board's config package ships tuning data for
+    exactly three candidates — **OV08X, OV02C10, IMX688** — narrowed from "unknown" but not
+    yet down to one; needs the actually-bound instance's registry key or a live CCI probe to
+    finish.
+  - `CAMP`'s MMIO/IRQ resources in this fresh dump are byte-identical to the existing DSDT
+    extraction — confirms no drift, not new information.
+- **Thermal — reconciled stale docs, cross-checked against Windows, no new gap found.**
+  `docs/power-and-thermal.md` still framed `cooling-maps` as "★ NEXT" though they landed
+  2026-07-31/08-02 (`docs/hardware.md`/`docs/modifications.md` already had this right) —
+  added a stale-status note and struck the item. Cross-checked the Windows ACPI thermal
+  device inventory (`SUMMARY_REPORT.txt`) against Linux: the 9 `Qualcomm Temperature Sensor
+  Device` nodes map 1:1 to the 9 SPMI PMIC `temp-alarm` zones already bound; the 3
+  "mitigation" nodes are software policy with a Linux equivalent for 2 of 3 (CPU governor +
+  `cooling-maps`, `ath12k_thermal`) and no equivalent for the third (NSP0/CDSP, an NPU
+  bring-up gap, out of scope here). Grepped the full Windows device dump for NVMe/WSA884x
+  thermal entries and found none — **neither OS puts those two devices on the OS
+  thermal-policy bus on this hardware**, so `docs/thermal-sensor-mapping-HANDOFF.md`'s open
+  question ("is this a known gap upstream too?") is answered: not a reference-design gap,
+  just unmanaged on both OSes. Full detail and update history in that file.
+
+---
+
 ## 2026-08-17 — Rebase on `next-20260817`, SoundWire deferred probe resolution, trusted TPM2 fix
 
 - **Baseline rebase to `next-20260817`**:
