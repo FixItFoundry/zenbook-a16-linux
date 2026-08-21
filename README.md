@@ -82,7 +82,7 @@ Total diff across the 13 commits against vanilla `next-20260817` is 14 files, +1
 | SCMI | Polling mode (`arm,no-completion-irq`) | 1 property | Sent, already upstream-track |
 | DRM/eDP | `LINK_RATE_SET` reachability & clear `LINK_BW_SET` | +29 | Sent (generic msm bug) |
 | DRM/eDP | `push_idle` guard on unpowered link | +14 | Sent (generic msm bug) |
-| DRM/eDP | **LOCAL:** Force HBR3 on internal panel | +24 | Not proposable (drives above sink max; PHY gap) |
+| DRM/eDP | ~~**LOCAL:** Force HBR3 on internal panel~~ | +24 | **Retired 2026-08-19** — superseded by upstream eDP v8 PHY fix; panel trains at native HBR2 |
 | PCI | **LOCAL:** `glymur_pci_skip` s2idle workaround | +17 | Not proposable (diagnostic knob in production) |
 | HID | Complete Zenbook keyboard feature set | +174 | Upstreamable with cleanup |
 | DTS | Board file sync with merged upstream | +1110 | Reconciled board file |
@@ -100,7 +100,7 @@ Full patch set with headers: [`patches/next-20260817/`](patches/next-20260817/).
 Everything above rests on a small number of changes. If you reproduce nothing else,
 reproduce these.
 
-1. **eDP: force HBR3.** The v8 eDP PHY on this SoC brings up a usable link **only at
+1. **eDP: force HBR3.** *(Retired 2026-08-19)* — The v8 eDP PHY on this SoC originally brought up a usable link **only at
    8.1 Gbps**. Measured 2026-08-07 by forcing each rate in turn on otherwise identical
    kernels:
 
@@ -115,10 +115,7 @@ reproduce these.
    `SUPPORTED_LINK_RATES` table and the extended receiver caps at DPCD `0x2201` — so an
    unmodified kernel correctly selects HBR2, the one rate that cannot train, and the screen
    stays black. Our tree overrides the rate to the device-tree ceiling.
-   ⚠️ **This override is deliberately not proposed upstream**: it drives the link above the
-   sink's advertised maximum. The real fix belongs in `phy-qcom-edp.c` and has been reported
-   to its author. `phy-qcom-edp.c` is byte-identical at `next-20260713` and `next-20260803`,
-   so this is a long-standing gap, not a regression.
+   ⚠️ **Update:** Recent upstream work (Bjorn Andersson's unmerged eDP v8 PHY programming sequence series) has retired this patch; with the proper PHY sequence in place, the panel now comes up cleanly at its native HBR2 rate.
 
 2. **`drm/msm/dp`: don't push idle into a link that was never enabled.** When eDP training
    fails, `msm_dp_display_atomic_enable()` returns early leaving `->power_on` false, but
@@ -156,7 +153,7 @@ reproduce these.
 
 | | |
 |---|---|
-| **Display** | Native eDP, DPU-driven, 2880x1800@120 at 30 bpp, `fb0 = msmdrmfb`. Backlight over DP AUX. **HBR3 only** — see delta 1. |
+| **Display** | Native eDP, DPU-driven, 2880x1800@120 at 30 bpp, `fb0 = msmdrmfb`. Backlight over DP AUX. Native HBR2 (retired HBR3 force; see delta 1). |
 | **GPU** | Adreno X2 under Mesa **turnip**. GMU firmware v5.2.38, `gpucc` 25 clocks, devfreq 310 MHz → 1.85 GHz across 12 OPPs. |
 | **CPU frequency** | Three SCMI performance domains, 355 MHz → 3.61/4.45 GHz, `scaling_driver = scmi`, `schedutil`. |
 | **Thermal** | 41/41 CPU zones bound to `cpufreq-cpu0/6/12`, plus 14 GPU zones. Actuation verified. |
