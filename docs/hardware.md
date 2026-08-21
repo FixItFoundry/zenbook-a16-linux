@@ -400,12 +400,14 @@ also owns **charging**. Ask before any write.
 ⚠️ The old "blocked on an SSDT re-dump" premise was **wrong** — `FAN1` is external and unused;
 `FAN0` was in the DSDT the whole time.
 
-## SPMI / secondary PMICs ✅ mostly — one device fails, and it is not the blocker
+## SPMI / secondary PMICs ✅ — all three buses clean
 
-⚠️ **Rewritten 2026-08-02. The previous version of this section was wrong in its central
-claim.** It said secondary PMICs fail to probe, that this blocks `qcom-spmi-temp-alarm`, and
-that the same failure blocks the fan PWM. Measured on the running machine, **SPMI works and
-`qcom-spmi-temp-alarm` is bound and reporting.**
+⚠️ **Rewritten 2026-08-02, corrected again 2026-08-21. Two claims in this section's history
+were both wrong.** The original version said secondary PMICs fail to probe, that this blocks
+`qcom-spmi-temp-alarm`, and that the same failure blocks the fan PWM — all wrong, corrected
+2026-08-02. The 2026-08-02 rewrite then said one device (`2-0b`/bus2) fails with `-5` — **also
+now stale, see below.** Measured on the running machine (`7.2.0-ZenbookA16-20260819+`), **SPMI
+is clean on all three buses** and `qcom-spmi-temp-alarm` is bound and reporting.
 
 Upstream support is complete in linux-next 20260713 — driver, binding and **three** bus nodes:
 
@@ -415,11 +417,13 @@ Documentation/devicetree/bindings/spmi/qcom,glymur-spmi-pmic-arb.yaml
 glymur.dtsi:5564/5579/5594          spmi_bus0 @c426000, spmi_bus1 @c437000, spmi_bus2 @c448000
 ```
 
-**What actually enumerates** — 13 SPMI devices across all three buses:
+**What actually enumerates** — 12 PMIC devices across all three buses (**not 13**; the
+2026-08-02 count included `2-0b`, which no longer probes at all now that it's `disabled` — see
+below):
 
 ```sh
 ls /sys/bus/spmi/devices/
-# 0-00 0-01 0-02 0-03 0-05 0-08 0-09   1-02 1-03 1-05   2-09 2-0a 2-0b
+# 0-00 0-01 0-02 0-03 0-05 0-08 0-09   1-02 1-03 1-05   2-09 2-0a
 ```
 
 ✅ **`qcom-spmi-temp-alarm` registers on nine PMICs** — six on bus0, three on bus1 — and each
@@ -436,16 +440,21 @@ grep -H . /sys/class/thermal/thermal_zone*/type | grep -E 'pmh|pmcx'
 # pmcx0102-c0/-c1/-d0/-d1, pmh0101, pmh0104-i0/-j0, pmh0110-f0/-f1
 ```
 
-❌ **Exactly one device fails, and it is on bus2, not bus1:**
+✅ **RESOLVED 2026-08-21 — `2-0b` was never a bug to fix; it's a genuinely unpopulated third
+eUSB2 repeater, and upstream already ships it disabled.** `journalctl -k -b` on this boot has
+zero SPMI/PMIC errors of any kind — the `-5` error seen in older logs (from 2026-08-02) does
+not reproduce on the current `next-20260817`-based DTB.
 
-```
-spmi spmi-2: pmic_arb_check_chnl_status_v1: 0xb 0x104: transaction failed (0x3) reg: 0x110a8
-pmic-spmi 2-0b: probe with driver pmic-spmi failed with error -5
-```
-
-`2-0b` is the only `-5`. Its two bus-2 siblings `2-09` and `2-0a` enumerate and both carry a
-`phy@fd00`. This answers the open question the old text left ("confined to `spmi_bus1`, or to
-specific PMICs?") — **neither: one PMIC on bus2.**
+`smb2370.dtsi` (Qualcomm's own file) declares **three** SMB2370 eUSB2-repeater instances on
+bus2 — `pmic@9`/`smb2370_j_e2`, `pmic@a`/`smb2370_k_e2`, `pmic@b`/`smb2370_l_e2` — but this
+board only has two USB-C ports, so only `j` and `k` are ever referenced by a `phys =` property
+(on `usb_0_qmpphy`/`usb_1_qmpphy`, in both our merged DTS and upstream). `pmic@b`/`l` is a
+spare instance for a third port this board doesn't populate, and **`smb2370.dtsi` ships it
+`status = "disabled"` upstream** — confirmed live: `.../pmic@b/status` reads `disabled`, so the
+kernel never attempts to probe it. The 2026-08-02 `-5` was measured against an older DTB
+revision that predated that `status` line; it was never a live-hardware problem, and there is
+nothing to fix. `2-09` and `2-0a` (the two real, wired repeaters) both bind `pmic-spmi`
+cleanly, each with a `phy@fd00`.
 
 ⚠️ **The fan PWM is still missing, but SPMI is not the reason.** `/sys/class/pwm` is empty
 while temp-alarm works on the same bus, so "one bottleneck, two features" was a false

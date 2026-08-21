@@ -180,8 +180,6 @@ reproduce these.
 - **HDMI** — the PHY is fixed (delta 4), the port is not. The output is still black because
   nothing delivers HPD to `af64000`. Four approaches eliminated; TLMM 126 cannot be a GPIO
   without killing USB-C DP alt-mode.
-- **SPMI** — all three buses enumerate and `qcom-spmi-temp-alarm` is bound on nine PMICs.
-  One device, `2-0b` on `spmi_bus2`, fails `-5`.
 - **Fan control** — RPM readback only. `/sys/class/pwm` is empty and the cause is
   unidentified. SPMI is *not* why; that coupling was never true.
 
