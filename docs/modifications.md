@@ -42,7 +42,7 @@ reserved-memory node. It is left out because **ramoops cannot capture on this ha
 at that address does not survive a reset (proven with a canary across a clean reboot; the
 firmware scrubs it). Re-adding it would only look like crash capture exists.
 
-⚠️ `CLAUDE.md` still names `glymur-a16-merged-gpu-coolmaps.dtb` as the baseline. The GRUB default
+⚠️ Earlier project notes still named `glymur-a16-merged-gpu-coolmaps.dtb` as the baseline. The GRUB default
 actually loads **`glymur-a16-hdmi-nocomaux.dtb`** (coolmaps *plus* the `com_aux` removal).
 
 ### The DTS also did not build against upstream until this change
