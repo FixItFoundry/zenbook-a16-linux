@@ -900,16 +900,133 @@ IFE_0, IFE_1, IFE_LITE           CSID (single instance)
 IPE_0, BPS, CAMNOC AXI RT/NRT
 ```
 
+### CCI0/CCI1 register addresses recovered, 2026-08-21 — staged, not yet booted
+
+Two of the register blocks `CAMP._CRS` lists cross-validate exactly against
+`sm8650.dtsi`'s CCI (Camera Control Interface — the CCI-standard I2C-like bus the sensor
+sits on): `0x0AC15000` = `cci0`, `0x0AC16000` = `cci1`, both `len 0x1000`, byte-identical to
+`cci@ac15000`/`cci@ac16000` in `sm8650.dtsi`. `hamoa.dtsi` (X1E80100) has **no** CCI nodes
+at all, so `sm8650.dtsi` — a phone SoC with a complete, working CCI+CAMSS binding — is the
+only usable template, same reasoning already used for the CCI-less GPU DT work.
+
+`qcom,glymur-camcc.h` has exactly the clock/GDSC IDs `sm8650`'s CCI nodes need, and — telling
+— **no `CAM_CC_CCI_2_CLK`**, matching the already-documented "only 3 CSIPHYs, one CCI pair
+short of `x1e80100`" delta:
+
+```
+CAM_CC_CCI_0_CLK = 9, CAM_CC_CCI_0_CLK_SRC = 10, CAM_CC_CCI_1_CLK = 11, CAM_CC_CCI_1_CLK_SRC = 12
+CAM_CC_CAMNOC_AXI_NRT_CLK = 4, CAM_CC_CPAS_AHB_CLK = 14, CAM_CC_TITAN_TOP_GDSC = 4
+```
+
+`glymur.dtsi`'s `camcc` node itself is powered by `&rpmhpd RPMHPD_MXC/MMCX`, not a Titan-Top
+GDSC — but `camcc-glymur.c` registers `CAM_CC_TITAN_TOP_GDSC` as its own genpd (same pattern
+proven working for `gpu_cc_cx_gdsc` in the already-confirmed gpucc bring-up), so
+`power-domains = <&camcc CAM_CC_TITAN_TOP_GDSC>` on the CCI nodes is grounded in that driver,
+not copied blind from `sm8650`. Neither `0xac15000` nor `0xac16000` collides with anything
+already in `glymur.dtsi`.
+
+**GPIO cross-check, and it closes a loop:** `CAMP._CRS` lists two GPIOs, pin `0x6F` (111,
+exclusive/pull-none) and pin `0x63` (99, shared/pull-up). **Pin 111 is already `privacy-led`
+in our own board DTS** — exact match, first independent confirmation that ACPI's `CAMP`
+resource list and our DT already agree on something. Pin 99 is unclaimed anywhere in our
+tree and outside `gpio-reserved-ranges` — free, plausibly a sensor IRQ or shared power/IRQ
+line, not yet assigned a role.
+
+**Proposed `cci0`/`cci1` nodes** (target: `&soc` in `glymur.dtsi`, next to `camcc` at line
+4931 — this is a *kernel-source* patch, like `patches/next-20260817/0007-...sync-with-mer.patch`,
+not a `dts/*-merged-gpu.dts` edit, since CCI doesn't exist upstream to override):
+
+```dts
+cci0: cci@ac15000 {
+	compatible = "qcom,glymur-cci", "qcom,msm8996-cci";
+	reg = <0x0 0x0ac15000 0x0 0x1000>;
+	interrupts = <GIC_SPI 859 IRQ_TYPE_EDGE_RISING 0>;   /* candidate, positional inference — see below */
+	power-domains = <&camcc CAM_CC_TITAN_TOP_GDSC>;
+	clocks = <&camcc CAM_CC_CAMNOC_AXI_NRT_CLK>,
+		 <&camcc CAM_CC_CPAS_AHB_CLK>,
+		 <&camcc CAM_CC_CCI_0_CLK>;
+	clock-names = "camnoc_axi", "cpas_ahb", "cci";
+	assigned-clocks = <&camcc CAM_CC_CCI_0_CLK>;
+	assigned-clock-rates = <37500000>;
+	status = "disabled";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	cci0_i2c0: i2c-bus@0 {
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};
+/* cci1 identical, @ac16000, CAM_CC_CCI_1_CLK, interrupts = <GIC_SPI 220 ...> candidate */
+```
+
+⚠️ **`compatible` is a guess** — `"qcom,glymur-cci"` isn't a real upstream string; either it
+needs adding to the CCI driver's match table or this falls back to the generic
+`"qcom,msm8996-cci"` alone (same fallback `sm8650` itself relies on).
+
+### `interrupts` — candidate numbers found, 2026-08-21, still a hypothesis not a fact
+
+`CAMP._CRS` doesn't decompile into a readable `ResourceTemplate` — the DSDT author hand-built
+it as a raw `Buffer`, so `iasl` just shows bytes. Hand-decoding the ACPI resource descriptor
+stream (`dsdt.dsl:103619` in the fresh dump) gives the **exact original ordering**, which the
+earlier grouped-by-type table lost:
+
+```
+86 09 00 01 00 30 C1 0A 00 10 00 00   Memory32Fixed 0x0AC13000 len 0x1000   (no matching IRQ?)
+86 09 00 01 00 90 C1 0A 00 C0 00 00   Memory32Fixed 0x0AC19000 len 0xC000   (ISP/CAMSS core)
+86 09 00 01 00 50 C1 0A 00 10 00 00   Memory32Fixed 0x0AC15000 len 0x1000   (CCI0)
+86 09 00 01 00 60 C1 0A 00 10 00 00   Memory32Fixed 0x0AC16000 len 0x1000   (CCI1)
+89 06 00 03 01 E8 01 00 00            Extended IRQ  GSIV 488 (0x1E8)
+89 06 00 03 01 7B 03 00 00            Extended IRQ  GSIV 891 (0x37B)
+89 06 00 03 01 FC 00 00 00            Extended IRQ  GSIV 252 (0xFC)
+8C 20 ... GIO0 pin 0x63 (99)          GpioIo, shared/pull-up
+8C 20 ... GIO0 pin 0x6F (111)         GpioIo, exclusive/pull-none  (= our privacy-led)
+```
+
+**Working hypothesis, not proven:** 4 memory blocks but only 3 interrupts — the natural read
+is that `0x0AC13000` (smallest block, likely a CPAS-top/config wrapper) has no interrupt of
+its own, and the ISP core + CCI0 + CCI1 each get exactly one, **in the same relative order as
+their memory descriptors** (a common vendor-ASL authoring convention — resources transcribed
+from a driver's resource-table array in index order — but **the ACPI spec does not guarantee
+positional binding across resource-type groups**, so treat this as a strong lead, not a fact).
+
+GSIV→GIC SPI is architectural, not a guess: for any GICv3 system, DT's `GIC_SPI n` means
+hwirq `n+32`, and ACPI's GSIV *is* that hwirq directly — so GSIV 488/891/252 convert cleanly:
+
+| GSIV | `GIC_SPI` | candidate assignment (positional hypothesis) |
+|---|---|---|
+| 488 (0x1E8) | **456** | ISP/CAMSS core (`0xAC19000`) |
+| 891 (0x37B) | **859** | CCI0 (`0xAC15000`) |
+| 252 (0xFC) | **220** | CCI1 (`0xAC16000`) |
+
+So the CCI0/CCI1 candidates to actually try are `GIC_SPI 859` and `GIC_SPI 220`. A wrong SPI
+number fails safely at `request_irq()` (probe error, not a hang) unless it collides with
+another device's already-claimed line — so this is a **status="disabled" boot-test
+candidate**, not a live-risk one — but the positional pairing above is inference, not
+verified, and should be labeled as such in any patch until a boot test confirms it (e.g. by
+checking `/proc/interrupts` shows the expected line firing when the sensor is probed).
+
+**Sensor driver dependency, resolved:** `drivers/media/i2c/ov02c10.c` is **already upstream
+and already built** in this kernel (`.ko` present) — the front sensor (OV02C10) needs no new
+driver. The aux sensor (HM1092) has **no upstream Linux driver anywhere** — that's a real,
+separate gap (a new i2c subdev driver to write), independent of the CCI/CAMSS DT work above.
+
 ### Honest scope
 
 1. ~~**camcc probing**~~ — ✅ **DONE 2026-08-02.** 94 clocks, driver bound. See above.
 2. **CAMSS** — a `qcom,glymur-camss` compatible plus resource tables forked from
-   `x1e80100_resources`, *plus* DT nodes whose register addresses nobody upstream has ever
-   published for either SoC. Substantial, but bounded and no longer "from scratch".
-3. **Sensor driver** — identities resolved 2026-08-21 (OV02C10 + HM1092). Writing/binding
-   sensor subdev drivers and DT endpoints is the remaining task.
+   `x1e80100_resources`. `sm8650`'s `camss` node is 17 separate register blocks; `CAMP._CRS`
+   only gives one coarse `0x0AC19000 len 0xC000` window for the whole thing, which doesn't
+   map 1:1 onto that granularity — **still unrecovered, tonight's dump didn't resolve this
+   part.** CCI0/CCI1 (above) are a separate, now-recovered piece of the same node group.
+3. **Sensor driver** — identities resolved 2026-08-21 (OV02C10 + HM1092). OV02C10 has an
+   upstream driver already; HM1092 needs one written from scratch. Writing/binding sensor
+   subdev drivers and DT endpoints is the remaining task either way.
 
-⛔ **Do not promise a working camera.** Step 1 is cheap; steps 2–3 are not.
+⛔ **Do not promise a working camera.** Step 1 is cheap; steps 2–3 are not, and CCI alone
+(even once IRQ numbers are resolved and it's boot-tested) only proves the sensor control bus
+— it does not produce an image without CAMSS.
 
 ---
 
