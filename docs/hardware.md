@@ -877,6 +877,18 @@ Reserved carveout is live in our DT: `/proc/device-tree/reserved-memory/camera@9
 Driver"* and the sensor identity lives in that driver package, not in firmware tables. Do not
 re-grep the DSDT for it.
 
+### ✅ Sensor identity, 2026-08-21 — found in the driver store, not ACPI
+
+Mounted the BitLocker Windows partition read-only and retrieved sensor identities from
+`setupapi.dev.log`. Per-board **extension** packages identify the populated hardware, distinct
+from the generic reference-design config (`qcSensorsConfigCRD8480.inf`) that stages tuning for
+all supported candidates:
+
+- **Front/main sensor**: OmniVision **OV02C10** (2 MP) — staged via `qccamfrontsensor_extension8480.inf` (`com.qti.sensormodule.ov02c10.{bin,json}`, `com.qti.tuned.ov02c10.bin`).
+- **Aux/IR sensor (Windows Hello)**: SK Hynix **HM1092** — staged via `qccamauxsensor_extension8480.inf` (`com.qti.sensormodule.hm1092.{bin,json}`, `com.qti.tuned.hm1092.bin`).
+
+⚠️ **Note on generic vs. board-specific INF packages:** An initial read of generic `qccamauxsensor8480.sys` strings referenced "Azurewave OV9234" and multiple front sensors (`OV08X`, `IMX688`). Those are Qualcomm reference fallback candidates across the CRD family; the `*_extension8480.inf` packages confirm the actual hardware fitted to this chassis.
+
 ### Block inventory to wire, from the camcc clock IDs
 
 `qcom,glymur-camcc.h` names exactly what silicon is there — **note only three CSIPHYs**:
@@ -894,8 +906,8 @@ IPE_0, BPS, CAMNOC AXI RT/NRT
 2. **CAMSS** — a `qcom,glymur-camss` compatible plus resource tables forked from
    `x1e80100_resources`, *plus* DT nodes whose register addresses nobody upstream has ever
    published for either SoC. Substantial, but bounded and no longer "from scratch".
-3. **Sensor driver** — blocked on identifying the module, which needs the Windows driver store
-   or a live CCI probe, not the DSDT.
+3. **Sensor driver** — identities resolved 2026-08-21 (OV02C10 + HM1092). Writing/binding
+   sensor subdev drivers and DT endpoints is the remaining task.
 
 ⛔ **Do not promise a working camera.** Step 1 is cheap; steps 2–3 are not.
 
@@ -908,11 +920,11 @@ IPE_0, BPS, CAMNOC AXI RT/NRT
 | eDP panel + backlight, GPU, Wi-Fi/BT, audio (speakers + DMIC), battery/PD, input, NVMe, RTC, cpufreq, thermal | ✅ working |
 | Keyboard backlight | ✅ dimmable, `asus::kbd_backlight` 0–3 *(corrected 2026-08-02)* |
 | `qcom-spmi-temp-alarm` | ✅ bound on 9 PMICs, 9 thermal zones *(corrected 2026-08-02)* |
+| SPMI | ✅ all three buses clean, 12 PMICs bound (`2-0b` disabled upstream) |
 | Fan | ✅ RPM readback only — no control; PWM absent, cause unidentified |
 | Suspend | ⚠️ works on `glymur_pci_skip=5`; long-sleep stability unmeasured |
 | HDMI | ⚠️ PHY fixed, EDID + 32 modes — output still black (HPD) |
-| SPMI | ⚠️ all three buses up; one PMIC (`2-0b`) fails `-5` |
 | GPU zap shader | ❌ **tested 2026-08-02** — DT node works, TrustZone rejects the image (`-EINVAL`); adding the node costs the GPU. `SECVID_TRUST_CNTL` fallback is correct here |
 | Headphone jack, DP audio | ❌ known cause (missing DT node), unfixed |
 | USB4 | ❌ blocked upstream — binding is an unmerged RFC |
-| Camera | ❌ no camera; but **camcc probes now** (94 clocks, 2026-08-02). CAMSS is a delta from `x1e80100`; sensor still unidentified |
+| Camera | ❌ no camera; camcc probes (94 clocks), sensor identities resolved (OV02C10 front, HM1092 aux); CAMSS driver port remaining |

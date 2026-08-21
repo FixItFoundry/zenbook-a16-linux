@@ -25,21 +25,13 @@ one.
   cosmetic, not corruption. `ntfs-3g` independently refused read-write on its own (Windows
   Fast Startup left the volume hibernated/dirty) regardless of the mount flags requested —
   worth knowing that safety net exists and fires correctly.
-- **Camera — sensor identity partially unblocked.** `docs/hardware.md`'s camera section
-  says the sensor part number is "blocked on identifying the module, which needs the
-  Windows driver store." Pulled from `qccamauxsensor8480.sys` / `qccamfrontsensor8480.sys`
-  strings and `qcSensorsConfigCRD8480.inf`:
-  - **Aux/IR sensor (Windows Hello) = Azurewave module on OmniVision OV9234**, confirmed by
-    literal driver strings (`"...starts probing Azurewave OV9234"`,
-    `com.qti.sensormodule.azurewave_ov9234.bin`). Binds `ACPI\VEN_QCOM&DEV_0F99` = `CAMI`
-    in the existing DSDT table.
-  - **Front/main sensor is runtime-I2C-probed, not statically declared** (`ProbeImageSensor()`
-    does live I2C detection at 400 kHz). The board's config package ships tuning data for
-    exactly three candidates — **OV08X, OV02C10, IMX688** — narrowed from "unknown" but not
-    yet down to one; needs the actually-bound instance's registry key or a live CCI probe to
-    finish.
-  - `CAMP`'s MMIO/IRQ resources in this fresh dump are byte-identical to the existing DSDT
-    extraction — confirms no drift, not new information.
+- **Camera — sensor identity resolved.** `docs/hardware.md` originally marked the sensors
+  blocked on driver-store extraction. Cross-referencing board-specific extension packages
+  in `setupapi.dev.log` against generic reference-design packages resolved both parts:
+  - **Front/main sensor**: OmniVision **OV02C10** (2 MP), staged via `qccamfrontsensor_extension8480.inf` (`com.qti.sensormodule.ov02c10.{bin,json}`).
+  - **Aux/IR sensor (Windows Hello)**: SK Hynix **HM1092**, staged via `qccamauxsensor_extension8480.inf` (`com.qti.sensormodule.hm1092.{bin,json}`).
+  - *(Retraction)* An initial read of generic `.sys` probe strings suggested Azurewave/OV9234 and OV08X/IMX688 candidates; these were reference-design fallbacks, not the board-populated sensors.
+  - `CAMP` MMIO/IRQ resources in the Windows dump match the existing DSDT extraction.
 - **Thermal — reconciled stale docs, cross-checked against Windows, no new gap found.**
   `docs/power-and-thermal.md` still framed `cooling-maps` as "★ NEXT" though they landed
   2026-07-31/08-02 (`docs/hardware.md`/`docs/modifications.md` already had this right) —
