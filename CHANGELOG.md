@@ -10,6 +10,185 @@ one.
 
 ---
 
+## 2026-09-16 — SoundWire audio speaker pops eliminated, multi-slave alert demotion fixed, dead stream resolved
+
+- **Speaker pop and dead audio stream root causes identified and resolved**:
+  Investigated loud pops on start/stop/seek of audio and reproducible single-sided playback
+  (left channel permanently dying while right channel plays) on ASUS Zenbook A16 (`UX3607OA`):
+  1. **Multi-Slave Alert Demotion**: `drivers/soundwire/qcom.c`'s `qcom_swrm_get_alert_slave_dev_num()`
+     only wrote `ctrl->status[devnum] = SDW_SLAVE_ALERT` for the alerting slave, leaving sibling
+     slaves (the Woofer/Tweeter pair on `swr0` or `swr3`) with 0 (`SDW_SLAVE_UNATTACHED`).
+     `sdw_handle_slave_status()` observed `UNATTACHED` for the sibling and called
+     `wsa884x_update_status()`, marking `hw_init = false` and setting the regmap cache-only.
+     This permanently silenced that speaker channel until reboot.
+     *Fix*: Call `qcom_swrm_get_device_status(ctrl)` inside `qcom_swrm_get_alert_slave_dev_num(ctrl)`
+     so the full register `SWRM_MCP_SLV_STATUS` is decoded for all devices before status processing.
+  2. **Destructive Reset on Bus Clash (`MASTER_CLASH_DET`) & Port Collisions**: Earlier local commits
+     (`c9cb9438c4e8`, `b6b0bb267d62`) hooked `SWRM_INTERRUPT_STATUS_MASTER_CLASH_DET`, `DOUT_PORT_COLLISION`,
+     and `READ_EN_RD_VALID_MISMATCH` to a hard controller reset (`SWRM_COMP_SW_RESET`).
+     During live playback, transient bus clashes routinely occur; resetting the master controller
+     severed clock and framing, causing loud speaker pops, parity errors on the WSA8845 amplifiers,
+     and dropped streams.
+     *Fix*: Restored upstream Linux kernel behavior: mask the interrupt bit and log rate-limited,
+     preserving the active stream and preventing mid-playback controller resets.
+  3. **Non-Destructive Command FIFO Flush**: Aligned `RD_FIFO_UNDERFLOW` and `RD_FIFO_OVERFLOW` with
+     `WR_CMD_FIFO_OVERFLOW` and `CMD_ERROR` by flushing the command FIFO (`ctrl->reg_write(ctrl, SWRM_CMD_FIFO_CMD, 0x1)`)
+     instead of resetting the controller.
+  4. **Probe-Time Cold-Boot 3x Reset Storm on `swr0` (Left Channel)**: During probe, checking
+     `ctrl->status[slave->dev_num] != SDW_SLAVE_ATTACHED` in `qcom_swrm_all_slaves_attached()`
+     failed on every boot because `ctrl->status` is only populated by IRQs, not during probe.
+     This triggered 3 consecutive hardware resets at boot, leaving `swr0` stuck at Dev 0.
+     *Fix*: Reverted `qcom_swrm_all_slaves_attached()` to verify `!slave->dev_num`, stopping the probe reset loop.
+  5. **Status Wipe on Dev 0 Attachment**: Restored `ctrl->slave_status = slave_status` tracking and removed
+     spurious execution of status handlers when Dev 0 attaches before enumeration finishes.
+  6. **Quad Channel Map Swap Resolved**: WirePlumber configuration `/etc/wireplumber/wireplumber.conf.d/51-glymur-ucm.conf`
+     had `audio.position = [ FL RL FR RR ]`, swapping Front Right and Rear Left channels. Corrected to `[ FL FR RL RR ]`
+     to match hardware ALSA PCM order, restoring correct spatial alignment across all 4 speakers.
+- **Artifacts Produced**:
+  - Patch: `patches/0002-soundwire-qcom-alert-status-and-recovery-fix.patch`.
+  - Internal doc: `internal-docs/audio-pop-and-drop-triage-2026-09-16.md`.
+  - Test kernel: `7.2.0-ZenbookA16-20260916-audiofix` built via `build-0916-audiofix.sh`,
+    installed via `install-0916-audiofix.sh` with safe one-shot `next_entry` GRUB test arming.
+    The known-good baseline fallback entry `zenbook-a16` (`7.2.0-ZenbookA16-20260819+`) was preserved.
+
+---
+
+## 2026-09-16 — Wi-Fi 7 (QCC2072) cold-boot enumeration fixed, ath12k softirq storm eliminated, crash resolved
+
+- **Crash triage (`2026-09-16 20:29:08 EDT`)**: Resolved the system panic and journal corruption.
+  The crash was preceded by `NOHZ tick-stop error: local softirq work is pending, handler #280/#80`,
+  context switch spikes to 133k ctxsw/s, and core 4 pegged at ~400% CPU system time. Traced
+  to `drivers/net/wireless/ath/ath12k/pci.c`: `ath12k_pci_ext_grp_napi_poll()` unconditionally
+  re-enabled group IRQs even when `napi_complete_done()` returned false, causing an immediate
+  interrupt loop in softirq context. Guarded with `if (napi_complete_done(napi, work_done))`.
+- **Root cause of missing / intermittent Wi-Fi resolved**:
+  The ASUS Zenbook A16 uses a Qualcomm QCC2072 Wi-Fi 7 package (`17cb:1112`) on PCIe controller 4
+  (`pcie@1bf0000`, root port `pcie4_port0`). Three compounding issues prevented reliable boot:
+  1. `drivers/pci/pwrctrl/pci-pwrctrl-pwrseq.c` lacked the `pci17cb,1112` compatible string,
+     so the power sequencer never bound to the Wi-Fi PCIe device node.
+  2. `arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts` omitted `wifi@0` under
+     `pcie4_port0` entirely, instead attempting an artificial `wlan-connector` graph node
+     connected across both `pcie4_port0` and `uart14`. This created an OF cycle that `fw_devlink`
+     broke non-deterministically.
+  3. `CONFIG_POWER_SEQUENCING_QCOM_WCN` and `CONFIG_PCI_PWRCTRL_PWRSEQ` were compiled as modules (`=m`).
+     Because `pcie-qcom` is built into the kernel (`=y`), it attempted PCIe link training at early
+     boot (`t ~ 0.001s`) before modules could load. With `tlmm 117` (`wlan-enable-gpios`) low,
+     PCIe link training failed on cold boot and the device never enumerated.
+- **Fix deployed**:
+  - Added `pci17cb,1112` to `pwrseq_pwrctrl_of_match[]` in `drivers/pci/pwrctrl/pci-pwrctrl-pwrseq.c`.
+  - Added user prompt to `PCI_PWRCTRL_PWRSEQ` in `drivers/pci/pwrctrl/Kconfig` and built both
+    `CONFIG_POWER_SEQUENCING_QCOM_WCN=y` and `CONFIG_PCI_PWRCTRL_PWRSEQ=y` directly into the kernel.
+  - Added `wifi@0` node with full PMU regulator supplies to `&pcie4_port0` and removed `wlan-connector`
+    and `uart14` endpoints in `glymur-asus-zenbook-a16-ux3607oa.dts`. Synced to `dts/glymur-asus-zenbook-a16-ux3607oa-merged.dts`.
+  - Patch created at `patches/0001-PCI-pwrctrl-ath12k-glymur-wifi7-qcc2072-pwrseq.patch`.
+  - Internal doc written at `internal-docs/wifi-qcc2072-pwrseq-triage-2026-09-16.md`.
+  - Kernel built as `7.2.0-ZenbookA16-20260916-wififix` (`build-0916-wififix.sh`), installed via
+    `install-0916-wififix.sh` with a one-shot `next_entry` GRUB test arming. Default baseline
+    entry `zenbook-a16` (`7.2.0-ZenbookA16-20260819+`) was preserved untouched.
+
+---
+
+## 2026-09-06 — camera board wiring recovered from the AeoB blobs; `cci0_i2c0` retracted
+
+- **Method that unlocked it: decode BOTH sensors' AeoB power-sequence blobs together.**
+  `CAMF_RES_QRD.bin` (front) and `CAMI_RES_QRD.bin` (aux) encode the literal Windows
+  power-up/power-down sequence. A field identical in both is a *shared* resource; one that
+  differs is per-sensor. That single distinction is what turns a pile of GPIO numbers into
+  an unambiguous mapping. Cross-checked against `drivers/pinctrl/qcom/pinctrl-glymur.c`,
+  whose per-pin function tables turn raw mux indices into names.
+- **⚠️ RETRACTION: the sensor is not on `cci0_i2c0`.** The 2026-08-21 node's own comment
+  called that bus "a genuine guess … the one dimension most likely to be wrong", and it
+  was. The blob's `TLMMGPIO_V2` entry muxes `{gpio=0x6a=106, func=1}`; `PINGROUP()` places
+  `msm_mux_gpio` at `funcs[0]`, so func 1 on pin 106 is `cci_i2c_scl`. The three
+  `cci_i2c_scl`-capable pins are 102/104/106, giving bus pairs `cci0_i2c0` (101/102),
+  `cci0_i2c1` (103/104), **`cci1_i2c0` (105/106)**. The entry is identical in both blobs,
+  which is exactly what a shared control bus looks like.
+- **Recovered, with evidence grades in `docs/hardware.md`:** MCLK4 pin **TLMM 100**
+  (`cam_asc_mclk4` — the only MCLK4-capable pin; `cam_mclk_groups[]` is gpio96–99 =
+  MCLK0–3); front reset **TLMM 239**; aux reset **TLMM 109**; `dovdd` = **LDO4 on PMIC
+  `I_E0`** @ 1.8 V (in both blobs — shared); `avdd`+`dvdd` = **LDO7 on `I_E0`** @ 2.8 V;
+  aux analog = LDO3 on `I_E0`; module boost = BUCK_BOOST1 on `B_E0` @ 3.4 V; CPAS AHB
+  80 MHz. `I_E0` is `pmh0104_i_e0` — the board dts already uses the identical id
+  convention (`qcom,pmic-id = "B_E0"` matches the blob string `..._B_E0` exactly).
+- **"Missing DVDD" was never missing.** The blob votes only two LDOs because `avdd` and
+  `dvdd` share the 2.8 V rail — the same wiring the ASUS Zenbook A14 uses.
+- **⛔ New blocker found: `pmh0104` has no LDOs in the kernel.** `pmh0104_vreg_data[]` in
+  `drivers/regulator/qcom-rpmh-regulator.c` declares `smps1`–`smps4` only, and the board
+  dts had no `I_E0` `rpmh-regulators` node at all. Staged as
+  `patches/glymur-pmh0104-camera-ldos.patch`: `ldo4` (`pmic5_nldo530`, which spans
+  320000+n*8000 up to 2.0 V) and `ldo7` (`pmic5_pldo530_mvp150` — 2.8 V is out of nldo
+  range and *must* be a pldo). The three `pldo530_mvp{150,300,600}` variants differ only
+  in `hpm_min_load_uA`, not voltage, so the pick cannot yield a wrong voltage.
+  ⚠️ `CONFIG_REGULATOR_QCOM_RPMH=y` — this is a **full kernel rebuild**, not a module swap.
+- **Verified the failure mode of shipping the DT ahead of the kernel.**
+  `rpmh_regulator_init_vreg()` returns `-EINVAL` on an unknown subnode and
+  `rpmh_regulator_probe()` bails immediately — so on the current kernel `regulators-5`
+  simply fails to probe and the sensor defers forever. Blast radius is that node only;
+  the other PMICs are separate platform devices. Safe to boot, just inert.
+- **Two DTBs staged**, both built clean from `wt-baseline-combined`, both verified by
+  decompile to place `camera@36` under `cci@ac16000/i2c-bus@0`:
+  - `…-ov02c10-cci1i2c0.dtb` — corrected bus/pins, **no supplies** (dummy regulators).
+    Runs on the current kernel; answers the bus question *if* UEFI left the rails voted up
+    across the handoff, which RPMh vote persistence makes plausible.
+  - `…-ov02c10-full.dtb` — full wiring incl. `regulators-5`. Needs the LDO kernel.
+  GRUB entries `zenbook-a16-ov02c10-cci1i2c0` and `zenbook-a16-ov02c10-full` added under
+  "Test DTBs". **Default is untouched** (`zenbook-a16`). `grub.cfg` backed up to
+  `grub-backups/grub.cfg.bak-pre-camera-20260906`, `40_custom` to
+  `40_custom.bak-pre-camera-20260906`; `40_custom` re-synced and confirmed by a
+  `grub2-mkconfig` dry-run diffing **identical** to the live `grub.cfg`, so a future
+  regeneration will not silently delete these entries (the 2026-08-23 trap).
+- **`README.md` camera bullet was badly stale** — it still claimed CAMSS has no support for
+  this SoC generation and that the sensor was unidentified, both untrue since 2026-08-21.
+  Rewritten.
+- **Nothing in the latest rc helps.** `v7.3-rc1` is the newest tag and `zenbook-next-0831`
+  is `next-20260831` on top of it. Last commit to `drivers/media/platform/qcom/camss/`
+  anywhere is 2026-06-04 (a macro rename); last `ov02c10.c` commit is 2025-12-08. No
+  `qcom,glymur-camss` compatible exists, and no upstream DT carries a camss node for
+  x1e80100 either. Rebasing gains the camera nothing.
+
+---
+
+## 2026-08-23 — GRUB loadenv error fixed, Wi-Fi/GPIO regression ruled out, CCI baseline promoted
+
+- **GRUB `load_env` error on every boot, fixed.** `/boot/grub/grubenv` carried a stale
+  `env_block=512+1` variable (Fedora's raw-block BLS environment feature). `GRUB_ENABLE_BLSCFG=false`
+  here and root is btrfs on `nvme0n1p17` with no `bios_grub`/reserved area backing that block
+  range, so the unconditional `00_header` boilerplate (`if [ "${env_block}" ]; then ... load_env
+  -f "(${root})512+1"; fi`) tried to load a nonexistent raw environment block every boot. Cleared
+  with `grub2-editenv /boot/grub/grubenv unset env_block`; `saved_entry`/`boot_success` etc. are
+  untouched. Reversible with `grub2-editenv /boot/grub/grubenv set env_block=512+1`.
+- **Wi-Fi "baseline has no Wi-Fi" — not a GPIO regression.** Decompiled and diffed the baseline
+  DTB (`7.2.0-ZenbookA16-20260819+.dtb`) against the CCI-camera test DTBs: the diff is purely
+  additive (`camss@acb7000`, `cci@ac15000` nodes) plus phandle renumbering. `wcn7850-pmu`
+  (`wlan-enable-gpios`/`bt-enable-gpios`) and `gpio-reserved-ranges` are byte-identical across
+  baseline and all three camera test DTBs. The camera GPIO work did not touch Wi-Fi's pins.
+  Not independently reproduced live on the plain baseline entry this session (was booted on
+  `ov02c10-test` throughout, where Wi-Fi is confirmed working) — if it recurs, it isn't the DT.
+- **Baseline promoted to the CCI-test DTB.** `zenbook-a16` (id, default) now boots
+  `7.2.0-ZenbookA16-20260819-cci-test.dtb`'s content (CCI0/CCI1 registration, `i2c_qcom_cci`
+  blacklisted so nothing autoprobes) instead of the pre-camera DTB. Old baseline preserved as
+  `7.2.0-ZenbookA16-20260819-precamera.dtb`, reachable via Test DTBs → "prev baseline: 20260819,
+  pre-camera" (`prev-20260819-precamera`). Edited `/boot/grub/grub.cfg` directly (backed up to
+  `grub.cfg.bak-pre-cci-promote-20260823`) rather than regenerating via `grub2-mkconfig`, since
+  `/etc/grub.d/40_custom` has drifted out of sync — it's missing the `ov02c10-test`/`camss-test`/
+  `cci-test` entries entirely, which live only as hand-edits in `grub.cfg`. Regenerating would
+  have silently deleted them.
+- **`/etc/grub.d/40_custom` reconciled with `grub.cfg`.** Extracted the live custom section
+  (between grub2-mkconfig's own `### BEGIN/END /etc/grub.d/40_custom ###` markers) back into
+  `/etc/grub.d/40_custom`, so it now regenerates byte-identical to the hand-edited `grub.cfg`.
+  ⚠️ Trap hit and fixed during this: a `cp`-made backup of the old `40_custom` left inside
+  `/etc/grub.d/` inherited the executable bit and got picked up by `grub2-mkconfig` as its own
+  script, duplicating the entire menu — caught via a dry-run (`grub2-mkconfig -o <scratch file>`,
+  diffed before touching anything live) before it hit `/boot/grub/grub.cfg`. Backups belong
+  outside `/etc/grub.d/`; `/home/jcasco/grub-backups/` is the existing convention for that.
+  Then ran `grub2-mkconfig -o /boot/grub/grub.cfg` for real (backed up to
+  `grub-backups/grub.cfg.bak-pre-real-mkconfig-20260823`): the only change was `set default=`
+  reverting from the session's manual `zenbook-a16-ov02c10-test` override back to
+  `GRUB_DEFAULT=zenbook-a16` (now the CCI-promoted baseline) — done deliberately, at Jesse's
+  choice, not a side effect.
+
+---
+
 ## 2026-08-21 — Windows-partition cross-check: thermal doc reconciliation, camera sensor IDs
 
 - **Repo sync**: pulled 2 commits from the workstation (`ff91ad5` eDP v8 PHY power-on

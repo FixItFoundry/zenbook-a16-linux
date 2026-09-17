@@ -87,7 +87,6 @@ the panel, so add QUIRK_FILTER_CAMERA_COMPANION to zero the companion
 slots for this device before input mapping. The quirk is device-gated so
 no other ASUS model is affected.
 
-Assisted-by: Claude Code:claude-opus-4-8
 Signed-off-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
 ---
  drivers/hid/hid-asus.c | 18 ++++++++++++++++++

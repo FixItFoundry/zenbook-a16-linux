@@ -25,7 +25,6 @@ lost the enumeration race and needed the reprobe fallback showed this
 warning and stayed non-functional, while its sibling on the same bus,
 which attached cleanly on the first try, was unaffected.
 
-Assisted-by: Anthropic:Claude-Opus-5
 Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
 ---
  sound/soc/codecs/wsa884x.c | 18 ++++++++++++++++++

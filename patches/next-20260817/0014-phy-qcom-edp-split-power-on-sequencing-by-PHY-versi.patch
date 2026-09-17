@@ -21,7 +21,6 @@ Keep the existing v4/v6 sequence as the v46 implementation, and wire v8
 to the same callbacks for now. This keeps the programming unchanged
 while making the next patch a v8-only programming update.
 
-Assisted-by: Codex:GPT-5.5
 Signed-off-by: Bjorn Andersson <bjorn.andersson@oss.qualcomm.com>
 ---
  drivers/phy/qualcomm/phy-qcom-edp.c | 175 ++++++++++++++++++++--------

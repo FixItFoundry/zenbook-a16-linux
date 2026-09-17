@@ -26,7 +26,6 @@ Documentation/devicetree/bindings/firmware/arm,scmi.yaml, is consumed by
 drivers/firmware/arm_scmi/driver.c, and is already used in-tree by
 renesas/r8a78000-ironhide.
 
-Assisted-by: Anthropic:Claude-Opus-5
 Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
 ---
  arch/arm64/boot/dts/qcom/glymur.dtsi | 6 ++++++

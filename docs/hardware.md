@@ -300,6 +300,8 @@ on SoundWire** + internal DMIC.
 2. **SoundWire Auto-Enumeration Recovery** — In-tree kernel driver handles bus clash auto-enumeration recovery on cold boots.
 3. **WirePlumber 2-Channel Stereo Routing** — Configured in `51-glymur-ucm.conf` to map stereo output `[FL FR]` across speakers cleanly and prevent idle suspend timeouts.
 4. **EasyEffects Background Service** — Systemd user service automatically manages DSP effects with hardware sink synchronization.
+5. **Multi-Slave Alert Synchronization (2026-09-16)** — `qcom_swrm_get_alert_slave_dev_num()` decodes full `SWRM_MCP_SLV_STATUS` across all devices, eliminating spurious demotion of sibling WSA8845 amplifiers to UNATTACHED and fixing single-sided playback.
+6. **Non-Destructive Command FIFO Recovery (2026-09-16)** — `RD_FIFO_UNDERFLOW` flushes the command FIFO instead of resetting the master controller (`SWRM_COMP_SW_RESET`), eliminating speaker popping and dead streams during playback.
 
 ❌ **Headphone jack** — jack detect exists, but there is no rx-macro/WCD9395 codec node in the
 DT yet. ❌ **DisplayPort audio** — backends exist but are not wired up.
@@ -770,7 +772,7 @@ genpd power-off/`simple-pm-bus` — individually **and all five combined**.
 NVMe root on PCIe. RTC is the PMIC RTC — enabled, but **read-only**; `qcom,uefi-rtc-info` is
 deliberately removed from the DT.
 
-## Camera ⏳ — sensors identified, CAMSS core & CCI probed on hardware, sensor wiring staged
+## Camera ⏳ — sensors identified, CAMSS core & CCI probed on hardware, board wiring recovered
 
 ### Clock controller (`camcc-glymur`)
 
@@ -781,25 +783,55 @@ deliberately removed from the DT.
 ### Sensor identities (from Windows driver store)
 
 Extracted via `setupapi.dev.log` and registry configuration (`HKLM\...\Device Parameters`):
-- **Front sensor**: OmniVision **OV02C10** (2 MP) — `qccamfrontsensor_extension8480.inf`. Driver `drivers/media/i2c/ov02c10.c` already in-tree.
-- **Aux / IR sensor**: SK Hynix **HM1092** — `qccamauxsensor_extension8480.inf`. Requires a new driver.
+- **Front sensor**: OmniVision **OV02C10** (2 MP) — `qccamfrontsensor_extension8480.inf`. Driver `drivers/media/i2c/ov02c10.c` already in-tree (2 lanes, 400 MHz link freq, 1928x1092).
+- **Aux / IR sensor**: SK Hynix **HM1092** — `qccamauxsensor_extension8480.inf`. **No Linux driver exists.** Windows Hello IR is out of scope; it does not block the webcam.
 
-### MCLK & CSIPHY routing — recovered from sensor power sequences
+### ★ Board wiring — recovered 2026-09-06 from the AeoB power-sequence binaries
 
-From sensor power-sequence binaries (`CAMF_RES_QRD.bin` / `CAMI_RES_QRD.bin`):
-- **Front sensor (OV02C10)**: **MCLK4** (`cam_cc_mclk4_clk`, 19.2 MHz) + **CSIPHY4** (`port@3` in CAMSS DT).
-- **Aux sensor (HM1092)**: **MCLK0** (`cam_cc_mclk0_clk`) + **CSIPHY0**.
+Method: the Windows driver store ships Qualcomm `AeoB` resource blobs that encode the
+literal power-up/power-down sequence. Decoding **both** sensors' blobs together
+(`CAMF_RES_QRD.bin` front, `CAMI_RES_QRD.bin` aux) is what makes the pins unambiguous —
+a field that is *identical* in both is a shared resource, one that differs is per-sensor.
+Cross-checked against `drivers/pinctrl/qcom/pinctrl-glymur.c`, whose per-pin function
+tables turn the raw mux indices into names.
 
-Clocks, GDSCs, and PMIC votes referenced: `cam_cc_titan_top_gdsc`, `cam_cc_cpas_ahb_clk`, `gcc_camera_xo_clk`, `gcc_camera_ahb_clk`, and PMIC resources `BUCK_BOOST1_B_E0`, `LDO4_I0`, `LDO7_I0`.
+| Resource | Value | Evidence |
+|---|---|---|
+| MCLK (front) | `cam_cc_mclk4_clk` @ 19.2 MHz | literal string + `0x0124f800` in AeoB — **proven** |
+| MCLK4 pin | **TLMM 100**, function `cam_asc_mclk4` | `cam_mclk_groups[]` is gpio96–99 = MCLK0–3 only; gpio100 is the *sole* MCLK4-capable pin — **proven by elimination** |
+| CCI SCL pin | **TLMM 106**, function index 1 = `cci_i2c_scl` | AeoB `TLMMGPIO_V2 {gpio=0x6a, func=1}`, identical in both sensors; `PINGROUP()` puts `msm_mux_gpio` at index 0 so f1 = `cci_i2c_scl` — **proven** |
+| CCI SDA pin | TLMM 105, `cci_i2c_sda` | pin-pair partner of 106 — inferred |
+| ⇒ **CCI bus** | **`cci1_i2c0`** | 105/106 is the third of three TLMM `cci_i2c_*` pin pairs: 101/102 = `cci0_i2c0`, 103/104 = `cci0_i2c1`, 105/106 = `cci1_i2c0` — **strong** |
+| Front reset | **TLMM 239** (egpio) | AeoB plain `TLMMGPIO` with `EGPIO_DISABLE`/`EGPIO_ENABLE`, front blob only. `PINGROUP()` carries `egpio_enable`/`egpio_present`, `ngpios = 251` — **strong** |
+| Aux reset | TLMM 109 | same field in the aux blob only — strong |
+| `dovdd` | **LDO4 on PMIC `I_E0`** @ 1.8 V | `PPP_RESOURCE_ID_LDO4_I0`, `0x001b7740`; present in **both** blobs ⇒ shared I/O rail — **proven** |
+| `avdd` + `dvdd` | **LDO7 on `I_E0`** @ 2.8 V | `PPP_RESOURCE_ID_LDO7_I0`, `0x002ab980`, front only — **proven** |
+| aux analog | LDO3 on `I_E0` | `PPP_RESOURCE_ID_LDO3_I0`, aux only — proven |
+| module boost | BUCK_BOOST1 on `B_E0` @ 3.4 V | `0x0033e140`, both blobs — proven |
+| CPAS AHB | 80 MHz (`0x04c4b400`) | AeoB — proven |
+| privacy LED | TLMM 111 | already upstream in the board dts as `cam_indicator_en` |
+| CSIPHY rails | `vreg_l2c_e0` (0.88 V), `vreg_l4c_e0` (1.2 V) | verified against the board dts — already correct in our staged `isp` node |
 
-### Silicon block inventory (`qcom,glymur-camcc.h`)
+**`I_E0` is `pmh0104_i_e0`** (`pmic@8`, `compatible = "qcom,pmh0104"`). The board dts
+already uses the identical id convention — `qcom,pmic-id = "B_E0"` matches the AeoB
+string `..._B_E0` exactly.
 
-```
-CSIPHY0, CSIPHY1, CSIPHY4        (x1e80100 has 4 CSIPHY inputs; CSIPHY2 unrouted)
-MCLK0 … MCLK7                    8 sensor master clocks
-IFE_0, IFE_1, IFE_LITE           CSID
-IPE_0, BPS, CAMNOC AXI RT/NRT
-```
+**There is no separate DVDD rail, and that is not a gap.** The sequence votes only two
+LDOs because `avdd` and `dvdd` share the 2.8 V rail — the same arrangement the ASUS
+Zenbook A14 uses.
+
+#### ⚠️ Retraction: the `cci0_i2c0` placement was wrong
+
+`scripts/camera/glymur-ov02c10-probe.sh` correctly flagged its own CCI bus as "a genuine
+guess … the one dimension most likely to be wrong". It was. The AeoB mux entry names
+TLMM 106, which is `cci1_i2c0`. **The staged `camera@36` node under `cci0_i2c0` is
+superseded** — do not re-run that test.
+
+⚠️ Note this also **diverges from the ASUS Zenbook A14**, which puts its OV02C10 on
+`cci1_i2c1`. Our own board's AeoB blob outranks the sibling-board analogy, so `cci1_i2c0`
+is the primary hypothesis and `cci1_i2c1` the fallback. On glymur `cci1_i2c1` is not even
+a `cci_i2c_*` pin pair — it is TLMM 235/236 under function `asc_cci` (the Always-Sensing
+Camera path), which is a different bus, so the two hypotheses are cleanly separable.
 
 ### ✅ CCI0 / CCI1 — PASSED on hardware (2026-08-21)
 
@@ -807,8 +839,7 @@ CCI register addresses and GIC SPI interrupts from ACPI `CAMP._CRS` and device t
 - **`cci0`**: `0x0ac15000 len 0x1000`, `interrupts = <GIC_SPI 456 IRQ_TYPE_EDGE_RISING>`
 - **`cci1`**: `0x0ac16000 len 0x1000`, `interrupts = <GIC_SPI 859 IRQ_TYPE_EDGE_RISING>`
 - **Power domain**: `&camcc CAM_CC_TITAN_TOP_GDSC`
-- **Clocks**: `CAM_CC_CAMNOC_AXI_NRT_CLK`, `CAM_CC_CPAS_AHB_CLK`, `CAM_CC_CCI_0_CLK` / `CAM_CC_CCI_1_CLK` (37.5 MHz)
-- **GPIOs**: Pin 111 mapped to `privacy-led`; Pin 99 unassigned.
+- **Clocks**: `CAM_CC_CAMNOC_AXI_RT_CLK`, `CAM_CC_CPAS_AHB_CLK`, `CAM_CC_CCI_0_CLK` / `CAM_CC_CCI_1_CLK`
 
 **Hardware validation:** Both `ac15000.cci` and `ac16000.cci` probe cleanly with `i2c-qcom-cci`. Four I2C adapters (`i2c-24`..`i2c-27`) instantiate representing `cci0_i2c0`, `cci0_i2c1`, `cci1_i2c0`, `cci1_i2c1`. No IRQ errors; eDP unaffected. Probe script: [`scripts/camera/glymur-cci-probe.sh`](../scripts/camera/glymur-cci-probe.sh).
 
@@ -819,12 +850,33 @@ CCI register addresses and GIC SPI interrupts from ACPI `CAMP._CRS` and device t
 
 **Hardware validation:** `acb7000.isp` probes cleanly under `qcom-camss`. Instantiates a full V4L2/media graph: 4 CSIPHY subdevs (`msm_csiphy0..2,4`), 5 CSIDs (`msm_csid0..4`), VFEs, 28 `/dev/v4l-subdev*` nodes, and `/dev/media0` with default pad formats (`UYVY8_1X16/1920x1080`). Probe script: [`scripts/camera/glymur-camss-probe.sh`](../scripts/camera/glymur-camss-probe.sh).
 
-### OV02C10 front sensor DT binding — STAGED (2026-08-21)
+⚠️ `port@3` is **array index 3 in `csiphy_res_x1e80100[]`, which is hardware CSIPHY4** —
+`camss.c` indexes `camss->csiphy[]` by array position, not by the `.id` field. It is not
+a typo for `port@4`.
 
-- **Node**: `camera@36` staged on `&cci0_i2c0` (`reg = <0x36>`), linked via OF graph endpoint to `&isp` `port@3` (CSIPHY4).
-- **Clocks & Link**: `clocks = <&camcc CAM_CC_MCLK4_CLK>`, `clock-frequency = <19200000>`, `link-frequencies = <400000000>`.
-- **Power supplies**: Fixed-voltage rails (`dovdd`/`avdd`/`dvdd`) deferred until exact PMIC rail mappings are determined to prevent incorrect voltages on physical pins.
-- **Probe script**: [`scripts/camera/glymur-ov02c10-probe.sh`](../scripts/camera/glymur-ov02c10-probe.sh).
+### ⛔ Blocker — `pmh0104` has no LDOs in the kernel
+
+`pmh0104_vreg_data[]` in `drivers/regulator/qcom-rpmh-regulator.c` declares **only
+`smps1`–`smps4`**, and the board dts has no `I_E0` `rpmh-regulators` node at all. So
+`LDO4_I0` / `LDO7_I0` cannot be requested today, and any sensor node naming them will sit
+in deferred probe forever.
+
+Fix staged as [`patches/glymur-pmh0104-camera-ldos.patch`](../patches/glymur-pmh0104-camera-ldos.patch):
+adds `ldo4` (`pmic5_nldo530`) and `ldo7` (`pmic5_pldo530_mvp150`) plus the `I_E0` DT node.
+`pmic5_nldo530` tops out at **2.0 V** (`320000 + 210*8000`), so the 2.8 V LDO7 **must** be
+a PLDO — `pmic5_pldo530_*` covers 1.504–3.544 V. The three `pldo530_mvp{150,300,600}`
+variants differ only in `hpm_min_load_uA` (auto-mode threshold), not in voltage, so
+picking `mvp150` cannot produce a wrong voltage; the exact part variant is unconfirmed.
+
+⚠️ `CONFIG_REGULATOR_QCOM_RPMH=y` — built in. This needs a **full kernel rebuild**, not a
+module swap.
+
+### Still unknown
+
+1. **CCI bus** — `cci1_i2c0` is strongly evidenced but unproven on hardware. `cci1_i2c1` is the fallback. One bit, one boot.
+2. **Slave address `0x36`** — from the Windows CRD sensor config; matches the A14 and the Lenovo Yoga Slim 7x. Near-certain.
+3. **Streaming ≠ probing.** The A14 project reports X1E camera as stable but "requires the Bryan/Linaro tree for full functionality". Whether mainline `qcom-camss` streams unaided is untested here.
+4. **Userspace.** OV02C10 emits raw Bayer and there is no CamX, so a usable webcam needs libcamera softISP + the PipeWire libcamera plugin. `libcamera-0.7.1` and `pipewire-1.6.8` are installed; `libcamera-tools` (qcam) is **not** — install it for testing.
 
 ### Summary of camera scope
 
@@ -832,7 +884,17 @@ CCI register addresses and GIC SPI interrupts from ACPI `CAMP._CRS` and device t
 2. ~~**Sensor identities**~~ — ✅ **DONE 2026-08-21.** OV02C10 (front) and HM1092 (aux).
 3. ~~**CCI0 / CCI1**~~ — ✅ **PASSED 2026-08-21.** `i2c-qcom-cci` bound, 4 I2C adapters (`i2c-24`..`27`).
 4. ~~**CAMSS core (`isp`)**~~ — ✅ **PASSED 2026-08-21.** `qcom-camss` bound, 28 V4L2 subdevs + `/dev/media0`.
-5. **Sensor integration & streaming** — ⏳ Sensor DT endpoints staged for OV02C10; HM1092 driver required; power sequencing & capture validation pending.
+5. ~~**Board wiring (rails, GPIOs, CCI bus)**~~ — ✅ **RECOVERED 2026-09-06** from AeoB + pinctrl cross-check.
+6. **Sensor integration & streaming** — ⏳ needs the `pmh0104` LDO patch (kernel rebuild) + the corrected `camera@36` node, then a chip-ID read, then streaming.
+
+### Nothing in the latest rc helps
+
+`v7.3-rc1` is the newest tag and `kernel-build/zenbook-next-0831` is `next-20260831` on
+top of it — the tree is already current. Last commit to
+`drivers/media/platform/qcom/camss/` anywhere is **2026-06-04** (a macro rename); last
+`ov02c10.c` commit is **2025-12-08**. There is no `qcom,glymur-camss` compatible and no
+upstream device tree carries a camss node for x1e80100 either. **Rebasing gains nothing
+for the camera.**
 
 ---
 
@@ -850,4 +912,4 @@ CCI register addresses and GIC SPI interrupts from ACPI `CAMP._CRS` and device t
 | GPU zap shader | ❌ **tested 2026-08-02** — DT node works, TrustZone rejects the image (`-EINVAL`); adding the node costs the GPU. `SECVID_TRUST_CNTL` fallback is correct here |
 | Headphone jack, DP audio | ❌ known cause (missing DT node), unfixed |
 | USB4 | ❌ blocked upstream — binding is an unmerged RFC |
-| Camera | ⏳ camcc, CCI (i2c-24..27), and CAMSS (28 v4l-subdevs) verified on hardware; sensor wiring (OV02C10/HM1092) staged |
+| Camera | ⏳ camcc, CCI (i2c-24..27), and CAMSS (28 v4l-subdevs) verified on hardware; board wiring recovered 2026-09-06 (OV02C10 on `cci1_i2c0`, MCLK4/TLMM100, reset TLMM239, LDO4/LDO7 on `I_E0`). Blocked on the `pmh0104` LDO patch |

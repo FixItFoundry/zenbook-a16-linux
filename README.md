@@ -185,11 +185,17 @@ reproduce these.
 
 ## What doesn't work
 
-- **Camera** — no `/dev/video*`. `camcc` now probes (94 clocks), which was step one, but
-  CAMSS has no support for this SoC generation: `x1e80100` is supported and glymur is a
-  delta from it, but no upstream device tree has a camss node for *either* SoC, and the
-  sensor ASUS fitted is still unidentified — it does not appear in the Windows DSDT. This
-  is a driver port, not a device-tree job.
+- **Camera** — no `/dev/video*` yet, but much closer than this entry used to claim.
+  `camcc` (94 clocks), CCI0/CCI1 (`i2c-24`..`27`) and the CAMSS core (`isp@acb7000`, 28
+  `v4l-subdev`s + `/dev/media0`) have all been **probed successfully on hardware**, the
+  latter under the upstream `qcom,x1e80100-camss` resource layout. The sensor is
+  identified — OmniVision **OV02C10**, driver already in-tree — and its full board wiring
+  (CCI bus, MCLK pin, reset GPIO, PMIC rails) was recovered on 2026-09-06 from the Windows
+  driver store's AeoB power-sequence blobs. What is left is a small `qcom-rpmh-regulator`
+  patch (PMIC `pmh0104` has no LDOs declared) plus the sensor device-tree node. This is
+  **not** a driver port. See [`docs/hardware.md`](docs/hardware.md). The IR /
+  Windows Hello sensor (SK Hynix **HM1092**) genuinely has no Linux driver and is out of
+  scope.
 - **GPU zap shader** — the DT node is correct and does remove the `-ENODEV` fallback, but
   TrustZone then rejects the upstream-signed image (`-EINVAL`), and `a8xx_gpu.c` tolerates
   only `-ENODEV`, so adding the node costs the entire GPU. The `SECVID_TRUST_CNTL` fallback

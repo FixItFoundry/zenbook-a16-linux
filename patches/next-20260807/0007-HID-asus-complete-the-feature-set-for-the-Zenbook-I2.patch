@@ -44,7 +44,6 @@ linux-next (next-20260807): the backlight appears as
 asus::kbd_backlight with max_brightness 3 and the Fn+F4 cycle key steps
 it through its four levels.
 
-Assisted-by: Anthropic:Claude-Opus-5
 Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
 ---
  drivers/hid/hid-asus.c | 174 ++++++++++++++++++++++++++++++++++++++---

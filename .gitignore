@@ -5,6 +5,7 @@
 # Keep local; publish findings via docs/ instead.
 memory-archive/
 CLAUDE.md
+AGENTS.md
 
 # Extracted UEFI / vendor firmware binaries and the Ghidra project built from
 # them. Proprietary ASUS/Qualcomm code — the RE *findings* are published in
@@ -94,3 +95,6 @@ docs/evidence/
 **/*.dat
 **/*msdm*
 
+
+# Private triage, project status, and hardware experiment records.
+/internal-docs/

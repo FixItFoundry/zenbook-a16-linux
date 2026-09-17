@@ -4,7 +4,6 @@ Date: Sat, 8 Aug 2026 08:20:29 -0400
 Subject: [PATCH 4/7] LOCAL: drm/msm/dp: force the internal eDP panel to the DT
  max link rate
 
-Assisted-by: Anthropic:Claude-Opus-5
 ---
  drivers/gpu/drm/msm/dp/dp_panel.c | 24 ++++++++++++++++++++++++
  1 file changed, 24 insertions(+)

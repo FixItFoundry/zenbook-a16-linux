@@ -4,7 +4,6 @@ Date: Sat, 8 Aug 2026 08:20:29 -0400
 Subject: [PATCH 2/7] drm/msm/dp: make the eDP 1.4 LINK_RATE_SET path actually
  reachable
 
-Assisted-by: Anthropic:Claude-Opus-5
 Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
 ---
  drivers/gpu/drm/msm/dp/dp_ctrl.c | 29 +++++++++++++++++++++++++++++

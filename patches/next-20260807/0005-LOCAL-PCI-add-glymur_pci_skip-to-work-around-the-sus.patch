@@ -4,7 +4,6 @@ Date: Sat, 8 Aug 2026 08:22:24 -0400
 Subject: [PATCH 5/7] LOCAL: PCI: add glymur_pci_skip to work around the
  suspend_noirq SoC reset
 
-Assisted-by: Anthropic:Claude-Opus-5
 ---
  drivers/pci/pci-driver.c | 17 ++++++++++++++---
  1 file changed, 14 insertions(+), 3 deletions(-)

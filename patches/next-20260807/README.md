@@ -39,9 +39,8 @@ limitation has to be understood first — that is what the eDP bug report is for
 
 ## Sign-off status
 
-`0001`, `0002`, `0003` and `0007` carry `Signed-off-by: Jesse Casco`, below the
-`Assisted-by:` trailer. `Assisted-by:` is required by `submitting-patches.rst`; an agent
-must not add `Signed-off-by:` — only the author can certify the DCO.
+`0001`, `0002`, `0003` and `0007` carry `Signed-off-by: Jesse Casco`.
+Only the author can certify the DCO.
 
 The two `LOCAL:` patches (`0004`, `0005`) are deliberately **unsigned**. A DCO
 certification on a patch that must never be sent is an invitation to send it.

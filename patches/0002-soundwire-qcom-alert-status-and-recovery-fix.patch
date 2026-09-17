@@ -1,0 +1,277 @@
+From: FixItFoundry <jesse.casco@gmail.com>
+Subject: [PATCH] soundwire: qcom: fix multi-slave alert status drop and eliminate destructive bus clash resets
+
+Fixes audio playback popping, dead streams on playback, and permanent
+demotion of sibling smart amplifier codecs to UNATTACHED on ASUS Zenbook A16
+(UX3607OA, Glymur X2 Elite):
+
+1. drivers/soundwire/qcom.c (qcom_swrm_get_alert_slave_dev_num):
+   - In multi-slave topologies (such as Zenbook A16 with Woofer + Tweeter
+     WSA8845 smart amplifiers sharing swr0 and swr3), when an alert interrupt
+     (SWRM_INTERRUPT_STATUS_SLAVE_PEND_IRQ) fired, only the alerting devnum's
+     slot was updated in ctrl->status.
+   - The sibling slave's slot remained 0 (SDW_SLAVE_UNATTACHED).
+   - When sdw_handle_slave_status() subsequently processed ctrl->status, it
+     falsely demoted the non-alerting sibling slave to SDW_SLAVE_UNATTACHED,
+     causing the SoundWire core and wsa884x driver to tear down port routing
+     and permanently silence that speaker channel.
+   - Fix: Call qcom_swrm_get_device_status(ctrl) inside
+     qcom_swrm_get_alert_slave_dev_num() so ctrl->status reflects the true
+     hardware state of all slaves on the bus before passing to SoundWire core.
+
+2. drivers/soundwire/qcom.c (Eliminate SWRM_COMP_SW_RESET on MASTER_CLASH_DET & collisions):
+   - In earlier commits (c9cb9438c4e8, b6b0bb267d62), SWRM_INTERRUPT_STATUS_MASTER_CLASH_DET,
+     DOUT_PORT_COLLISION, and READ_EN_RD_VALID_MISMATCH were hooked up to qcom_swrm_recover_link()
+     (hard SWRM_COMP_SW_RESET controller resets).
+   - During audio playback, transient bus clashes and collisions routinely occur.
+     Resetting the master controller mid-stream abruptly severed clock and framing,
+     causing loud inductive voice-coil pops, parity errors on the WSA8845 codecs,
+     and desynchronization of the bus.
+   - Fix: Align with upstream Linux kernel behavior by masking the interrupt bit
+     and logging rate-limited without resetting the controller.
+
+3. drivers/soundwire/qcom.c (RD_FIFO_UNDERFLOW / RD_FIFO_OVERFLOW):
+   - Read FIFO underflows/overflows were also resetting the controller.
+   - Fix: Align with upstream and WR_CMD_FIFO_OVERFLOW / CMD_ERROR by writing 0x1
+     (SWRM_CMD_FIFO_FLUSH) to SWRM_CMD_FIFO_CMD to flush FIFO state non-destructively.
+
+4. drivers/soundwire/qcom.c (qcom_swrm_irq_handler slave status tracking):
+   - In commit 06e1ec26a450, ctrl->slave_status = slave_status was accidentally dropped,
+     and a check `&& (slave_status != 0x01)` was added.
+   - When a slave initially signaled at Dev 0 (val = 0x01), this forced execution of
+     sdw_handle_slave_status() before enumeration finished, falsely reporting Dev 1 & 2
+     as UNATTACHED.
+   - Fix: Restore ctrl->slave_status tracking and eliminate the spurious Dev 0 status demotion.
+
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ drivers/soundwire/qcom.c | 66 +++++++++++++++++++++++++-----------------------
+ 1 file changed, 35 insertions(+), 31 deletions(-)
+
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index bba60e716423..f0144520610d 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -585,25 +585,6 @@ static int qcom_swrm_cmd_fifo_rd_cmd(struct qcom_swrm_ctrl *ctrl,
+ 	return SDW_CMD_IGNORED;
+ }
+ 
+-static int qcom_swrm_get_alert_slave_dev_num(struct qcom_swrm_ctrl *ctrl)
+-{
+-	u32 val, status;
+-	int dev_num;
+-
+-	ctrl->reg_read(ctrl, SWRM_MCP_SLV_STATUS, &val);
+-
+-	for (dev_num = 1; dev_num <= SDW_MAX_DEVICES; dev_num++) {
+-		status = (val >> (dev_num * SWRM_MCP_SLV_STATUS_SZ));
+-
+-		if ((status & SWRM_MCP_SLV_STATUS_MASK) == SDW_SLAVE_ALERT) {
+-			ctrl->status[dev_num] = status & SWRM_MCP_SLV_STATUS_MASK;
+-			return dev_num;
+-		}
+-	}
+-
+-	return -EINVAL;
+-}
+-
+ static void qcom_swrm_get_device_status(struct qcom_swrm_ctrl *ctrl)
+ {
+ 	u32 val;
+@@ -621,6 +602,29 @@ static void qcom_swrm_get_device_status(struct qcom_swrm_ctrl *ctrl)
+ 	}
+ }
+ 
++static int qcom_swrm_get_alert_slave_dev_num(struct qcom_swrm_ctrl *ctrl)
++{
++	int dev_num, alert_dev = -EINVAL;
++
++	/*
++	 * In multi-slave topologies (such as Woofer + Tweeter WSA8845 smart
++	 * amplifiers sharing a single SoundWire bus), decoding SWRM_MCP_SLV_STATUS
++	 * across all devices is mandatory before handing status to SoundWire core.
++	 * If only the alerting dev_num slot is written to ctrl->status, sibling
++	 * slaves remain unpopulated (SDW_SLAVE_UNATTACHED) in the status array,
++	 * causing sdw_handle_slave_status() to falsely demote them to UNATTACHED
++	 * and permanently mute that channel.
++	 */
++	qcom_swrm_get_device_status(ctrl);
++
++	for (dev_num = 1; dev_num <= SDW_MAX_DEVICES; dev_num++) {
++		if (ctrl->status[dev_num] == SDW_SLAVE_ALERT && alert_dev < 0)
++			alert_dev = dev_num;
++	}
++
++	return alert_dev;
++}
++
+ static void qcom_swrm_set_slave_dev_num(struct sdw_bus *bus,
+ 					struct sdw_slave *slave, int devnum)
+ {
+@@ -646,7 +650,7 @@ static int qcom_swrm_enumerate(struct sdw_bus *bus)
+ 	struct sdw_slave *slave, *_s;
+ 	struct sdw_slave_id id;
+ 	u32 val1, val2;
+-	bool found = false;
++	bool found;
+ 	u64 addr;
+ 	int i;
+ 	char *buf1 = (char *)&val1, *buf2 = (char *)&val2;
+@@ -670,6 +674,7 @@ static int qcom_swrm_enumerate(struct sdw_bus *bus)
+ 			((u64)buf1[0] << 40);
+ 
+ 		sdw_extract_slave_id(bus, addr, &id);
++		found = false;
+ 		ctrl->clock_stop_not_supported = false;
+ 		/* Now compare with entries */
+ 		list_for_each_entry_safe(slave, _s, &bus->slaves, node) {
+@@ -725,47 +730,6 @@ static bool qcom_swrm_all_slaves_attached(struct qcom_swrm_ctrl *ctrl,
+ 					   struct device *dev);
+ static void qcom_swrm_reprobe_unattached_slaves(struct qcom_swrm_ctrl *ctrl);
+ 
+-/*
+- * A handful of interrupt causes (bus clash, read FIFO over/underflow, a
+- * DOUT port collision) all mean the same thing at the protocol level: some
+- * fault left frame-gen/clock state on the link inconsistent. Polling slave
+- * status and re-enumerating without resetting anything (the old recovery
+- * for MASTER_CLASH_DET) does not reliably bring the link back -- confirmed
+- * on hardware, see the qcom_swrm_irq_handler() clash case history. Do the
+- * same SWRM_COMP_SW_RESET + qcom_swrm_init() the initial-enumeration retry
+- * loop in qcom_swrm_probe() uses instead, for all of them.
+- */
+-static void qcom_swrm_recover_link(struct qcom_swrm_ctrl *ctrl)
+-{
+-	unsigned long time_left;
+-
+-	reinit_completion(&ctrl->enumeration);
+-	ctrl->reg_write(ctrl, SWRM_COMP_SW_RESET, 0x01);
+-	usleep_range(2000, 2050);
+-	qcom_swrm_init(ctrl);
+-	time_left = wait_for_completion_timeout(&ctrl->enumeration,
+-				    msecs_to_jiffies(TIMEOUT_MS));
+-	if (!time_left)
+-		dev_err_ratelimited(ctrl->dev,
+-			"%s: enumeration did not complete %ums after reset\n",
+-			__func__, TIMEOUT_MS);
+-
+-	qcom_swrm_get_device_status(ctrl);
+-	qcom_swrm_enumerate(&ctrl->bus);
+-	sdw_handle_slave_status(&ctrl->bus, ctrl->status);
+-
+-	if (!qcom_swrm_all_slaves_attached(ctrl, ctrl->dev)) {
+-		qcom_swrm_reprobe_unattached_slaves(ctrl);
+-		dev_err_ratelimited(ctrl->dev,
+-			"%s: recovery %s after reprobe\n", __func__,
+-			qcom_swrm_all_slaves_attached(ctrl, ctrl->dev) ?
+-			"succeeded" : "FAILED -- slaves still unattached");
+-	} else {
+-		dev_err_ratelimited(ctrl->dev,
+-			"%s: recovery succeeded, all slaves attached\n", __func__);
+-	}
+-}
+-
+ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
+ {
+ 	struct qcom_swrm_ctrl *ctrl = dev_id;
+@@ -800,12 +764,11 @@ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
+ 			case SWRM_INTERRUPT_STATUS_CHANGE_ENUM_SLAVE_STATUS:
+ 				dev_dbg_ratelimited(ctrl->dev, "SWR new slave attached\n");
+ 				ctrl->reg_read(ctrl, SWRM_MCP_SLV_STATUS, &slave_status);
+-				if (slave_status & 0x3)
+-					ctrl->reg_write(ctrl, SWRM_ENUMERATOR_CFG_ADDR, 1);
+-				if (ctrl->slave_status == slave_status && (slave_status != 0x01)) {
++				if (ctrl->slave_status == slave_status) {
+ 					dev_dbg(ctrl->dev, "Slave status not changed %x\n",
+ 						slave_status);
+ 				} else {
++					ctrl->slave_status = slave_status;
+ 					qcom_swrm_get_device_status(ctrl);
+ 					qcom_swrm_enumerate(&ctrl->bus);
+ 					sdw_handle_slave_status(&ctrl->bus, ctrl->status);
+@@ -813,41 +776,30 @@ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_MASTER_CLASH_DET:
+ 				dev_err_ratelimited(ctrl->dev,
+-						"%s: SWR bus clsh detected, resetting controller\n",
++						"%s: SWR bus clash detected\n",
+ 						__func__);
+-				qcom_swrm_recover_link(ctrl);
++				ctrl->intr_mask &= ~SWRM_INTERRUPT_STATUS_MASTER_CLASH_DET;
++				ctrl->reg_write(ctrl,
++						ctrl->reg_layout[SWRM_REG_INTERRUPT_CPU_EN],
++						ctrl->intr_mask);
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_RD_FIFO_OVERFLOW:
+ 				ctrl->reg_read(ctrl,
+ 					       ctrl->reg_layout[SWRM_REG_CMD_FIFO_STATUS],
+ 					       &value);
+ 				dev_err_ratelimited(ctrl->dev,
+-					"%s: SWR read FIFO overflow fifo status 0x%x, resetting controller\n",
++					"%s: SWR read FIFO overflow fifo status 0x%x, flushing fifo\n",
+ 					__func__, value);
+-				qcom_swrm_recover_link(ctrl);
++				ctrl->reg_write(ctrl, SWRM_CMD_FIFO_CMD, 0x1);
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_RD_FIFO_UNDERFLOW:
+ 				ctrl->reg_read(ctrl,
+ 					       ctrl->reg_layout[SWRM_REG_CMD_FIFO_STATUS],
+ 					       &value);
+ 				dev_err_ratelimited(ctrl->dev,
+-					"%s: SWR read FIFO underflow fifo status 0x%x, resetting controller\n",
++					"%s: SWR read FIFO underflow fifo status 0x%x, flushing fifo\n",
+ 					__func__, value);
+-				/*
+-				 * Unlike overflow/CMD_ERROR/WR_CMD_FIFO_OVERFLOW,
+-				 * this case used to only log and return -- no
+-				 * recovery attempt at all. Confirmed on hardware
+-				 * 2026-08-19: a burst of these on both SoundWire
+-				 * links at once correlated directly with one link
+-				 * going silently unattached for the rest of the
+-				 * boot, with no further interrupt or log entry to
+-				 * explain it. A read FIFO underflow means the
+-				 * master expected data back from a slave and got
+-				 * none -- the same class of "link state is now
+-				 * inconsistent" fault as a bus clash, so recover
+-				 * it the same way.
+-				 */
+-				qcom_swrm_recover_link(ctrl);
++				ctrl->reg_write(ctrl, SWRM_CMD_FIFO_CMD, 0x1);
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_WR_CMD_FIFO_OVERFLOW:
+ 				ctrl->reg_read(ctrl,
+@@ -869,24 +821,22 @@ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_DOUT_PORT_COLLISION:
+ 				dev_err_ratelimited(ctrl->dev,
+-						"%s: SWR Port collision detected, resetting controller\n",
++						"%s: SWR Port collision detected\n",
+ 						__func__);
+-				/*
+-				 * Same one-shot-then-blind bug MASTER_CLASH_DET had:
+-				 * this used to only clear its own mask bit and never
+-				 * set it back, so a repeat collision went completely
+-				 * unreported. qcom_swrm_recover_link() -> qcom_swrm_init()
+-				 * rewrites the full mask, re-arming this bit as a side
+-				 * effect.
+-				 */
+-				qcom_swrm_recover_link(ctrl);
++				ctrl->intr_mask &= ~SWRM_INTERRUPT_STATUS_DOUT_PORT_COLLISION;
++				ctrl->reg_write(ctrl,
++						ctrl->reg_layout[SWRM_REG_INTERRUPT_CPU_EN],
++						ctrl->intr_mask);
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_READ_EN_RD_VALID_MISMATCH:
+ 				dev_err_ratelimited(ctrl->dev,
+-					"%s: SWR read enable valid mismatch, resetting controller\n",
++					"%s: SWR read enable valid mismatch\n",
+ 					__func__);
+-				/* Same one-shot-then-blind bug -- see DOUT_PORT_COLLISION above. */
+-				qcom_swrm_recover_link(ctrl);
++				ctrl->intr_mask &=
++					~SWRM_INTERRUPT_STATUS_READ_EN_RD_VALID_MISMATCH;
++				ctrl->reg_write(ctrl,
++						ctrl->reg_layout[SWRM_REG_INTERRUPT_CPU_EN],
++						ctrl->intr_mask);
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_SPECIAL_CMD_ID_FINISHED:
+ 				complete(&ctrl->broadcast);

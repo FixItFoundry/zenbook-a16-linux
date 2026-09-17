@@ -47,7 +47,6 @@ With these changes the v8 PHY has been validated to lock at 1.62, 2.7,
 5.4 and 8.1 Gbps, using both 2 and 4 lanes. Link training now suceeds on
 4-lane 8.1Gbps and 2-lane 5.4Gbps.
 
-Assisted-by: Codex:GPT-5.5
 Signed-off-by: Bjorn Andersson <bjorn.andersson@oss.qualcomm.com>
 ---
  drivers/phy/qualcomm/phy-qcom-edp.c | 426 ++++++++++++++++++++++++++--
