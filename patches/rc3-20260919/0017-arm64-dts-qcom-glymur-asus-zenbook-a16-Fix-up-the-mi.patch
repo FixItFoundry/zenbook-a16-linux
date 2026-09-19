@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Date: Sat, 19 Sep 2026 10:15:50 -0400
+Subject: [PATCH 17/24] arm64: dts: qcom: glymur-asus-zenbook-a16: Fix up the
+ mic sample rate
+
+Set the correct value for the hardware, matching the readout from
+Windows during audio recording.
+
+The microphone seems to work fine either way.
+
+Fixes: e8fbbca94db7 ("arm64: dts: qcom: glymur: Add Asus Zenbook A16 (UX3607OA)")
+Signed-off-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Reviewed-by: Abel Vesa <abel.vesa@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260910-topic-zenbook_mic_sampling-v1-1-2532136d5a9b@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+
+Backport of upstream commit 73f0a1026210c008ba4414b3181fa679096ef968.
+---
+ arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+index 939e1a927a7930651cf87cc8fb339515f5479a48..40433dc2d6cf935178d9ca47d0c751fd3913bbf9 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+@@ -737,7 +737,7 @@ &lpass_vamacro {
+ 	pinctrl-0 = <&dmic01_default>;
+ 	pinctrl-names = "default";
+ 
+-	qcom,dmic-sample-rate = <4800000>;
++	qcom,dmic-sample-rate = <2400000>;
+ };
+ 
+ &mdss {

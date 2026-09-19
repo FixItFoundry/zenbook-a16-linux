@@ -1,7 +1,10 @@
 # Hardware components — what each one is, how it connects, and where it stands
 
 ASUS Zenbook A16 **UX3607OA** · Qualcomm Snapdragon **X2 Elite Extreme** (`glymur`,
-X2E94100, 18 cores) · kernel `7.2.0-rc6` (`next-20260817`) + local patches.
+X2E94100, 18 cores) · working baseline `7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+`.
+
+**Current status:** [build and validation record](current-build.md). Older sections
+below retain historical measurements; they are not blanket RC3 validation.
 
 This is the single component reference. For the exact device-tree and kernel changes behind
 each "what we changed" line, see [`modifications.md`](modifications.md).
@@ -290,30 +293,33 @@ Firmware is deliberately **not** shipped in this repo.
 ⚠️ Wi-Fi takes up to ~5 minutes to re-associate after resume. "I cannot ssh in" is not evidence
 of a crash — judge by `uptime -s`.
 
-## Audio ✅
+## Audio ⚠️ — usable, startup and recovery unresolved
 
-**Chain:** ADSP (`remoteproc0`, UEFI-loaded) → AudioReach topology → **4× WSA8845 speaker amps
+**Chain:** ADSP (identify by remoteproc `name`, not numeric index) → AudioReach topology → **4× WSA8845 speaker amps
 on SoundWire** + internal DMIC.
 
-**Audio Architecture & Enhancements:**
-1. **Native ALSA UCM2 Integration** — UCM configuration (`HiFi.conf`, `GLYMUR-A16.conf`) with sound card name aliases (`GLYMURASUSZenbo`, `GLYMUR-ASUS-Zenbook-A16-UX3607OA`) enables automatic ALSA initialization at boot.
-2. **SoundWire Auto-Enumeration Recovery** — In-tree kernel driver handles bus clash auto-enumeration recovery on cold boots.
-3. **WirePlumber 2-Channel Stereo Routing** — Configured in `51-glymur-ucm.conf` to map stereo output `[FL FR]` across speakers cleanly and prevent idle suspend timeouts.
-4. **EasyEffects Background Service** — Systemd user service automatically manages DSP effects with hardware sink synchronization.
-5. **Multi-Slave Alert Synchronization (2026-09-16)** — `qcom_swrm_get_alert_slave_dev_num()` decodes full `SWRM_MCP_SLV_STATUS` across all devices, eliminating spurious demotion of sibling WSA8845 amplifiers to UNATTACHED and fixing single-sided playback.
-6. **Non-Destructive Command FIFO Recovery (2026-09-16)** — `RD_FIFO_UNDERFLOW` flushes the command FIFO instead of resetting the master controller (`SWRM_COMP_SW_RESET`), eliminating speaker popping and dead streams during playback.
+Native ALSA UCM2 provides the HiFi speaker/microphone routes. WirePlumber exposes
+four speaker channels `[FL FR RL RR]`; EasyEffects is removed. The retired
+systemd route/wait helpers remain disabled.
+
+The RC3 baseline carries experimental SoundWire attachment/recovery changes.
+Front-left silence occurred after boot and recovered after a manual device
+cycle. A separate collector observed temporary left-amplifier detachment even
+without a kernel bus-clash message. Neither sink presence nor attachment proves
+audible output. Earlier claims that single-sided playback and pops were fully
+resolved are superseded; cold-boot and idle/playback validation remain open.
 
 ❌ **Headphone jack** — jack detect exists, but there is no rx-macro/WCD9395 codec node in the
 DT yet. ❌ **DisplayPort audio** — backends exist but are not wired up.
 
 ## Battery, charging and USB-PD ✅
 
-**Chain:** `soccp_glink` (custom battery driver, now built in-tree) + `qcom-battmgr` +
+**Current chain:** native SOCCP remoteproc attachment + `qcom-battmgr` +
 `ps883x` PD controller. Battery, Type-C/UCSI and DP alt-mode **all hang off one glink edge** and
 fail *silently together* — if several of them break at once, check the transport first.
 
-**What we changed:** the SOCCP is UEFI-loaded and already running, so the DT must not try to
-boot it; `&remoteproc_soccp` is deliberately omitted.
+The RC3 board configuration uses attachment to the already-running SOCCP.
+The old standalone `soccp_glink` module-load entry is retired.
 
 ⚠️ **`qcom-battmgr-ac/online = 0` is CORRECT.** Its `type` is `Mains` — a barrel-jack rail this
 laptop does not have. It charges over USB-C PD. Read `qcom-battmgr-usb/online` instead.
@@ -374,7 +380,7 @@ The Fast-Channel theory is plausible and **untested** — do not repeat it as ca
 
 ## Thermal ✅
 
-41 `cpu*`/`cpullc*` zones bind the `cpufreq-cpu0/6/12` cooling devices; actuation confirmed by
+42 `cpu*`/`cpullc*` zones bind the `cpufreq-cpu0/6/12` cooling devices; actuation confirmed by
 stepping `emul_temp` across the 95 °C passive trip and watching `cur_state` go 0→1→2→3.
 
 ⛔ **`emul_temp` ≥ the critical trip (115000) POWERS THE MACHINE OFF** immediately — the thermal
@@ -479,9 +485,10 @@ devices then never save state or change D-state, **they stay powered through sus
 sleeps, but saves less power than a correct implementation. **Suspend draw has never been
 measured.**
 
-⚠️ Snapdragon does not implement S3/`deep`; `s2idle` is the only viable mode and is forced via
-`/etc/tmpfiles.d/glymur-s2idle.conf`. Hibernate is masked deliberately — no RTC wake alarm
-(`qcom,no-alarm`).
+⚠️ This kernel advertises `deep`, but only `s2idle` is tested and is forced via
+`/etc/tmpfiles.d/glymur-s2idle.conf`. Hibernate is deliberately masked as untested; the missing
+RTC wake alarm (`qcom,no-alarm`) prevents scheduled wake but does not itself prevent resuming a
+hibernation image after a normal boot.
 ⚠️ **Wake with the lid.** `HandlePowerKey=poweroff` turns a wake attempt into a fake failure.
 
 ### ★ Two devices do not survive resume (root-caused 2026-08-02)

@@ -1,5 +1,11 @@
 # Audio: the ADSP firmware boot-ordering trap
 
+> **2026-09-19 update:** this is historical troubleshooting. RC3 still has
+> intermittent single-sided audio; the retired services remain disabled.
+> Native UCM is installed, but durable recovery is not established. See
+> [current build status](current-build.md). UCM control writes are sequential,
+> not a hardware-atomic transaction.
+
 **Status as of 2026-08-16:** RESOLVED and DURABLE.
 Workaround systemd `.service` units retired in favor of native ALSA UCM2 profiles
 and kernel `q6apm` fast-retry polling. Flawless 4-channel audio playback and capture.

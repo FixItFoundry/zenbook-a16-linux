@@ -1,0 +1,24 @@
+96fee7b0dee7f2f3ceec758fa0bcd0380b3772bc drm/msm/dp: make the eDP 1.4 LINK_RATE_SET path actually reachable
+d9cb9a5ce86213ac99b87fa0cf816289ab072233 phy: qcom: edp: split power-on sequencing by PHY version
+16186ff62ba3808b5e9fbb13ac7b0e196c16feed phy: qcom: edp: update v8 power-on programming sequence
+0167d2d432188901b61370e3500feb530f9aaf3c HID: asus: complete the feature set for the Zenbook I2C keyboard
+76a6088af236b4849bda192897707a31cf9c62ab wifi: carry proven A16 QCC2072 baseline into audio test
+b87745bdd4f6aec6876a74851a937944c8be9961 clk: qcom: gpucc-glymur: Mark the GPU CX GDSC as votable
+45c2e04003edb93be5c0453dc11aed709cfc940a drm/msm/dp: skip PUSH_IDLE when the link was never enabled
+7b2e08e6df85ddc2af40ad6aa805a84e4f4ab136 ASoC: codecs: lpass-wsa-macro: use v2.5 Compander1 addresses on v2.5+
+ac484e35259b0f4d98e222eb5d27372932124b72 ASoC: codecs: lpass: Make sure clk_init_data is fully initialized
+026cb13dad183253fd43cd62047516f87a4643da arm64: dts: qcom: glymur: Add missing USB clock, power and bandwidth votes
+1ccdedc935a07ea2e18eaf9b46a2f5f533587b74 LOCAL EXPERIMENT: preserve test4 SoundWire compatibility for RC comparison
+84c2d3bac4d0c5f34d1e7e986beb23406de43119 ASoC: wsa884x: balance pm_runtime_enable() with devm-managed disable
+5d92ede3690d849c231160aa1a096189571b853a ASoC: qdsp6: q6apm: fast-retry APM_CMD_GET_SPF_STATE to eliminate 5s boot timeout
+91ec9aaf0d548e8326c003d9cda2174e1e0fb6fe LOCAL: PCI: add glymur_pci_skip to work around the suspend_noirq SoC reset
+0d337ec3389794d2d3e9422f3f13b770eab0c471 security/keys/trusted-keys: include asn1_decoder.h for asn1_ber_decoder()
+23ab4739b5a86725d5f8ed8440fbcf249cc32a7c soundwire: qcom: cache SCP_ADDRPAGE1/2 to preserve MBQ atomicity
+bb9c1c784ffa00b22733a5b761439ce90102f872 arm64: dts: qcom: glymur-asus-zenbook-a16: Fix up the mic sample rate
+023b5a48cc9c2931b0b8755330d8377b04bf7073 LOCAL COMPAT: A16 Wi-Fi and Bluetooth power sequencing
+8e0d5419c3d8b781db7385ad1d6cc5026dd252cb LOCAL COMPAT: A16 display supply compatibility
+6b4f4b0dd56085b373a4ee01330683c7cce4baae LOCAL COMPAT: A16 RTC compatibility
+c2f12ac2007673cb0ec1c0ce29eadc6d17cc3b61 LOCAL COMPAT: A16 USB host and HDMI clock compatibility
+dcc829ee0f8ff170c6e3d6504acc8601a0dc5346 LOCAL COMPAT: A16 retain CPU and LLC passive cooling maps
+ee38f08c74f66fe2aeab8254eae3e80d3b8079f0 LOCAL COMPAT: A16 retain board-scoped SCMI polling and attached SOCCP defaults
+ecb5f3d03d5b187ef54fbba07ddc73765aa76791 LOCAL COMPAT: align QCC2072 endpoint with effective boot DTB

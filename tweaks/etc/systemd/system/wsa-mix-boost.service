@@ -1,0 +1,16 @@
+[Unit]
+Description=Boost WSA speaker MIX digital volume (+6 dB) for loudness
+After=alsa-restore.service alsa-state.service sound.target
+Wants=sound.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=10s
+ExecStart=/usr/bin/amixer -c GLYMURASUSZenbo sset "WSA WSA_RX0_MIX Digital" 90
+ExecStart=/usr/bin/amixer -c GLYMURASUSZenbo sset "WSA WSA_RX1_MIX Digital" 90
+ExecStart=/usr/bin/amixer -c GLYMURASUSZenbo sset "WSA2 WSA_RX0_MIX Digital" 90
+ExecStart=/usr/bin/amixer -c GLYMURASUSZenbo sset "WSA2 WSA_RX1_MIX Digital" 90
+
+[Install]
+WantedBy=multi-user.target

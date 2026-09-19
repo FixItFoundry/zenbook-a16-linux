@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Sat, 19 Sep 2026 10:16:31 -0400
+Subject: [PATCH 19/24] LOCAL COMPAT: A16 display supply compatibility
+
+Selected net board hunks from test4 ffc9a506cae6, split for RC3 review. Historical comments describe prior experiments, not new validation. Not an upstream-ready patch; effective DT comparison and hardware validation pending.
+---
+ .../qcom/glymur-asus-zenbook-a16-ux3607oa.dts | 26 +++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+index 86ac3f83dff8703681c3a95de85f69924c511c0c..790037195c04e52d7576e66c4666d3e3d82c3187 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+@@ -661,6 +661,14 @@ vreg_l2f_e1: ldo2 {
+ 			regulator-name = "vreg_l2f_e1";
+ 			regulator-min-microvolt = <880000>;
+ 			regulator-max-microvolt = <880000>;
++
++			/*
++			 * GLYMUR-A16: pin the eDP PHY supplies. qcom_edp_phy_exit()
++			 * drops them on display power-down and the SoC is reset
++			 * externally (no Linux fault). Reproduced 2/2 on the 7.1 tree
++			 * as test73; merged1 regressed without it.
++			 */
++			regulator-always-on;
+ 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+ 		};
+ 
+@@ -668,16 +676,34 @@ vreg_l4f_e1: ldo4 {
+ 			regulator-name = "vreg_l4f_e1";
+ 			regulator-min-microvolt = <1200000>;
+ 			regulator-max-microvolt = <1200000>;
++
++			/*
++			 * GLYMUR-A16: pin the eDP PHY supplies. qcom_edp_phy_exit()
++			 * drops them on display power-down and the SoC is reset
++			 * externally (no Linux fault). Reproduced 2/2 on the 7.1 tree
++			 * as test73; merged1 regressed without it.
++			 */
++			regulator-always-on;
+ 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+ 		};
+ 	};
+ };
+ 
+ &gpu {
++	/*
++	 * GLYMUR-A16: requires gpucc_glymur to NOT be blacklisted on the cmdline -
++	 * gxclkctl-kaanapali runtime-resumes gpucc at probe, and without it the
++	 * adreno SMMU times out and the whole msm component bind fails.
++	 */
+ 	status = "okay";
+ };
+ 
+ &gmu {
++	/*
++	 * GLYMUR-A16: requires gpucc_glymur to NOT be blacklisted on the cmdline -
++	 * gxclkctl-kaanapali runtime-resumes gpucc at probe, and without it the
++	 * adreno SMMU times out and the whole msm component bind fails.
++	 */
+ 	status = "okay";
+ };
+ 

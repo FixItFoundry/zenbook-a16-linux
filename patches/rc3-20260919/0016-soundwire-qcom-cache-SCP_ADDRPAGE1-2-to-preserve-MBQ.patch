@@ -1,0 +1,102 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Srinivas Kandagatla <srinivas.kandagatla@oss.qualcomm.com>
+Date: Sat, 19 Sep 2026 10:15:50 -0400
+Subject: [PATCH 16/24] soundwire: qcom: cache SCP_ADDRPAGE1/2 to preserve MBQ
+ atomicity
+
+qcom_swrm_xfer_msg() reprograms SCP_ADDRPAGE1/2 before every paged
+transfer, even when the paging window hasn't changed. Besides the
+wasted bus transactions, this breaks the atomicity that SoundWire
+Classic Multi-Byte Quantity (MBQ) writes rely on: the kernel's MBQ
+regmap emits an MBQ pair as two sdw_write_no_pm() calls to bit-13
+aliases sharing the same page, and the intervening PAGE writes
+invalidate the MBQ high-byte staging on Peripherals that observe
+them.  On WCD9378 FU42 Q7.8 Channel Volume this drops the MSB byte
+silently.
+
+Per SDCA v1.1 sections 12.2.5 and 12.2.8.2.1, MBQ pairs are expected
+to be atomic on the wire.  Cache the last-programmed page values per
+Slave, skip the FIFO write when they match, and invalidate on
+re-attach since SCP_ADDRPAGE1/2 reset to defaults on re-enumeration.
+
+Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@oss.qualcomm.com>
+Cc: Faiz Nabi Kuchay <fkuchay@oss.qualcomm.com>
+Link: https://patch.msgid.link/20260902112838.1369446-1-srinivas.kandagatla@oss.qualcomm.com
+Signed-off-by: Vinod Koul <vkoul@kernel.org>
+
+Backport of upstream commit eb9ea1a0fa28abe7a511cb67363a0cc835a02f04. Context adapted around local probe guard. Local recovery re-enumerates via qcom_swrm_set_slave_dev_num; reset/transfer concurrency remains experimental.
+---
+ drivers/soundwire/qcom.c | 38 ++++++++++++++++++++++++++++----------
+ 1 file changed, 28 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index fa2c3f18afc36e07580856b337c71a8cd69cc5c9..9d39f298e08fd820f5cc7bb6381acac48ea96bdd 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -233,6 +233,9 @@ struct qcom_swrm_ctrl {
+ 	u32 slave_status;
+ 	u32 wr_fifo_depth;
+ 	bool clock_stop_not_supported;
++	/* Per-Slave SCP_ADDRPAGE1/2 shadow; -1 = unknown. */
++	s16 page1_cache[SDW_MAX_DEVICES + 1];
++	s16 page2_cache[SDW_MAX_DEVICES + 1];
+ };
+ 
+ /* Controller recovery must not overlap another controller's probe. */
+@@ -649,6 +652,10 @@ static void qcom_swrm_set_slave_dev_num(struct sdw_bus *bus,
+ 		mutex_lock(&bus->bus_lock);
+ 		set_bit(devnum, bus->assigned);
+ 		mutex_unlock(&bus->bus_lock);
++
++		/* Re-attach resets SCP_ADDRPAGE1/2 to defaults; invalidate. */
++		ctrl->page1_cache[devnum] = -1;
++		ctrl->page2_cache[devnum] = -1;
+ 	}
+ }
+ 
+@@ -1102,17 +1109,25 @@ static enum sdw_command_response qcom_swrm_xfer_msg(struct sdw_bus *bus,
+ 	int ret, i, len;
+ 
+ 	if (msg->page) {
+-		ret = qcom_swrm_cmd_fifo_wr_cmd(ctrl, msg->addr_page1,
+-						msg->dev_num,
+-						SDW_SCP_ADDRPAGE1);
+-		if (ret)
+-			return ret;
++		if (ctrl->page1_cache[msg->dev_num] != msg->addr_page1) {
++			ret = qcom_swrm_cmd_fifo_wr_cmd(ctrl, msg->addr_page1,
++							msg->dev_num,
++							SDW_SCP_ADDRPAGE1);
++			if (ret)
++				return ret;
+ 
+-		ret = qcom_swrm_cmd_fifo_wr_cmd(ctrl, msg->addr_page2,
+-						msg->dev_num,
+-						SDW_SCP_ADDRPAGE2);
+-		if (ret)
+-			return ret;
++			ctrl->page1_cache[msg->dev_num] = msg->addr_page1;
++		}
++
++		if (ctrl->page2_cache[msg->dev_num] != msg->addr_page2) {
++			ret = qcom_swrm_cmd_fifo_wr_cmd(ctrl, msg->addr_page2,
++							msg->dev_num,
++							SDW_SCP_ADDRPAGE2);
++			if (ret)
++				return ret;
++
++			ctrl->page2_cache[msg->dev_num] = msg->addr_page2;
++		}
+ 	}
+ 
+ 	if (msg->flags == SDW_MSG_FLAG_READ) {
+@@ -1764,6 +1779,9 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 		return -ENOMEM;
+ 	guard(mutex)(&qcom_swrm_probe_recovery_lock);
+ 
++	memset(ctrl->page1_cache, 0xff, sizeof(ctrl->page1_cache));
++	memset(ctrl->page2_cache, 0xff, sizeof(ctrl->page2_cache));
++
+ 	data = of_device_get_match_data(dev);
+ 	ctrl->max_reg = data->max_reg;
+ 	ctrl->reg_layout = data->reg_layout;

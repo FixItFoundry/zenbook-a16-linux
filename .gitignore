@@ -39,6 +39,8 @@ clo-rolling_glymur_next/
 *.tar.gz
 
 # --- SCRATCH / WORKING ------------------------------------------------------
+__pycache__/
+*.pyc
 # Working files live here and are never committed. Anything meant to be kept
 # gets moved out of scratch/ deliberately.
 scratch/

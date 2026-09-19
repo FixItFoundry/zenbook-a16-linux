@@ -9,6 +9,11 @@ issue — we'll fix it immediately.
 
 ## Adopted into this tree
 
+The [2026-09-19 RC3 integration](patches/rc3-20260919/README.md) preserves author,
+review and source-link trailers in each exported patch. Its ordered commit list
+is [recorded separately](patches/rc3-20260919/commits.txt); local compatibility
+and experimental patches are not represented as new upstream work.
+
 | What | Author | Patch | Status |
 |---|---|---|---|
 | Zenbook A16 keyboard support (I2C-HID quirks, key mapping) | **Konrad Dybcio** | `HID: asus: support the Zenbook A16 (UX3607OA) keyboard`, 2026-07-24, `20260724-topic-asus_keyboard-v1-1-a746ff8f77b2@oss.qualcomm.com` | Adopted 2026-07-27. One mapping (`0x5f`) drifted from a leftover local value; corrected 2026-07-31 to match Konrad's. |

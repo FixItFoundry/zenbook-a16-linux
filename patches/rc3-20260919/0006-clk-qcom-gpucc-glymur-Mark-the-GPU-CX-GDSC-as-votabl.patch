@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Taniya Das <taniya.das@oss.qualcomm.com>
+Date: Sat, 19 Sep 2026 10:13:28 -0400
+Subject: [PATCH 06/24] clk: qcom: gpucc-glymur: Mark the GPU CX GDSC as
+ votable
+
+The GPU CX GDSC on Glymur is a votable power domain and hence should
+not be polled for power-off status during GDSC disable. Also, its
+power-on status should be read from the GDS hardware control register.
+
+Accommodate this by removing POLL_CFG_GDSCR and adding the VOTABLE
+flag for the GPU CX GDSC, similar to other platforms (e.g. SM8750 and
+Milos).
+
+Fixes: 67e645285dd0 ("clk: qcom: Add support for GPUCC and GXCLK for Glymur")
+Signed-off-by: Taniya Das <taniya.das@oss.qualcomm.com>
+Reviewed-by: Jagadeesh Kona <jagadeesh.kona@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260801-kaanapali-gpu-voteable-v1-1-fe804d24d2e9@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+
+Backport of upstream commit 8f3f88309fa4e975ac27368ee945c2c202251a7c.
+---
+ drivers/clk/qcom/gpucc-glymur.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/clk/qcom/gpucc-glymur.c b/drivers/clk/qcom/gpucc-glymur.c
+index 001b2454786a0c0d63370b3ff385ed5a2bff1b07..cac51de20b2950733d6d48ceb14e60d6181665ab 100644
+--- a/drivers/clk/qcom/gpucc-glymur.c
++++ b/drivers/clk/qcom/gpucc-glymur.c
+@@ -510,7 +510,7 @@ static struct gdsc gpu_cc_cx_gdsc = {
+ 		.name = "gpu_cc_cx_gdsc",
+ 	},
+ 	.pwrsts = PWRSTS_OFF_ON,
+-	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
++	.flags = RETAIN_FF_ENABLE | VOTABLE,
+ };
+ 
+ static struct clk_regmap *gpu_cc_glymur_clocks[] = {

@@ -10,7 +10,27 @@ one.
 
 ---
 
+## 2026-09-19 — RC3 working baseline and boot housekeeping
+
+- Promoted `7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+` as the working default,
+  retaining test3 and the older baseline as fallbacks. Archived obsolete GRUB
+  entries without removing their artifacts.
+- Integrated selected next backports and local board compatibility on v7.3-rc3;
+  camera changes remain separate. See [build status](docs/current-build.md).
+- Packaged the exact 24-patch RC3 series and config; source-tree replay matches
+  the running build's source. Added tested diagnostic cleanup, bounded storage
+  and stricter service gates; installed the persistent collector as root-owned files.
+- Corrected mixer startup, quarantined malformed crash data, and cleaned up
+  session startup. Measured boot time fell from 50.8 s to 15.6 s.
+- Removed EasyEffects and the obsolete standalone SOCCP module-load entry.
+- **Audio remains unresolved:** manual device cycling recovered silent channels
+  on RC3 without restarting the audio daemons. Physical cold-boot/idle validation
+  and investigation of spontaneous resets remain open.
+
 ## 2026-09-16 — SoundWire audio speaker pops eliminated, multi-slave alert demotion fixed, dead stream resolved
+
+> Superseded by the 2026-09-19 status: single-sided audio and recovery remain
+> unresolved. The heading below records the original conclusion, not current validation.
 
 - **Speaker pop and dead audio stream root causes identified and resolved**:
   Investigated loud pops on start/stop/seek of audio and reproducible single-sided playback

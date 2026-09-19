@@ -1,8 +1,9 @@
 # Modifications — every device-tree and kernel change, and why
 
-Baseline is Konrad Dybcio's upstream A16 device tree on kernel **7.2.0-rc6** (`next-20260817`
-lineage). Everything below is what this project adds on top. For what each component *is*, see
-[`hardware.md`](hardware.md).
+The current working baseline is **Linux v7.3-rc3 plus selected backports and local
+patches**; see [current-build.md](current-build.md) for its exact identity and
+validation limits. The detailed deltas below describe earlier bring-up revisions,
+not the complete RC3 patch manifest. For components, see [hardware.md](hardware.md).
 
 - **Upstream baseline:** [`../upstream/dts/glymur-asus-zenbook-a16-ux3607oa.dts`](../upstream/dts/glymur-asus-zenbook-a16-ux3607oa.dts) (1271 lines)
 - **Ours:** [`../dts/glymur-asus-zenbook-a16-ux3607oa-merged-gpu.dts`](../dts/glymur-asus-zenbook-a16-ux3607oa-merged-gpu.dts) (1476 lines)
@@ -128,7 +129,7 @@ Measured, not guessed: 8 messages sent in IRQ mode → IRQ 156 went 9→16 (one 
 
 ### Thermal — bind the cooling devices
 
-`passive` trip at 95 °C plus `cooling-maps` on all 41 `cpu*`/`cpullc*` zones, tying them to the
+`passive` trip at 95 °C plus `cooling-maps` on all 42 `cpu*`/`cpullc*` zones, tying them to the
 `cpufreq-cpu0/6/12` cooling devices the cpufreq fix created.
 
 ⚠️ **The "no zone binds them" gap never existed for long** — the *verifier* was broken. It

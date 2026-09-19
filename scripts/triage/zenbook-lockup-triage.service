@@ -1,0 +1,15 @@
+[Unit]
+Description=Capture per-boot counters for Zenbook A16 lockup triage
+After=systemd-journald.service local-fs.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/bash /usr/local/libexec/zenbook-a16/lockup-capture.sh
+Restart=always
+RestartPreventExitStatus=75
+RestartSec=10
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target
