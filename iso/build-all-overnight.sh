@@ -37,6 +37,7 @@ DTB="${DTB:-$STAGE/$KREL.dtb}"                  # DTB name matches the kernel
 MODS="${MODS:-$STAGE/modules}"                  # contains $MODS/$KREL/
 FW="${FW:-$STAGE/firmware}"                     # ath12k/ qca/ qcom/ audio/
 SIZE_GB="${SIZE_GB:-14}"
+REPO="${REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 DTBNAME="$KREL.dtb"
 ST="$STAGE/BUILD-STATUS.txt"
@@ -135,6 +136,17 @@ addmods(){
   rm -rf "$RD/lib/modules/$KREL/build" "$RD/lib/modules/$KREL/source"
 }
 
+add_power_tweaks(){
+  local RD="$1" SRC="$REPO/tweaks"
+  install -Dm644 "$SRC/etc/modules-load.d/battery-baseline.conf" "$RD/etc/modules-load.d/battery-baseline.conf" || return 1
+  install -Dm644 "$SRC/etc/tmpfiles.d/glymur-s2idle.conf" "$RD/etc/tmpfiles.d/glymur-s2idle.conf" || return 1
+  install -Dm644 "$SRC/etc/systemd/logind.conf.d/99-glymur-suspend.conf" "$RD/etc/systemd/logind.conf.d/99-glymur-suspend.conf" || return 1
+  install -Dm755 "$SRC/usr/lib/systemd/system-sleep/glymur-resume-guard" "$RD/usr/lib/systemd/system-sleep/glymur-resume-guard" || return 1
+  install -Dm755 "$SRC/usr/local/bin/glymur-cpu-profile.sh" "$RD/usr/local/bin/glymur-cpu-profile.sh" || return 1
+  mkdir -p "$RD/etc/tuned/profiles"
+  cp -a "$SRC/etc/tuned/profiles/glymur-balanced" "$SRC/etc/tuned/profiles/glymur-performance" "$SRC/etc/tuned/profiles/glymur-powersave" "$RD/etc/tuned/profiles/" || return 1
+}
+
 # =========================== ARCH (Manjaro-KDE reuse) ===========================
 # Arch has no aarch64 desktop ISO, so reuse Manjaro ARM's prebuilt KDE rootfs.
 build_arch(){
@@ -165,6 +177,7 @@ build_arch(){
   [ -d "$RD/usr/bin" ] || { say "ARCH: FAIL manjaro rootfs looks empty"; rm -rf "$RD"; return 1; }
   addmods "$RD" || { say "ARCH: FAIL staging modules"; return 1; }
   addfw "$RD"
+  add_power_tweaks "$RD" || { say "ARCH: FAIL staging power tweaks"; return 1; }
   mkimg "$RD" "$STAGE/arch-manjaro-kde.img" "arch-manjaro"
   rm -rf "$RD" "$IMG2"
   say "ARCH(Manjaro-KDE): === END ==="
@@ -227,6 +240,7 @@ build_fedora(){
   fi
   addmods "$RD" || { say "FEDORA: FAIL staging modules"; return 1; }
   addfw "$RD"
+  add_power_tweaks "$RD" || { say "FEDORA: FAIL staging power tweaks"; return 1; }
   mkimg "$RD" "$STAGE/fedora-glymur-kde.img" "fedora"
   # Keep $SQD if it IS the rootfs -- re-extracting costs ~26 minutes.
   [ "$RD" = "$SQD" ] || rm -rf "$RD"
@@ -250,6 +264,7 @@ build_ubuntu(){
   [ -d "$RD/usr/bin" ] || { say "UBUNTU: FAIL rootfs empty"; rm -rf "$RD" "$SMIN" "$SDE"; return 1; }
   addmods "$RD" || { say "UBUNTU: FAIL staging modules"; return 1; }
   addfw "$RD"
+  add_power_tweaks "$RD" || { say "UBUNTU: FAIL staging power tweaks"; return 1; }
   mkimg "$RD" "$STAGE/ubuntu-glymur-gnome.img" "ubuntu"
   rm -rf "$RD" "$SMIN" "$SDE"
   say "UBUNTU(desktop-Live reuse): === END ==="

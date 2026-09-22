@@ -1,0 +1,30 @@
+--- a/drivers/pci/pci-driver.c
++++ b/drivers/pci/pci-driver.c
+@@ -917,6 +917,13 @@
+ 	struct pci_dev *pci_dev = to_pci_dev(dev);
+ 	const struct dev_pm_ops *pm = dev->driver ? dev->driver->pm : NULL;
+ 
++	if (pci_domain_nr(pci_dev->bus) == 5)
++		pci_info(pci_dev,
++			 "Glymur PCI5 suspend_noirq: skip=%d pm=%d driver_noirq=%d saved=%d state=%s\n",
++			 glymur_pci_skip, dev_pm_skip_suspend(dev),
++			 pm && !!pm->suspend_noirq, pci_dev->state_saved,
++			 pci_power_name(pci_dev->current_state));
++
+ 	if (dev_pm_skip_suspend(dev))
+ 		return 0;
+ 
+@@ -947,6 +954,13 @@
+ 	}
+ 
+ 	if (!pci_dev->state_saved) {
++		if (pci_domain_nr(pci_dev->bus) == 5)
++			pci_info(pci_dev,
++				 "Glymur PCI5 noirq actions: save=%d prepare=%d manageable=%d skip_bus=%d\n",
++				 !(glymur_pci_skip & 4),
++				 !pci_dev->skip_bus_pm && pci_power_manageable(pci_dev) &&
++				 !(glymur_pci_skip & 1),
++				 pci_power_manageable(pci_dev), pci_dev->skip_bus_pm);
+ 		if (!(glymur_pci_skip & 4))
+ 			pci_save_state(pci_dev);
+ 

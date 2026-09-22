@@ -42,6 +42,8 @@ Notes:
   SoC-specific pieces; without them the box resets before console.
 - Display stays on `SIMPLEDRM` + `SIMPLEFB` (the UEFI framebuffer). The `msm`/DPU stack is
   intentionally not the default — see the display docs.
-- Boot cmdline must include `efi=noruntime` (see boot-kit).
-- Audio/battery/EC extras are built as modules and installed separately
-  (`../boot-kit/scripts/install-battery-modules.sh`).
+- `efi=noruntime` is retired and must not be added to the boot cmdline.
+- Battery/PD requires the local `patches/glymur-soccp-glink-7.2-hooks.patch`, which adds
+  `CONFIG_QCOM_SOCCP_GLINK`. Apply that patch before configuring, then enable it as a module:
+  `./scripts/config -m QCOM_SOCCP_GLINK && make olddefconfig`. The installed
+  `battery-baseline.conf` autoloads it with `ps883x`.

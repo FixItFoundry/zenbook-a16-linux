@@ -41,6 +41,7 @@ DTB="${DTB:-$STAGE/$KREL.dtb}"
 MODS="${MODS:-$STAGE/modules}"
 FW="${FW:-$STAGE/firmware}"
 SB="${SB:-$STAGE/systemd-bootaa64.efi}"
+REPO="${REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 # zstd decompresses far faster than xz, which is what matters when the root is
 # read live off a stick. -Xcompression-level 15 is a good size/speed tradeoff.
@@ -89,6 +90,16 @@ addmods(){ mkdir -p "$1/lib/modules"; cp -a "$MODS/$KREL" "$1/lib/modules/" || r
 addfw(){ [ -d "$FW" ] || return 0; mkdir -p "$1/lib/firmware"
          cp -a "$FW"/ath12k "$FW"/qca "$FW"/qcom "$FW"/audio "$1/lib/firmware/" 2>/dev/null
          cp -a "$FW"/adsp_dtb* "$1/lib/firmware/" 2>/dev/null; return 0; }
+add_power_tweaks(){
+  local rd="$1" src="$REPO/tweaks"
+  install -Dm644 "$src/etc/modules-load.d/battery-baseline.conf" "$rd/etc/modules-load.d/battery-baseline.conf" || return 1
+  install -Dm644 "$src/etc/tmpfiles.d/glymur-s2idle.conf" "$rd/etc/tmpfiles.d/glymur-s2idle.conf" || return 1
+  install -Dm644 "$src/etc/systemd/logind.conf.d/99-glymur-suspend.conf" "$rd/etc/systemd/logind.conf.d/99-glymur-suspend.conf" || return 1
+  install -Dm755 "$src/usr/lib/systemd/system-sleep/glymur-resume-guard" "$rd/usr/lib/systemd/system-sleep/glymur-resume-guard" || return 1
+  install -Dm755 "$src/usr/local/bin/glymur-cpu-profile.sh" "$rd/usr/local/bin/glymur-cpu-profile.sh" || return 1
+  mkdir -p "$rd/etc/tuned/profiles"
+  cp -a "$src/etc/tuned/profiles/glymur-balanced" "$src/etc/tuned/profiles/glymur-performance" "$src/etc/tuned/profiles/glymur-powersave" "$rd/etc/tuned/profiles/" || return 1
+}
 
 # $1 = rootfs dir, $2 = output name
 mklive(){
@@ -191,6 +202,7 @@ build_fedora(){
   say "FEDORA: reusing extracted rootfs"
   addmods "$SQD" || return 1
   addfw "$SQD"
+  add_power_tweaks "$SQD" || return 1
   mklive "$SQD" "fedora-glymur-kde-live"
 }
 
@@ -208,6 +220,7 @@ build_arch(){
   umount "$MNT"; rmdir "$MNT"; losetup -d "$LOOP"
   addmods "$RD" || return 1
   addfw "$RD"
+  add_power_tweaks "$RD" || return 1
   mklive "$RD" "arch-manjaro-kde-live"
   rm -rf "$RD"
 }
@@ -224,6 +237,7 @@ build_ubuntu(){
   [ -s "$SDE" ] && unsquashfs -f -d "$RD" "$SDE" >/dev/null 2>&1
   addmods "$RD" || return 1
   addfw "$RD"
+  add_power_tweaks "$RD" || return 1
   mklive "$RD" "ubuntu-glymur-gnome-live"
   rm -rf "$RD" "$SMIN" "$SDE"
 }

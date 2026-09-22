@@ -1,0 +1,36 @@
+--- a/drivers/net/wireless/ath/ath12k/mac.c
++++ b/drivers/net/wireless/ath/ath12k/mac.c
+@@ -7,6 +7,7 @@
+ #include <net/mac80211.h>
+ #include <net/cfg80211.h>
+ #include <linux/etherdevice.h>
++#include <linux/sched.h>
+ 
+ #include "mac.h"
+ #include "core.h"
+@@ -5460,7 +5461,10 @@
+ 
+ 	time_left = wait_for_completion_timeout(&ar->fw_stats_complete, 1 * HZ);
+ 	if (!time_left) {
+-		ath12k_warn(ab, "time out while waiting for get fw stats\n");
++		ath12k_warn(ab,
++			    "time out while waiting for get fw stats pdev %u vdev %u id 0x%x caller %s[%d]\n",
++			    param->pdev_id, param->vdev_id, param->stats_id,
++			    current->comm, current->pid);
+ 		return -ETIMEDOUT;
+ 	}
+ 
+--- a/drivers/net/wireless/ath/ath12k/reg.c
++++ b/drivers/net/wireless/ath/ath12k/reg.c
+@@ -282,7 +282,10 @@
+ 	time_left = wait_for_completion_timeout(&ar->regd_update_completed,
+ 						ATH12K_REG_UPDATE_TIMEOUT_HZ);
+ 	if (time_left == 0) {
+-		ath12k_warn(ab, "Timeout while waiting for regulatory update");
++		ath12k_warn(ab,
++			    "Timeout while waiting for regulatory update pdev %u init %d alpha2 %c%c state %d\n",
++			    ar->pdev_idx, init, ar->alpha2[0], ar->alpha2[1],
++			    ah->state);
+ 		/* Even though timeout has occurred, still continue since at least boot
+ 		 * time data would be there to process
+ 		 */

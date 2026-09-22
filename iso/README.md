@@ -69,10 +69,10 @@ services as `EFI_UNSUPPORTED` (`0x8000000000000003`). See
 
 ## How the images are built
 Instead of emulated package installs, each image **reuses a stock desktop rootfs** and swaps in
-our kernel + DTB + initramfs + firmware + tweaks, then writes the boot loader entry. The builder
-is `build-all-overnight.sh` (targets: `arch`, `fedora`, `ubuntu`); the firmware + tweak overlays
-(`a16-fw.tar.gz`, `a16-tweaks.tar.gz` — audio route, kbd backlight, battery autoload, thermal
-guard) are applied by its `addfw()` step.
+our kernel + DTB + initramfs + firmware + the current power-management overlay, then writes the
+boot loader entry. The builders apply firmware with `addfw()` and install the battery-module
+autoload, forced s2idle, suspend policy, resume guard, and CPU profiles with
+`add_power_tweaks()`. They deliberately do not install retired tweaks.
 
 Source notes:
 - **Manjaro (Arch):** Arch has no aarch64 desktop ISO, so we reuse the **Manjaro ARM KDE** image —

@@ -5,14 +5,13 @@ Qualcomm Snapdragon X2 Elite Extreme (`glymur`).
 
 ![Zenbook A16 running Linux](img/screenshot_20260816_080455.png)
 
-## Current status — 2026-09-19
+## Current status — 2026-09-22
 
 **Working baseline: `7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+`.**
 This is the selected daily-use kernel on Fedora 44 aarch64, with ML4W/Hyprland.
 It combines Linux v7.3-rc3, selected linux-next backports and local fixes.
 
-The desktop is usable (I'm currently dailying it), but **audio recovery and system stability remain under
-investigation**.
+The desktop is usable, but audio recovery, suspend and abrupt resets remain open.
 
 | Area | Current position |
 |---|---|
@@ -24,7 +23,7 @@ investigation**.
 | Speakers | Native UCM exposes four channels. Front-left silence occurred after boot; manually cycling the audio device restored output. Durable boot/idle recovery is not proven. |
 | Microphones | HiFi capture device present; full recording validation on this build remains open. |
 | Boot/session | Startup improved from 50.8 s to 15.6 s on the measured host. UWSM manages the session; duplicate notification startup was corrected. |
-| Suspend/hibernate | Suspend still carries a PCI workaround and is not validated on RC3. Hibernate is disabled and untested. |
+| Suspend/hibernate | Windows WHEA and Linux AER point to PCI segment 5. The trace build boots cleanly; the suspend test is pending. Hibernate is disabled and untested. |
 | Camera | Separate experimental track; not enabled in the baseline. |
 | HDMI, USB4, jack/DP audio | Not validated as working; see the hardware reference. |
 
@@ -42,14 +41,9 @@ notes. Historical results describe their original kernel, not an RC3 retest.
 
 ## Next priorities
 
-1. Explain why first audio activation can miss channels while a later device
-   cycle recovers them. Capture routing and link state before and after recovery.
-2. Validate all four speakers through cold boots and idle/playback transitions,
-   and investigate remaining spontaneous resets.
-3. Test firmware and suspend changes separately; resume camera work after the
-   audio gate passes.
-4. Keep upstream backports separate from local experiments. Submit only minimal,
-   justified fixes with hardware evidence.
+1. Run the supervised PCI segment 5 suspend trace.
+2. Validate all four speakers across cold boots and idle/playback transitions.
+3. Resume camera work after the audio gate passes.
 
 ## Building and booting
 

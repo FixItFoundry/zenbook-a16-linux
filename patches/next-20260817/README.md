@@ -1,15 +1,17 @@
 # Delta against `next-20260817`
 
-The 17-patch series that turns vanilla `next-20260817` into the working daily-driver kernel for the ASUS Zenbook A16 (UX3607OA).
+The 17-patch series, plus the local SOCCP GLINK integration below, that turns vanilla
+`next-20260817` into the working daily-driver kernel for the ASUS Zenbook A16 (UX3607OA).
 
 Build name: **`7.2.0-ZenbookA16-20260819`**. `CONFIG_QCOM_CPUCP_MBOX=y` (was `=m`) is also
-required — a build-config change, not a source patch, so it isn't a numbered file here. See
-`internal/HANDOFF-2026-08-19.md` for why (module load-order race with the built-in SCMI core).
+required — a build-config change, not a source patch, so it isn't a numbered file here. Apply
+`../glymur-soccp-glink-7.2-hooks.patch` and enable `CONFIG_QCOM_SOCCP_GLINK=m` as documented in
+`../../kernel/CONFIG_FRAGMENT.md`; this provides the working battery/PD/DP-altmode transport.
 
 | patch | area | what | upstream status |
 |---|---|---|---|
-| `0001` | SCMI | `arm,no-completion-irq` polling mode property | sent, upstream track |
-| `0002` | DRM/eDP | make eDP 1.4 `LINK_RATE_SET` path reachable and clear `LINK_BW_SET` | sent (generic msm bug) |
+| `0001` | SCMI | `arm,no-completion-irq` polling mode property | local; public submission needs confirmation |
+| `0002` | DRM/eDP | make eDP 1.4 `LINK_RATE_SET` path reachable and clear `LINK_BW_SET` | local; do not send independently before the PHY fix lands |
 | `0003` | DRM/eDP | `push_idle` guard when link was never powered on | sent (generic msm bug) |
 | `0004` | DRM/eDP | ⛔ **RETIRED 2026-08-19** — LOCAL: force internal eDP panel to DT max rate (HBR3) | superseded by `0014`+`0015`, the real PHY fix; reverted by `0016` |
 | `0005` | PCI | **LOCAL:** `glymur_pci_skip` module parameter to bypass s2idle reset | not proposable — diagnostic knob in production |
@@ -30,4 +32,4 @@ required — a build-config change, not a source patch, so it isn't a numbered f
 
 - **DTS reconciliation (1130 lines)**: Reconciling the A16 board file against upstream's merged DTS (`0007`) and tracking the `pcie4_port0_ep` label rename (`0008`). Carries forward local fixups (`regulator-always-on` for WCN 3.3V rail and the `wcn7850-pmu` node).
 - **Functional kernel delta (~350 lines through 0013)**: drivers, audio timing/reprobe, display link training, keyboard quirks, and security fixes.
-- **2026-08-19 delta (`0014`-`0017`)**: the real eDP v8 PHY fix (upstream, unmerged) replacing the local HBR3-force hack, plus the `wsa884x` pm_runtime fix uncovered by testing `0013` under load. See `internal/HANDOFF-2026-08-19.md` for the full validation trail and the audio bus-clash issue this surfaced, still open.
+- **2026-08-19 delta (`0014`-`0017`)**: the real eDP v8 PHY fix (upstream, unmerged) replacing the local HBR3-force hack, plus the `wsa884x` pm_runtime fix uncovered by testing `0013` under load. The detailed validation record is private; the audio bus-clash issue remains open.

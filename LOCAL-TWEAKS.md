@@ -222,13 +222,12 @@ journalctl --user -b -u glymur-audio-wait
 
 `/etc/tmpfiles.d/glymur-s2idle.conf` → `w /sys/power/mem_sleep - - - - s2idle`
 
-**Why:** Snapdragon platforms do not implement S3/`deep`, but the kernel was selecting
-`deep`. Note `cat /sys/power/mem_sleep` shows `[s2idle] deep` — **the brackets mark the
-active mode**, so that output means s2idle is selected, not deep.
+**Why:** this kernel advertises `deep`, but only `s2idle` is validated on this platform. Note
+`cat /sys/power/mem_sleep` shows `[s2idle] deep` — **the brackets mark the active mode**, so that
+output means s2idle is selected, not deep.
 
-⚠️ **This does NOT make suspend work.** With s2idle correctly selected the machine still
-panics and reboots on suspend; the journal ends at `PM: suspend entry (s2idle)` with
-nothing after. Still unsolved.
+⚠️ **This does NOT make suspend correct.** It remains dependent on the PCI noirq workaround and
+the resume guard; see `docs/hardware.md` for the current evidence and limitations.
 
 ⚠️ **Crash evidence is not collectable on this box — but not for the reason stated here
 before.** This used to blame mandatory `efi=noruntime`. Corrected 2026-07-30: the flag was
@@ -291,9 +290,9 @@ sudo systemctl enable --now glymur-rtc-save.timer
 sudo systemctl enable glymur-rtc-restore.service
 ```
 
-⚠️ **This does not give you a wake alarm.** `qcom,no-alarm` is upstream's and stays, so
-`/sys/class/rtc/rtc0/wakealarm` does not exist and hibernate still has nothing to arm. The
-RTC also remains **read-only** — `hwclock --systohc` fails with `ENODEV`, and `rtcsync` in
+⚠️ **This does not give you a scheduled wake alarm.** `qcom,no-alarm` is upstream's and stays, so
+`/sys/class/rtc/rtc0/wakealarm` does not exist. Hibernate remains masked because it is untested,
+not because an RTC wake alarm is required. The RTC also remains **read-only** — `hwclock --systohc` fails with `ENODEV`, and `rtcsync` in
 `/etc/chrony.conf` will silently never succeed.
 
 Without this tweak the machine still recovers: chronyd is configured `makestep 1.0 3`, so it

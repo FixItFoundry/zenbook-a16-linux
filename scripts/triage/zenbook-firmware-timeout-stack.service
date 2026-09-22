@@ -1,0 +1,13 @@
+[Unit]
+Description=Capture CPU stacks at first ath12k firmware-stat timeout
+After=systemd-journald.service local-fs.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/bash /home/jcasco/Projects/zenbook-a16-linux/scripts/triage/firmware-timeout-stack.sh
+Restart=on-failure
+RestartSec=10
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

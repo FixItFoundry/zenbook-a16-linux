@@ -11,18 +11,20 @@ set -u
 echo "=== booted DTB carries cpu cooling-maps? ==="
 echo -n "  cooling-maps nodes in live DT: "
 ls -d /proc/device-tree/thermal-zones/*/cooling-maps 2>/dev/null | wc -l
-echo "  (55 = coolmaps DTB, 14 = scmipoll/GPU-only)"
+echo "  (56 = current DTB, 14 = scmipoll/GPU-only)"
 
 echo "=== zones bound to a cpufreq cooling device ==="
 n=0
 for z in /sys/class/thermal/thermal_zone*; do
-	[ -e "$z/cdev0" ] || continue
-	case "$(cat "$(readlink -f "$z/cdev0")/type" 2>/dev/null)" in
-	cpufreq-*) n=$((n + 1)) ;;
-	esac
+	for cdev in "$z"/cdev[0-9]*; do
+		[ -L "$cdev" ] || continue
+		case "$(cat "$(readlink -f "$cdev")/type" 2>/dev/null)" in
+		cpufreq-*) n=$((n + 1)); break ;;
+		esac
+	done
 done
-echo "  $n   (want 41)"
-[ "$n" -eq 41 ] && echo "  PASS" || echo "  FAIL - are you on the coolmaps DTB?"
+echo "  $n   (want 42)"
+[ "$n" -eq 42 ] && echo "  PASS" || echo "  FAIL - are you on the current coolmaps DTB?"
 
 echo "=== example binding ==="
 for z in /sys/class/thermal/thermal_zone*; do
@@ -41,16 +43,26 @@ Z=""
 for z in /sys/class/thermal/thermal_zone*; do
 	[ "$(cat "$z/type" 2>/dev/null)" = "cpu-0-0-0-thermal" ] && Z="$z" && break
 done
-if [ -n "$Z" ] && [ -w "$Z/emul_temp" -o "$(id -u)" = 0 ]; then
-	CD=/sys/class/thermal/cooling_device0
-	for T in 96000 104000 112000; do
-		sudo -n sh -c "echo $T > $Z/emul_temp" 2>/dev/null || { echo "  (needs root)"; break; }
-		sleep 2
-		echo "    emul=$T -> cur_state=$(cat $CD/cur_state)"
+if [ "${ACTUATE:-no}" != yes ]; then
+	echo "  (skipped - run ACTUATE=yes as root to exercise it)"
+elif [ -n "$Z" ] && [ "$(id -u)" = 0 ]; then
+	CD=""
+	for cdev in "$Z"/cdev[0-9]*; do
+		[ -L "$cdev" ] || continue
+		candidate=$(readlink -f "$cdev")
+		case "$(cat "$candidate/type" 2>/dev/null)" in
+		cpufreq-*) CD="$candidate"; break ;;
+		esac
 	done
-	sudo -n sh -c "echo 0 > $Z/emul_temp" 2>/dev/null
+	[ -n "$CD" ] || { echo "  (skipped - no cpufreq cdev bound to $Z)"; exit 1; }
+	for T in 96000 104000 112000; do
+		echo "$T" > "$Z/emul_temp" || { echo "  (failed to set emul_temp)"; break; }
+		sleep 2
+		echo "    emul=$T -> $(cat "$CD/type") cur_state=$(cat "$CD/cur_state")"
+	done
+	echo 0 > "$Z/emul_temp"
 	sleep 2
-	echo "    restored -> cur_state=$(cat $CD/cur_state) temp=$(cat $Z/temp)"
+	echo "    restored -> $(cat "$CD/type") cur_state=$(cat "$CD/cur_state") temp=$(cat "$Z/temp")"
 else
 	echo "  (skipped - run as root to exercise it)"
 fi
