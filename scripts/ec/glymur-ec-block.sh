@@ -175,14 +175,24 @@ EOF
 case "${1:-}" in
 probe)
 	echo "-- 0xC9 (block engine) --"
-	for r in 0x6e 0x6f; do printf '   0xC9[%s] = 0x%02x\n' "$r" "$(ecrb $DEV_BLOCK $r)"; done
+	for r in 0x6e 0x6f; do
+		v=$(ecrb $DEV_BLOCK $r) || die "cannot read 0xC9[$r] (is the kernel driver bound to 0x5b?)"
+		printf '   0xC9[%s] = 0x%02x\n' "$r" "$v"
+	done
 	printf '   data window 0x40..0x47:'
-	for r in 0x40 0x41 0x42 0x43 0x44 0x45 0x46 0x47; do printf ' 0x%02x' "$(ecrb $DEV_BLOCK $r)"; done
+	for r in 0x40 0x41 0x42 0x43 0x44 0x45 0x46 0x47; do
+		v=$(ecrb $DEV_BLOCK $r) || die "cannot read 0xC9[$r]"
+		printf ' 0x%02x' "$v"
+	done
 	echo
 	echo "-- 0xC4 (ECCW/ECCR mailbox) --"
-	for r in 0x30 0x31 0x32; do printf '   0xC4[%s] = 0x%02x\n' "$r" "$(ecrb $DEV_MBOX $r)"; done
+	for r in 0x30 0x31 0x32; do
+		v=$(ecrb $DEV_MBOX $r) || die "cannot read 0xC4[$r]"
+		printf '   0xC4[%s] = 0x%02x\n' "$r" "$v"
+	done
 	echo "-- control: 0xC0 does not exist; 0x00 here means 'unknown selector', not 'idle' --"
-	printf '   0xC0[0x30] = 0x%02x\n' "$(ecrb 0xc0 0x30)"
+	v=$(ecrb 0xc0 0x30) || die "cannot read 0xC0[0x30]"
+	printf '   0xC0[0x30] = 0x%02x\n' "$v"
 	echo "(no writes were made)"
 	;;
 limits)

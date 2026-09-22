@@ -271,10 +271,11 @@
 >   machine does not have. **Derive registers from the AML the way `FAN0`'s were, or do not
 >   touch the EC.**
 > - **Nothing writes yet.** `SUFC` (set user fan curve) and `ECWM` are decoded but untried.
->   This EC owns charging — reads are safe, writes are not. Jesse's standing instruction:
->   **ask before any write.**
-> - **`cooling-maps`** is still the blocker for actual thermal control; RPM readback does not
->   by itself give the kernel a fan cooling device.
+>   This EC also owns charging. Broader reads previously coincided with a hard reset;
+>   writes need explicit authorization and a rollback/readback plan.
+> - **Fan cooling-device registration and fan cooling maps** remain missing. CPU/LLC
+>   cpufreq cooling maps are already bound on the live 2026-09-18 DTB; RPM readback
+>   alone does not make the fan a Linux thermal actuator.
 
 # The embedded controller and fan interface — decoded from the WoA ACPI dump
 

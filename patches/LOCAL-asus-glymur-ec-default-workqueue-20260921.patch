@@ -1,0 +1,20 @@
+--- a/drivers/platform/arm64/asus-glymur-ec.c
++++ b/drivers/platform/arm64/asus-glymur-ec.c
+@@ -690,7 +690,7 @@
+ 	guard(mutex)(&ec->lock);
+ 	ret = asus_ec_fan_debug_set(ec, false);
+ 	if (ret < 0 && ++ec->fan_debug_restore_retries < 3)
+-		mod_delayed_work(system_wq, &ec->fan_debug_timeout,
++		mod_delayed_work(system_dfl_wq, &ec->fan_debug_timeout,
+ 				 msecs_to_jiffies(5000));
+ }
+ 
+@@ -728,7 +728,7 @@
+ 		ret = asus_ec_fan_debug_set(ec, full);
+ 		if (ec->fan_debug_active) {
+ 			ec->fan_debug_restore_retries = 0;
+-			mod_delayed_work(system_wq, &ec->fan_debug_timeout,
++			mod_delayed_work(system_dfl_wq, &ec->fan_debug_timeout,
+ 					 msecs_to_jiffies(full ?
+ 						 ASUS_QCOM_EC_FAN_TEST_SECS * 1000 : 5000));
+ 		}

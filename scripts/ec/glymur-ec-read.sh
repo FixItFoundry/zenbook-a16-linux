@@ -1,10 +1,10 @@
 #!/bin/bash
 # glymur-ec-read.sh — read the ASUS embedded controller on the Zenbook A16.
 #
-# READ ONLY. This implements RECM, the EC *read* command. It writes a request
-# (register address + length) to the EC and reads the answer back; it changes no
-# EC state. Do not extend this to writes without knowing what you are doing —
-# this EC also owns charging.
+# This implements RECM, the EC read command. It writes a read request
+# (register address + length) before fetching the answer. Only the documented
+# fan tachometer registers are exposed: broader polling previously coincided
+# with a hard reset. See docs/fan-ec-interface.md before any EC experiment.
 #
 # ── The protocol, transcribed from the Windows-on-Arm DSDT ────────────────────
 #
@@ -66,15 +66,6 @@ fan_rpm() { # $1 = lo register, $2 = hi register
 	echo $(( (hi << 8) | lo ))
 }
 
-hottest() {
-	local m=0 t
-	for z in /sys/class/thermal/thermal_zone*/temp; do
-		t=$(cat "$z" 2>/dev/null || echo 0)
-		[ "$t" -gt "$m" ] && m=$t
-	done
-	awk -v m="$m" 'BEGIN{printf "%.1f", m/1000}'
-}
-
 # FOPR buckets, matching what _FST would report
 fan_state() {
 	local r=$1
@@ -88,10 +79,6 @@ usage() {
 	cat >&2 <<EOF
 usage: $0 <command>
   rpm                 fan 0 RPM (the one _FST reports)
-  rpm2                the 0x0624/0x0625 pair — probably fan 2, UNVERIFIED
-  watch [n] [secs]    sample RPM + hottest zone, n times (default 10 x 3s)
-  reg <hex>           read one EC register, e.g. reg 0x0602
-  map                 dump every EC register the DSDT references
 EOF
 	exit 2
 }
@@ -100,45 +87,6 @@ case "${1:-}" in
 	rpm)
 		r=$(fan_rpm 0x0602 0x0603) || die "EC read failed"
 		echo "$r RPM (state $(fan_state "$r"))"
-		;;
-	rpm2)
-		r=$(fan_rpm 0x0624 0x0625) || die "EC read failed"
-		echo "$r  (0x0625<<8|0x0624 — believed to be fan 2, not yet confirmed)"
-		;;
-	watch)
-		n=${2:-10}; s=${3:-3}
-		for _ in $(seq 1 "$n"); do
-			r=$(fan_rpm 0x0602 0x0603) || r=-1
-			printf '%s  %5s RPM  state %s  hottest %s C\n' "$(date +%T)" "$r" "$(fan_state "$r")" "$(hottest)"
-			sleep "$s"
-		done
-		;;
-	reg)
-		[ $# -ge 2 ] || usage
-		v=$(ec_read $(( $2 ))) || die "EC read failed"
-		printf '%s = %s (%d)\n' "$2" "$v" "$((v))"
-		;;
-	map)
-		# Every register the DSDT passes to RECM. Read-only.
-		printf '%-8s %-6s %s\n' REG VALUE NOTE
-		for spec in \
-			"0x0602 fan0 RPM low byte" \
-			"0x0603 fan0 RPM high byte" \
-			"0x0604 unknown (0x32 = 50 observed)" \
-			"0x0624 probable fan2 low" \
-			"0x0625 probable fan2 high" \
-			"0x0C7C RECM/WECB doorbell — 0 = idle" \
-			"0x0C6C unknown" "0x0C6D unknown" "0x0C6E unknown" "0x0C6F unknown"
-		do
-			reg=${spec%% *}; note=${spec#* }
-			v=$(ec_read $(( reg )) ) || v="ERR"
-			printf '%-8s %-6s %s\n' "$reg" "$v" "$note"
-		done
-		echo
-		echo "0x0B4A..0x0B53 block:"
-		out=""
-		for reg in $(seq $((0x0B4A)) $((0x0B53))); do out="$out $(ec_read "$reg")"; done
-		echo " $out"
 		;;
 	*) usage ;;
 esac
