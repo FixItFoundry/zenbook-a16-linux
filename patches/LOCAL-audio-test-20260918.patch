@@ -1,0 +1,261 @@
+From 3daf34012f1cf33e2e885ae5daf9a84145a4aa53 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Fri, 18 Sep 2026 08:51:19 -0400
+Subject: [PATCH] soundwire: avoid IRQ resets and trace A16 speaker startup
+
+---
+ drivers/soundwire/qcom.c   | 93 ++++++++++++++------------------------
+ sound/soc/codecs/wsa884x.c | 24 ++++++++--
+ 2 files changed, 54 insertions(+), 63 deletions(-)
+
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index 6c41632f7eb6..067b66ca278e 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -650,7 +650,7 @@ static int qcom_swrm_enumerate(struct sdw_bus *bus)
+ 	struct sdw_slave *slave, *_s;
+ 	struct sdw_slave_id id;
+ 	u32 val1, val2;
+-	bool found = false;
++	bool found;
+ 	u64 addr;
+ 	int i;
+ 	char *buf1 = (char *)&val1, *buf2 = (char *)&val2;
+@@ -674,6 +674,7 @@ static int qcom_swrm_enumerate(struct sdw_bus *bus)
+ 			((u64)buf1[0] << 40);
+ 
+ 		sdw_extract_slave_id(bus, addr, &id);
++		found = false;
+ 		ctrl->clock_stop_not_supported = false;
+ 		/* Now compare with entries */
+ 		list_for_each_entry_safe(slave, _s, &bus->slaves, node) {
+@@ -729,47 +730,6 @@ static bool qcom_swrm_all_slaves_attached(struct qcom_swrm_ctrl *ctrl,
+ 					   struct device *dev);
+ static void qcom_swrm_reprobe_unattached_slaves(struct qcom_swrm_ctrl *ctrl);
+ 
+-/*
+- * A handful of interrupt causes (bus clash, read FIFO over/underflow, a
+- * DOUT port collision) all mean the same thing at the protocol level: some
+- * fault left frame-gen/clock state on the link inconsistent. Polling slave
+- * status and re-enumerating without resetting anything (the old recovery
+- * for MASTER_CLASH_DET) does not reliably bring the link back -- confirmed
+- * on hardware, see the qcom_swrm_irq_handler() clash case history. Do the
+- * same SWRM_COMP_SW_RESET + qcom_swrm_init() the initial-enumeration retry
+- * loop in qcom_swrm_probe() uses instead, for all of them.
+- */
+-static void qcom_swrm_recover_link(struct qcom_swrm_ctrl *ctrl)
+-{
+-	unsigned long time_left;
+-
+-	reinit_completion(&ctrl->enumeration);
+-	ctrl->reg_write(ctrl, SWRM_COMP_SW_RESET, 0x01);
+-	usleep_range(2000, 2050);
+-	qcom_swrm_init(ctrl);
+-	time_left = wait_for_completion_timeout(&ctrl->enumeration,
+-				    msecs_to_jiffies(TIMEOUT_MS));
+-	if (!time_left)
+-		dev_err_ratelimited(ctrl->dev,
+-			"%s: enumeration did not complete %ums after reset\n",
+-			__func__, TIMEOUT_MS);
+-
+-	qcom_swrm_get_device_status(ctrl);
+-	qcom_swrm_enumerate(&ctrl->bus);
+-	sdw_handle_slave_status(&ctrl->bus, ctrl->status);
+-
+-	if (!qcom_swrm_all_slaves_attached(ctrl, ctrl->dev)) {
+-		qcom_swrm_reprobe_unattached_slaves(ctrl);
+-		dev_err_ratelimited(ctrl->dev,
+-			"%s: recovery %s after reprobe\n", __func__,
+-			qcom_swrm_all_slaves_attached(ctrl, ctrl->dev) ?
+-			"succeeded" : "FAILED -- slaves still unattached");
+-	} else {
+-		dev_err_ratelimited(ctrl->dev,
+-			"%s: recovery succeeded, all slaves attached\n", __func__);
+-	}
+-}
+-
+ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
+ {
+ 	struct qcom_swrm_ctrl *ctrl = dev_id;
+@@ -804,9 +764,7 @@ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
+ 			case SWRM_INTERRUPT_STATUS_CHANGE_ENUM_SLAVE_STATUS:
+ 				dev_dbg_ratelimited(ctrl->dev, "SWR new slave attached\n");
+ 				ctrl->reg_read(ctrl, SWRM_MCP_SLV_STATUS, &slave_status);
+-				if (slave_status & 0x3)
+-					ctrl->reg_write(ctrl, SWRM_ENUMERATOR_CFG_ADDR, 1);
+-				if (ctrl->slave_status == slave_status && (slave_status != 0x01)) {
++				if (ctrl->slave_status == slave_status) {
+ 					dev_dbg(ctrl->dev, "Slave status not changed %x\n",
+ 						slave_status);
+ 				} else {
+@@ -818,27 +776,30 @@ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_MASTER_CLASH_DET:
+ 				dev_err_ratelimited(ctrl->dev,
+-						"%s: SWR bus clash detected, resetting controller\n",
++						"%s: SWR bus clash detected\n",
+ 						__func__);
+-				qcom_swrm_recover_link(ctrl);
++				ctrl->intr_mask &= ~SWRM_INTERRUPT_STATUS_MASTER_CLASH_DET;
++				ctrl->reg_write(ctrl,
++						ctrl->reg_layout[SWRM_REG_INTERRUPT_CPU_EN],
++						ctrl->intr_mask);
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_RD_FIFO_OVERFLOW:
+ 				ctrl->reg_read(ctrl,
+ 					       ctrl->reg_layout[SWRM_REG_CMD_FIFO_STATUS],
+ 					       &value);
+ 				dev_err_ratelimited(ctrl->dev,
+-					"%s: SWR read FIFO overflow fifo status 0x%x, resetting controller\n",
++					"%s: SWR read FIFO overflow fifo status 0x%x, flushing fifo\n",
+ 					__func__, value);
+-				qcom_swrm_recover_link(ctrl);
++				ctrl->reg_write(ctrl, SWRM_CMD_FIFO_CMD, 0x1);
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_RD_FIFO_UNDERFLOW:
+ 				ctrl->reg_read(ctrl,
+ 					       ctrl->reg_layout[SWRM_REG_CMD_FIFO_STATUS],
+ 					       &value);
+ 				dev_err_ratelimited(ctrl->dev,
+-					"%s: SWR read FIFO underflow fifo status 0x%x, resetting controller\n",
++					"%s: SWR read FIFO underflow fifo status 0x%x, flushing fifo\n",
+ 					__func__, value);
+-				qcom_swrm_recover_link(ctrl);
++				ctrl->reg_write(ctrl, SWRM_CMD_FIFO_CMD, 0x1);
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_WR_CMD_FIFO_OVERFLOW:
+ 				ctrl->reg_read(ctrl,
+@@ -860,15 +821,22 @@ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_DOUT_PORT_COLLISION:
+ 				dev_err_ratelimited(ctrl->dev,
+-						"%s: SWR Port collision detected, resetting controller\n",
++						"%s: SWR Port collision detected\n",
+ 						__func__);
+-				qcom_swrm_recover_link(ctrl);
++				ctrl->intr_mask &= ~SWRM_INTERRUPT_STATUS_DOUT_PORT_COLLISION;
++				ctrl->reg_write(ctrl,
++						ctrl->reg_layout[SWRM_REG_INTERRUPT_CPU_EN],
++						ctrl->intr_mask);
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_READ_EN_RD_VALID_MISMATCH:
+ 				dev_err_ratelimited(ctrl->dev,
+-					"%s: SWR read enable valid mismatch, resetting controller\n",
++					"%s: SWR read enable valid mismatch\n",
+ 					__func__);
+-				qcom_swrm_recover_link(ctrl);
++				ctrl->intr_mask &=
++					~SWRM_INTERRUPT_STATUS_READ_EN_RD_VALID_MISMATCH;
++				ctrl->reg_write(ctrl,
++						ctrl->reg_layout[SWRM_REG_INTERRUPT_CPU_EN],
++						ctrl->intr_mask);
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_SPECIAL_CMD_ID_FINISHED:
+ 				complete(&ctrl->broadcast);
+@@ -1608,8 +1576,9 @@ static bool qcom_swrm_all_slaves_attached(struct qcom_swrm_ctrl *ctrl,
+ 
+ 	list_for_each_entry(slave, &ctrl->bus.slaves, node) {
+ 		if (!slave->dev_num) {
+-			dev_warn(dev, "SWR slave %s not yet attached\n",
+-				 dev_name(&slave->dev));
++			dev_warn(dev, "SWR slave %s not yet attached (status %u, driver %s)\n",
++				 dev_name(&slave->dev), slave->status,
++				 dev_driver_string(&slave->dev));
+ 			all_attached = false;
+ 		}
+ 	}
+@@ -1641,6 +1610,10 @@ static void qcom_swrm_reprobe_unattached_slaves(struct qcom_swrm_ctrl *ctrl)
+ 		if (slave->dev_num)
+ 			continue;
+ 		ret = device_reprobe(&slave->dev);
++		if (of_machine_is_compatible("asus,zenbook-a16-ux3607oa"))
++			dev_info(&slave->dev,
++				 "enumeration reprobe returned %d (dev_num %u, status %u)\n",
++				 ret, slave->dev_num, slave->status);
+ 		if (ret)
+ 			dev_dbg(&slave->dev, "reprobe still not ready (%d)\n", ret);
+ 	}
+@@ -1809,8 +1782,10 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 
+ #ifdef CONFIG_DEBUG_FS
+ 	ctrl->debugfs = debugfs_create_dir("qualcomm-sdw", ctrl->bus.debugfs);
+-	debugfs_create_file("qualcomm-registers", 0400, ctrl->debugfs, ctrl,
+-			    &swrm_reg_fops);
++	/* A full register dump caused bus and codec faults on this board. */
++	if (!of_machine_is_compatible("asus,zenbook-a16-ux3607oa"))
++		debugfs_create_file("qualcomm-registers", 0400, ctrl->debugfs,
++				    ctrl, &swrm_reg_fops);
+ #endif
+ 
+ 	return 0;
+diff --git a/sound/soc/codecs/wsa884x.c b/sound/soc/codecs/wsa884x.c
+index b2edec2a448e..61a35acc65df 100644
+--- a/sound/soc/codecs/wsa884x.c
++++ b/sound/soc/codecs/wsa884x.c
+@@ -13,6 +13,7 @@
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/mutex.h>
++#include <linux/of.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/regmap.h>
+ #include <linux/regulator/consumer.h>
+@@ -2054,6 +2055,9 @@ static int wsa884x_probe(struct sdw_slave *pdev,
+ 	wsa884x = devm_kzalloc(dev, sizeof(*wsa884x), GFP_KERNEL);
+ 	if (!wsa884x)
+ 		return -ENOMEM;
++	if (of_machine_is_compatible("asus,zenbook-a16-ux3607oa"))
++		dev_info(dev, "speaker probe started (dev_num %u)\n",
++			 pdev->dev_num);
+ 
+ 	mutex_init(&wsa884x->sp_lock);
+ 
+@@ -2061,13 +2065,19 @@ static int wsa884x_probe(struct sdw_slave *pdev,
+ 		wsa884x->supplies[i].supply = wsa884x_supply_name[i];
+ 
+ 	ret = devm_regulator_bulk_get(dev, WSA884X_SUPPLIES_NUM,
+-				      wsa884x->supplies);
+-	if (ret)
++					      wsa884x->supplies);
++	if (ret) {
++		if (of_machine_is_compatible("asus,zenbook-a16-ux3607oa"))
++			dev_info(dev, "speaker regulator lookup returned %d\n", ret);
+ 		return dev_err_probe(dev, ret, "Failed to get regulators\n");
++	}
+ 
+ 	ret = regulator_bulk_enable(WSA884X_SUPPLIES_NUM, wsa884x->supplies);
+-	if (ret)
++	if (ret) {
++		if (of_machine_is_compatible("asus,zenbook-a16-ux3607oa"))
++			dev_info(dev, "speaker regulator enable returned %d\n", ret);
+ 		return dev_err_probe(dev, ret, "Failed to enable regulators\n");
++	}
+ 
+ 	ret = devm_add_action_or_reset(dev, wsa884x_regulator_disable,
+ 				       wsa884x->supplies);
+@@ -2075,8 +2085,11 @@ static int wsa884x_probe(struct sdw_slave *pdev,
+ 		return ret;
+ 
+ 	ret = wsa884x_get_reset(dev, wsa884x);
+-	if (ret)
++	if (ret) {
++		if (of_machine_is_compatible("asus,zenbook-a16-ux3607oa"))
++			dev_info(dev, "speaker reset lookup returned %d\n", ret);
+ 		return ret;
++	}
+ 
+ 	dev_set_drvdata(dev, wsa884x);
+ 	wsa884x->slave = pdev;
+@@ -2101,6 +2114,9 @@ static int wsa884x_probe(struct sdw_slave *pdev,
+ 	pdev->prop.scp_int1_mask = SDW_SCP_INT1_BUS_CLASH | SDW_SCP_INT1_PARITY;
+ 
+ 	wsa884x_reset_deassert(wsa884x);
++	if (of_machine_is_compatible("asus,zenbook-a16-ux3607oa"))
++		dev_info(dev, "speaker supplies ready; reset released (dev_num %u)\n",
++			 pdev->dev_num);
+ 	ret = devm_add_action_or_reset(dev, wsa884x_reset_powerdown, wsa884x);
+ 	if (ret)
+ 		return ret;
+-- 
+2.55.0
+

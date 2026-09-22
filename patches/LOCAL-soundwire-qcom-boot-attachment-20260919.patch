@@ -1,0 +1,163 @@
+From ffc9a506cae602bdbdafe70789072ec0b002c6d1 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Sat, 19 Sep 2026 07:22:30 -0400
+Subject: [PATCH] soundwire: qcom: wait for complete boot attachment before
+ exposing DAIs
+
+An empty enumeration pass used an uninitialized found flag and the resulting binary could complete the wait without a slave ID. Boot then reset the controller while slaves were still attaching and accepted stale device numbers as success.
+
+Complete only after observing an ID. Wait for all expected slaves to be numbered and attached, retry deferred binding without unbinding established codecs, and fail the boot probe after a bounded final wait. Log the final per-slave states for the A16 hardware trial and quiesce the status IRQ before probe error cleanup.
+---
+ drivers/soundwire/qcom.c | 73 ++++++++++++++++++++--------------------
+ 1 file changed, 36 insertions(+), 37 deletions(-)
+
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index 41dde13d7a38..fa2c3f18afc3 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -136,13 +136,6 @@
+ 
+ #define MAX_FREQ_NUM						1
+ #define TIMEOUT_MS						500
+-/* Enumeration retry budget: ~1.5s, unchanged from the original behavior.
+- * A slave stuck at -EPROBE_DEFER (see qcom_swrm_reprobe_unattached_slaves)
+- * won't attach no matter how long this loop waits, so there is no benefit
+- * to raising it -- the fix for a slow-attaching slave is the explicit
+- * reprobe below, not a longer budget here.
+- */
+-#define ENUM_RETRIES						3
+ #define QCOM_SWRM_MAX_RD_LEN					0x1
+ #define DEFAULT_CLK_FREQ					9600000
+ #define SWR_INVALID_PARAM					0xFF
+@@ -665,7 +658,7 @@ static int qcom_swrm_enumerate(struct sdw_bus *bus)
+ 	struct sdw_slave *slave, *_s;
+ 	struct sdw_slave_id id;
+ 	u32 val1, val2;
+-	bool found;
++	bool found, enumerated = false;
+ 	u64 addr;
+ 	int i;
+ 	char *buf1 = (char *)&val1, *buf2 = (char *)&val2;
+@@ -683,6 +676,7 @@ static int qcom_swrm_enumerate(struct sdw_bus *bus)
+ 
+ 		if (!val1 && !val2)
+ 			break;
++		enumerated = true;
+ 
+ 		addr = buf2[1] | (buf2[0] << 8) | (buf1[3] << 16) |
+ 			((u64)buf1[2] << 24) | ((u64)buf1[1] << 32) |
+@@ -710,7 +704,7 @@ static int qcom_swrm_enumerate(struct sdw_bus *bus)
+ 		}
+ 	}
+ 
+-	if (found)
++	if (enumerated)
+ 		complete(&ctrl->enumeration);
+ 	return 0;
+ }
+@@ -741,8 +735,6 @@ static irqreturn_t qcom_swrm_wake_irq_handler(int irq, void *dev_id)
+ }
+ 
+ static int qcom_swrm_init(struct qcom_swrm_ctrl *ctrl);
+-static bool qcom_swrm_all_slaves_attached(struct qcom_swrm_ctrl *ctrl,
+-					   struct device *dev);
+ static void qcom_swrm_reprobe_unattached_slaves(struct qcom_swrm_ctrl *ctrl);
+ 
+ static bool qcom_swrm_all_slaves_online(struct qcom_swrm_ctrl *ctrl)
+@@ -1711,22 +1703,16 @@ static int swrm_reg_show(struct seq_file *s_file, void *data)
+ DEFINE_SHOW_ATTRIBUTE(swrm_reg);
+ #endif
+ 
+-static bool qcom_swrm_all_slaves_attached(struct qcom_swrm_ctrl *ctrl,
+-					   struct device *dev)
++static void qcom_swrm_log_boot_slaves(struct qcom_swrm_ctrl *ctrl)
+ {
+ 	struct sdw_slave *slave;
+-	bool all_attached = true;
+ 
++	mutex_lock(&ctrl->bus.bus_lock);
+ 	list_for_each_entry(slave, &ctrl->bus.slaves, node) {
+-		if (!slave->dev_num) {
+-			dev_warn(dev, "SWR slave %s not yet attached (status %u, driver %s)\n",
+-				 dev_name(&slave->dev), slave->status,
+-				 dev_driver_string(&slave->dev));
+-			all_attached = false;
+-		}
++		dev_info(ctrl->dev, "boot slave %s: dev_num %u status %u\n",
++			 dev_name(&slave->dev), slave->dev_num, slave->status);
+ 	}
+-
+-	return all_attached;
++	mutex_unlock(&ctrl->bus.bus_lock);
+ }
+ 
+ /*
+@@ -1769,7 +1755,8 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 	struct sdw_bus_params *params;
+ 	struct qcom_swrm_ctrl *ctrl;
+ 	const struct qcom_swrm_data *data;
+-	int ret, retries = ENUM_RETRIES;
++	struct sdw_slave *slave;
++	int ret;
+ 	u32 val;
+ 
+ 	ctrl = devm_kzalloc(dev, sizeof(*ctrl), GFP_KERNEL);
+@@ -1898,22 +1885,32 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 		goto err_clk;
+ 	}
+ 
+-retry_init:
+ 	qcom_swrm_init(ctrl);
+-	wait_for_completion_timeout(&ctrl->enumeration,
+-				    msecs_to_jiffies(TIMEOUT_MS));
+-	if (!qcom_swrm_all_slaves_attached(ctrl, dev) && --retries > 0) {
+-		dev_warn(dev, "Auto-enumeration incomplete (status %x), resetting and retrying (%d left)...\n",
+-			 ctrl->slave_status, retries);
+-		ctrl->reg_write(ctrl, SWRM_COMP_SW_RESET, 0x01);
+-		usleep_range(2000, 2050);
+-		reinit_completion(&ctrl->enumeration);
+-		goto retry_init;
+-	}
+-	if (!qcom_swrm_all_slaves_attached(ctrl, dev)) {
+-		dev_err(dev, "giving up on enumeration with slaves still missing, reprobing them directly\n");
+-		qcom_swrm_reprobe_unattached_slaves(ctrl);
++	if (!wait_event_timeout(ctrl->slaves_wait,
++				qcom_swrm_all_slaves_online(ctrl),
++				msecs_to_jiffies(TIMEOUT_MS))) {
++		qcom_swrm_log_boot_slaves(ctrl);
++		/*
++		 * A deferred codec probe may still need to release reset.
++		 * device_attach() leaves already bound codecs intact; resetting
++		 * the controller or rebinding them here can race attachment.
++		 */
++		list_for_each_entry(slave, &ctrl->bus.slaves, node) {
++			ret = device_attach(&slave->dev);
++			dev_info(dev, "boot attach %s returned %d\n",
++				 dev_name(&slave->dev), ret);
++		}
++		if (!wait_event_timeout(ctrl->slaves_wait,
++					qcom_swrm_all_slaves_online(ctrl),
++					msecs_to_jiffies(TIMEOUT_MS))) {
++			qcom_swrm_log_boot_slaves(ctrl);
++			dev_err(dev, "boot enumeration failed: slaves still missing\n");
++			ret = -ETIMEDOUT;
++			goto err_master_add;
++		}
+ 	}
++	qcom_swrm_log_boot_slaves(ctrl);
++	dev_info(dev, "boot enumeration complete: all slaves attached\n");
+ 	ret = qcom_swrm_register_dais(ctrl);
+ 	if (ret)
+ 		goto err_master_add;
+@@ -1942,6 +1939,8 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 	return 0;
+ 
+ err_master_add:
++	/* Stop status callbacks before removing their slave devices. */
++	disable_irq(ctrl->irq);
+ 	sdw_bus_master_delete(&ctrl->bus);
+ err_clk:
+ 	clk_disable_unprepare(ctrl->hclk);
+-- 
+2.55.0
+

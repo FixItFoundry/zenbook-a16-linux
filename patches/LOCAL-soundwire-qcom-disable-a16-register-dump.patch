@@ -1,0 +1,22 @@
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index 6c41632f7eb6..946701ab10e8 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -1809,8 +1809,15 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 
+ #ifdef CONFIG_DEBUG_FS
+ 	ctrl->debugfs = debugfs_create_dir("qualcomm-sdw", ctrl->bus.debugfs);
+-	debugfs_create_file("qualcomm-registers", 0400, ctrl->debugfs, ctrl,
+-			    &swrm_reg_fops);
++	/*
++	 * On the Zenbook A16, reading the full register dump coincided with
++	 * SoundWire FIFO underflows and WSA8845 parity/port-read failures.
++	 * Keep this diagnostic interface unavailable until individual register
++	 * reads and their runtime-PM interaction have been reviewed.
++	 */
++	if (!of_machine_is_compatible("asus,zenbook-a16-ux3607oa"))
++		debugfs_create_file("qualcomm-registers", 0400, ctrl->debugfs,
++				    ctrl, &swrm_reg_fops);
+ #endif
+ 
+ 	return 0;

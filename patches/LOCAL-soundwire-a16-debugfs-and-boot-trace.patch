@@ -1,0 +1,66 @@
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index 6c41632f7eb6..4e3fb34235b1 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -1608,8 +1608,9 @@ static bool qcom_swrm_all_slaves_attached(struct qcom_swrm_ctrl *ctrl,
+ 
+ 	list_for_each_entry(slave, &ctrl->bus.slaves, node) {
+ 		if (!slave->dev_num) {
+-			dev_warn(dev, "SWR slave %s not yet attached\n",
+-				 dev_name(&slave->dev));
++			dev_warn(dev, "SWR slave %s not yet attached (status %u, driver %s)\n",
++				 dev_name(&slave->dev), slave->status,
++				 dev_driver_string(&slave->dev));
+ 			all_attached = false;
+ 		}
+ 	}
+@@ -1641,6 +1642,9 @@ static void qcom_swrm_reprobe_unattached_slaves(struct qcom_swrm_ctrl *ctrl)
+ 		if (slave->dev_num)
+ 			continue;
+ 		ret = device_reprobe(&slave->dev);
++		if (of_machine_is_compatible("asus,zenbook-a16-ux3607oa"))
++			dev_info(&slave->dev, "enumeration reprobe returned %d (dev_num %u, status %u)\n",
++				 ret, slave->dev_num, slave->status);
+ 		if (ret)
+ 			dev_dbg(&slave->dev, "reprobe still not ready (%d)\n", ret);
+ 	}
+@@ -1809,8 +1813,15 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 
+ #ifdef CONFIG_DEBUG_FS
+ 	ctrl->debugfs = debugfs_create_dir("qualcomm-sdw", ctrl->bus.debugfs);
+-	debugfs_create_file("qualcomm-registers", 0400, ctrl->debugfs, ctrl,
+-			    &swrm_reg_fops);
++	/*
++	 * On the Zenbook A16, reading the full register dump coincided with
++	 * SoundWire FIFO underflows and WSA8845 parity/port-read failures.
++	 * Keep this diagnostic interface unavailable until individual register
++	 * reads and their runtime-PM interaction have been reviewed.
++	 */
++	if (!of_machine_is_compatible("asus,zenbook-a16-ux3607oa"))
++		debugfs_create_file("qualcomm-registers", 0400, ctrl->debugfs,
++				    ctrl, &swrm_reg_fops);
+ #endif
+ 
+ 	return 0;
+diff --git a/sound/soc/codecs/wsa884x.c b/sound/soc/codecs/wsa884x.c
+index b2edec2a448e..20135f472885 100644
+--- a/sound/soc/codecs/wsa884x.c
++++ b/sound/soc/codecs/wsa884x.c
+@@ -13,6 +13,7 @@
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/mutex.h>
++#include <linux/of.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/regmap.h>
+ #include <linux/regulator/consumer.h>
+@@ -2101,6 +2102,9 @@ static int wsa884x_probe(struct sdw_slave *pdev,
+ 	pdev->prop.scp_int1_mask = SDW_SCP_INT1_BUS_CLASH | SDW_SCP_INT1_PARITY;
+ 
+ 	wsa884x_reset_deassert(wsa884x);
++	if (of_machine_is_compatible("asus,zenbook-a16-ux3607oa"))
++		dev_info(dev, "speaker supplies ready; reset released (dev_num %u)\n",
++			 pdev->dev_num);
+ 	ret = devm_add_action_or_reset(dev, wsa884x_reset_powerdown, wsa884x);
+ 	if (ret)
+ 		return ret;
