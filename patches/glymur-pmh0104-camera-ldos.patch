@@ -1,0 +1,14 @@
+diff --git a/drivers/regulator/qcom-rpmh-regulator.c b/drivers/regulator/qcom-rpmh-regulator.c
+index 25c14de3cd8b..a967b4135832 100644
+--- a/drivers/regulator/qcom-rpmh-regulator.c
++++ b/drivers/regulator/qcom-rpmh-regulator.c
+@@ -1663,6 +1663,9 @@ static const struct rpmh_vreg_init_data pmh0104_vreg_data[] = {
+ 	RPMH_VREG("smps2",   SMPS, 2,    &pmic5_ftsmps530, "vdd-s2"),
+ 	RPMH_VREG("smps3",   SMPS, 3,    &pmic5_ftsmps530, "vdd-s3"),
+ 	RPMH_VREG("smps4",   SMPS, 4,    &pmic5_ftsmps530, "vdd-s4"),
++	RPMH_VREG("ldo3",    LDO,  3,    &pmic5_nldo530,   "vdd-l3"),
++	RPMH_VREG("ldo4",    LDO,  4,    &pmic5_nldo530,   "vdd-l4"),
++	RPMH_VREG("ldo7",    LDO,  7,    &pmic5_pldo530_mvp150, "vdd-l7"),
+ 	{}
+ };
+ 

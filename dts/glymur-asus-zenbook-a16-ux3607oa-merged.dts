@@ -18,10 +18,26 @@
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 
+/*
+ * GLYMUR-A16: drop the two secondary PMICs this laptop does not populate, and
+ * the thermal zones left dangling behind them.
+ *
+ * The zones must be deleted BY PATH, not by label. Upstream leaves
+ * pmh0104-l1-thermal and pmh0110-h0-thermal unlabelled (only the i0/j0 zones
+ * carry labels), so `/delete-node/ &pmh0104_l1_thermal;` fails to resolve and
+ * the zone survives with a dangling thermal-sensors phandle into the PMIC we
+ * just removed - which is a hard dtc error:
+ *
+ *   ERROR (phandle_references): /thermal-zones/pmh0104-l1-thermal:
+ *     Reference to non-existent node or label "pmh0104_l_e1_temp_alarm"
+ *
+ * Corrected 2026-08-02. The label form built only against the vendor-patched
+ * tree this DTS was originally developed on; it does not build against upstream.
+ */
 /delete-node/ &pmh0104_l_e1;
-/delete-node/ &pmh0104_l1_thermal;
+/delete-node/ &{/thermal-zones/pmh0104-l1-thermal};
 /delete-node/ &pmh0110_h_e0;
-/delete-node/ &pmh0110_h0_thermal;
+/delete-node/ &{/thermal-zones/pmh0110-h0-thermal};
 
 / {
 	compatible = "asus,zenbook-a16-ux3607oa", "qcom,glymur";
@@ -440,43 +456,6 @@
 		};
 	};
 
-	wlan-connector {
-		compatible = "pcie-m2-e-connector";
-		vpcie3v3-supply = <&vreg_wcn_3p3>;
-		vpcie1v8-supply = <&vreg_l15b_e0>;
-
-		/*
-		 * GLYMUR-A16: pin/gpio ownership (tlmm 116/117, wcn_wlan_bt_en)
-		 * moved to wcn7850-pmu; this node is kept only as the PCIe/UART
-		 * graph anchor so the endpoint labels resolve.
-		 */
-		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			port@0 {
-				reg = <0>;
-				#address-cells = <1>;
-				#size-cells = <0>;
-
-				m2_e_pcie_ep: endpoint@0 {
-					reg = <0>;
-					remote-endpoint = <&pcie4_port0_ep>;
-				};
-			};
-
-			port@3 {
-				reg = <3>;
-				#address-cells = <1>;
-				#size-cells = <0>;
-
-				m2_e_uart_ep: endpoint@0 {
-					reg = <0>;
-					remote-endpoint = <&uart14_ep>;
-				};
-			};
-		};
-	};
 };
 
 &apps_rsc {
@@ -710,16 +689,54 @@
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 	};
+
+	/*
+	 * GLYMUR-A16: camera sensor rails, 2026-09-06. PMIC "I_E0" is
+	 * pmh0104_i_e0 (pmic@8). Both rails and their voltages come from the
+	 * Windows driver store's AeoB power-sequence blob
+	 * (CAMF_RES_QRD.bin / CAMI_RES_QRD.bin): PPP_RESOURCE_ID_LDO4_I0 at
+	 * 0x001b7740 = 1.8 V, PPP_RESOURCE_ID_LDO7_I0 at 0x002ab980 = 2.8 V.
+	 * LDO4 appears in BOTH sensors' sequences (shared DOVDD); LDO7 only in
+	 * the front sensor's. Needs the matching qcom-rpmh-regulator patch —
+	 * upstream pmh0104_vreg_data[] declares smps1-4 only.
+	 * See docs/hardware.md.
+	 */
+	regulators-5 {
+		compatible = "qcom,pmh0104-rpmh-regulators";
+		qcom,pmic-id = "I_E0";
+
+		vreg_l4i_e0: ldo4 {
+			regulator-name = "vreg_l4i_e0";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_l7i_e0: ldo7 {
+			regulator-name = "vreg_l7i_e0";
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
 };
 
 &gpu {
-	/* GLYMUR-A16 stage 1: enabled separately, see merged-gpu variant */
-	status = "disabled";
+	/*
+	 * GLYMUR-A16: requires gpucc_glymur to NOT be blacklisted on the cmdline -
+	 * gxclkctl-kaanapali runtime-resumes gpucc at probe, and without it the
+	 * adreno SMMU times out and the whole msm component bind fails.
+	 */
+	status = "okay";
 };
 
 &gmu {
-	/* GLYMUR-A16 stage 1: enabled separately, see merged-gpu variant */
-	status = "disabled";
+	/*
+	 * GLYMUR-A16: requires gpucc_glymur to NOT be blacklisted on the cmdline -
+	 * gxclkctl-kaanapali runtime-resumes gpucc at probe, and without it the
+	 * adreno SMMU times out and the whole msm component bind fails.
+	 */
+	status = "okay";
 };
 
 &i2c0 {
@@ -952,22 +969,19 @@
 	reset-gpios = <&tlmm 146 GPIO_ACTIVE_LOW>;
 	wake-gpios = <&tlmm 148 GPIO_ACTIVE_LOW>;
 
-	/* GLYMUR-A16: 7.2-rc3 glymur.dtsi has no pcie4_port0_ep label, so the
-	 * graph endpoint is defined here rather than overridden. */
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
+	wifi@0 {
+		compatible = "pci17cb,1112";
+		reg = <0x10000 0x0 0x0 0x0 0x0>;
 
-		port@0 {
-			reg = <0>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			pcie4_port0_ep: endpoint@0 {
-				reg = <0>;
-				remote-endpoint = <&m2_e_pcie_ep>;
-			};
-		};
+		vddaon-supply = <&vreg_pmu_aon_0p59>;
+		vddwlcx-supply = <&vreg_pmu_wlcx_0p8>;
+		vddwlmx-supply = <&vreg_pmu_wlmx_0p85>;
+		vddrfacmn-supply = <&vreg_pmu_rfa_cmn>;
+		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
+		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
+		vddrfa1p8-supply = <&vreg_pmu_rfa_1p8>;
+		vddpcie0p9-supply = <&vreg_pmu_pcie_0p9>;
+		vddpcie1p8-supply = <&vreg_pmu_pcie_1p8>;
 	};
 };
 
@@ -1065,6 +1079,15 @@
 
 &swr0 {
 	status = "okay";
+	/*
+	 * left_woofer/left_tweeter's reset-gpios resolve through lpass_tlmm,
+	 * gated on the ADSP's APM. NOT fixed with a longer enum-timeout here
+	 * (tried 2026-08-17, made things worse -- see qcom.c's device_reprobe
+	 * comment): bus-level rescanning can't unstick a slave whose driver
+	 * bailed with -EPROBE_DEFER before releasing reset, so a long budget
+	 * only delayed the sibling controller that happened to be triggering
+	 * the real fix. The actual fix is in the driver.
+	 */
 
 	/* WSA8845, left woofer */
 	left_woofer: speaker@0,0 {
@@ -1093,6 +1116,7 @@
 
 &swr3 {
 	status = "okay";
+	/* see &swr0 -- same lpass_tlmm/ADSP-APM dependency, same fix */
 
 	/* WSA8845, right woofer */
 	right_woofer: speaker@0,0 {
@@ -1225,6 +1249,32 @@
 		bias-disable;
 	};
 
+	/*
+	 * GLYMUR-A16: front camera (OV02C10) pins, 2026-09-06.
+	 * gpio100 is the ONLY MCLK4-capable pin on this SoC —
+	 * cam_mclk_groups[] in pinctrl-glymur.c covers gpio96-99
+	 * (MCLK0-3) and gpio100 carries the dedicated cam_asc_mclk4
+	 * function. gpio239 is the sensor reset, from the AeoB blob's
+	 * front-sensor-only TLMMGPIO entry (0xef) — strong but unproven;
+	 * the blob drives it via the EGPIO ops, so if reset never
+	 * releases, try function "egpio" here.
+	 */
+	cam_rgb_default: cam-rgb-default-state {
+		mclk-pins {
+			pins = "gpio100";
+			function = "cam_asc_mclk4";
+			drive-strength = <16>;
+			bias-disable;
+		};
+
+		reset-n-pins {
+			pins = "gpio239";
+			function = "gpio";
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
+
 	wcn_wlan_bt_en: wcn-wlan-bt-en-state {
 		pins = "gpio116", "gpio117";
 		function = "gpio";
@@ -1321,11 +1371,6 @@
 		vddrfa1p8-supply = <&vreg_pmu_rfa_1p8>;
 	};
 
-	port {
-		uart14_ep: endpoint {
-			remote-endpoint = <&m2_e_uart_ep>;
-		};
-	};
 };
 
 &uart21 {
@@ -1405,6 +1450,37 @@
 	vdda-pll-supply = <&vreg_l4f_e1>;
 	refgen-supply = <&vreg_l4f_e1>;
 
+	/*
+	 * GLYMUR-A16: drop com_aux. gcc_usb3_tert_phy_com_aux_clk never leaves
+	 * halt on this instance - phy@88e1000 has no DWC3 behind it (there is no
+	 * tertiary USB controller), so the vote a USB half would normally cast is
+	 * never made. qmp_combo_com_init() then fails -EBUSY after a 200us
+	 * timeout, which kills AUX, EDID and every mode on the HDMI output.
+	 *
+	 * Legal because qmp_combo_clk_init() fetches the fixed list
+	 * {aux, cfg_ahb, ref, com_aux} with devm_clk_bulk_get_optional(): a clock
+	 * absent from the DT comes back NULL and clk_bulk_enable() skips it.
+	 * cfg_ahb already proves this - it is missing from all three combo PHY
+	 * nodes and nothing complains.
+	 *
+	 * Result: 0 clk-branch WARNs, EDID 0 -> 512 bytes, modes 0 -> 32, and the
+	 * compositor no longer wedges in msm_dp_aux_transfer on hotplug.
+	 *
+	 * WORKAROUND, not the correct fix. The DT describes the PHY's clocks
+	 * accurately; the driver is what enables com_aux unconditionally for an
+	 * instance with no USB half. The real fix likely belongs in
+	 * phy-qcom-qmp-combo.c or GCC. Do NOT present this upstream as
+	 * "the DTS was wrong".
+	 *
+	 * Back-ported to source 2026-08-02; previously only in the compiled DTB.
+	 */
+	clocks = <&gcc GCC_USB3_TERT_PHY_AUX_CLK>,
+		 <&tcsr TCSR_USB4_2_CLKREF_EN>,
+		 <&gcc GCC_USB3_TERT_PHY_PIPE_CLK>;
+	clock-names = "aux",
+		      "ref",
+		      "usb3_pipe";
+
 	/delete-property/ mode-switch;
 	/delete-property/ orientation-switch;
 
@@ -1465,4 +1541,976 @@
 	refgen-supply = <&vreg_l4f_e1>;
 
 	status = "okay";
+};
+
+/*
+ * GLYMUR-A16: make the SCMI core poll instead of waiting on the mailbox doorbell.
+ *
+ * scmi-cpufreq probed -110 (-ETIMEDOUT) for this project's entire life. Measured
+ * with SCMI RAW on 2026-07-30: the PDP0/CPUCP firmware answers protocol 0x13
+ * (Performance) in shared memory but NEVER rings the doorbell for it. The same
+ * message returns status 0 in polling mode and hangs forever in interrupt mode;
+ * 8 messages sent in IRQ mode moved IRQ 156 from 9 to 16 (one per reply) and
+ * ZERO times for 0x13.
+ *
+ * arm,no-completion-irq is a documented upstream boolean - no kernel patch needed.
+ * Result: three SCMI performance domains, scaling_driver = scmi, and the
+ * cpufreq-cpu0/6/12 cooling devices appear unaided.
+ *
+ * The scmi node upstream carries no label, so it is reached by path.
+ *
+ * Back-ported to source 2026-08-02; previously only in the compiled DTB.
+ */
+&{/firmware/scmi} {
+	arm,no-completion-irq;
+};
+
+/*
+ * GLYMUR-A16: thermal actuation. Bind the cpufreq cooling devices that the
+ * arm,no-completion-irq fix causes the kernel to create (cpufreq-cpu0/6/12) to a
+ * passive trip on every CPU and CPU-LLC zone. Upstream ships only the 115 C
+ * critical trip, so without this Linux has cooling capability and no actuation.
+ *
+ * Cluster map: the cpu-0-N and cpullc-0-N zones bind cpu0 (cpus 0-5), the cpu-1-N
+ * and cpullc-1-N zones bind cpu6 (cpus 6-11), and the cpu-2-N, cpullc-2-0 and
+ * cpuillc-2-1 zones bind cpu12 (cpus 12-17).
+ *
+ * polling-delay-passive is REQUIRED - without it the thermal core never
+ * re-evaluates the zone once the passive trip is crossed, so cur_state never
+ * steps back down. Verified against the running DTB on 2026-08-02.
+ *
+ * NOTE: this binds 42 zones where the hand-edited DTB on the laptop binds 41.
+ * Upstream glymur.dtsi contains a typo'd zone name, cpuillc-2-1-thermal (three
+ * i's), which the hand edit's cpullc-* pattern missed. It is a real zone with a
+ * real sensor, so it is bound here too.
+ *
+ * Back-ported to source 2026-08-02 and diffed against the live
+ * glymur-a16-hdmi-nocomaux.dtb: trip temperature, hysteresis, polling delay and
+ * cooling-device args all match.
+ */
+
+&{/thermal-zones/cpu-0-0-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_0_0_alert: cpu-0-0-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_0_0_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-0-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_0_1_alert: cpu-0-0-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_0_1_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-1-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_1_0_alert: cpu-0-1-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_1_0_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-1-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_1_1_alert: cpu-0-1-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_1_1_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-2-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_2_0_alert: cpu-0-2-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_2_0_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-2-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_2_1_alert: cpu-0-2-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_2_1_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-3-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_3_0_alert: cpu-0-3-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_3_0_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-3-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_3_1_alert: cpu-0-3-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_3_1_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-4-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_4_0_alert: cpu-0-4-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_4_0_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-4-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_4_1_alert: cpu-0-4-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_4_1_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-5-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_5_0_alert: cpu-0-5-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_5_0_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-0-5-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_0_5_1_alert: cpu-0-5-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_0_5_1_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-0-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_0_0_alert: cpu-1-0-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_0_0_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-0-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_0_1_alert: cpu-1-0-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_0_1_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-1-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_1_0_alert: cpu-1-1-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_1_0_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-1-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_1_1_alert: cpu-1-1-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_1_1_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-2-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_2_0_alert: cpu-1-2-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_2_0_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-2-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_2_1_alert: cpu-1-2-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_2_1_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-3-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_3_0_alert: cpu-1-3-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_3_0_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-3-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_3_1_alert: cpu-1-3-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_3_1_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-4-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_4_0_alert: cpu-1-4-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_4_0_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-4-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_4_1_alert: cpu-1-4-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_4_1_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-5-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_5_0_alert: cpu-1-5-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_5_0_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-1-5-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_1_5_1_alert: cpu-1-5-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_1_5_1_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-0-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_0_0_alert: cpu-2-0-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_0_0_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-0-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_0_1_alert: cpu-2-0-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_0_1_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-1-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_1_0_alert: cpu-2-1-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_1_0_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-1-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_1_1_alert: cpu-2-1-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_1_1_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-2-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_2_0_alert: cpu-2-2-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_2_0_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-2-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_2_1_alert: cpu-2-2-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_2_1_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-3-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_3_0_alert: cpu-2-3-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_3_0_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-3-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_3_1_alert: cpu-2-3-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_3_1_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-4-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_4_0_alert: cpu-2-4-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_4_0_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-4-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_4_1_alert: cpu-2-4-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_4_1_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-5-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_5_0_alert: cpu-2-5-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_5_0_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu-2-5-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpu_2_5_1_alert: cpu-2-5-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpu_2_5_1_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpuillc-2-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpuillc_2_1_alert: cpuillc-2-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpuillc_2_1_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpullc-0-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpullc_0_0_alert: cpullc-0-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpullc_0_0_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpullc-0-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpullc_0_1_alert: cpullc-0-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpullc_0_1_alert>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpullc-1-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpullc_1_0_alert: cpullc-1-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpullc_1_0_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpullc-1-1-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpullc_1_1_alert: cpullc-1-1-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpullc_1_1_alert>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpullc-2-0-thermal} {
+	polling-delay-passive = <100>;
+
+	trips {
+		cpullc_2_0_alert: cpullc-2-0-alert {
+			temperature = <95000>;
+			hysteresis = <1000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {
+			trip = <&cpullc_2_0_alert>;
+			cooling-device = <&cpu12 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+/*
+ * GLYMUR-A16: CCI0/CCI1 registration-only test, 2026-08-21. `isp` (CAMSS core)
+ * deliberately left disabled in glymur.dtsi — single variable is the CCI
+ * control bus, not the full image pipeline. See docs/hardware.md.
+ */
+&cci0 {
+	status = "okay";
+
+	cci0_i2c0: i2c-bus@0 {
+		status = "okay";
+	};
+
+	cci0_i2c1: i2c-bus@1 {
+		status = "okay";
+	};
+};
+
+&cci1 {
+	status = "okay";
+
+	cci1_i2c0: i2c-bus@0 {
+		status = "okay";
+	};
+
+	cci1_i2c1: i2c-bus@1 {
+		status = "okay";
+	};
+};
+
+/*
+ * GLYMUR-A16: isp (CAMSS core) probe-only test, 2026-08-21, on top of the
+ * proven-good cci0/cci1 test above. Register map/interrupts come from the
+ * 2026-08-16 WIP patch; provenance unconfirmed against this exact hardware
+ * (unlike cci0/cci1, which cross-validated against our own ACPI dump), but
+ * driver source review shows probe() only does ioremap/request_irq/clk_get —
+ * no live register access — same safe shape as cci's already-passed test.
+ * See docs/hardware.md.
+ */
+&isp {
+	status = "okay";
+	vdd-csiphy-0p8-supply = <&vreg_l2c_e0>;
+	vdd-csiphy-1p2-supply = <&vreg_l4c_e0>;
+
+	/*
+	 * GLYMUR-A16: front sensor (OV02C10) endpoint, 2026-08-21. port@3 is
+	 * csiphy_res_x1e80100[]'s array index 3 == hardware CSIPHY4 (NOT
+	 * literal "port@4" - camss.c indexes camss->csiphy[] by array
+	 * position, not the .id field). CSIPHY4 pairing with MCLK4 is
+	 * inference from the MCLK0/MCLK4 split confirmed in the Windows
+	 * power-sequence binaries + MPCS's sibling-revision ACPI resources
+	 * naming exactly CSIPHY0+CSIPHY4 - not a literal string match like
+	 * the MCLK itself. See docs/hardware.md.
+	 */
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@3 {
+			reg = <3>;
+
+			csiphy4_ep: endpoint {
+				data-lanes = <1 2>;
+				remote-endpoint = <&ov02c10_ep>;
+			};
+		};
+	};
+};
+
+/*
+ * GLYMUR-A16: front sensor (OV02C10), rewritten 2026-09-06. This SUPERSEDES
+ * the 2026-08-21 node, which sat on cci0_i2c0 with no supplies — that CCI bus
+ * was a self-declared guess and it was wrong. Do not re-run that test.
+ *
+ * Everything below now comes from decoding the Windows driver store's AeoB
+ * power-sequence blobs for BOTH sensors (CAMF_RES_QRD.bin front,
+ * CAMI_RES_QRD.bin aux) and cross-checking against
+ * drivers/pinctrl/qcom/pinctrl-glymur.c:
+ *
+ *   cci1_i2c0  - the blob's TLMMGPIO_V2 entry muxes {gpio=0x6a=106, func=1}.
+ *                PINGROUP() puts msm_mux_gpio at funcs[0], so func 1 on pin
+ *                106 is cci_i2c_scl. The three cci_i2c_scl-capable pins are
+ *                102/104/106 => bus pairs cci0_i2c0 (101/102), cci0_i2c1
+ *                (103/104), cci1_i2c0 (105/106). The entry is IDENTICAL in
+ *                both sensors' blobs, which is what makes it a shared bus
+ *                rather than a per-sensor pin.
+ *                NOTE this diverges from the ASUS Zenbook A14, which puts its
+ *                OV02C10 on cci1_i2c1. Our own board's blob outranks that
+ *                analogy. If 0x36 does not ACK here, cci1_i2c1 (TLMM 235/236,
+ *                function asc_cci) is the fallback — one bit, one boot.
+ *   MCLK4      - cam_cc_mclk4_clk @ 19.2 MHz, a literal string plus 0x0124f800
+ *                in the blob. Pin gpio100 by elimination (see cam_rgb_default).
+ *   reset 239  - front-sensor-only TLMMGPIO entry (0xef). Strong, unproven.
+ *   dovdd/avdd - PPP_RESOURCE_ID_LDO4_I0 @ 1.8 V and LDO7_I0 @ 2.8 V. avdd and
+ *                dvdd share the 2.8 V rail; the blob votes only two LDOs, and
+ *                that is not a missing rail — the A14 is wired the same way.
+ *   0x36       - Windows CRD sensor config; matches the A14 and Yoga Slim 7x.
+ *
+ * See docs/hardware.md for the full evidence table and what is still unproven.
+ */
+&cci1_i2c0 {
+	ov02c10: camera@36 {
+		compatible = "ovti,ov02c10";
+		reg = <0x36>;
+
+		reset-gpios = <&tlmm 239 GPIO_ACTIVE_LOW>;
+		pinctrl-0 = <&cam_rgb_default>;
+		pinctrl-names = "default";
+
+		clocks = <&camcc CAM_CC_MCLK4_CLK>;
+		assigned-clocks = <&camcc CAM_CC_MCLK4_CLK>;
+		assigned-clock-rates = <19200000>;
+
+		dovdd-supply = <&vreg_l4i_e0>;
+		avdd-supply = <&vreg_l7i_e0>;
+		dvdd-supply = <&vreg_l7i_e0>;
+
+		orientation = <0>;
+
+		port {
+			ov02c10_ep: endpoint {
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <400000000>;
+				remote-endpoint = <&csiphy4_ep>;
+			};
+		};
+	};
 };

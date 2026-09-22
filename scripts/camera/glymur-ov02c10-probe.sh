@@ -1,30 +1,48 @@
 #!/bin/bash
-# glymur-ov02c10-probe.sh — first probe of the front sensor (OV02C10) on glymur.
+# glymur-ov02c10-probe.sh -- probe of the front sensor (OV02C10) on glymur.
 #
-# Boot the "Zenbook A16 OV02C10 sensor probe test (2026-08-21)" GRUB entry
-# (submenu "Test DTBs") first. i2c_qcom_cci, qcom_camss, and ov02c10 are all
-# blacklisted on that entry's cmdline — load by hand, same reasoning as the
-# earlier two probe scripts.
+# REWRITTEN 2026-09-06. The 2026-08-21 version of this script tested
+# cci0_i2c0, which its own header flagged as "a genuine guess ... the one
+# dimension most likely to be wrong". It was wrong. Do not re-run it.
 #
-# What's grounded vs guessed, going in:
-#   - MCLK4 @ 19.2 MHz: confirmed by literal string in the Windows driver's
-#     own power-sequence binary (CAMF_RES_QRD.bin) — not a guess.
-#   - CSIPHY4 (DT port@3): inference from the MCLK0/MCLK4 split + ACPI MPCS's
-#     sibling-revision resources naming CSIPHY0+CSIPHY4 — reasoned, not proven.
-#   - I2C address 0x36: from the Windows CRD sensor config JSON.
-#   - CCI bus (cci0_i2c0): a genuine guess. No evidence found anywhere for
-#     which of the 4 CCI buses this sensor is wired to. This is the one
-#     dimension most likely to be wrong.
-#   - Power supplies (dovdd/avdd/dvdd): deliberately OMITTED. These are real
-#     fixed-voltage rails with no confirmed wiring — guessing wrong here
-#     risks the sensor itself, unlike everything else tonight. Expect the
-#     driver to fail cleanly around the power-on / chip-ID-read step without
-#     them (a real-world Dell OV02C10 case with dummy-regulator fallback
-#     failed with a clean -EREMOTEIO at exactly that step — not damage).
+# Boot ONE of the two 2026-09-06 GRUB entries (submenu "Test DTBs"):
 #
-# This test's honest goal: does i2c_qcom_cci see anything answer at 0x36 on
-# cci0_i2c0 at all (even a failed/incomplete probe attempt is informative),
-# and does the endpoint linking to csiphy4 resolve without error.
+#   zenbook-a16-ov02c10-cci1i2c0  "OV02C10 on cci1_i2c0, no supplies"
+#       Runs on the CURRENT kernel. The sensor node has no dovdd/avdd/dvdd,
+#       so the regulator core substitutes dummies. This answers the bus
+#       question ONLY if UEFI happened to leave the camera rails voted up
+#       across the handoff -- a real possibility, since RPMh votes persist.
+#
+#   zenbook-a16-ov02c10-full      "OV02C10 full wiring"
+#       Needs a kernel built with patches/glymur-pmh0104-camera-ldos.patch.
+#       CONFIG_REGULATOR_QCOM_RPMH=y, so that is a full rebuild, not a module
+#       swap. On the current kernel this entry boots fine but is inert:
+#       rpmh_regulator_init_vreg() rejects the unknown ldo4/ldo7 subnodes with
+#       -EINVAL, so regulators-5 never probes and the sensor defers forever.
+#       (Blast radius is that node only -- the other PMICs are separate
+#       platform devices and are unaffected.)
+#
+# i2c_qcom_cci, qcom_camss and ov02c10 are all blacklisted on both entries'
+# cmdlines -- load by hand, same reasoning as the earlier probe scripts.
+#
+# What is grounded vs inferred, going in (full evidence table in
+# docs/hardware.md):
+#   - cci1_i2c0: the AeoB blob muxes {gpio=106, func=1}; PINGROUP() puts
+#     msm_mux_gpio at funcs[0], so func 1 on pin 106 is cci_i2c_scl, and
+#     105/106 is the cci1_i2c0 pin pair. Identical in BOTH sensors' blobs,
+#     which is what makes it a shared bus. Strong.
+#     FALLBACK if 0x36 does not ACK: cci1_i2c1 (TLMM 235/236, function
+#     asc_cci) -- what the ASUS Zenbook A14 uses. One bit, one boot.
+#   - MCLK4 @ 19.2 MHz on gpio100: literal string in the blob; gpio100 is the
+#     only MCLK4-capable pin on the SoC (cam_mclk_groups[] is 96-99). Proven.
+#   - reset gpio239: front-sensor-only TLMMGPIO entry. Strong, unproven. If
+#     reset never releases, try function "egpio" in cam_rgb_default.
+#   - 0x36: Windows CRD sensor config; matches the A14 and Yoga Slim 7x.
+#   - rails LDO4_I0 1.8V / LDO7_I0 2.8V: proven from the blob. avdd and dvdd
+#     share the 2.8V rail -- two LDOs is not a missing DVDD.
+#
+# Honest goal: does anything ACK at 0x36 on a CCI bus, and does the endpoint
+# to csiphy4 resolve without error.
 
 set -u
 LOG=${1:-/var/tmp/ov02c10-probe-$(date +%m%d-%H%M).log}
@@ -35,12 +53,18 @@ echo "--- kernel"
 uname -r
 
 echo "--- DTB fingerprint (only this DTB has the camera@36 node)"
-if [ ! -e /proc/device-tree/soc@0/cci@ac15000/i2c-bus@0/camera@36 ]; then
-	echo "ABORT: wrong DTB. Reboot and pick the 'Zenbook A16 OV02C10 sensor"
-	echo "       probe test' entry."
+if [ ! -e /proc/device-tree/soc@0/cci@ac16000/i2c-bus@0/camera@36 ]; then
+	echo "ABORT: wrong DTB. camera@36 is not under cci1_i2c0. Reboot and pick"
+	echo "       one of the 2026-09-06 entries, NOT the superseded 2026-08-21"
+	echo "       'OV02C10 sensor probe test' (that one is cci0_i2c0)."
 	exit 1
 fi
-echo "camera@36 present under cci0_i2c0 - correct DTB"
+echo "camera@36 present under cci1_i2c0 (cci@ac16000/i2c-bus@0) - correct DTB"
+if [ -e /proc/device-tree/soc@0/cci@ac16000/i2c-bus@0/camera@36/avdd-supply ]; then
+	echo "variant: FULL wiring (supplies present) - needs the pmh0104-LDO kernel"
+else
+	echo "variant: no-supplies (dummy regulators) - runs on the current kernel"
+fi
 
 echo "--- eDP healthy before? ---"
 cat /sys/class/graphics/fb0/name 2>/dev/null
@@ -60,7 +84,7 @@ for d in /sys/bus/i2c/devices/*-0036 /sys/bus/i2c/devices/*0036; do
 	printf '%s -> %s\n' "$(basename "$d")" "$(basename "$(readlink -f "$d/driver" 2>/dev/null)" 2>/dev/null)"
 done
 
-echo "--- raw i2c presence check on cci0's buses (0x36), now that clocks are live ---"
+echo "--- raw i2c presence check on ALL CCI buses (0x36), now that clocks are live ---"
 for b in /sys/bus/i2c/devices/i2c-*; do
 	n=$(cat "$b/name" 2>/dev/null)
 	case "$n" in
