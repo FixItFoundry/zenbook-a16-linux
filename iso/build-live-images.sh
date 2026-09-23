@@ -2,10 +2,9 @@
 # ============================================================================
 # LIVE images for the ASUS Zenbook A16 (glymur) — compressed root, RAM overlay.
 #
-# Why this exists, and why it replaces the raw-image builder for USB use:
+# Why this exists, and why it replaces legacy raw-image builders for USB use:
 #
-#   build-all-overnight.sh writes a 14 GB raw disk image with an UNCOMPRESSED
-#   ext4 root. Three consequences, all bad on a stick:
+#   A raw disk image with an uncompressed ext4 root has major drawbacks on a USB stick:
 #     - `dd` writes the full 14 GB no matter how well the .gz compresses, so
 #       flashing takes ~half an hour
 #     - every read at runtime is uncompressed I/O straight off USB

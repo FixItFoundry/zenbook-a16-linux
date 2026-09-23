@@ -178,7 +178,7 @@ future regression in USB-C *stability* as a possible UCSI/`pmic_glink` transport
 not only as a dwc3 or cable problem.
 
 ⚠️ The **USB-A** Ethernet adapter has never been affected by any of this and is the reliable
-rescue route when Wi-Fi is down (`ssh -o HostKeyAlias=loazen jcasco@192.168.8.158`).
+rescue route when Wi-Fi is down (`ssh <user>@<rescue-ip>`).
 
 ## Why this works without a retimer
 

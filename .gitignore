@@ -1,102 +1,53 @@
-# --- MUST NOT BE PUBLISHED ---------------------------------------------------
-
-# Internal working notes — NOT project artifacts. They carry local network and
-# host details that should not be published. Verified by scan 2026-07-24.
-# Keep local; publish findings via docs/ instead.
-memory-archive/
-CLAUDE.md
-AGENTS.md
-
-# Extracted UEFI / vendor firmware binaries and the Ghidra project built from
-# them. Proprietary ASUS/Qualcomm code — the RE *findings* are published in
-# docs/edp-firmware-re-2026-07-24.md, the binaries are not.
-re/
-a16dump/
-
-# Proprietary firmware blobs of any kind. Never publish these.
-*.mbn
-*.mdt
-*.bin
-*.elf
-*.efi
-
-# --- TOO LARGE / NOT OURS ----------------------------------------------------
-
-# 2.1G clone of clo/linux-kernel/kernel-qcom rolling_glymur_next. Reference
-# only; clone it yourself if you need it.
-clo-rolling_glymur_next/
-
-# Prebuilt kernel module blobs (build artifacts, and unsigned .ko at that)
+# Build outputs & packages
 *.ko
-*.ko.orig
-
-# Boot/initramfs artifacts and images
+*.ko.*
+*.o
+*.a
 *.dtb
 *.img
 *.img.gz
 *.iso
 *.zip
 *.tar.gz
-
-# --- SCRATCH / WORKING ------------------------------------------------------
 __pycache__/
 *.pyc
-# Working files live here and are never committed. Anything meant to be kept
-# gets moved out of scratch/ deliberately.
-scratch/
 
-captures/images/
-captures/videos/
+# Logs & temporary files
 *.log
-_*.sh
-_*.txt
-MORNING-README.md
-PUSH_INSTRUCTIONS.md
 *.swp
 *~
 .DS_Store
 Thumbs.db
-docs/UPSTREAMING-PLAN.md
+_*.sh
+_*.txt
 
-# Hardware dumps and probe captures are NOT published. ACPI dumps in particular
-# carry MSDM, which holds the OEM Windows licence key in plaintext.
+# Firmware blobs & proprietary binaries
+*.mbn
+*.mdt
+*.bin
+*.elf
+*.efi
 *.dat
 *msdm*
 
-# Desktop-environment config does not belong in a kernel bring-up repo.
+# Local working & private folders
+scratch/
+internal/
+internal-docs/
+memory-archive/
+re/
+a16dump/
+captures/images/
+captures/videos/
+docs/evidence/
+clo-rolling_glymur_next/
 tweaks/dotfiles/
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-# PRIVATE BY DEFAULT — everything below never leaves this machine.
-#
-# THE RULE: working communications and any notes dropped into the project
-# folder are private. Do not rely on remembering to add each new file here —
-# put it in internal/ and it is private structurally.
-#
-#   internal/   ← the ONLY place private material belongs. Anything in it is
-#                 ignored, including subdirectories created later.
-#
-# What lives there: the working journal (DTB_CHANGELOG-internal.md), rolling
-# state (RESUME-HERE.md), handoffs, upstreaming notes, raw analysis transcripts,
-# the eDP series, decompiled test DTBs, diagnostic-only patches, hardware
-# evidence captures, build logs, dtdiff output, and DRAFT emails/bug reports.
-#
-# ⛔ Draft communications are private until sent. They live in internal/ and
-#    must never be committed.
-# ═══════════════════════════════════════════════════════════════════════════
-internal/
-
-# CLAUDE.md must stay at the repo root — Claude Code loads it from there — so
-# it cannot move into internal/ and is ignored by name instead.
-CLAUDE.md
-
-# Hardware/firmware captures are private wherever they land (post-2026-07-31
-# MSDM leak). Belt and braces alongside internal/.
-docs/evidence/
-**/*.dat
-**/*msdm*
-
-
-# Private triage, project status, and hardware experiment records.
-/internal-docs/
+# Private documentation & working handoffs
+RESUME-HERE.md
+HANDOFF.md
+MORNING-README.md
+PUSH_INSTRUCTIONS.md
+docs/UPSTREAMING-PLAN.md
+*overnight*
+build-all-overnight.sh

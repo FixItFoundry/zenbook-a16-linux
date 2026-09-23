@@ -1,76 +1,50 @@
 # Kernel
 
-The Zenbook A16 bring-up now tracks **linux-next**. The A16 device tree is upstream as of
-`next-20260803`, and a linux-next kernel plus two small local deltas boots, trains the
-internal eDP panel at HBR3 and runs a graphical session.
+The Zenbook A16 bring-up tracks **linux-next** and Linux v7.3-rc snapshots. The A16 device tree is upstream, and a kernel combining the baseline with backports and hardware fixes boots, trains the internal eDP panel, and runs a graphical desktop session.
 
-> ⛔ **Retired 2026-08-08:** this file used to say *"Do not build on 7.2 / linux-next — a
-> regression in the 7.2 cycle broke the working glymur chain. Known-good base = v7.1."*
-> **That is false.** The "regression" was a silent reset caused by `msm_dp_ctrl_push_idle()`
-> writing to an untrained link; it is fixed by a one-line guard, and 7.1 was never the
-> cause-free base it appeared to be. Build on linux-next.
+---
 
-## Build naming (2026-08-08)
+## Current Promoted Baseline (RC3)
 
-One name, used for the kernel release string and the DTB, so a boot can always be identified
-from either half:
+The active daily-use kernel baseline is **`7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+`**.
 
-```
-kernel release   <version>-rc<N>-ZenbookA16     e.g. 7.2.0-rc6-ZenbookA16
-DTB              /boot/glymur/<same string>.dtb e.g. 7.2.0-rc6-ZenbookA16.dtb
-modules          /lib/modules/<same string>/
-```
+Complete reproduction instructions, exact `.config`, checksums, and patch series are documented in:
+👉 **[kernel/rc3-20260919/README.md](rc3-20260919/README.md)**
 
-Built with `LOCALVERSION=-ZenbookA16` and `CONFIG_LOCALVERSION_AUTO=n`. The `<version>-rc<N>`
-half comes from the linux-next snapshot's own `Makefile`, so it moves on its own as the
-merge window does. ⚠️ The release string does **not** record *which* `next-YYYYMMDD` snapshot
-it came from — that goes in the GRUB entry title and the changelog entry for the build.
+### Quick Build Steps:
 
-## Native eDP (2026-07-24)
+1. Clone or navigate to a Linux kernel checkout containing base commit `fd73f4a6659897191fa0d40695fe370925dd3780`.
+2. Apply the 24-patch series from `patches/rc3-20260919/series`:
+   ```bash
+   git switch --detach fd73f4a6659897191fa0d40695fe370925dd3780
+   while IFS= read -r patch; do
+       git am "$REPO/patches/rc3-20260919/$patch"
+   done < "$REPO/patches/rc3-20260919/series"
+   ```
+3. Copy the verified build configuration:
+   ```bash
+   cp "$REPO/kernel/rc3-20260919/config" "$BUILD_DIR/.config"
+   make O="$BUILD_DIR" LOCALVERSION=+ olddefconfig
+   make O="$BUILD_DIR" LOCALVERSION=+ -j"$(nproc)" Image modules dtbs
+   ```
 
-The display patches live in the kernel fork on branch
-**[`glymur-edp-hbr3`](https://github.com/FixItFoundry/linux-glymur-a16/tree/glymur-edp-hbr3)**,
-not in this repo. Net delta is ~112 lines over the v7.1 snapshot:
-
-| commit | what | upstreamable? |
-|---|---|---|
-| `drm/msm/dp: make the eDP 1.4 LINK_RATE_SET path actually reachable` | `rate_set`/`use_rate_set` were computed into `panel->link_info` but read from `link->link_params`, so the rate-set path was dead code | **yes** — generic `msm` bug, nothing to do with glymur |
-| `drm/msm/dp: glymur: force HBR3 on the internal eDP panel` | the change that lights the panel | **no** — an unconditional constant; needs a general rule first |
-| `HID: asus: support the ASUS Zenbook A16 (UX3607OA) N-Key keyboard` | device ID + hotkey mappings + a non-`asus-wmi` backlight path | probably, with cleanup |
-
-`drivers/phy/qualcomm/phy-qcom-edp.c` is **unmodified** — every PHY change tried during
-bring-up turned out to be unnecessary. Background: [`../docs/hardware.md`](../docs/hardware.md).
-
-Build name for the display-enabled kernel is **`7.1.0-glymur-edp1`**
-(`make LOCALVERSION=-glymur-edp1`); `7.1.0-glymur-clean+` remains the stable shipped
-build with `msm` reverted.
-
-## Contents
-- `CONFIG_FRAGMENT.md` — the exact `scripts/config` enable-list that makes v7.1 boot on glymur.
-- `patches/night_diff.patch` — accumulated working-tree delta (DTS + driver tweaks) captured from the build tree. Review before applying; some hunks are experiment scaffolding.
-- `gpucc-x2.c` — a stub/scratch for the missing `sm8750` GPU clock controller (not functional; a starting point for anyone attempting `gpucc`).
-- `push-fork.sh` — publishes your local working kernel tree as a standalone GitHub fork repo (run it **inside** the kernel tree, e.g. `~/glymur-build/linux`).
-
-## Two ways to consume the kernel
-
-### A. Reproduce from mainline v7.1 (recommended, small)
+Verification script:
 ```bash
-git clone --depth 1 --branch v7.1 https://github.com/torvalds/linux.git
-cd linux
-# apply the glymur config recipe:
-#   see ../boot-kit/scripts/build-kernel-native-full.sh  (starts from a distro config)
-#   or CONFIG_FRAGMENT.md for the raw scripts/config enable list
-git apply ../kernel/patches/night_diff.patch   # optional, review first
-make -j"$(nproc)" bindeb-pkg LOCALVERSION=-glymur-clean   # the stable shipped build
-make -j"$(nproc)" dtbs
+python3 kernel/rc3-20260919/verify.py /path/to/linux
 ```
 
-### B. Full fork of the working tree (exact snapshot, large)
-The exact working tree lives on the build machine (Fedora WSL: `~/glymur-build`). Because a
-full kernel tree is GB-scale, it is published as its **own repository**, not vendored here.
-Run `push-fork.sh` from inside that tree — see the script header for usage. Link the fork
-back from the main repo's README once it's up.
+---
 
-## Firmware note
-The kernel needs Qualcomm/ASUS firmware blobs at runtime (GPU zap shader, etc.). Those are
-**not** included — see [`../firmware/README.md`](../firmware/README.md).
+## Kernel Contents
+
+- `rc3-20260919/` — The complete build package: build metadata, exact kernel config, verification script, and SHA256 checksums.
+- `CONFIG_FRAGMENT.md` — Reference config fragment for earlier v7.1 builds.
+- `gpucc-x2.c` — Reference stub for the sm8750 GPU clock controller.
+- `soccp_glink.c` — Legacy standalone loader (now integrated natively).
+- `push-fork.sh` — Script to publish a standalone kernel fork repository.
+
+---
+
+## Firmware Note
+
+The kernel requires Qualcomm/ASUS proprietary firmware blobs at runtime (ADSP, CDSP, GPU zap shader, Wi-Fi 7). These are **not** redistributed in this repository; see [`../firmware/README.md`](../firmware/README.md) for extraction instructions.
