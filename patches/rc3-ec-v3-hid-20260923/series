@@ -1,0 +1,4 @@
+0001-dt-bindings-embedded-controller-Add-ASUS-Zenbook-A16.patch
+0002-platform-arm64-Add-a-driver-for-the-EC-found-on-ASUS.patch
+0003-arm64-dts-qcom-glymur-zenbook-a16-Add-Embedded-Contr.patch
+0004-LOCAL-keep-HID-ownership-of-Zenbook-keyboard-backlig.patch
