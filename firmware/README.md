@@ -100,13 +100,16 @@ Or install your distro's `linux-firmware` once it reaches a tag ≥ 20260622.
 ⚠️ Fedora 44 ships `ath12k/QCN9274` and `WCN7850` but **not** `QCC2072` yet, which is why the
 live images in [`../iso/`](../iso/) inject it explicitly.
 
-**Fallback — from your own device:** [`../iso/glymur-fetch-firmware.sh`](../iso/glymur-fetch-firmware.sh)
-still works and remains the answer for anything upstream lacks.
+**Copy or check an existing firmware tree:**
+[`../iso/glymur-fetch-firmware.sh`](../iso/glymur-fetch-firmware.sh) preserves
+the required directory layout and reports every missing file. It does not guess
+Linux filenames from Windows driver files.
 
 ---
 
 ## Why this matters
 
-Published live images for this laptop can now carry working Wi-Fi, Bluetooth, audio DSP and the
-GPU zap shader with no proprietary redistribution. The only piece an image cannot ship is the
-A16 audio topology — and that is ours to build and license as we choose.
+Published live images for this laptop can now carry working Wi-Fi, Bluetooth,
+audio DSP and the GPU zap shader from upstream linux-firmware. The model-specific
+A16 topology is built from the source in this repository; its distribution
+terms should be reviewed before publishing a binary image.

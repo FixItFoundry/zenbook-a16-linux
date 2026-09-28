@@ -1,8 +1,8 @@
 # Audio topology (.tplg) — built from PUBLIC open source
 
-Unlike the ADSP and Wi‑Fi firmware (which are proprietary and **not** in this repo), the
-AudioReach **audio topology is open source** and reproducible with open tools. There is
-nothing to extract from a blob here.
+The AudioReach **audio topology is open source** and reproducible with open
+tools. The matching ADSP and Wi-Fi blobs are also available from upstream
+linux-firmware; see [`../README.md`](../README.md).
 
 ## Source
 
@@ -32,10 +32,12 @@ sudo dnf install -y alsa-topology-utils m4     # Fedora  (Debian/Ubuntu: alsa-ut
 
 ## Install on the A16
 
-The `snd-x1e80100` machine driver requests `qcom/glymur/GLYMUR-A16-tplg.bin`:
+The promoted RC3 DT names the card `GLYMUR-ASUS-Zenbook-A16-UX3607OA`, so the
+machine driver requests the matching firmware name:
 
 ```bash
-sudo install -Dm644 GLYMUR-CRD.tplg /lib/firmware/qcom/glymur/GLYMUR-A16-tplg.bin
+sudo install -Dm644 GLYMUR-CRD.tplg \
+  /lib/firmware/qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin
 sudo reboot   # or hot-rebind the driver
 ```
 

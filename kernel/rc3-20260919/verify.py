@@ -13,10 +13,25 @@ def main():
     if len(sys.argv) != 2:
         raise SystemExit('usage: verify.py PATH_TO_LINUX_GIT_REPOSITORY')
     kernel = Path(sys.argv[1]).resolve()
+    if subprocess.run(
+        ['git', '-C', str(kernel), 'rev-parse', '--git-dir'],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    ).returncode:
+        raise SystemExit(f'not a Git repository: {kernel}')
     here = Path(__file__).resolve().parent
     repo = here.parent.parent
     series = repo / 'patches/rc3-20260919'
     meta = json.loads((here / 'build.json').read_text())
+    if subprocess.run(
+        ['git', '-C', str(kernel), 'cat-file', '-e', f'{meta["base"]}^{{commit}}'],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    ).returncode:
+        raise SystemExit(
+            f'base commit {meta["base"]} is missing from {kernel}; '
+            'fetch the recorded Linux history first'
+        )
     names = (series / 'series').read_text().splitlines()
     if len(names) != meta['patch_count'] or len(set(names)) != len(names):
         raise SystemExit('invalid series length or duplicate patches')
@@ -31,7 +46,17 @@ def main():
     with tempfile.TemporaryDirectory(prefix='a16-rc3-verify-') as directory:
         env = {**os.environ, 'GIT_INDEX_FILE': str(Path(directory) / 'index')}
         def git(*args):
-            return subprocess.check_output(['git', '-C', str(kernel), *args], env=env, text=True).strip()
+            result = subprocess.run(
+                ['git', '-C', str(kernel), *args],
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            if result.returncode:
+                detail = result.stderr.strip() or result.stdout.strip()
+                raise SystemExit(f'git {args[0]} failed: {detail}')
+            return result.stdout.strip()
         git('read-tree', meta['base'])
         for name in names:
             git('apply', '--cached', str(series / name))

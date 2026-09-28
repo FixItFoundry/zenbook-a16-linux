@@ -34,7 +34,7 @@ done
 
 echo
 echo "To use on the A16, the snd-x1e80100 machine driver requests"
-echo "  /lib/firmware/qcom/glymur/GLYMUR-A16-tplg.bin"
+echo "  /lib/firmware/qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin"
 echo "Install whichever topology you built under that name, e.g.:"
-echo "  sudo install -Dm644 $OUT/GLYMUR-CRD.tplg /lib/firmware/qcom/glymur/GLYMUR-A16-tplg.bin"
+echo "  sudo install -Dm644 $OUT/GLYMUR-CRD.tplg /lib/firmware/qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin"
 echo "then reboot (or rebind: echo sound | sudo tee /sys/bus/platform/drivers/snd-x1e80100/{unbind,bind})."

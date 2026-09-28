@@ -18,7 +18,39 @@ and compares the resulting tree with the original build's tree. It does not
 change HEAD, the normal index or working files. Git may store reconstructed
 objects in the supplied repository.
 
-## Build on an aarch64 host
+## Build on Fedora (recommended)
+
+On Fedora, install the build tools, then run from the project root:
+
+```sh
+sudo dnf install bc bison dwarves elfutils-libelf-devel flex gcc git make \
+  openssl-devel perl python3 rpm-build rsync
+```
+
+```sh
+JOBS=4 ./kernel/rc3-20260919/build.sh /path/to/linux /path/to/new-output
+```
+
+The script creates an isolated Git worktree, verifies every patch and the final
+source tree, builds the Image/modules/DTB, and produces both a live-image bundle
+and Fedora-installable RPMs. It never changes your current kernel checkout and
+refuses to reuse an output directory. `JOBS=4` is deliberate: unexplained resets
+under highly parallel builds are still being investigated.
+
+The main RPM is the installed-system artifact. It keeps the Image, modules and
+DTBs under one package transaction and calls Fedora's `kernel-install` hook.
+The live USB's loose kernel files are boot media only; Anaconda does not install
+them onto disk.
+
+After Fedora is installed, copy the `bundle/rpms/` directory onto that system
+and install the main package while keeping Fedora's working kernel as a fallback:
+
+```sh
+cd /path/to/bundle/rpms
+sudo dnf install ./kernel-[0-9]*.rpm
+```
+
+## Manual build
 
 Use a separate, clean Linux checkout and an empty output directory. Set absolute
 paths for `project`, `linux_src` and `build_dir` first; install normal kernel build
@@ -48,7 +80,8 @@ The matching board source is produced by this series at
 `arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts`.
 Do not substitute the repository's historical merged DTS or prebuilt DTBs.
 Matching Image/modules/DTB, board firmware and audio topology are all required.
-Building does not install modules, regenerate an initramfs or select GRUB.
+Building does not install modules, regenerate an initramfs or select GRUB. Use
+the packaged RPM from the recommended path for an installed Fedora system.
 
 ## Userspace and diagnostics
 

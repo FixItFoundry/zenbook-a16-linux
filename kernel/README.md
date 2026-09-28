@@ -11,27 +11,19 @@ The active daily-use kernel baseline is **`7.3.0-rc3-ZenbookA16-20260919-rc3-int
 Complete reproduction instructions, exact `.config`, checksums, and patch series are documented in:
 👉 **[kernel/rc3-20260919/README.md](rc3-20260919/README.md)**
 
-### Quick Build Steps:
+### Quick build
 
-1. Clone or navigate to a Linux kernel checkout containing base commit `fd73f4a6659897191fa0d40695fe370925dd3780`.
-2. Apply the 24-patch series from `patches/rc3-20260919/series`:
-   ```bash
-   git switch --detach fd73f4a6659897191fa0d40695fe370925dd3780
-   while IFS= read -r patch; do
-       git am "$REPO/patches/rc3-20260919/$patch"
-   done < "$REPO/patches/rc3-20260919/series"
-   ```
-3. Copy the verified build configuration:
-   ```bash
-   cp "$REPO/kernel/rc3-20260919/config" "$BUILD_DIR/.config"
-   make O="$BUILD_DIR" LOCALVERSION=+ olddefconfig
-   make O="$BUILD_DIR" LOCALVERSION=+ -j"$(nproc)" Image modules dtbs
-   ```
+From the project root, give the build helper a Linux Git checkout containing
+the recorded base commit and a new output path:
 
-Verification script:
 ```bash
-python3 kernel/rc3-20260919/verify.py /path/to/linux
+JOBS=4 ./kernel/rc3-20260919/build.sh /path/to/linux /path/to/new-output
 ```
+
+It verifies and applies the exact patch series in an isolated worktree, checks
+the resulting source identity, and builds the Image, modules, DTB, and an
+installable RPM. See the RC3 README above for dependencies, outputs, manual
+steps, and the distinction between live-USB files and an installed kernel.
 
 ---
 
@@ -45,6 +37,9 @@ python3 kernel/rc3-20260919/verify.py /path/to/linux
 
 ---
 
-## Firmware Note
+## Firmware note
 
-The kernel requires Qualcomm/ASUS proprietary firmware blobs at runtime (ADSP, CDSP, GPU zap shader, Wi-Fi 7). These are **not** redistributed in this repository; see [`../firmware/README.md`](../firmware/README.md) for extraction instructions.
+The kernel needs matching ADSP, CDSP, GPU, Wi-Fi, Bluetooth, and audio-topology
+files at runtime. Most are now redistributable through upstream linux-firmware;
+see [`../firmware/README.md`](../firmware/README.md) for the exact paths and the
+model-specific topology build.
