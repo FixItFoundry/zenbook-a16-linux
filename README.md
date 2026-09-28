@@ -5,7 +5,7 @@ Qualcomm Snapdragon X2 Elite Extreme (`glymur`).
 
 ![Zenbook A16 running Linux](img/screenshot_20260816_080455.png)
 
-## Current status — 2026-09-22
+## Current status — 2026-09-23
 
 **Working baseline: `7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+`.**
 This is the selected daily-use kernel on Fedora 44 aarch64, with ML4W/Hyprland.
@@ -26,6 +26,18 @@ The desktop is usable, but audio recovery, suspend and abrupt resets remain open
 | Suspend/hibernate | Windows WHEA and Linux AER point to PCI segment 5. The trace build boots cleanly; the suspend test is pending. Hibernate is disabled and untested. |
 | Camera | Separate experimental track; not enabled in the baseline. |
 | HDMI, USB4, jack/DP audio | Not validated as working; see the hardware reference. |
+
+### EC v3 progress
+
+The 2026-09-23 test kernel with the ASUS Zenbook A16 EC v3 series is booted.
+The user reports that EC v3 is helping in use. This is encouraging hardware
+feedback, while longer observation and a controlled comparison are still needed
+before claiming an upstream-ready fix. The booted kernel also carries a local
+patch that leaves keyboard-backlight ownership with the ASUS HID driver. The
+EC series and that local patch are recorded separately in
+[`patches/rc3-ec-v3-hid-20260923/`](patches/rc3-ec-v3-hid-20260923/README.md).
+A matching upstream-only EC v3 comparison kernel has been built and staged as
+a separate GRUB test entry. It has not been booted or physically validated.
 
 ## Start here
 
@@ -54,15 +66,15 @@ The older [`next-20260817` series](patches/next-20260817/), merged DTS snapshots
 and prebuilt DTBs are historical references, not substitutes for this build.
 
 Use matching kernel, modules, DTB and initramfs artifacts. Include the board's
-ADSP firmware and audio topology in the initramfs. Firmware binaries are not
-redistributed; see [firmware guidance](firmware/README.md).
+ADSP firmware and audio topology in the initramfs. Most required blobs are now
+in upstream linux-firmware; see [firmware guidance](firmware/README.md).
 
 The tested GRUB setup loads an explicit DTB and requires top-level `insmod fdt`.
 Audit the live boot path, back up its source configuration outside `/etc/grub.d/`,
 and review a generated configuration diff before installing it. Retain a
 known-good fallback and use a distinct release for each hardware experiment.
 
-[Installer ISO tooling](iso/README.md) is a separate track; it is not validation
+[Live-image tooling](iso/README.md) is a separate track; it is not validation
 of the current laptop baseline.
 
 ## AI assistance
@@ -82,7 +94,7 @@ project history. Reviews and reproducible bug reports are welcome.
 | `tweaks/` | Userspace configuration; retired workarounds are kept separately |
 | `scripts/` | Hardware checks and diagnostic tools |
 | `docs/` | Component reference and build status |
-| `iso/` | Installer-image tooling |
+| `iso/` | Live-image assembly tooling |
 | `firmware/` | Firmware requirements and extraction guidance |
 
 Patch filenames alone do not establish upstream readiness or hardware validation.

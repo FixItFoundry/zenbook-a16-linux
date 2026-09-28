@@ -1,56 +1,95 @@
-# Distro images for the Zenbook A16 (aarch64)
+# Zenbook A16 live images
 
-How to build **bootable desktop live images** for the A16 carrying the Zenbook A16 kernel + its matching device tree. (No prebuilt images are published — a useful image must bundle proprietary firmware — so you build your own).
+`build-live-images.sh` assembles bootable aarch64 live media around the
+promoted A16 kernel. It does not compile the kernel and it is not a disk
+installer.
 
----
+## Installing onto the target hard drive
 
-## ⚠️ Important: Kernel Must Be Built First
+The live USB boots with our custom kernel, DTB, and firmware in a temporary RAM
+overlay. Distro installers (such as Fedora's Anaconda) install stock distro
+packages to the target disk — they do not automatically copy custom kernels,
+DTBs, or proprietary firmware to the internal drive.
 
-The image creation script (`build-live-images.sh`) **does not build or compile the Linux kernel**. It packages an **already-built** kernel, initramfs, DTB, and modules into a bootable rootfs image.
+To install the custom kernel and platform support onto the target disk:
 
-Before running the image builder:
-1. **Compile the kernel, DTB, and modules:** Follow the instructions in [`../kernel/rc3-20260919/README.md`](../kernel/rc3-20260919/README.md).
-2. **Build the live initramfs:** On an aarch64 host with dracut:
-   ```bash
-   dracut --force --no-hostonly --add dmsquash-live --kver "$KREL" "$STAGE/initramfs-live-$KREL.img"
-   ```
-3. **Extract your device firmware:** Follow [`../firmware/README.md`](../firmware/README.md).
+1. **Boot the live USB** on the Zenbook A16.
+2. **Run the distro installer** (e.g. click "Install to Hard Drive" in Anaconda)
+   and complete the disk partitioning and base installation.
+3. **Before rebooting**, run the bundled installation script from the live desktop:
+   - Double-click the **"Install Zenbook A16 Kernel to Disk"** desktop icon, or
+   - Open a terminal and run:
+     ```sh
+     sudo zenbook-install-to-disk
+     ```
+   The script installs the custom 7.3-rc3 kernel, matching A16 DTB, firmware blobs,
+   power tweaks, and configures the target GRUB/BLS bootloader with the required
+   kernel cmdline parameters (`clk_ignore_unused pd_ignore_unused cma=128M glymur_pci_skip=5`).
+4. **Reboot** into your new, fully functional Linux installation.
 
----
+*Recovery note:* If you accidentally rebooted into an unbootable disk, boot the
+live USB again, mount the target root (`sudo mount /dev/nvme0n1p... /mnt`), and
+run `sudo zenbook-install-to-disk /mnt`.
 
-## Images
+## Prepare the staging directory
 
-Flash the resulting `.img.gz` with **balenaEtcher** or `gunzip -c img.gz | sudo dd of=/dev/sdX bs=4M` to a USB drive (16 GB+) and boot the A16 from it.
+The builder defaults to `~/glymur-images`. Copy the live bundle into it, then
+add a non-host-only live initramfs and a distro base image:
 
-| Target | Desktop | Base |
-|---|---|---|
-| `arch` | KDE Plasma | Reuses Manjaro ARM KDE rootfs |
-| `fedora` | KDE Plasma | Reuses Fedora KDE Live aarch64 EROFS rootfs |
-| `ubuntu` | GNOME | Reuses Ubuntu desktop arm64 casper squashfs layers |
-
----
-
-## Running the Live Image Builder
-
-The active live image builder is **`build-live-images.sh`**. It creates a compressed squashfs root with a tmpfs RAM overlay (~3 GB), significantly reducing write wear and boot latency on USB drives compared to raw disk images.
-
-Stage your built kernel artifacts and base distro images into one directory (default `~/glymur-images`):
-
-```bash
-export KREL="7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+"
+```sh
+export KREL='7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+'
 export STAGE="$HOME/glymur-images"
-sudo -E bash build-live-images.sh arch fedora ubuntu     # or a single target
+
+mkdir -p "$STAGE"
+cp -a /path/to/new-output/bundle/. "$STAGE/"
+dracut --force --no-hostonly --add dmsquash-live \
+  --kver "$KREL" --kmoddir "$STAGE/modules/$KREL" \
+  "$STAGE/initramfs-live-$KREL.img"
 ```
 
-### Required Files in `$STAGE`:
+Populate `$STAGE/firmware/` as described in
+[`../firmware/README.md`](../firmware/README.md). The required layout includes:
 
-| File | Source / Description |
-|---|---|
-| `vmlinuz-$KREL` | `arch/arm64/boot/Image` of the compiled kernel |
-| `initramfs-live-$KREL.img` | `dracut --no-hostonly --add dmsquash-live ...` |
-| `$KREL.dtb` | `arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dtb` |
-| `modules/$KREL/` | Directory from `make modules_install INSTALL_MOD_PATH=...` |
-| `firmware/` | Extracted blobs: `ath12k/`, `qcom/`, `audio/` (see `firmware/README.md`) |
-| Distro ISOs | Fedora KDE Live aarch64 ISO, Ubuntu Desktop arm64 ISO, or Manjaro KDE `.img.xz` |
+```text
+firmware/
+├── ath12k/QCC2072/hw1.0/
+├── qca/
+└── qcom/glymur/
+```
 
-The builder's `preflight()` checks for all required inputs before starting, failing immediately if any prerequisite is missing.
+Do not flatten these directories. In particular,
+`ath12k/QCC2072/hw1.0/firmware-2.bin` and
+`qcom/glymur/adsp.mbn` must retain their parent directories. Build and install
+the model-specific topology as
+`qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin` using
+[`../firmware/tplg/README.md`](../firmware/tplg/README.md).
+
+Add the base image needed by the selected target:
+
+| Target | Base image placed in `$STAGE` | Desktop |
+|---|---|---|
+| `fedora` | Fedora KDE Live aarch64 ISO | KDE Plasma |
+| `ubuntu` | Ubuntu Desktop arm64 ISO | GNOME |
+| `arch` | Manjaro ARM KDE `.img.xz` | KDE Plasma |
+
+The exact filename patterns are in the target functions in
+`build-live-images.sh`. The
+script checks the kernel, modules, DTB, live initramfs, EFI loader, and each
+required firmware file before modifying a root filesystem. Missing inputs or a
+failed target now produce a nonzero exit status.
+
+## Build and write the live image
+
+Run one target at a time while diagnosing a build:
+
+```sh
+cd iso
+sudo -E bash ./build-live-images.sh fedora
+```
+
+Results are written below `$STAGE/out-live/`. Decompress the selected `.img.gz`
+and write it to a dedicated USB drive with a tool such as Fedora Media Writer,
+balenaEtcher, or `dd`. Double-check the destination device before writing it.
+
+The live root uses a RAM overlay. Changes made during a live session, including
+package installation, do not by themselves become part of the installed disk.

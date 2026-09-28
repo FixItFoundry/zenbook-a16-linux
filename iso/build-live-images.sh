@@ -24,13 +24,14 @@
 #
 # The live initramfs must carry dracut's dmsquash-live module; build it on the
 # A16 (matching kernel) with:
-#     dracut --force --no-hostonly --add dmsquash-live --kver $KREL out.img
+#     dracut --force --no-hostonly --add dmsquash-live --kver "$KREL" \
+#       --kmoddir "$STAGE/modules/$KREL" out.img
 #
 # Run as root:  sudo -E bash build-live-images.sh [arch] [fedora] [ubuntu]
 # ============================================================================
-set -u
+set -Eeuo pipefail
 
-KREL="${KREL:-7.2.0-rc6-ZenbookA16-20260807}"
+KREL="${KREL:-7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+}"
 STAGE="${STAGE:-$HOME/glymur-images}"
 OUT="${OUT:-$STAGE/out-live}"
 
@@ -58,6 +59,22 @@ preflight(){
   [ -f "$DTB" ]        || { say "MISSING dtb: $DTB"; bad=1; }
   [ -f "$SB" ]         || { say "MISSING systemd-bootaa64.efi: $SB"; bad=1; }
   [ -d "$MODS/$KREL" ] || { say "MISSING modules: $MODS/$KREL"; bad=1; }
+  local firmware_file
+  for firmware_file in \
+    ath12k/QCC2072/hw1.0/Notice.txt \
+    ath12k/QCC2072/hw1.0/board-2.bin \
+    ath12k/QCC2072/hw1.0/firmware-2.bin \
+    qca/ornbtfw11.tlv qca/ornnv11.bin \
+    qcom/glymur/adsp.mbn qcom/glymur/adsp_dtb.mbn \
+    qcom/glymur/adspr.jsn qcom/glymur/adsps.jsn \
+    qcom/glymur/adspua.jsn qcom/glymur/cdspr.jsn \
+    qcom/glymur/cdsp.mbn qcom/glymur/cdsp_dtb.mbn \
+    qcom/glymur/gen80100_zap.mbn \
+    qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin; do
+    if [ ! -s "$FW/$firmware_file" ] && [ ! -s "$FW/$firmware_file.xz" ] && [ ! -s "$FW/$firmware_file.zst" ]; then
+      say "MISSING firmware: $FW/$firmware_file"; bad=1
+    fi
+  done
   # A hostonly initramfs carries only the drivers the BUILD host happened to need,
   # so an image built on an ext4 box silently fails to mount a btrfs (or xfs, or
   # LVM) root on anyone else's machine -- it boots for us and for nobody else.
@@ -70,7 +87,7 @@ preflight(){
   if [ -f "$LIVEINITRD" ]; then
     if command -v lsinitrd >/dev/null; then
       local ls_out; ls_out=$(lsinitrd "$LIVEINITRD" 2>/dev/null)
-      grep -q 'btrfs\.ko'   <<<"$ls_out" || { say "LIVE INITRAMFS looks HOSTONLY (no btrfs.ko) -- rebuild with: dracut --force --no-hostonly --add dmsquash-live --kver $KREL $LIVEINITRD"; bad=1; }
+      grep -q 'btrfs\.ko'   <<<"$ls_out" || { say "LIVE INITRAMFS looks HOSTONLY (no btrfs.ko) -- see iso/README.md"; bad=1; }
       grep -q 'dmsquash'    <<<"$ls_out" || { say "LIVE INITRAMFS lacks dmsquash-live -- it cannot find LiveOS/squashfs.img"; bad=1; }
     else
       say "WARN: lsinitrd unavailable -- cannot verify $LIVEINITRD is generic (--no-hostonly) or carries dmsquash-live"
@@ -86,9 +103,47 @@ preflight(){
 
 addmods(){ mkdir -p "$1/lib/modules"; cp -a "$MODS/$KREL" "$1/lib/modules/" || return 1
            rm -rf "$1/lib/modules/$KREL/build" "$1/lib/modules/$KREL/source"; }
-addfw(){ [ -d "$FW" ] || return 0; mkdir -p "$1/lib/firmware"
-         cp -a "$FW"/ath12k "$FW"/qca "$FW"/qcom "$FW"/audio "$1/lib/firmware/" 2>/dev/null
-         cp -a "$FW"/adsp_dtb* "$1/lib/firmware/" 2>/dev/null; return 0; }
+addfw(){
+  local root=$1
+  mkdir -p "$root/lib/firmware"
+  cp -a "$FW/ath12k" "$FW/qca" "$FW/qcom" "$root/lib/firmware/"
+  [ -d "$FW/audio" ] && cp -a "$FW/audio" "$root/lib/firmware/"
+  # Catch accidental flattening such as ath12k/hw1.0 or qcom/adsp.mbn.
+  [ -s "$root/lib/firmware/ath12k/QCC2072/hw1.0/firmware-2.bin" ] || \
+  [ -s "$root/lib/firmware/ath12k/QCC2072/hw1.0/firmware-2.bin.xz" ] || \
+  [ -s "$root/lib/firmware/ath12k/QCC2072/hw1.0/firmware-2.bin.zst" ]
+  [ -s "$root/lib/firmware/qcom/glymur/adsp.mbn" ] || \
+  [ -s "$root/lib/firmware/qcom/glymur/adsp.mbn.xz" ] || \
+  [ -s "$root/lib/firmware/qcom/glymur/adsp.mbn.zst" ]
+}
+add_installer(){
+  local rd="$1"
+  mkdir -p "$rd/usr/local/bin" "$rd/opt/zenbook-kernel" "$rd/usr/share/applications"
+  cp -a "$REPO/iso/zenbook-install-to-disk.sh" "$rd/usr/local/bin/zenbook-install-to-disk"
+  chmod 755 "$rd/usr/local/bin/zenbook-install-to-disk"
+
+  if [ -d "$STAGE/rpms" ]; then
+    cp -a "$STAGE/rpms/"*.rpm "$rd/opt/zenbook-kernel/" 2>/dev/null || true
+  fi
+
+  cat > "$rd/usr/share/applications/zenbook-install.desktop" <<'EOF'
+[Desktop Entry]
+Name=Install Zenbook A16 Kernel to Disk
+Comment=Install custom 7.3-rc3 kernel, DTB, and firmware onto disk after distro installer
+Exec=sudo /usr/local/bin/zenbook-install-to-disk
+Icon=system-software-install
+Terminal=true
+Type=Application
+Categories=System;
+EOF
+  chmod 644 "$rd/usr/share/applications/zenbook-install.desktop"
+  for u in liveuser root; do
+    if [ -d "$rd/home/$u/Desktop" ]; then
+      cp -a "$rd/usr/share/applications/zenbook-install.desktop" "$rd/home/$u/Desktop/"
+      chmod 755 "$rd/home/$u/Desktop/zenbook-install.desktop" 2>/dev/null || true
+    fi
+  done
+}
 add_power_tweaks(){
   local rd="$1" src="$REPO/tweaks"
   install -Dm644 "$src/etc/modules-load.d/battery-baseline.conf" "$rd/etc/modules-load.d/battery-baseline.conf" || return 1
@@ -196,12 +251,14 @@ EOF
 # --------------------------------------------------------------------------
 build_fedora(){
   say "FEDORA live: === START ==="
+  say "FEDORA: live boot media with bundled disk installer (see iso/README.md)"
   local SQD=$STAGE/fed_sqroot
   [ -d "$SQD/usr/bin" ] || { say "FEDORA: FAIL no extracted rootfs at $SQD"; return 1; }
   say "FEDORA: reusing extracted rootfs"
   addmods "$SQD" || return 1
-  addfw "$SQD"
+  addfw "$SQD" || return 1
   add_power_tweaks "$SQD" || return 1
+  add_installer "$SQD" || return 1
   mklive "$SQD" "fedora-glymur-kde-live"
 }
 
@@ -218,8 +275,9 @@ build_arch(){
   cp -a "$MNT"/. "$RD"/ 2>/dev/null
   umount "$MNT"; rmdir "$MNT"; losetup -d "$LOOP"
   addmods "$RD" || return 1
-  addfw "$RD"
+  addfw "$RD" || return 1
   add_power_tweaks "$RD" || return 1
+  add_installer "$RD" || return 1
   mklive "$RD" "arch-manjaro-kde-live"
   rm -rf "$RD"
 }
@@ -235,8 +293,9 @@ build_ubuntu(){
   unsquashfs -f -d "$RD" "$SMIN" >/dev/null 2>&1 || return 1
   [ -s "$SDE" ] && unsquashfs -f -d "$RD" "$SDE" >/dev/null 2>&1
   addmods "$RD" || return 1
-  addfw "$RD"
+  addfw "$RD" || return 1
   add_power_tweaks "$RD" || return 1
+  add_installer "$RD" || return 1
   mklive "$RD" "ubuntu-glymur-gnome-live"
   rm -rf "$RD" "$SMIN" "$SDE"
 }
@@ -244,12 +303,14 @@ build_ubuntu(){
 echo "======== LIVE RUN $(date) targets=[${*:-arch fedora ubuntu}] ========" >> "$ST"
 say "kernel=$KREL  stage=$STAGE  out=$OUT"
 preflight || { say "preflight failed"; exit 1; }
+status=0
 for t in ${*:-arch fedora ubuntu}; do
   case "$t" in
-    arch)   build_arch   || say "ARCH: aborted" ;;
-    fedora) build_fedora || say "FEDORA: aborted" ;;
-    ubuntu) build_ubuntu || say "UBUNTU: aborted" ;;
-    *) say "unknown target: $t" ;;
+    arch)   build_arch   || { say "ARCH: aborted"; status=1; } ;;
+    fedora) build_fedora || { say "FEDORA: aborted"; status=1; } ;;
+    ubuntu) build_ubuntu || { say "UBUNTU: aborted"; status=1; } ;;
+    *) say "unknown target: $t"; status=1 ;;
   esac
 done
 say "======== LIVE RUN DONE $(date) ========"
+exit "$status"

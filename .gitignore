@@ -1,4 +1,4 @@
-# Build outputs & packages
+# Build outputs & artifacts
 *.ko
 *.ko.*
 *.o
@@ -7,10 +7,22 @@
 *.img
 *.img.gz
 *.iso
-*.zip
+*.rpm
 *.tar.gz
+*.zip
+*.orig
+*.rej
 __pycache__/
 *.pyc
+
+# Firmware blobs & proprietary binaries
+*.bin
+*.dat
+*.efi
+*.elf
+*.mbn
+*.mdt
+*msdm*
 
 # Logs & temporary files
 *.log
@@ -20,34 +32,29 @@ __pycache__/
 Thumbs.db
 _*.sh
 _*.txt
+logs/
 
-# Firmware blobs & proprietary binaries
-*.mbn
-*.mdt
-*.bin
-*.elf
-*.efi
-*.dat
-*msdm*
-
-# Local working & private folders
-scratch/
+# Internal docs, work product & working notes
 internal/
 internal-docs/
-memory-archive/
+scratch/
 re/
 a16dump/
-captures/images/
-captures/videos/
-docs/evidence/
+memory-archive/
 clo-rolling_glymur_next/
+captures/
+docs/evidence/
 tweaks/dotfiles/
-
-# Private documentation & working handoffs
+*analysis*
+*work-product*
+*handoff*
 RESUME-HERE.md
 HANDOFF.md
 MORNING-README.md
 PUSH_INSTRUCTIONS.md
 docs/UPSTREAMING-PLAN.md
-*overnight*
 build-all-overnight.sh
+*overnight*
+CLAUDE.md
+AGENTS.md
+GEMINI.md
