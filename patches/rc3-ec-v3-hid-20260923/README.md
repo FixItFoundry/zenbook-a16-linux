@@ -20,3 +20,15 @@ the branch has not been booted. EC probe, fan RPM, warm reboot, suspend,
 and keyboard LED behavior need physical validation before replacing a
 working boot entry. The v3 EC driver reports fan speed but has no PWM fan
 control interface.
+
+## 2026-09-23 integration follow-up
+
+The later `usbdiag2ecv3hid1+` integration kernel, which includes all four
+patches and USB diagnostics, is booted. The user reports that EC v3 is helping
+in use. This observation does not isolate an individual EC patch or validate
+the upstream series without patch 4.
+
+For that comparison, `usbdiag2ecv3upstream1+` was built and staged as a
+separate selectable GRUB entry. Its source is the same USB diagnostic tree
+with only patch 4 reverted; the EC driver and Kconfig match the tree after
+patch 3. The comparison kernel has not been booted or physically validated.

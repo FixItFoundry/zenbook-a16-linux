@@ -1,0 +1,86 @@
+From: Local test patch
+Subject: [PATCH] phy: qcom: qmp-combo: track committed Type-C mode
+
+Do not treat a cached Type-C mode as programmed when the notification
+arrived before PHY initialization. Add temporary info logs for boot-order
+validation on the Zenbook A16.
+
+Based on: https://lore.kernel.org/linux-arm-msm/20260521010935.1333494-3-mike.scott@oss.qualcomm.com/
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 36 +++++++++++++++++++++--
+ 1 file changed, 34 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -2587,6 +2587,7 @@ struct qmp_combo {
+ 	struct mutex phy_mutex;
+ 	int init_count;
+ 	enum qmpphy_mode qmpphy_mode;
++	bool qmpphy_mode_committed;
+ 
+ 	struct phy *usb_phy;
+ 	enum phy_mode phy_mode;
+@@ -4104,6 +4105,12 @@ static int qmp_combo_com_init(struct qmp_combo *qmp, bool force)
+ 	qphy_setbits(qmp->pcs, cfg->regs[QPHY_PCS_POWER_DOWN_CONTROL],
+ 			SW_PWRDN);
+ 
++	/* com_init() just programmed registers from qmp->qmpphy_mode. */
++	qmp->qmpphy_mode_committed = true;
++	dev_info(qmp->dev,
++		 "common init: mode=%d orientation=%d init_count=%d\n",
++		 qmp->qmpphy_mode, qmp->orientation, qmp->init_count);
++
+ 	return 0;
+ 
+ err_disable_clocks:
+@@ -4837,9 +4844,27 @@ static int qmp_combo_typec_mux_set(struct typec_mux_dev *mux, struct typec_mux_s
+ 		new_mode = QMPPHY_MODE_USB3_ONLY;
+ 	}
+ 
++	dev_info(qmp->dev,
++		 "typec mux: requested=%d cached=%d committed=%d init_count=%d\n",
++		 new_mode, qmp->qmpphy_mode, qmp->qmpphy_mode_committed,
++		 qmp->init_count);
++
++	/*
++	 * Fast-path bail only when the cached mode is also known to be
++	 * committed to hardware. The cache may be ahead of the hardware
++	 * if a typec_mux_set arrived while the PHY had not yet been
++	 * initialised (init_count == 0); in that case the cache update
++	 * below was the only thing that ran, and we still need to drive
++	 * the registers when the PHY does come up.
++	 */
+ 	if (new_mode == qmp->qmpphy_mode) {
+-		dev_dbg(qmp->dev, "typec_mux_set: same qmpphy mode, bail out\n");
+-		return 0;
++		if (qmp->qmpphy_mode_committed) {
++			dev_dbg(qmp->dev,
++				"typec_mux_set: same qmpphy mode (committed), bail out\n");
++			return 0;
++		}
++		dev_dbg(qmp->dev,
++			"typec_mux_set: same qmpphy mode but uncommitted; reprogramming\n");
+ 	}
+ 
+ 	if (qmp->qmpphy_mode != QMPPHY_MODE_USB3_ONLY && qmp->dp_powered_on) {
+@@ -4851,6 +4876,7 @@ static int qmp_combo_typec_mux_set(struct typec_mux_dev *mux, struct typec_mux_s
+ 		qmp->qmpphy_mode, new_mode);
+ 
+ 	qmp->qmpphy_mode = new_mode;
++	qmp->qmpphy_mode_committed = false;
+ 
+ 	if (qmp->init_count) {
+ 		if (qmp->usb_init_count)
+@@ -4879,6 +4905,9 @@ static int qmp_combo_typec_mux_set(struct typec_mux_dev *mux, struct typec_mux_s
+ 			if (qmp->dp_init_count)
+ 				cfg->dp_aux_init(qmp);
+ 		}
++
++		/* Reprogram complete; cache now reflects hardware. */
++		qmp->qmpphy_mode_committed = true;
+ 	}
+ 
+ 	return 0;
+-- 
+2.53.0

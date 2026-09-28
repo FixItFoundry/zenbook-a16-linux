@@ -1,0 +1,82 @@
+From: FixItFoundry <jesse.casco@gmail.com>
+Subject: [LOCAL] arm64: dts: qcom: invert USB1 QMP CC polarity
+
+The first committed-state test made both Type-C orientations visible, but
+USB1 remained asymmetric: one orientation enumerated only at USB2 and the
+other reached SuperSpeed before repeated protocol/time-out churn.  Add a
+board-selectable QMP CC-polarity inversion and enable it only for USB1.
+
+This is a diagnostic patch, not an upstream-ready hardware fix.
+
+Signed-off-by: FixItFoundry <jesse.casco@gmail.com>
+---
+
+diff --git a/Documentation/devicetree/bindings/phy/qcom,sc8280xp-qmp-usb43dp-phy.yaml b/Documentation/devicetree/bindings/phy/qcom,sc8280xp-qmp-usb43dp-phy.yaml
+--- a/Documentation/devicetree/bindings/phy/qcom,sc8280xp-qmp-usb43dp-phy.yaml
++++ b/Documentation/devicetree/bindings/phy/qcom,sc8280xp-qmp-usb43dp-phy.yaml
+@@ -90,6 +90,12 @@ properties:
+   mode-switch: true
+   orientation-switch: true
+ 
++  qcom,invert-cc-polarity:
++    type: boolean
++    description:
++      Invert the CC polarity presented to the PHY. This is needed when the
++      board wiring reverses the CC polarity relative to the PHY convention.
++
+   ports:
+     $ref: /schemas/graph.yaml#/properties/ports
+ 
+diff --git a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+--- a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+@@ -1336,6 +1336,7 @@ &usb_1_qmpphy {
+ 	vdda-phy-supply = <&vreg_l1c_e0>;
+ 	vdda-pll-supply = <&vreg_l4c_e0>;
+ 	refgen-supply = <&vreg_l2f_e0>;
++	qcom,invert-cc-polarity;
+ 
+ 	status = "okay";
+ };
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -2588,6 +2588,7 @@ struct qmp_combo {
+ 	int init_count;
+ 	enum qmpphy_mode qmpphy_mode;
+ 	bool qmpphy_mode_committed;
++	bool invert_cc_polarity;
+ 
+ 	struct phy *usb_phy;
+ 	enum phy_mode phy_mode;
+@@ -4067,7 +4068,7 @@ static int qmp_combo_com_init(struct qmp_combo *qmp, bool force)
+ 	if (qmp->orientation == TYPEC_ORIENTATION_REVERSE)
+ 		val |= SW_PORTSELECT_VAL;
+ 
+-	if (cfg->invert_cc_polarity)
++	if (qmp->invert_cc_polarity)
+ 		val |= INVERT_CC_POLARITY;
+ 
+ 	writel(val, com + QPHY_V3_DP_COM_TYPEC_CTRL);
+@@ -4108,8 +4109,8 @@ static int qmp_combo_com_init(struct qmp_combo *qmp, bool force)
+ 	/* com_init() just programmed registers from qmp->qmpphy_mode. */
+ 	qmp->qmpphy_mode_committed = true;
+ 	dev_info(qmp->dev,
+-		 "common init: mode=%d orientation=%d init_count=%d\n",
+-		 qmp->qmpphy_mode, qmp->orientation, qmp->init_count);
++		 "common init: mode=%d orientation=%d typec_ctrl=%#x init_count=%d\n",
++		 qmp->qmpphy_mode, qmp->orientation, val, qmp->init_count);
+ 
+ 	return 0;
+ 
+@@ -5246,6 +5247,10 @@ static int qmp_combo_probe(struct platform_device *pdev)
+ 	if (!qmp->cfg)
+ 		return -EINVAL;
+ 
++	qmp->invert_cc_polarity = qmp->cfg->invert_cc_polarity ||
++				  of_property_read_bool(dev->of_node,
++							"qcom,invert-cc-polarity");
++
+ 	mutex_init(&qmp->phy_mutex);
+ 
+ 	ret = qmp_combo_reset_init(qmp);
