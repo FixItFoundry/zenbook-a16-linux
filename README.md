@@ -5,18 +5,19 @@ Qualcomm Snapdragon X2 Elite Extreme (`glymur`).
 
 ![Zenbook A16 running Linux](img/screenshot_20260816_080455.png)
 
-## Current status — 2026-09-23
+## Current status — 2026-09-30
 
-**Working baseline: `7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+`.**
+**Working baseline: `7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+`, transitioning to Linux `v7.3-rc4`.**
 This is the selected daily-use kernel on Fedora 44 aarch64, with ML4W/Hyprland.
-It combines Linux v7.3-rc3, selected linux-next backports and local fixes.
+It combines the Linux v7.3 release candidate baseline, selected backports and local fixes.
 
 The desktop is usable, but audio recovery, suspend and abrupt resets remain open.
 
 | Area | Current position |
 |---|---|
-| Display, GPU, input, NVMe | Operational; see component notes for limitations. |
+| Display, GPU, input, NVMe | Operational; display teardown `PUSH_IDLE` fix is merged into upstream mainline 7.3 (`e249a6e2a130`). |
 | CPU and thermal | SCMI frequency scaling and 42 CPU/LLC thermal bindings present. Earlier stalls and spontaneous resets still need long-duration validation. |
+| Embedded Controller | Konrad Dybcio's EC v3 series validated on hardware and promoted into the baseline stack; HID retains keyboard backlight ownership. |
 | Wi-Fi | Operational; regulatory timeouts persist. Resume remains a separate validation task. |
 | Bluetooth | Controller active using the driver's original-firmware fallback; the optional patch file is missing. |
 | Battery and charging | Operational through native SOCCP attachment and qcom-battmgr. The old standalone soccp_glink loader is retired. |
@@ -24,20 +25,16 @@ The desktop is usable, but audio recovery, suspend and abrupt resets remain open
 | Microphones | HiFi capture device present; full recording validation on this build remains open. |
 | Boot/session | Startup improved from 50.8 s to 15.6 s on the measured host. UWSM manages the session; duplicate notification startup was corrected. |
 | Suspend/hibernate | Windows WHEA and Linux AER point to PCI segment 5. The trace build boots cleanly; the suspend test is pending. Hibernate is disabled and untested. |
-| Camera | Separate experimental track; not enabled in the baseline. |
+| Camera | PMH0104 camera LDOs (`ldo4`, `ldo7`) staged in the kernel stack; OV02C10 wiring ready for bring-up. |
 | HDMI, USB4, jack/DP audio | Not validated as working; see the hardware reference. |
 
-### EC v3 progress
+### EC v3 promotion
 
-The 2026-09-23 test kernel with the ASUS Zenbook A16 EC v3 series is booted.
-The user reports that EC v3 is helping in use. This is encouraging hardware
-feedback, while longer observation and a controlled comparison are still needed
-before claiming an upstream-ready fix. The booted kernel also carries a local
-patch that leaves keyboard-backlight ownership with the ASUS HID driver. The
-EC series and that local patch are recorded separately in
-[`patches/rc3-ec-v3-hid-20260923/`](patches/rc3-ec-v3-hid-20260923/README.md).
-A matching upstream-only EC v3 comparison kernel has been built and staged as
-a separate GRUB test entry. It has not been booted or physically validated.
+The ASUS Zenbook A16 EC v3 series from Konrad Dybcio, paired with our local
+patch leaving keyboard-backlight ownership with the ASUS HID driver
+([`patches/rc3-ec-v3-hid-20260923/`](patches/rc3-ec-v3-hid-20260923/README.md)),
+has been validated in daily use on the test kernels (`usbdiag2ecv3hid1+`, `usb1hubdiag1+`)
+and is promoted into the active integration series.
 
 ## Start here
 
@@ -53,9 +50,10 @@ notes. Historical results describe their original kernel, not an RC3 retest.
 
 ## Next priorities
 
-1. Run the supervised PCI segment 5 suspend trace.
-2. Validate all four speakers across cold boots and idle/playback transitions.
-3. Resume camera work after the audio gate passes.
+1. Package and verify the integration stack against Linux `v7.3-rc4`, dropping the mainline DP patch.
+2. Bake EC v3 and PMH0104 camera LDOs into the promoted kernel build.
+3. Validate all four speakers across cold boots and idle/playback transitions.
+4. Begin OV02C10 camera bring-up on `cci1_i2c0` with PMH0104 LDO rails.
 
 ## Building and booting
 

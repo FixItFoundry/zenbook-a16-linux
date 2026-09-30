@@ -6,7 +6,9 @@ The Zenbook A16 bring-up tracks **linux-next** and Linux v7.3-rc snapshots. The 
 
 ## Current Promoted Baseline (RC3)
 
-The active daily-use kernel baseline is **`7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+`**.
+The active daily-use kernel baseline is **`7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+`**, currently transitioning to a **v7.3-rc4** baseline.
+
+The upcoming RC4 integration retires our out-of-tree DP `PUSH_IDLE` guard (now merged into mainline 7.3), promotes the ASUS EC v3 driver series from Konrad Dybcio ([`patches/rc3-ec-v3-hid-20260923/`](../patches/rc3-ec-v3-hid-20260923/README.md)), and stages PMH0104 camera LDOs for OV02C10 camera bring-up.
 
 Complete reproduction instructions, exact `.config`, checksums, and patch series are documented in:
 👉 **[kernel/rc3-20260919/README.md](rc3-20260919/README.md)**

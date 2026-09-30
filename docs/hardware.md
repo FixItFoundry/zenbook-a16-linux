@@ -45,7 +45,7 @@ post-crash pstore has been empty. Netconsole over the USB-A NIC is the only cras
 ## Display — eDP panel ✅
 
 **Chain:** `mdss_dp3` (eDP controller) → eDP PHY → Samsung ATNA33XC20-class panel,
-2880x1800 @ 120 Hz, trains at **HBR3**.
+2880x1800 @ 120 Hz, trains natively at **HBR2** (5.4 Gbps; forced-HBR3 workaround retired).
 
 Backlight is driven **over DP AUX** (DPCD `0x722`), not a PWM rail — so no PMIC backlight
 driver is needed for the internal panel.

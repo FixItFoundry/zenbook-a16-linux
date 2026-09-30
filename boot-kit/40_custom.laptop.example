@@ -8,159 +8,68 @@ insmod btrfs
 insmod fat
 insmod fdt
 
-# ===== Current Baseline (Default) =====
-menuentry "Fedora on ARM (7.2.0-rc6-ZenbookA16-20260807)" --id zenbook-a16 {
-    search --set=root --fs-uuid 1ab384f7-277a-4028-9c93-5da4faee4923
-    devicetree /boot/glymur/7.2.0-rc6-ZenbookA16-20260807.dtb
-    linux /boot/vmlinuz-7.2.0-rc6-ZenbookA16-20260807 root=UUID=1ab384f7-277a-4028-9c93-5da4faee4923 rw clk_ignore_unused pd_ignore_unused cma=128M glymur_pci_skip=5 console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device selinux=0
-    initrd /boot/initrd.img-7.2.0-rc6-ZenbookA16-20260807
+# ==============================================================================
+# 1. LINUX RC4 INTEGRATION (Active development candidate)
+# Base: Linux v7.3-rc4 + promoted EC v3, camera LDOs, and board integration
+# Retires out-of-tree DP PUSH_IDLE guard (now in mainline 7.3)
+# ==============================================================================
+menuentry "Fedora Linux - v7.3-rc4 Integration (7.3.0-rc4-ZenbookA16-rc4-integrated1+)" --id zenbook-a16-rc4 {
+    search --set=root --fs-uuid <YOUR-ROOT-UUID>
+    devicetree /boot/glymur/7.3.0-rc4-ZenbookA16-rc4-integrated1+.dtb
+    linux /boot/vmlinuz-7.3.0-rc4-ZenbookA16-rc4-integrated1+ root=UUID=<YOUR-ROOT-UUID> rw clk_ignore_unused pd_ignore_unused cma=128M glymur_pci_skip=5 console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device selinux=0
+    initrd /boot/initrd.img-7.3.0-rc4-ZenbookA16-rc4-integrated1+
 }
 
-# ===== Windows Boot Manager =====
+# ==============================================================================
+# 2. STABLE WORKING BASELINE (Proven daily driver & fallback)
+# Base: Linux v7.3-rc3 + 24-patch RC3 promoted integration stack
+# ==============================================================================
+menuentry "Fedora Linux - RC3 Stable Baseline (7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+)" --id zenbook-a16-stable {
+    search --set=root --fs-uuid <YOUR-ROOT-UUID>
+    devicetree /boot/glymur/7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+.dtb
+    linux /boot/vmlinuz-7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+ root=UUID=<YOUR-ROOT-UUID> rw clk_ignore_unused pd_ignore_unused cma=128M glymur_pci_skip=5 console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device selinux=0
+    initrd /boot/initrd.img-7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+
+}
+
+# ==============================================================================
+# 3. WINDOWS BOOT MANAGER
+# ==============================================================================
 menuentry "Windows Boot Manager" --id windows-boot {
     insmod part_gpt
     insmod fat
-    search --no-floppy --fs-uuid --set=root 18B5-9082
+    search --no-floppy --fs-uuid --set=root <YOUR-EFI-UUID>
     chainloader /EFI/Microsoft/Boot/bootmgfw.efi
 }
 
-# ===== UEFI Firmware Settings =====
+# ==============================================================================
+# 4. UEFI FIRMWARE SETTINGS
+# ==============================================================================
 menuentry "UEFI Firmware Settings" --id uefi-firmware {
     fwsetup
 }
 
-# ===== Test DTBs & Fallbacks =====
-submenu "Test DTBs" --id test-dtbs {
-    menuentry "Zenbook A16 Test (7.2.0-rc7-ZenbookA16-20260814)" --id zenbook-a16-rc7-test {
-        search --set=root --fs-uuid 1ab384f7-277a-4028-9c93-5da4faee4923
-        devicetree /boot/glymur/7.2.0-rc7-ZenbookA16-20260814.dtb
-        linux /boot/vmlinuz-7.2.0-rc7-ZenbookA16-20260814 root=UUID=1ab384f7-277a-4028-9c93-5da4faee4923 rw clk_ignore_unused pd_ignore_unused cma=128M glymur_pci_skip=5 console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device selinux=0
-        initrd /boot/initrd.img-7.2.0-rc7-ZenbookA16-20260814
+# ==============================================================================
+# 5. DIAGNOSTIC & TEST KERNELS (Submenu)
+# ==============================================================================
+submenu "Diagnostic & Test Kernels" --id test-kernels {
+    menuentry "Zenbook A16 EC v3 + USB Diagnostic (7.3.0-rc3-ZenbookA16-20260923-usbdiag2ecv3hid1+)" --id zenbook-a16-ecv3hid-test {
+        search --set=root --fs-uuid <YOUR-ROOT-UUID>
+        devicetree /boot/glymur/7.3.0-rc3-ZenbookA16-20260923-usbdiag2ecv3hid1+.dtb
+        linux /boot/vmlinuz-7.3.0-rc3-ZenbookA16-20260923-usbdiag2ecv3hid1+ root=UUID=<YOUR-ROOT-UUID> rw clk_ignore_unused pd_ignore_unused cma=128M glymur_pci_skip=5 console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device selinux=0
+        initrd /boot/initrd.img-7.3.0-rc3-ZenbookA16-20260923-usbdiag2ecv3hid1+
     }
 
-    menuentry "Zenbook A16 Test (7.2.0-rc7, SELinux Permissive + Relabel)" --id zenbook-a16-rc7-selinux {
-        search --set=root --fs-uuid 1ab384f7-277a-4028-9c93-5da4faee4923
-        devicetree /boot/glymur/7.2.0-rc7-ZenbookA16-20260814.dtb
-        linux /boot/vmlinuz-7.2.0-rc7-ZenbookA16-20260814 root=UUID=1ab384f7-277a-4028-9c93-5da4faee4923 rw clk_ignore_unused pd_ignore_unused cma=128M glymur_pci_skip=5 console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device lsm=capability,lockdown,yama,integrity,selinux,bpf,landlock enforcing=0
-        initrd /boot/initrd.img-7.2.0-rc7-ZenbookA16-20260814-selinux
+    menuentry "Zenbook A16 Camera Test (OV02C10 on cci1_i2c0, PMH0104 LDOs enabled)" --id zenbook-a16-camera-test {
+        search --set=root --fs-uuid <YOUR-ROOT-UUID>
+        devicetree /boot/glymur/7.3.0-rc4-ZenbookA16-ov02c10-camera.dtb
+        linux /boot/vmlinuz-7.3.0-rc4-ZenbookA16-rc4-integrated1+ root=UUID=<YOUR-ROOT-UUID> rw clk_ignore_unused pd_ignore_unused cma=128M glymur_pci_skip=5 console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device selinux=0
+        initrd /boot/initrd.img-7.3.0-rc4-ZenbookA16-rc4-integrated1+
     }
 
-    menuentry "Zenbook A16 (7.2.0-rc6-ZenbookA16-20260808, SELinux)" --id zenbook-a16-20260808 {
-        search --set=root --fs-uuid 1ab384f7-277a-4028-9c93-5da4faee4923
-        devicetree /boot/glymur/7.2.0-rc6-ZenbookA16-20260808.dtb
-        linux /boot/vmlinuz-7.2.0-rc6-ZenbookA16-20260808 root=UUID=1ab384f7-277a-4028-9c93-5da4faee4923 rw clk_ignore_unused pd_ignore_unused cma=128M glymur_pci_skip=5 console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device enforcing=1 lsm=capability,lockdown,yama,integrity,selinux,bpf,landlock
-        initrd /boot/initrd.img-7.2.0-rc6-ZenbookA16-20260808-selinux
-    }
-
-    menuentry "Zenbook A16 (SELinux enabled + AUTORELABEL, permissive)" --id zenbook-a16-selinux {
-        search --set=root --fs-uuid 1ab384f7-277a-4028-9c93-5da4faee4923
-        devicetree /boot/glymur/7.2.0-rc6-ZenbookA16-20260807.dtb
-        linux /boot/vmlinuz-7.2.0-rc6-ZenbookA16-20260807 root=UUID=1ab384f7-277a-4028-9c93-5da4faee4923 rw clk_ignore_unused pd_ignore_unused cma=128M glymur_pci_skip=5 console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device lsm=capability,lockdown,yama,integrity,selinux,bpf,landlock enforcing=0
-        initrd /boot/initrd.img-7.2.0-rc6-ZenbookA16-20260807-selinux
-    }
-
-    menuentry "Zenbook A16 (old baseline 20260807)" --id zenbook-a16-oldbaseline {
-        search --set=root --fs-uuid 1ab384f7-277a-4028-9c93-5da4faee4923
-        devicetree /boot/glymur/7.2.0-rc6-ZenbookA16-20260807-oldbaseline.dtb
-        linux /boot/vmlinuz-7.2.0-rc6-ZenbookA16-20260807 root=UUID=1ab384f7-277a-4028-9c93-5da4faee4923 rw clk_ignore_unused pd_ignore_unused cma=128M glymur_pci_skip=5 console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device selinux=0
-        initrd /boot/initrd.img-7.2.0-rc6-ZenbookA16-20260807
-    }
-
-    menuentry "DT test: konrad bare upstream A16 DT" --id dttest-konrad {
-        search --set=root --fs-uuid 1ab384f7-277a-4028-9c93-5da4faee4923
-        devicetree /boot/glymur/konrad-a16.dtb
-        linux /boot/vmlinuz-7.2.0-rc3-konrad1 root=UUID=1ab384f7-277a-4028-9c93-5da4faee4923 rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
-        initrd /boot/initrd.img-7.2.0-rc3-konrad1
-    }
-
-    menuentry "DT test: merged1 (our tree, GPU off)" --id dttest-merged1 {
-        search --set=root --fs-uuid 1ab384f7-277a-4028-9c93-5da4faee4923
-        devicetree /boot/glymur/glymur-a16-merged1.dtb
-        linux /boot/vmlinuz-7.2.0-rc3-konrad1 root=UUID=1ab384f7-277a-4028-9c93-5da4faee4923 rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
-        initrd /boot/initrd.img-7.2.0-rc3-konrad1
-    }
-
-    menuentry "Fedora Linux on ARM" --id fedora-linux-arm {
-        search --set=root --fs-uuid 1ab384f7-277a-4028-9c93-5da4faee4923
-        devicetree /boot/glymur/glymur-a16-hdmi-nocomaux.dtb
-        linux /boot/vmlinuz-7.2.0-rc3-konrad1-pmskip6 root=UUID=1ab384f7-277a-4028-9c93-5da4faee4923 rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device glymur_pci_skip=5
-        initrd /boot/initrd.img-7.2.0-rc3-konrad1
-    }
-
-    menuentry "HDMI test 2: HPD as a real GPIO on hdmi-connector" --id hdmi-hpdgpio {
-        search --set=root --fs-uuid 1ab384f7-277a-4028-9c93-5da4faee4923
-        devicetree /boot/glymur/glymur-a16-hdmi-hpdgpio.dtb
-        linux /boot/vmlinuz-7.2.0-rc3-konrad1-pmskip6 root=UUID=1ab384f7-277a-4028-9c93-5da4faee4923 rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device glymur_pci_skip=5
-        initrd /boot/initrd.img-7.2.0-rc3-konrad1
-    }
-
-    menuentry "HDMI test 3: gpio126 mux only (usb2_dp -> gpio)" --id hdmi-muxonly {
-        search --set=root --fs-uuid 1ab384f7-277a-4028-9c93-5da4faee4923
-        devicetree /boot/glymur/glymur-a16-hdmi-muxonly.dtb
-        linux /boot/vmlinuz-7.2.0-rc3-konrad1-pmskip6 root=UUID=1ab384f7-277a-4028-9c93-5da4faee4923 rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device glymur_pci_skip=5
-        initrd /boot/initrd.img-7.2.0-rc3-konrad1
-    }
-
-    menuentry "HDMI test 4: hpd-gpios only (mux left as usb2_dp)" --id hdmi-hpdonly {
-        search --set=root --fs-uuid 1ab384f7-277a-4028-9c93-5da4faee4923
-        devicetree /boot/glymur/glymur-a16-hdmi-hpdonly.dtb
-        linux /boot/vmlinuz-7.2.0-rc3-konrad1-pmskip6 root=UUID=1ab384f7-277a-4028-9c93-5da4faee4923 rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device glymur_pci_skip=5
-        initrd /boot/initrd.img-7.2.0-rc3-konrad1
-    }
-
-    menuentry "HDMI test: HPD pinctrl moved to mdss_dp2" --id hdmi-hpd-on-dp2 {
-        search --set=root --fs-uuid 1ab384f7-277a-4028-9c93-5da4faee4923
-        devicetree /boot/glymur/glymur-a16-hdmi-hpd-on-dp2.dtb
-        linux /boot/vmlinuz-7.2.0-rc3-konrad1-pmskip6 root=UUID=1ab384f7-277a-4028-9c93-5da4faee4923 rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device glymur_pci_skip=5
-        initrd /boot/initrd.img-7.2.0-rc3-konrad1
-    }
-
-    menuentry "Fedora Linux on ARM (rc6 pure, PDC ranges from 0713)" --id pdc0713-test {
-        search --set=root --fs-uuid 1ab384f7-277a-4028-9c93-5da4faee4923
-        devicetree /boot/glymur/glymur-pure-pdc0713.dtb
-        linux /boot/vmlinuz-7.2.0-rc6-next-20260803-pure root=UUID=1ab384f7-277a-4028-9c93-5da4faee4923 rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
-        initrd /boot/initrd.img-7.2.0-rc6-next-20260803-pure
-    }
-
-    menuentry "Fedora Linux on ARM (rc6 pure, QMP combo DP0 common reset FIX)" --id dp0reset-test {
-        search --set=root --fs-uuid 1ab384f7-277a-4028-9c93-5da4faee4923
-        devicetree /boot/glymur/glymur-pure-dp0reset.dtb
-        linux /boot/vmlinuz-7.2.0-rc6-next-20260803-dp0reset-dirty root=UUID=1ab384f7-277a-4028-9c93-5da4faee4923 rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
-        initrd /boot/initrd.img-7.2.0-rc6-next-20260803-dp0reset-dirty
-    }
-
-    menuentry "Fedora Linux on ARM (rc6 pure, QSEECOM allowlist DEFEATED)" --id noqsee-test {
-        search --set=root --fs-uuid 1ab384f7-277a-4028-9c93-5da4faee4923
-        devicetree /boot/glymur/glymur-pure-noqsee.dtb
-        linux /boot/vmlinuz-7.2.0-rc6-next-20260803-pure root=UUID=1ab384f7-277a-4028-9c93-5da4faee4923 rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
-        initrd /boot/initrd.img-7.2.0-rc6-next-20260803-pure
-    }
-
-    menuentry "Fedora Linux on ARM (rc6 pure, SoCCP DISABLED)" --id nosoccp-test {
-        search --set=root --fs-uuid 1ab384f7-277a-4028-9c93-5da4faee4923
-        devicetree /boot/glymur/glymur-pure-nosoccp.dtb
-        linux /boot/vmlinuz-7.2.0-rc6-next-20260803-pure root=UUID=1ab384f7-277a-4028-9c93-5da4faee4923 rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
-        initrd /boot/initrd.img-7.2.0-rc6-next-20260803-pure
-    }
-
-    menuentry "Fedora Linux on ARM (rc6 pure, usb_2 dwc3 ENABLED - com_aux test)" --id usb2on-test {
-        search --set=root --fs-uuid 1ab384f7-277a-4028-9c93-5da4faee4923
-        devicetree /boot/glymur/glymur-pure-usb2on.dtb
-        linux /boot/vmlinuz-7.2.0-rc6-next-20260803-pure root=UUID=1ab384f7-277a-4028-9c93-5da4faee4923 rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
-        initrd /boot/initrd.img-7.2.0-rc6-next-20260803-pure
-    }
-
-    menuentry "Fedora Linux on ARM (simple-pm-bus skip-noirq test)" --id fedora-linux-arm-spbskip {
-        search --set=root --fs-uuid 1ab384f7-277a-4028-9c93-5da4faee4923
-        devicetree /boot/glymur/glymur-a16-merged-gpu-pstore.dtb
-        linux /boot/vmlinuz-7.2.0-rc3-konrad1-pmskip2 root=UUID=1ab384f7-277a-4028-9c93-5da4faee4923 rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device simple_pm_bus.glymur_skip_noirq=1
-        initrd /boot/initrd.img-7.2.0-rc3-konrad1
-    }
-
-    menuentry "Fedora Linux on ARM (with efi=noruntime)" --id fedora-linux-arm-noruntime {
-        search --set=root --fs-uuid 1ab384f7-277a-4028-9c93-5da4faee4923
-        devicetree /boot/glymur/glymur-a16-merged-gpu.dtb
-        linux /boot/vmlinuz-7.2.0-rc3-konrad1 root=UUID=1ab384f7-277a-4028-9c93-5da4faee4923 rw clk_ignore_unused pd_ignore_unused cma=128M efi=noruntime console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device
-        initrd /boot/initrd.img-7.2.0-rc3-konrad1
+    menuentry "Zenbook A16 Recovery Fallback (SELinux Permissive)" --id zenbook-a16-recovery {
+        search --set=root --fs-uuid <YOUR-ROOT-UUID>
+        devicetree /boot/glymur/7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+.dtb
+        linux /boot/vmlinuz-7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+ root=UUID=<YOUR-ROOT-UUID> rw clk_ignore_unused pd_ignore_unused cma=128M glymur_pci_skip=5 console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device enforcing=0
+        initrd /boot/initrd.img-7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+
     }
 }

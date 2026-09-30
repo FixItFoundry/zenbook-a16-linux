@@ -10,27 +10,23 @@ kernel onto the Zenbook A16.
 - `patch_dt.py` — decompile → edit → recompile a DTB (the workhorse for DT experiments).
 - `build_test55_usb.py`, `build_test55_msm.py` — build the **diagnostic** variants `test55-usb`
   (USB/battery focus, MDSS off) and `test55-msm` (display/`msm` diagnostic).
-  ⚠️ **Historical.** `test55` was the daily driver in the v7.1 vendor-lineage era and is no
-  longer. The **current daily driver is
-  `glymur-asus-zenbook-a16-ux3607oa-merged-gpu.dts` built on 7.2-rc3, plus the one-line
-  `arm,no-completion-irq` property** from
-  [`../patches/glymur-scmi-no-completion-irq-CONFIRMED.patch`](../patches/) — installed on the
-  box as `glymur-a16-merged-gpu-scmipoll.dtb`. Without that property the CPUs stay pinned at
-  boot clock.
+  ⚠️ **Historical.** `test55` was the diagnostic in the v7.1 vendor-lineage era. The **current baseline is `7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+`, transitioning to Linux `v7.3-rc4`** (`7.3.0-rc4-ZenbookA16-rc4-integrated1+`), which integrates the merged eDP teardown fix, promotes EC v3, and includes SCMI polling, native HBR2 display, and quad audio.
 - `install-dt-kernel.sh` — install a built kernel + DTB and register a GRUB entry.
 - `install-battery-modules.sh` — install the out-of-tree battery/SOCCP-glink + audio modules.
-- `collect-acpi-hw.sh` — helper to dump ACPI + hardware identity. (The project's RE actually
-  started from ACPI/hardware dumps the maintainer had already produced beforehand; this just
-  reproduces that kind of capture.)
+- `collect-acpi-hw.sh` — helper to dump ACPI + hardware identity.
 - `deploy-dtb.sh` — scp a DTB to the box and point GRUB at it (edit the host/user first).
 
 ## GRUB
-`grub.cfg.laptop.example` is a sanitized sample of the on-box GRUB config.
+`grub.cfg.laptop.example` and `40_custom.laptop.example` provide sanitized samples of the on-box GRUB config, structured around:
+1. **Primary RC4 Candidate:** `7.3.0-rc4-ZenbookA16-rc4-integrated1+` (`--id zenbook-a16-rc4`)
+2. **Stable Baseline Fallback:** `7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+` (`--id zenbook-a16-stable`)
+3. **Windows Boot Manager** & **UEFI Firmware Settings**
+4. **Diagnostic Submenu:** EC v3 / USB testing and recovery entries
 
-★★ **CHANGED 2026-07-31 — `/boot/grub/grub.cfg` is GENERATED now, not hand-written.**
+★★ **`/boot/grub/grub.cfg` is GENERATED, not hand-written.**
 `/etc/grub.d/40_custom` is the source of truth (sanitized sample: `40_custom.laptop.example`).
 Edit that, then `sudo grub2-mkconfig -o /boot/grub/grub.cfg`. Hand-patching `grub.cfg`
-no longer survives — the next mkconfig discards it. Default is `GRUB_DEFAULT` in
+does not survive a kernel transaction or reconfiguration. Default is `GRUB_DEFAULT` in
 `/etc/default/grub`.
 
 Two things that will silently ruin a regeneration:

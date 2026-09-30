@@ -10,6 +10,22 @@ one.
 
 ---
 
+## 2026-09-30 — Upgrading to v7.3-rc4, retiring mainline DP patch, promoting EC v3, and staging PMH0104 camera LDOs
+
+- **Baseline upgrade target: Linux v7.3-rc4**:
+  - Advancing the kernel baseline target from `v7.3-rc3` to `v7.3-rc4` (`93f51579e7df248780214094418f205253383cc5`).
+- **Retiring `drm/msm/dp: skip PUSH_IDLE when the link was never enabled` (Patch 0007)**:
+  - Retired from our out-of-tree patch queue. The patch has landed upstream in mainline Linux (commit `e249a6e2a130c08bb4d8b0a55cbe29754307e5c9`), included in the combined display fixes update for Linux 7.3 and backported into stable releases (`6.18.54`, `7.2.8`).
+  - Gating `DP_STATE_CTRL_PUSH_IDLE` on `->power_on` is now standard in upstream `drivers/gpu/drm/msm/dp/dp_display.c`.
+- **Promoting ASUS Embedded Controller (EC) v3 integration into the promoted series**:
+  - Konrad Dybcio's v3 EC series (`platform: arm64: Add a driver for the EC found on ASUS Glymur machines`, dt-bindings, and A16 DT node; `patches/rc3-ec-v3-hid-20260923/`) has been verified on hardware in the `usbdiag2ecv3hid1+` / `usb1hubdiag1+` test kernels and reported helping in daily use. Promoted from test-kernel status into the primary baseline stack.
+  - Carried alongside Jesse's local follow-up patch (`LOCAL: keep HID ownership of Zenbook keyboard backlight with EC v3`) to ensure keyboard backlight ownership remains exclusively with the proven `hid-asus` driver rather than registering a competing EC LED endpoint.
+- **Staging PMH0104 camera LDO support (`glymur-pmh0104-camera-ldos.patch`)**:
+  - Incorporating `ldo4` (1.8 V dovdd) and `ldo7` (2.8 V avdd/dvdd) definitions into `drivers/regulator/qcom-rpmh-regulator.c` under `pmh0104_vreg_data[]` on PMIC `I_E0`.
+  - Unblocks power delivery for the OmniVision OV02C10 front camera sensor on `cci1_i2c0` in preparation for upcoming camera bring-up.
+
+---
+
 ## 2026-09-19 — RC3 working baseline and boot housekeeping
 
 - Promoted `7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+` as the working default,

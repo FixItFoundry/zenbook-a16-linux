@@ -16,10 +16,11 @@ and experimental patches are not represented as new upstream work.
 
 | What | Author | Patch | Status |
 |---|---|---|---|
-| Zenbook A16 keyboard support (I2C-HID quirks, key mapping) | **Konrad Dybcio** | `HID: asus: support the Zenbook A16 (UX3607OA) keyboard`, 2026-07-24, `20260724-topic-asus_keyboard-v1-1-a746ff8f77b2@oss.qualcomm.com` | Adopted 2026-07-27. One mapping (`0x5f`) drifted from a leftover local value; corrected 2026-07-31 to match Konrad's. |
+| Zenbook A16 keyboard support (I2C-HID quirks, key mapping) | **Konrad Dybcio** | `HID: asus: support the Zenbook A16 (UX3607OA) keyboard`, 2026-07-24, `20260724-topic-asus_keyboard-v1-1-a746ff8f77b2@oss.qualcomm.com` | Adopted 2026-07-27. One mapping (`0x5f`) drifted from a leftover local value; corrected 2026-07-31 to match Konrad's. Extended locally for native DT backlight ownership and feature report padding; competing EC v3 LED registration omitted to avoid duplicate link. |
 | eDP HPD pin muxing (GPIO119 → `edp0_hot`) | **Konrad Dybcio** | `arm64: dts: qcom: glymur: Add Asus Zenbook A16 (UX3607OA)`, 2026-07-21, `20260721-topic-a16_submission-v1-2-8ea213130d05@oss.qualcomm.com` | Idea reproduced on our DTB (separate lineage from his file). |
 | eDP v8 PHY power-on sequence fix | **Bjorn Andersson** | `phy: qcom: edp: Update v8 programming sequence`, 2026-06-22, `20260622-glymur-edp-phy-v1-0-814b45089ac9@oss.qualcomm.com`, unmerged | Adopted verbatim 2026-08-19 (`patches/0014`, `0015`). Fixes the HBR3-only training bug; retires our local force-HBR3 hack. Validated on hardware — panel now trains natively at HBR2. |
 | Zenbook A16 device tree (base board file) | **Konrad Dybcio**, reviewed by **Dmitry Baryshkov** and **Abel Vesa** | `arm64: dts: qcom: glymur: Add Asus Zenbook A16 (UX3607OA)`, 2026-07-21, `20260721-topic-a16_submission-v1-2-8ea213130d05@oss.qualcomm.com`, unmerged | Adopted 2026-07-29 as the base of our merged DTS. Carried essentially intact; our deltas are additive and commented in-place. |
+| ASUS Zenbook A16 Embedded Controller (EC) driver, dt-bindings, and board DTS | **Konrad Dybcio** | `platform: arm64: Add a driver for the EC found on ASUS Glymur machines`, 2026-09-23, `20260923-topic-asus._5Fec-v3-0-2bf3bb9da879@oss.qualcomm.com` | Promoted from test kernels 2026-09-30 (`patches/rc3-ec-v3-hid-20260923/`). Carried with local patch preserving keyboard backlight control under `hid-asus`. |
 
 ## Referenced, not yet adopted
 
@@ -34,8 +35,10 @@ and experimental patches are not represented as new upstream work.
 
 ## Our own contributions, for contrast
 
+- `drm/msm/dp: skip PUSH_IDLE when the link was never enabled` — merged upstream into mainline Linux (commit `e249a6e2a130c08bb4d8b0a55cbe29754307e5c9`), included in Linux 7.3 and backported to 6.18.54 / 7.2.8. Retired from out-of-tree patch queue on v7.3-rc4 upgrade.
 - `clk: qcom: gdsc: fix genpd teardown` — real upstream bug, `patches/glymur-gdsc-genpd-teardown-UPSTREAM.patch`.
-- eDP HBR3 link-up and the `LINK_RATE_SET` plumbing fix.
+- eDP link training running natively at HBR2 (retiring the forced-HBR3 hack) and the `LINK_RATE_SET` plumbing fix; ongoing LKML discussion carries our Tested-by flag.
+- Zenbook keyboard standalone backlight and feature completion in `hid-asus` (`QUIRK_USE_KBD_BACKLIGHT`, `QUIRK_PAD_FEATURE_REPORTS`, `QUIRK_FN_LOCK_DEFAULT_OFF`), plus deduplication omitting the competing EC v3 backlight registration.
 - `wsa884x` pm_runtime fix (`patches/0017`).
 - ADSP boot ordering, lid switch, UCSI `usb-role-switch` fix, USB-C DP alt-mode.
 
