@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Sat, 19 Sep 2026 10:16:31 -0400
+Subject: [PATCH 20/24] LOCAL COMPAT: A16 RTC compatibility
+
+Selected net board hunks from test4 ffc9a506cae6, split for RC3 review. Historical comments describe prior experiments, not new validation. Not an upstream-ready patch; effective DT comparison and hardware validation pending.
+---
+ .../qcom/glymur-asus-zenbook-a16-ux3607oa.dts | 27 ++++++++++++++++++-
+ 1 file changed, 26 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+index 790037195c04e52d7576e66c4666d3e3d82c3187..89f3861602e698203561030b578d5dfa692028e5 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+@@ -972,7 +972,32 @@ nvme_reg_en: nvme-reg-en-state {
+ };
+ 
+ &pmk8850_rtc {
+-	qcom,uefi-rtc-info;
++	/*
++	 * GLYMUR-A16: qcom,uefi-rtc-info deliberately REMOVED.
++	 *
++	 * rtc-pm8xxx treats that property as "the epoch offset lives in a UEFI
++	 * variable, go read it", and returns -EPROBE_DEFER forever if efivars are
++	 * unavailable. They are permanently unavailable on this firmware.
++	 *
++	 * EFI runtime services themselves DO come up ("Remapping and enabling EFI
++	 * services." at boot). What this INSYDE firmware does not support is the
++	 * *variable* subset: GetVariable returns EFI_UNSUPPORTED (status
++	 * 0x8000000000000003, visible as "integrity: Couldn't get size:
++	 * 0x8000000000000003" and "MODSIGN: Couldn't get UEFI db list"). So
++	 * efivar_is_available() is false, fsopen("efivarfs") fails EOPNOTSUPP, and
++	 * upstream's property can only ever defer here, never bind. This is not a
++	 * kernel config gap -- CONFIG_EFIVAR_FS=y and efivarfs is registered in
++	 * /proc/filesystems.
++	 *
++	 * Independent of efi=noruntime: verified 2026-07-30 by booting a variant with
++	 * this property restored and that flag dropped.
++	 *
++	 * Without it the driver skips the UEFI lookup and binds. Two caveats remain:
++	 * the RTC is read-only (RTC_SET_TIME returns ENODEV), and its counter is
++	 * free-running rather than a wall clock -- so the epoch offset is supplied
++	 * from userspace by glymur-rtc-restore instead. qcom,no-alarm below is
++	 * upstream's, and means there is still no wake alarm for hibernate.
++	 */
+ 	qcom,no-alarm;
+ };
+ 

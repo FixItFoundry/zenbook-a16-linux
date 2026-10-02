@@ -1,0 +1,8 @@
+{
+  "base": "72d3fcf802c45d00b300f25b848a93c3a2bd7c7e",
+  "source_tree": "a3327a6d526503774e01b3bb15841883da87a180",
+  "release": "7.3.0-rc5-ZenbookA16-20261002-rc5-integrated1+",
+  "patch_count": 28,
+  "prior_release": "7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+",
+  "prior_base": "fd73f4a6659897191fa0d40695fe370925dd3780"
+}

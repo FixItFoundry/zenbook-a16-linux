@@ -1,0 +1,535 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Sat, 19 Sep 2026 10:14:42 -0400
+Subject: [PATCH 11/24] LOCAL EXPERIMENT: preserve test4 SoundWire
+ compatibility for RC comparison
+
+Net source carry from ffc9a506cae602bdbdafe70789072ec0b002c6d1 relative to next-20260817. Contains alert status, FIFO handling, boot attachment and runtime recovery experiments. Not a minimal upstream patch and not hardware-validated on RC3. Original per-change history is retained in the test4 source.
+---
+ drivers/soundwire/qcom.c | 312 +++++++++++++++++++++++++++++++++++----
+ 1 file changed, 280 insertions(+), 32 deletions(-)
+
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index 55678a30cd4a1eeea7439ee403d236f0f74eb109..fa2c3f18afc36e07580856b337c71a8cd69cc5c9 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -1,6 +1,8 @@
+ // SPDX-License-Identifier: GPL-2.0
+ // Copyright (c) 2019, Linaro Limited
+ 
++#include <linux/atomic.h>
++#include <linux/cleanup.h>
+ #include <linux/clk.h>
+ #include <linux/completion.h>
+ #include <linux/interrupt.h>
+@@ -18,6 +20,8 @@
+ #include <linux/slimbus.h>
+ #include <linux/soundwire/sdw.h>
+ #include <linux/soundwire/sdw_registers.h>
++#include <linux/wait.h>
++#include <linux/workqueue.h>
+ #include <sound/pcm_params.h>
+ #include <sound/soc.h>
+ #include "bus.h"
+@@ -131,7 +135,7 @@
+ 			((reg) | ((id) << 16) | ((dev) << 20) | ((data) << 24))
+ 
+ #define MAX_FREQ_NUM						1
+-#define TIMEOUT_MS						100
++#define TIMEOUT_MS						500
+ #define QCOM_SWRM_MAX_RD_LEN					0x1
+ #define DEFAULT_CLK_FREQ					9600000
+ #define SWR_INVALID_PARAM					0xFF
+@@ -199,6 +203,14 @@ struct qcom_swrm_ctrl {
+ 	struct completion enumeration;
+ 	/* Port alloc/free lock */
+ 	struct mutex port_lock;
++	/* Serialize recovery with PCM startup/shutdown. */
++	struct mutex recovery_lock;
++	struct work_struct recovery_work;
++	atomic_t recovery_pending;
++	wait_queue_head_t slaves_wait;
++	unsigned int active_streams;
++	bool recovery_failed;
++	bool recovery_ready;
+ 	struct clk *hclk;
+ 	int irq;
+ 	unsigned int version;
+@@ -223,6 +235,9 @@ struct qcom_swrm_ctrl {
+ 	bool clock_stop_not_supported;
+ };
+ 
++/* Controller recovery must not overlap another controller's probe. */
++static DEFINE_MUTEX(qcom_swrm_probe_recovery_lock);
++
+ struct qcom_swrm_data {
+ 	u32 default_cols;
+ 	u32 default_rows;
+@@ -578,25 +593,6 @@ static int qcom_swrm_cmd_fifo_rd_cmd(struct qcom_swrm_ctrl *ctrl,
+ 	return SDW_CMD_IGNORED;
+ }
+ 
+-static int qcom_swrm_get_alert_slave_dev_num(struct qcom_swrm_ctrl *ctrl)
+-{
+-	u32 val, status;
+-	int dev_num;
+-
+-	ctrl->reg_read(ctrl, SWRM_MCP_SLV_STATUS, &val);
+-
+-	for (dev_num = 1; dev_num <= SDW_MAX_DEVICES; dev_num++) {
+-		status = (val >> (dev_num * SWRM_MCP_SLV_STATUS_SZ));
+-
+-		if ((status & SWRM_MCP_SLV_STATUS_MASK) == SDW_SLAVE_ALERT) {
+-			ctrl->status[dev_num] = status & SWRM_MCP_SLV_STATUS_MASK;
+-			return dev_num;
+-		}
+-	}
+-
+-	return -EINVAL;
+-}
+-
+ static void qcom_swrm_get_device_status(struct qcom_swrm_ctrl *ctrl)
+ {
+ 	u32 val;
+@@ -614,6 +610,29 @@ static void qcom_swrm_get_device_status(struct qcom_swrm_ctrl *ctrl)
+ 	}
+ }
+ 
++static int qcom_swrm_get_alert_slave_dev_num(struct qcom_swrm_ctrl *ctrl)
++{
++	int dev_num, alert_dev = -EINVAL;
++
++	/*
++	 * In multi-slave topologies (such as Woofer + Tweeter WSA8845 smart
++	 * amplifiers sharing a single SoundWire bus), decoding SWRM_MCP_SLV_STATUS
++	 * across all devices is mandatory before handing status to SoundWire core.
++	 * If only the alerting dev_num slot is written to ctrl->status, sibling
++	 * slaves remain unpopulated (SDW_SLAVE_UNATTACHED) in the status array,
++	 * causing sdw_handle_slave_status() to falsely demote them to UNATTACHED
++	 * and permanently mute that channel.
++	 */
++	qcom_swrm_get_device_status(ctrl);
++
++	for (dev_num = 1; dev_num <= SDW_MAX_DEVICES; dev_num++) {
++		if (ctrl->status[dev_num] == SDW_SLAVE_ALERT && alert_dev < 0)
++			alert_dev = dev_num;
++	}
++
++	return alert_dev;
++}
++
+ static void qcom_swrm_set_slave_dev_num(struct sdw_bus *bus,
+ 					struct sdw_slave *slave, int devnum)
+ {
+@@ -639,7 +658,7 @@ static int qcom_swrm_enumerate(struct sdw_bus *bus)
+ 	struct sdw_slave *slave, *_s;
+ 	struct sdw_slave_id id;
+ 	u32 val1, val2;
+-	bool found;
++	bool found, enumerated = false;
+ 	u64 addr;
+ 	int i;
+ 	char *buf1 = (char *)&val1, *buf2 = (char *)&val2;
+@@ -657,6 +676,7 @@ static int qcom_swrm_enumerate(struct sdw_bus *bus)
+ 
+ 		if (!val1 && !val2)
+ 			break;
++		enumerated = true;
+ 
+ 		addr = buf2[1] | (buf2[0] << 8) | (buf1[3] << 16) |
+ 			((u64)buf1[2] << 24) | ((u64)buf1[1] << 32) |
+@@ -680,10 +700,12 @@ static int qcom_swrm_enumerate(struct sdw_bus *bus)
+ 		if (!found) {
+ 			qcom_swrm_set_slave_dev_num(bus, NULL, i);
+ 			sdw_slave_add(bus, &id, NULL);
++			found = true;
+ 		}
+ 	}
+ 
+-	complete(&ctrl->enumeration);
++	if (enumerated)
++		complete(&ctrl->enumeration);
+ 	return 0;
+ }
+ 
+@@ -712,6 +734,102 @@ static irqreturn_t qcom_swrm_wake_irq_handler(int irq, void *dev_id)
+ 	return IRQ_HANDLED;
+ }
+ 
++static int qcom_swrm_init(struct qcom_swrm_ctrl *ctrl);
++static void qcom_swrm_reprobe_unattached_slaves(struct qcom_swrm_ctrl *ctrl);
++
++static bool qcom_swrm_all_slaves_online(struct qcom_swrm_ctrl *ctrl)
++{
++	struct sdw_slave *slave;
++	bool online;
++
++	mutex_lock(&ctrl->bus.bus_lock);
++	online = !list_empty(&ctrl->bus.slaves);
++	list_for_each_entry(slave, &ctrl->bus.slaves, node) {
++		if (!slave->dev_num || slave->status != SDW_SLAVE_ATTACHED) {
++			online = false;
++			break;
++		}
++	}
++	mutex_unlock(&ctrl->bus.bus_lock);
++
++	return online;
++}
++
++static void qcom_swrm_recover_work(struct work_struct *work)
++{
++	struct qcom_swrm_ctrl *ctrl =
++		container_of(work, struct qcom_swrm_ctrl, recovery_work);
++	unsigned long time_left;
++	int generation, ret;
++	bool attached;
++
++	mutex_lock(&qcom_swrm_probe_recovery_lock);
++	mutex_lock(&ctrl->recovery_lock);
++	if (!READ_ONCE(ctrl->recovery_ready) || ctrl->active_streams)
++		goto unlock;
++
++	generation = atomic_read(&ctrl->recovery_pending);
++	if (!generation)
++		goto unlock;
++	ctrl->recovery_failed = false;
++
++	/* The fault was reported by a threaded IRQ; let it finish first. */
++	synchronize_irq(ctrl->irq);
++
++	ret = pm_runtime_resume_and_get(ctrl->dev);
++	if (ret < 0) {
++		dev_err_ratelimited(ctrl->dev,
++				    "deferred clash recovery: runtime resume failed: %d\n",
++				    ret);
++		if (atomic_cmpxchg(&ctrl->recovery_pending, generation, 0) == generation)
++			ctrl->recovery_failed = true;
++		goto unlock;
++	}
++
++	/* A reset during an open stream drops its port routing. */
++	reinit_completion(&ctrl->enumeration);
++	ctrl->reg_write(ctrl, SWRM_COMP_SW_RESET, 0x01);
++	usleep_range(2000, 2050);
++	qcom_swrm_init(ctrl);
++	time_left = wait_for_completion_timeout(&ctrl->enumeration,
++					     msecs_to_jiffies(TIMEOUT_MS));
++	if (!time_left)
++		dev_warn(ctrl->dev, "deferred clash recovery: enumeration timeout\n");
++	synchronize_irq(ctrl->irq);
++
++	qcom_swrm_get_device_status(ctrl);
++	qcom_swrm_enumerate(&ctrl->bus);
++	sdw_handle_slave_status(&ctrl->bus, ctrl->status);
++	attached = qcom_swrm_all_slaves_online(ctrl);
++	if (!attached) {
++		qcom_swrm_reprobe_unattached_slaves(ctrl);
++		/* Reprobe can release reset before the attach IRQ is handled. */
++		attached = wait_event_timeout(ctrl->slaves_wait,
++					      qcom_swrm_all_slaves_online(ctrl),
++					      msecs_to_jiffies(TIMEOUT_MS)) > 0;
++	}
++
++	if (atomic_cmpxchg(&ctrl->recovery_pending, generation, 0) == generation)
++		ctrl->recovery_failed = !attached;
++
++	if (attached) {
++		dev_info(ctrl->dev, "deferred clash recovery: slaves attached\n");
++	} else {
++		/* Keep the clash masked; a failed attempt must not loop on startup. */
++		ctrl->intr_mask &= ~SWRM_INTERRUPT_STATUS_MASTER_CLASH_DET;
++		ctrl->reg_write(ctrl,
++				ctrl->reg_layout[SWRM_REG_INTERRUPT_CPU_EN],
++				ctrl->intr_mask);
++		dev_err(ctrl->dev, "deferred clash recovery: slaves still missing\n");
++	}
++
++	pm_runtime_mark_last_busy(ctrl->dev);
++	pm_runtime_put_autosuspend(ctrl->dev);
++unlock:
++	mutex_unlock(&ctrl->recovery_lock);
++	mutex_unlock(&qcom_swrm_probe_recovery_lock);
++}
++
+ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
+ {
+ 	struct qcom_swrm_ctrl *ctrl = dev_id;
+@@ -739,6 +857,7 @@ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
+ 					    "no slave alert found.spurious interrupt\n");
+ 				} else {
+ 					sdw_handle_slave_status(&ctrl->bus, ctrl->status);
++					wake_up_all(&ctrl->slaves_wait);
+ 				}
+ 
+ 				break;
+@@ -750,35 +869,42 @@ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
+ 					dev_dbg(ctrl->dev, "Slave status not changed %x\n",
+ 						slave_status);
+ 				} else {
++					ctrl->slave_status = slave_status;
+ 					qcom_swrm_get_device_status(ctrl);
+ 					qcom_swrm_enumerate(&ctrl->bus);
+ 					sdw_handle_slave_status(&ctrl->bus, ctrl->status);
++					wake_up_all(&ctrl->slaves_wait);
+ 				}
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_MASTER_CLASH_DET:
+ 				dev_err_ratelimited(ctrl->dev,
+-						"%s: SWR bus clsh detected\n",
++						"%s: SWR bus clash detected\n",
+ 						__func__);
+ 				ctrl->intr_mask &= ~SWRM_INTERRUPT_STATUS_MASTER_CLASH_DET;
+ 				ctrl->reg_write(ctrl,
+ 						ctrl->reg_layout[SWRM_REG_INTERRUPT_CPU_EN],
+ 						ctrl->intr_mask);
++				atomic_inc(&ctrl->recovery_pending);
++				if (READ_ONCE(ctrl->recovery_ready))
++					schedule_work(&ctrl->recovery_work);
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_RD_FIFO_OVERFLOW:
+ 				ctrl->reg_read(ctrl,
+ 					       ctrl->reg_layout[SWRM_REG_CMD_FIFO_STATUS],
+ 					       &value);
+ 				dev_err_ratelimited(ctrl->dev,
+-					"%s: SWR read FIFO overflow fifo status 0x%x\n",
++					"%s: SWR read FIFO overflow fifo status 0x%x, flushing fifo\n",
+ 					__func__, value);
++				ctrl->reg_write(ctrl, SWRM_CMD_FIFO_CMD, 0x1);
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_RD_FIFO_UNDERFLOW:
+ 				ctrl->reg_read(ctrl,
+ 					       ctrl->reg_layout[SWRM_REG_CMD_FIFO_STATUS],
+ 					       &value);
+ 				dev_err_ratelimited(ctrl->dev,
+-					"%s: SWR read FIFO underflow fifo status 0x%x\n",
++					"%s: SWR read FIFO underflow fifo status 0x%x, flushing fifo\n",
+ 					__func__, value);
++				ctrl->reg_write(ctrl, SWRM_CMD_FIFO_CMD, 0x1);
+ 				break;
+ 			case SWRM_INTERRUPT_STATUS_WR_CMD_FIFO_OVERFLOW:
+ 				ctrl->reg_read(ctrl,
+@@ -1353,27 +1479,57 @@ static int qcom_swrm_startup(struct snd_pcm_substream *substream,
+ 	struct qcom_swrm_ctrl *ctrl = dev_get_drvdata(dai->dev);
+ 	int ret;
+ 
++	if (atomic_read(&ctrl->recovery_pending)) {
++		/* Startup can be called while another controller still probes. */
++		if (!mutex_trylock(&qcom_swrm_probe_recovery_lock))
++			return -EAGAIN;
++		mutex_unlock(&qcom_swrm_probe_recovery_lock);
++		schedule_work(&ctrl->recovery_work);
++		flush_work(&ctrl->recovery_work);
++	}
++
++	mutex_lock(&ctrl->recovery_lock);
++	if (ctrl->recovery_failed && qcom_swrm_all_slaves_online(ctrl))
++		ctrl->recovery_failed = false;
++	if (atomic_read(&ctrl->recovery_pending) || ctrl->recovery_failed) {
++		ret = -EIO;
++		goto unlock;
++	}
++
+ 	ret = pm_runtime_get_sync(ctrl->dev);
+ 	if (ret < 0 && ret != -EACCES) {
+ 		dev_err_ratelimited(ctrl->dev,
+ 				    "pm_runtime_get_sync failed in %s, ret %d\n",
+ 				    __func__, ret);
+ 		pm_runtime_put_noidle(ctrl->dev);
+-		return ret;
++		goto unlock;
+ 	}
+ 
+-	return 0;
++	ctrl->active_streams++;
++	ret = 0;
++unlock:
++	mutex_unlock(&ctrl->recovery_lock);
++	return ret;
+ }
+ 
+ static void qcom_swrm_shutdown(struct snd_pcm_substream *substream,
+ 			       struct snd_soc_dai *dai)
+ {
+ 	struct qcom_swrm_ctrl *ctrl = dev_get_drvdata(dai->dev);
++	bool recover;
+ 
++	mutex_lock(&ctrl->recovery_lock);
+ 	swrm_wait_for_wr_fifo_done(ctrl);
+ 	pm_runtime_mark_last_busy(ctrl->dev);
+ 	pm_runtime_put_autosuspend(ctrl->dev);
+-
++	if (ctrl->active_streams)
++		ctrl->active_streams--;
++	recover = !ctrl->active_streams &&
++		  atomic_read(&ctrl->recovery_pending);
++	mutex_unlock(&ctrl->recovery_lock);
++
++	if (recover)
++		schedule_work(&ctrl->recovery_work);
+ }
+ 
+ static const struct snd_soc_dai_ops qcom_swrm_pdm_dai_ops = {
+@@ -1547,6 +1703,51 @@ static int swrm_reg_show(struct seq_file *s_file, void *data)
+ DEFINE_SHOW_ATTRIBUTE(swrm_reg);
+ #endif
+ 
++static void qcom_swrm_log_boot_slaves(struct qcom_swrm_ctrl *ctrl)
++{
++	struct sdw_slave *slave;
++
++	mutex_lock(&ctrl->bus.bus_lock);
++	list_for_each_entry(slave, &ctrl->bus.slaves, node) {
++		dev_info(ctrl->dev, "boot slave %s: dev_num %u status %u\n",
++			 dev_name(&slave->dev), slave->dev_num, slave->status);
++	}
++	mutex_unlock(&ctrl->bus.bus_lock);
++}
++
++/*
++ * A slave stuck at dev_num 0 has virtually always failed to attach because
++ * its own driver returned -EPROBE_DEFER (e.g. its reset-gpios resolve
++ * through a GPIO chip gated behind a slow-booting co-processor) -- it never
++ * got far enough to release the codec's physical reset, so no amount of
++ * bus-level rescanning here can help; only re-running the slave's own
++ * .probe() can. Linux normally does that automatically on any unrelated
++ * successful probe elsewhere (driver_bound() -> driver_deferred_probe_
++ * trigger()), but that can take an unbounded, highly variable amount of
++ * time late in boot when little else is left to probe (measured 2026-08-17:
++ * over 15s on one boot, sub-millisecond on another, with no correlation to
++ * how close the actual dependency was to being ready). Ask directly instead
++ * of waiting for a coincidental trigger from elsewhere.
++ */
++static void qcom_swrm_reprobe_unattached_slaves(struct qcom_swrm_ctrl *ctrl)
++{
++	struct sdw_slave *slave;
++
++	list_for_each_entry(slave, &ctrl->bus.slaves, node) {
++		int ret;
++
++		if (slave->dev_num)
++			continue;
++		ret = device_reprobe(&slave->dev);
++		if (of_machine_is_compatible("asus,zenbook-a16-ux3607oa"))
++			dev_info(&slave->dev,
++				 "enumeration reprobe returned %d (dev_num %u, status %u)\n",
++				 ret, slave->dev_num, slave->status);
++		if (ret)
++			dev_dbg(&slave->dev, "reprobe still not ready (%d)\n", ret);
++	}
++}
++
+ static int qcom_swrm_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+@@ -1554,12 +1755,14 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 	struct sdw_bus_params *params;
+ 	struct qcom_swrm_ctrl *ctrl;
+ 	const struct qcom_swrm_data *data;
++	struct sdw_slave *slave;
+ 	int ret;
+ 	u32 val;
+ 
+ 	ctrl = devm_kzalloc(dev, sizeof(*ctrl), GFP_KERNEL);
+ 	if (!ctrl)
+ 		return -ENOMEM;
++	guard(mutex)(&qcom_swrm_probe_recovery_lock);
+ 
+ 	data = of_device_get_match_data(dev);
+ 	ctrl->max_reg = data->max_reg;
+@@ -1610,6 +1813,10 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 	ctrl->dev = dev;
+ 	dev_set_drvdata(&pdev->dev, ctrl);
+ 	mutex_init(&ctrl->port_lock);
++	mutex_init(&ctrl->recovery_lock);
++	INIT_WORK(&ctrl->recovery_work, qcom_swrm_recover_work);
++	atomic_set(&ctrl->recovery_pending, 0);
++	init_waitqueue_head(&ctrl->slaves_wait);
+ 	init_completion(&ctrl->broadcast);
+ 	init_completion(&ctrl->enumeration);
+ 
+@@ -1679,8 +1886,31 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	qcom_swrm_init(ctrl);
+-	wait_for_completion_timeout(&ctrl->enumeration,
+-				    msecs_to_jiffies(TIMEOUT_MS));
++	if (!wait_event_timeout(ctrl->slaves_wait,
++				qcom_swrm_all_slaves_online(ctrl),
++				msecs_to_jiffies(TIMEOUT_MS))) {
++		qcom_swrm_log_boot_slaves(ctrl);
++		/*
++		 * A deferred codec probe may still need to release reset.
++		 * device_attach() leaves already bound codecs intact; resetting
++		 * the controller or rebinding them here can race attachment.
++		 */
++		list_for_each_entry(slave, &ctrl->bus.slaves, node) {
++			ret = device_attach(&slave->dev);
++			dev_info(dev, "boot attach %s returned %d\n",
++				 dev_name(&slave->dev), ret);
++		}
++		if (!wait_event_timeout(ctrl->slaves_wait,
++					qcom_swrm_all_slaves_online(ctrl),
++					msecs_to_jiffies(TIMEOUT_MS))) {
++			qcom_swrm_log_boot_slaves(ctrl);
++			dev_err(dev, "boot enumeration failed: slaves still missing\n");
++			ret = -ETIMEDOUT;
++			goto err_master_add;
++		}
++	}
++	qcom_swrm_log_boot_slaves(ctrl);
++	dev_info(dev, "boot enumeration complete: all slaves attached\n");
+ 	ret = qcom_swrm_register_dais(ctrl);
+ 	if (ret)
+ 		goto err_master_add;
+@@ -1694,16 +1924,23 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 	pm_runtime_mark_last_busy(dev);
+ 	pm_runtime_set_active(dev);
+ 	pm_runtime_enable(dev);
++	WRITE_ONCE(ctrl->recovery_ready, true);
++	if (atomic_read(&ctrl->recovery_pending))
++		schedule_work(&ctrl->recovery_work);
+ 
+ #ifdef CONFIG_DEBUG_FS
+ 	ctrl->debugfs = debugfs_create_dir("qualcomm-sdw", ctrl->bus.debugfs);
+-	debugfs_create_file("qualcomm-registers", 0400, ctrl->debugfs, ctrl,
+-			    &swrm_reg_fops);
++	/* A full register dump caused bus and codec faults on this board. */
++	if (!of_machine_is_compatible("asus,zenbook-a16-ux3607oa"))
++		debugfs_create_file("qualcomm-registers", 0400, ctrl->debugfs,
++				    ctrl, &swrm_reg_fops);
+ #endif
+ 
+ 	return 0;
+ 
+ err_master_add:
++	/* Stop status callbacks before removing their slave devices. */
++	disable_irq(ctrl->irq);
+ 	sdw_bus_master_delete(&ctrl->bus);
+ err_clk:
+ 	clk_disable_unprepare(ctrl->hclk);
+@@ -1715,6 +1952,9 @@ static void qcom_swrm_remove(struct platform_device *pdev)
+ {
+ 	struct qcom_swrm_ctrl *ctrl = dev_get_drvdata(&pdev->dev);
+ 
++	WRITE_ONCE(ctrl->recovery_ready, false);
++	disable_irq(ctrl->irq);
++	cancel_work_sync(&ctrl->recovery_work);
+ 	sdw_bus_master_delete(&ctrl->bus);
+ 	clk_disable_unprepare(ctrl->hclk);
+ }
+@@ -1848,6 +2088,14 @@ static struct platform_driver qcom_swrm_driver = {
+ 		.name	= "qcom-soundwire",
+ 		.of_match_table = qcom_swrm_of_match,
+ 		.pm = &swrm_dev_pm_ops,
++		/*
++		 * NOT PROBE_PREFER_ASYNCHRONOUS: tried 2026-08-17, caused
++		 * "swrm_wait_for_rd_fifo_avail err read underflow" on the
++		 * second controller when both probed concurrently -- real
++		 * register-level contention between the two instances on
++		 * this platform, not just a timing coincidence. Serial
++		 * (default) probing is required here.
++		 */
+ 	}
+ };
+ module_platform_driver(qcom_swrm_driver);

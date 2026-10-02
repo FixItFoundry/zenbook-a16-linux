@@ -10,6 +10,71 @@ one.
 
 ---
 
+## 2026-10-02 — RC5 promoted, patch audit, GRUB cleanup, and a suspend negative result
+
+- **Baseline upgraded to Linux v7.3-rc5** (`72d3fcf802c45d00b300f25b848a93c3a2bd7c7e`),
+  promoting `7.3.0-rc5-ZenbookA16-20261002-rc5-integrated1+` to GRUB default:
+  - **Correction**: the 2026-09-30 entry below targeted v7.3-rc4 (`93f51579e7df`),
+    which was already one RC behind when written. rc5 is the current release
+    candidate and is what this build uses. No rc4 kernel was ever built or
+    installed here, so the `zenbook-a16-rc4` entry described in that entry and in
+    `docs/current-build.md` never existed.
+  - Image, 8463 modules, DTB and a 61.6 MB initramfs built and installed. The DTB
+    contains `embedded-controller@76`; the initramfs carries the four ADSP blobs
+    and the A16 AudioReach topology required for early audio.
+  - **This kernel has not been booted.** Promotion is not a validation sign-off.
+    The RC3 baseline is retained as the proven-good fallback entry.
+- **Patch audit against rc5** (all 24 RC3 patches replayed on a throwaway index):
+  - Retired 1 patch: `drm/msm/dp: skip PUSH_IDLE when the link was never enabled`
+    is now upstream (`e249a6e2a130`), as the 2026-09-30 entry predicted.
+  - The other 23 applied unchanged — none needed rebasing, none found obsolete.
+  - Added 5: the EC v3 series (4) and PMH0104 camera LDOs (1), for 28 total.
+  - The camera LDO diff arrived headerless and was rewritten as a real commit so
+    the series replays with `git am`. It remains inert until a DT node consumes it.
+  - Config delta versus RC3 is two lines: `CONFIG_EC_ASUS_GLYMUR=m` and the
+    retargeted `LOCALVERSION`.
+- **GRUB restructured from 38 entries to 10**:
+  - Default is the new RC5 baseline; the cmdline is deliberately identical to the
+    RC3 baseline so the kernel is the only variable across the promotion.
+  - The proven RC3 baseline moved into FALLBACKS as the first choice. The two
+    Fedora entries stay marked UNVERIFIED.
+  - The 24-entry "Earlier builds" archive and six superseded USB1 experiments left
+    the menu. **No artifacts were deleted** — kernels, modules, DTBs and
+    initramfs all remain in `/boot` and `/lib/modules`, and the previous menu is
+    preserved under `~/kernel-build/backups/`.
+- **Spontaneous silent reset on 2026-10-02 — the restart is NOT a build crash and NOT a suspend failure**:
+  - The build completed successfully at 09:35:43. The machine then reset at
+    **09:38:08**, about 2.5 minutes later, with no build running: an ordinary
+    desktop session (tailscaled, D-Bus, an Electron app) simply stops logging.
+    No orderly shutdown, no panic, oops, `Call trace`, AER, thermal or watchdog
+    message, empty `/sys/fs/pstore/`.
+  - This is a third unexplained silent reset, and it is better evidence than the
+    earlier "high-parallelism build resets" notes because it happened with nothing
+    compiling. Heavy manifest-verification I/O was in flight at the time; that is
+    a plausible but unproven contributor and no causal claim is made.
+- **Retraction — the earlier reading of the 09:39:57 event was wrong**:
+  - An earlier revision of this entry claimed a power-key suspend reset the SoC
+    and thereby contradicted `99-glymur-suspend.conf`. Both halves of that were
+    incorrect. The attribution came from `journalctl -b -1`, and this machine's
+    journal boot list is corrupt (`--list-boots` reports September dates; every
+    kernel-start marker is stamped `Sep 13 20:00:00`). Keying on `_BOOT_ID` shows
+    four separate boots today, not two.
+  - Corrected: the 09:39:57 power-key press was user-initiated and belongs to boot
+    `696b5d8c`, the boot *after* the reset. The reset was the silent 09:38:08 death
+    of boot `c1016cc2f`, which involved no suspend at all.
+  - Withdrawn: the claim that the `glymur_pci_skip=5` mitigation was shown
+    insufficient. The knob was present, but the event is confounded — the machine
+    resets silently on its own, so a boot ending at the suspend entry is equally
+    consistent with a suspend failure and with an unrelated reset.
+  - Still open: the journal holds zero resume events across all six recorded
+    suspend attempts, so either every suspend failed or resume is not logged.
+- **Fixed a manifest bug inherited from the RC3 build script**: `build.sh` hashed
+  `SHA256SUMS` into itself, because the shell creates the file for the redirection
+  before `find` runs. `sha256sum -c` therefore always reported one spurious
+  failure. The manifest now excludes itself and verifies 8481/8481.
+
+---
+
 ## 2026-09-30 — Upgrading to v7.3-rc4, retiring mainline DP patch, promoting EC v3, and staging PMH0104 camera LDOs
 
 - **Baseline upgrade target: Linux v7.3-rc4**:

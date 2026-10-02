@@ -1,0 +1,34 @@
+From 7f0840dd2d63f15a3b7eaf40e8667a3bc6989437 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Fri, 2 Oct 2026 08:50:58 -0400
+Subject: [PATCH] regulator: qcom-rpmh: add PMH0104 camera LDOs for the A16
+ OV02C10 sensor
+
+The ASUS Zenbook A16 (glymur) PMH0104 PMIC feeds the OmniVision OV02C10
+front camera sensor from ldo4 (1.8 V) and ldo7 (2.8 V analog). Neither rail
+is described in pmh0104_vreg_data, so the sensor cannot be brought up on
+CCI1_I2C0.
+
+Stage the rail descriptions now; the DT node that consumes them lands with
+the OV02C10 camera bring-up. This is inert on the current baseline, which
+blacklists ov02c10/qcom_camss/i2c_qcom_cci on the kernel cmdline.
+
+Co-developed-by: Zenbook A16 bring-up <zenbook-a16@localhost>
+---
+ drivers/regulator/qcom-rpmh-regulator.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/regulator/qcom-rpmh-regulator.c b/drivers/regulator/qcom-rpmh-regulator.c
+index 25c14de3cd8b..a967b4135832 100644
+--- a/drivers/regulator/qcom-rpmh-regulator.c
++++ b/drivers/regulator/qcom-rpmh-regulator.c
+@@ -1663,6 +1663,9 @@ static const struct rpmh_vreg_init_data pmh0104_vreg_data[] = {
+ 	RPMH_VREG("smps2",   SMPS, 2,    &pmic5_ftsmps530, "vdd-s2"),
+ 	RPMH_VREG("smps3",   SMPS, 3,    &pmic5_ftsmps530, "vdd-s3"),
+ 	RPMH_VREG("smps4",   SMPS, 4,    &pmic5_ftsmps530, "vdd-s4"),
++	RPMH_VREG("ldo3",    LDO,  3,    &pmic5_nldo530,   "vdd-l3"),
++	RPMH_VREG("ldo4",    LDO,  4,    &pmic5_nldo530,   "vdd-l4"),
++	RPMH_VREG("ldo7",    LDO,  7,    &pmic5_pldo530_mvp150, "vdd-l7"),
+ 	{}
+ };
+ 
