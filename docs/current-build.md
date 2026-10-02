@@ -129,8 +129,20 @@ Each `menuentry` then re-runs `search --set=root --fs-uuid ...` itself, which
 resolves to the *default* subvolume (259). So the configuration comes from
 subvol 5 while the kernels, modules and DTBs come from subvol 259.
 
-**Consequences:**
+The per-entry `search` matters as much as the stub. It resolves to the **same
+top level**, not to the running root. So GRUB loads `vmlinuz`, `initrd` and the
+`devicetree` from the **top-level** `/boot`, while the kernel itself mounts root
+from the default subvolume (`rootflags=subvol=a16-audio-test4-20260919`) and
+reads `/lib/modules` from **there**. Three consequences follow, and the first two
+were learned the hard way:
 
+- **A new kernel needs its `vmlinuz`, `initrd` and DTB in BOTH `/boot` trees.**
+  Missing them is invisible until boot: the menu lists the entry and GRUB then
+  reports the file as not found. Its module tree only has to exist in the
+  default subvolume. Use
+  [`boot-kit/install-boot-artifacts.sh`](../boot-kit/install-boot-artifacts.sh),
+  which mirrors the files, clears stale `next_entry` on every `grubenv`, and
+  audits every entry in the top-level config before reporting success.
 - `grub2-mkconfig -o /boot/grub2/grub.cfg` updates only subvol 259's copy. The
   bootloader never sees it. The 2026-10-02 RC5 promotion was invisible for this
   reason.

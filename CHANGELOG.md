@@ -83,6 +83,15 @@ one.
   - Fixed by installing the generated config to **both** subvolumes and setting
     `saved_entry` on all three `grubenv` files (top level, running root, ESP),
     clearing the stale `next_entry` on each.
+  - A second, separate bug: the per-entry `search --set=root --fs-uuid` resolves
+    to the **top level** too, not to the running root. GRUB therefore loads
+    `vmlinuz`, `initrd` and `devicetree` from the top-level `/boot`, while the
+    kernel mounts root from the default subvolume via `rootflags` and reads
+    `/lib/modules` from there. Installing the kernel only into the running root
+    produced a menu entry that failed with "file not found" for all three. The
+    rc5 artifacts are now mirrored into subvol 5 and all 36 entries audit clean
+    against it. New `boot-kit/install-boot-artifacts.sh` does the mirroring,
+    clears stale `next_entry` on every `grubenv`, and audits every entry.
   - Side effect worth knowing: the top-level `dualport1` entry was **missing**
     `phy_qcom_qmp_combo.usb1_diag=1`, so runs booted from it had the 100ms PCS
     sampler inactive despite the entry being the sampler control. Re-added.
