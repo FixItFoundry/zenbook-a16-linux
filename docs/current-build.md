@@ -106,6 +106,65 @@ demonstrated spontaneous reset, no conclusion about the mitigation is supported.
 That file's own "validated on 2 suspend/resume cycles" note remains the honest
 description of the evidence.
 
+## GRUB reads the btrfs top-level subvolume, not the running root
+
+Discovered 2026-10-02, after a promotion that appeared to do nothing.
+
+There are **two** `/boot/grub2/grub.cfg` files on this machine, because the root
+filesystem has five btrfs subvolumes and the top level carries its own `/boot`:
+
+| Location | Role |
+|---|---|
+| **subvolid 5 (top level)** | **The one GRUB actually reads.** ~70 kernels, a stale mirror |
+| subvolid 259 `a16-audio-test4-20260919` | The running root. `findmnt /` shows this one |
+| subvolid 256/257/258/260 | Older `a16-audio-test*` snapshots, each with their own `/boot` |
+
+The chain: firmware loads `EFI/fedora/grub.cfg`, which does
+`search --fs-uuid --set=dev e83e07ce-...` (a **filesystem** UUID, no subvolume)
+and then `configfile ($dev)/boot/grub2/grub.cfg`. That lands on the top level.
+Inside, `${config_directory}` is the top level's `/boot/grub2`, so
+`load_env -f ${config_directory}/grubenv` also reads the **top-level** `grubenv`.
+
+Each `menuentry` then re-runs `search --set=root --fs-uuid ...` itself, which
+resolves to the *default* subvolume (259). So the configuration comes from
+subvol 5 while the kernels, modules and DTBs come from subvol 259.
+
+**Consequences:**
+
+- `grub2-mkconfig -o /boot/grub2/grub.cfg` updates only subvol 259's copy. The
+  bootloader never sees it. The 2026-10-02 RC5 promotion was invisible for this
+  reason.
+- The top-level copy had been stale since 2026-09-30, still advertising RC3 and
+  33 old entries.
+- Its `grubenv` carried `next_entry=zenbook-a16-usb1-winseq1-20260925`, a
+  one-shot id that outlived its usefulness; `next_entry` takes precedence over
+  `saved_entry`.
+- That same config was **missing a fallbacks submenu entirely** and had a dozen
+  entries dangling loose at the top level, outside any submenu.
+
+**After editing `40_custom`, install the result to both copies and check every
+`grubenv`:**
+
+```sh
+sudo grub2-mkconfig -o /tmp/grub.cfg
+sudo install -m 0600 /tmp/grub.cfg /boot/grub2/grub.cfg          # running root
+T=$(mktemp -d); sudo mount -o rw,subvolid=5 /dev/nvme0n1p17 "$T" # top level
+sudo install -m 0600 /tmp/grub.cfg "$T/boot/grub2/grub.cfg"
+for e in "$T/boot/grub2/grubenv" /boot/grub2/grubenv /boot/efi/EFI/fedora/grubenv; do
+    sudo grub2-editenv "$e" set saved_entry=<id>
+    sudo grub2-editenv "$e" unset next_entry
+done
+sudo umount "$T"
+```
+
+To confirm which copy is live, compare `BOOT_IMAGE` in `/proc/cmdline` with the
+entries in each candidate, and check `stat` mtimes after a reboot: the copy GRUB
+read will have been rewritten.
+
+A long-term fix is to delete or stop mirroring `/boot` in the top-level
+subvolume, or point `EFI/fedora/grub.cfg` at the default subvolume explicitly
+(`subvol=` / `subvolid=` on the `search`). Not done here.
+
 ## Validation and limitations
 
 The RC5 Image, 8463 modules, DTB and initramfs all built and installed. The

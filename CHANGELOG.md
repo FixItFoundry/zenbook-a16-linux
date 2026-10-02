@@ -68,6 +68,25 @@ one.
     consistent with a suspend failure and with an unrelated reset.
   - Still open: the journal holds zero resume events across all six recorded
     suspend attempts, so either every suspend failed or resume is not logged.
+- **GRUB was reading a different config than the one being edited** (found when
+  the RC5 promotion did not appear in the boot menu):
+  - Two `/boot/grub2/grub.cfg` files exist here. GRUB reads the **btrfs top-level
+    subvolume (ID 5)** because `EFI/fedora/grub.cfg` searches a *filesystem* UUID
+    with no subvolume selector; the running root is subvol 259. Each `menuentry`
+    re-searches, so kernels load from 259 while the config comes from 5.
+  - `grub2-mkconfig -o /boot/grub2/grub.cfg` therefore updates a file the
+    bootloader never reads. The RC5 promotion was invisible for exactly this
+    reason, and the top-level copy had been stale since 2026-09-30.
+  - That stale copy also held `next_entry=zenbook-a16-usb1-winseq1-20260925`, a
+    one-shot id that predated the cleanup and outranks `saved_entry`; had no
+    fallbacks submenu at all; and left a dozen entries loose at the top level.
+  - Fixed by installing the generated config to **both** subvolumes and setting
+    `saved_entry` on all three `grubenv` files (top level, running root, ESP),
+    clearing the stale `next_entry` on each.
+  - Side effect worth knowing: the top-level `dualport1` entry was **missing**
+    `phy_qcom_qmp_combo.usb1_diag=1`, so runs booted from it had the 100ms PCS
+    sampler inactive despite the entry being the sampler control. Re-added.
+
 - **Fixed a manifest bug inherited from the RC3 build script**: `build.sh` hashed
   `SHA256SUMS` into itself, because the shell creates the file for the redirection
   before `find` runs. `sha256sum -c` therefore always reported one spurious
