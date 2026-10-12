@@ -7,38 +7,52 @@ Qualcomm Snapdragon X2 Elite Extreme (`glymur`).
 
 ## Current status — 2026-10-12
 
-**Working audio bringup baseline:
-`7.3.0-rc5-ZenbookA16-20261008-rc5-audiopm1+` (Linux `v7.3-rc5`).**
+**The RC5 audio test kernel is now the working bring-up baseline:**
+`7.3.0-rc5-ZenbookA16-20261008-rc5-audiopm1+` (Linux `v7.3-rc5`).
 
-This kernel is booted, its installed artifacts match, and the user confirmed
-all four physical speaker channels. A guarded CPU/Vulkan screen passed on AC.
-Both speaker controllers stay runtime active through a local workaround;
-efficient audio power management, suspend and long-duration stability remain
-open. The [current build record](docs/current-build.md) contains the precise
-evidence and limits. The saved GRUB default and fallback kernels are retained.
+The current build boots into a graphical desktop, and all four physical
+speaker channels have been confirmed working. USB0 hub Ethernet and USB-PD
+charging were verified, and a short CPU/Vulkan test passed on AC power.
+
+Audio currently relies on a board-specific workaround that keeps both
+SoundWire speaker controllers active. Repeated cold-boot and idle/playback
+checks, the workaround's battery cost, suspend/resume and long-duration
+stability remain open. Historical spontaneous resets and RPMh timeouts are
+still unresolved, so this is a working development baseline with limited
+validation.
+
+The repository now includes the exact build configuration and complete
+59-patch stack. Source replay reproduces the tested tree, and all 8,469
+recorded installed payload hashes match. See the [current build
+record](docs/current-build.md) for evidence and limits.
 
 | Area | Current position |
 |---|---|
-| Display and GPU | Internal graphical session and 600-frame Vulkan screen passed; repeated runtime resume and external display remain open. |
-| CPU and thermal | Short guarded workload passed: peak 50.5 C, no new kernel messages or monitored AER errors. Historical spontaneous resets and RPMh timeouts remain unresolved. |
-| Embedded Controller | EC v3 and HID keyboard-backlight ownership retained; this boot uses fan profile 2. Sustained cooling and physical fan acceptance remain open. |
-| Wi-Fi | Device available; sustained current-kernel traffic, reconnect and recovery remain unvalidated. |
-| Bluetooth | Current boot reports missing `qca/hmtbtfw11.tlv`; pairing and traffic are unvalidated. |
-| Battery and charging | USB-PD online and battery charging verified. Battery drain and power transitions remain open. |
-| Speakers | All four channels physically confirmed. Both SoundWire controllers are kept active; cold-boot/idle repetition and efficient runtime PM remain open. |
-| Microphones and other audio | Recording, headset/jack and Bluetooth audio remain unvalidated on this build. |
-| USB | USB0 hub Ethernet passed a short traffic check. USB1 both-orientation carrier/traffic and idle/resume remain open. |
-| Suspend/hibernate | Unresolved; no successful system-sleep acceptance in this promotion. |
-| Camera | Camera/CSI source is included for exact reproduction, but camera drivers are blacklisted in the accepted boot. Capture remains unvalidated. |
-| HDMI, USB4 and DP audio | Not accepted by this promotion; see the hardware reference. |
+| Speakers | All four physical channels confirmed working. Both controllers remain active; repeated boot/idle checks and efficient audio power management remain open. |
+| Display and GPU | Internal desktop and a 600-frame Vulkan test passed. External displays and repeated GPU runtime resume remain unvalidated. |
+| CPU and cooling | A guarded 95-second CPU/Vulkan test passed on AC, peaking at 50.5 °C with no new kernel messages or monitored PCIe errors. Sustained stability and physical fan response remain open. |
+| Battery and charging | USB-PD power and battery charging verified. Battery drain and AC/battery transitions remain unvalidated. |
+| USB0 | SuperSpeed network hub and Ethernet verified with a short gateway traffic test. Sustained traffic and idle/resume remain open. |
+| USB1 | Hub enumeration has failed in earlier testing. Both cable orientations, stable carrier/traffic and idle/resume still need validation. |
+| Wi-Fi | Device available; sustained traffic, reconnect and recovery on this kernel remain unvalidated. |
+| Bluetooth | The current boot reports missing `qca/hmtbtfw11.tlv`; pairing and traffic remain unvalidated. |
+| Embedded Controller | EC v3 and HID keyboard-backlight ownership retained; the accepted boot uses fan profile 2. |
+| Microphones and other audio | Recording, headset/jack, Bluetooth audio and DP audio remain unvalidated on this build. |
+| Suspend/hibernate | Unresolved; no successful system-sleep acceptance for this baseline. |
+| Camera | Camera/CSI changes are included in the source stack, but camera drivers are blacklisted in the accepted boot. Capture remains unvalidated. |
+| HDMI and USB4 | Not validated as working on this baseline. |
 
-### EC v3 promotion
+This promotion updates the repository baseline. The saved GRUB default remains
+`zenbook-a16-rc5-integrated1-20261002`; the current kernel uses the existing
+audiopm1 test entry. Previous kernels and the Windows boot route are retained.
 
-The ASUS Zenbook A16 EC v3 series from Konrad Dybcio, paired with our local
-patch leaving keyboard-backlight ownership with the ASUS HID driver
-([`patches/rc3-ec-v3-hid-20260923/`](patches/rc3-ec-v3-hid-20260923/README.md)),
-has been validated in daily use on the test kernels (`usbdiag2ecv3hid1+`, `usb1hubdiag1+`)
-and is promoted into the baseline stack, in `patches/rc5-20261002/` as patches 24-27.
+### Retained EC integration
+
+Konrad Dybcio's ASUS Zenbook A16 EC v3 series and the local change preserving
+keyboard-backlight ownership under the ASUS HID driver remain in the current
+stack as patches 24–27. Their earlier daily-use validation is recorded in the
+[EC integration notes](patches/rc3-ec-v3-hid-20260923/README.md);
+current-kernel acceptance limits are listed above.
 
 ## Start here
 
