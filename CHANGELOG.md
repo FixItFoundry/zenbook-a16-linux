@@ -10,6 +10,29 @@ one.
 
 ---
 
+## 2026-10-12 — Booted audiopm1 promoted as the working audio baseline
+
+- Promoted `7.3.0-rc5-ZenbookA16-20261008-rc5-audiopm1+` after the user confirmed
+  all four physical channels. Both SoundWire controllers remain runtime active
+  under a local board opt-in; this is not efficient PM or detach-cause closure.
+- Added the exact native build config, a complete 59-patch export, checksums and
+  the existing replay/build workflow in `kernel/rc5-20261008/`. Replay produces
+  tree `14fd463c06510c760dde22ef215fcbd0bff9a898`. Old packages remain intact.
+- Verified all 8,469 installed payload hashes, five firmware-visible candidate
+  boot files and 627 saved fallback hashes. Release, root, live DT and EC profile
+  match. Four labelled audio clips had balanced transport and retained attachment.
+- On verified USB-PD power, a guarded 95-second CPU/Vulkan screen passed:
+  80 samples, peak 50.5 C, NVMe 29.85 C, monitored AER sum 0 and no new kernel
+  messages. USB0 hub Ethernet passed five interface-bound gateway replies.
+- Updated the current status/build pages; archived the October 2 build record.
+  Historical silent resets, suspend, battery drain, repeated audio transitions,
+  USB1, other audio routes and full platform acceptance remain open. Current
+  boot firmware omissions are recorded rather than carrying older Bluetooth
+  success forward.
+- Saved GRUB default, EFI order, Windows and fallback artifacts were preserved.
+  This repository promotion did not reinstall or rebuild the running kernel,
+  change audio runtime policy, reboot, suspend or select a new persistent default.
+
 ## 2026-10-02 — RC5 promoted, patch audit, GRUB cleanup, and a suspend negative result
 
 - **Baseline upgraded to Linux v7.3-rc5** (`72d3fcf802c45d00b300f25b848a93c3a2bd7c7e`),

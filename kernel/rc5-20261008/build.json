@@ -1,0 +1,12 @@
+{
+  "base": "72d3fcf802c45d00b300f25b848a93c3a2bd7c7e",
+  "source_tree": "14fd463c06510c760dde22ef215fcbd0bff9a898",
+  "release": "7.3.0-rc5-ZenbookA16-20261008-rc5-audiopm1+",
+  "patch_count": 59,
+  "prior_release": "7.3.0-rc5-ZenbookA16-20261002-rc5-integrated1+",
+  "prior_source_tree": "a3327a6d526503774e01b3bb15841883da87a180",
+  "repair_source_commit": "a40530c981d416781dc6330463ff6653a4da73f3",
+  "audio_export_commit": "fe4d23e5e9fa5560806859d9a63d6495fe3efd50",
+  "promotion_date": "2026-10-12",
+  "validation_scope": "Working audio bringup baseline with SoundWire runtime autosuspend disabled; platform stability and power management acceptance remain open."
+}

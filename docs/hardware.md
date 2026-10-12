@@ -1,10 +1,10 @@
 # Hardware components — what each one is, how it connects, and where it stands
 
 ASUS Zenbook A16 **UX3607OA** · Qualcomm Snapdragon **X2 Elite Extreme** (`glymur`,
-X2E94100, 18 cores) · working baseline `7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+`.
+X2E94100, 18 cores) · working audio baseline `7.3.0-rc5-ZenbookA16-20261008-rc5-audiopm1+`.
 
 **Current status:** [build and validation record](current-build.md). Older sections
-below retain historical measurements; they are not blanket RC3 validation.
+below retain historical measurements; they are not blanket validation of this baseline.
 
 This is the single component reference. For the exact device-tree and kernel changes behind
 each "what we changed" line, see [`modifications.md`](modifications.md).

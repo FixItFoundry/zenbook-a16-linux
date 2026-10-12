@@ -5,30 +5,32 @@ Qualcomm Snapdragon X2 Elite Extreme (`glymur`).
 
 ![Zenbook A16 running Linux](img/screenshot_20260816_080455.png)
 
-## Current status — 2026-10-02
+## Current status — 2026-10-12
 
-**Promoted baseline: `7.3.0-rc5-ZenbookA16-20261002-rc5-integrated1+` (Linux `v7.3-rc5`).
-Proven-good fallback: `7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+`.**
+**Working audio bringup baseline:
+`7.3.0-rc5-ZenbookA16-20261008-rc5-audiopm1+` (Linux `v7.3-rc5`).**
 
-The RC5 build is installed and is the GRUB default, but **it has not been booted**.
-The RC3 kernel remains the one with boots of daily use behind it, so treat RC5 as
-promoted rather than validated. The desktop is usable on RC3; audio recovery,
-suspend and abrupt resets remain open.
+This kernel is booted, its installed artifacts match, and the user confirmed
+all four physical speaker channels. A guarded CPU/Vulkan screen passed on AC.
+Both speaker controllers stay runtime active through a local workaround;
+efficient audio power management, suspend and long-duration stability remain
+open. The [current build record](docs/current-build.md) contains the precise
+evidence and limits. The saved GRUB default and fallback kernels are retained.
 
 | Area | Current position |
 |---|---|
-| Display, GPU, input, NVMe | Operational; display teardown `PUSH_IDLE` fix is merged into upstream mainline 7.3 (`e249a6e2a130`). |
-| CPU and thermal | SCMI frequency scaling and 42 CPU/LLC thermal bindings present. **Spontaneous silent resets are unresolved**: three are on record, the newest on 2026-10-02 with nothing compiling. |
-| Embedded Controller | Konrad Dybcio's EC v3 series validated on hardware and promoted into the baseline stack; HID retains keyboard backlight ownership. |
-| Wi-Fi | Operational; regulatory timeouts persist. Resume remains a separate validation task. |
-| Bluetooth | Controller active using the driver's original-firmware fallback; the optional patch file is missing. |
-| Battery and charging | Operational through native SOCCP attachment and qcom-battmgr. The old standalone soccp_glink loader is retired. |
-| Speakers | Native UCM exposes four channels. Front-left silence occurred after boot; manually cycling the audio device restored output. Durable boot/idle recovery is not proven. |
-| Microphones | HiFi capture device present; full recording validation on this build remains open. |
-| Boot/session | Startup improved from 50.8 s to 15.6 s on the measured host. UWSM manages the session; duplicate notification startup was corrected. |
-| Suspend/hibernate | **Unresolved.** Six suspend attempts are recorded with zero resume events, but at least one of those boots also coincides with an unexplained silent reset, so suspend failure is not established and `glymur_pci_skip=5` is neither confirmed nor cleared. Hibernate is disabled and untested. |
-| Camera | PMH0104 camera LDOs (`ldo4`, `ldo7`) are in the promoted stack but are inert until a DT node consumes them. OV02C10 wiring ready for bring-up. |
-| HDMI, USB4, jack/DP audio | Not validated as working; see the hardware reference. |
+| Display and GPU | Internal graphical session and 600-frame Vulkan screen passed; repeated runtime resume and external display remain open. |
+| CPU and thermal | Short guarded workload passed: peak 50.5 C, no new kernel messages or monitored AER errors. Historical spontaneous resets and RPMh timeouts remain unresolved. |
+| Embedded Controller | EC v3 and HID keyboard-backlight ownership retained; this boot uses fan profile 2. Sustained cooling and physical fan acceptance remain open. |
+| Wi-Fi | Device available; sustained current-kernel traffic, reconnect and recovery remain unvalidated. |
+| Bluetooth | Current boot reports missing `qca/hmtbtfw11.tlv`; pairing and traffic are unvalidated. |
+| Battery and charging | USB-PD online and battery charging verified. Battery drain and power transitions remain open. |
+| Speakers | All four channels physically confirmed. Both SoundWire controllers are kept active; cold-boot/idle repetition and efficient runtime PM remain open. |
+| Microphones and other audio | Recording, headset/jack and Bluetooth audio remain unvalidated on this build. |
+| USB | USB0 hub Ethernet passed a short traffic check. USB1 both-orientation carrier/traffic and idle/resume remain open. |
+| Suspend/hibernate | Unresolved; no successful system-sleep acceptance in this promotion. |
+| Camera | Camera/CSI source is included for exact reproduction, but camera drivers are blacklisted in the accepted boot. Capture remains unvalidated. |
+| HDMI, USB4 and DP audio | Not accepted by this promotion; see the hardware reference. |
 
 ### EC v3 promotion
 
@@ -48,19 +50,19 @@ and is promoted into the baseline stack, in `patches/rc5-20261002/` as patches 2
 - [Contributing](CONTRIBUTING.md)
 
 The current-build record takes precedence over older success claims in component
-notes. Historical results describe their original kernel, not an RC3 retest.
+notes. Historical results describe their original kernel, not a retest of the current baseline.
 
 ## Next priorities
 
-1. Boot `7.3.0-rc5-ZenbookA16-20261002-rc5-integrated1+` once and confirm it reaches a desktop; compare against RC3 before treating it as the baseline.
-2. Re-test suspend without `glymur_pci_skip=5` and with it, to establish whether the mitigation still works.
-3. Validate all four speakers across cold boots and idle/playback transitions.
-4. Begin OV02C10 camera bring-up on `cci1_i2c0` using the PMH0104 rails now in the stack.
+1. Repeat four-speaker cold-boot and idle/playback acceptance, then investigate efficient audio runtime PM as a separate controlled change.
+2. Continue guarded CPU/GPU, RPMh and cooling validation on AC and battery with durable fault capture.
+3. Validate runtime/system resume and USB1 orientations while preserving known boot and rollback routes.
+4. Continue camera bring-up separately from this audio baseline.
 
 ## Building and booting
 
-The [RC5 build package](kernel/rc5-20261002/README.md) contains the exact config,
-an ordered 28-patch series, checksums and a source-tree replay verifier.
+The [RC5 build package](kernel/rc5-20261008/README.md) contains the exact config,
+an ordered 59-patch series, checksums and a source-tree replay verifier.
 [The build record](docs/current-build.md) covers integration and validation.
 The [RC3 package](kernel/rc3-20260919/README.md) reproduces the proven fallback
 kernel. The older [`next-20260817` series](patches/next-20260817/), merged DTS

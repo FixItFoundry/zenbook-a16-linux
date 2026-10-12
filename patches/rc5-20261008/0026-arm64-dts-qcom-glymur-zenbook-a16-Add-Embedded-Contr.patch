@@ -1,0 +1,49 @@
+From 252f43a2f6d8427fa35f45e484b5de274a9f52c3 Mon Sep 17 00:00:00 2001
+From: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Date: Wed, 23 Sep 2026 12:14:15 +0200
+Subject: [PATCH 3/4] arm64: dts: qcom: glymur-zenbook-a16: Add Embedded
+ Controller
+
+The Glymur-based Zenbook A16 features an Embedded Controller running
+custom ASUS firmware (which is loosely based on the reference Qualcomm
+Hamoa EC one with a lot of modifications). It provides keyboard
+backlight control, additional temperature sensor readouts, fan speed
+monitoring and a number of miscellaneous functions.
+
+Describe it.
+
+Reviewed-by: Abel Vesa <abel.vesa@oss.qualcomm.com>
+Signed-off-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+---
+ .../dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+index 33c25b98b8f6..7fe60627bec7 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+@@ -744,8 +744,19 @@ &i2c9 {
+ 
+ 	status = "okay";
+ 
+-	/* EC subdevice @ 0x5b */
+-	/* EC @ 0x76 */
++	embedded-controller@76 {
++		compatible = "asus,zenbook-a16-ux3607oa-ec";
++		reg = <0x76>;
++
++		interrupts-extended = <&tlmm 66 IRQ_TYPE_EDGE_FALLING>;
++
++		pinctrl-0 = <&ec_int_n_default>;
++		pinctrl-names = "default";
++
++		#thermal-sensor-cells = <1>;
++
++		wakeup-source;
++	};
+ };
+ 
+ &i2c10 {
+-- 
+2.55.0
+

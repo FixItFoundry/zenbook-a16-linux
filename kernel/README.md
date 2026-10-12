@@ -6,12 +6,16 @@ The Zenbook A16 bring-up tracks **linux-next** and Linux v7.3-rc snapshots; the 
 
 ## Current Promoted Baseline (RC5)
 
-The promoted baseline is **`7.3.0-rc5-ZenbookA16-20261002-rc5-integrated1+`** on Linux **v7.3-rc5** (`72d3fcf802c4`). It is installed and is the GRUB default, but has not been booted. The daily-use kernel with boots behind it is still the RC3 baseline below.
+The working audio baseline is **`7.3.0-rc5-ZenbookA16-20261008-rc5-audiopm1+`**
+on Linux **v7.3-rc5** (`72d3fcf802c4`). Native boot/artifact checks, all four
+physical speaker channels and a short guarded CPU/Vulkan screen passed on
+October 12. Audio controller autosuspend is disabled by an explicit board
+opt-in; full platform stability, battery and suspend remain open.
 
-RC5 retires our out-of-tree DP `PUSH_IDLE` guard (merged into mainline 7.3 as `e249a6e2a130`), carries the ASUS EC v3 driver series from Konrad Dybcio ([`patches/rc3-ec-v3-hid-20260923/`](../patches/rc3-ec-v3-hid-20260923/README.md)), and stages PMH0104 camera LDOs for OV02C10 camera bring-up. All 23 retained RC3 patches applied to rc5 unchanged.
-
-Complete reproduction instructions, exact `.config`, checksums, and patch series are documented in:
-👉 **[kernel/rc5-20261002/README.md](rc5-20261002/README.md)**
+The exact tested source, configuration and 59-patch series are in
+**[kernel/rc5-20261008/README.md](rc5-20261008/README.md)**.
+See the [current build record](../docs/current-build.md) for evidence and limits.
+The saved boot default and old fallback packages remain intact.
 
 ### Quick build
 
@@ -20,7 +24,7 @@ the recorded base commit and a new output path. A bare repository works as well
 as a checkout:
 
 ```bash
-JOBS=8 ./kernel/rc5-20261002/build.sh /path/to/linux /path/to/new-output
+JOBS=4 ./kernel/rc5-20261008/build.sh /path/to/linux /path/to/new-output
 ```
 
 It verifies and applies the exact patch series in an isolated worktree, checks
@@ -32,7 +36,8 @@ steps, and the distinction between live-USB files and an installed kernel.
 
 ## Kernel Contents
 
-- `rc5-20261002/` — The current build package: build metadata, exact kernel config, verification script, and SHA256 checksums.
+- `rc5-20261008/` — Current audio baseline: build metadata, exact config, verifier and SHA256 checksums.
+- `rc5-20261002/` — Retained prior RC5 integrated package and saved boot default.
 - `rc3-20260919/` — The previous build package, reproducing the proven fallback kernel.
 - `CONFIG_FRAGMENT.md` — Reference config fragment for earlier v7.1 builds.
 - `gpucc-x2.c` — Reference stub for the sm8750 GPU clock controller.
