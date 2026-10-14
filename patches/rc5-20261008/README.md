@@ -28,5 +28,5 @@ the retained repair fixes. Do not treat this stack as an upstream-ready series
 or camera, USB1, suspend, battery or long-duration stability acceptance.
 
 Use the [build package and verifier](../../kernel/rc5-20261008/README.md).
-The [current build record](../../docs/current-build.md) separates source replay,
+The [October 12 build record](../../docs/build-20261012.md) separates source replay,
 installed artifacts, live attachment, physical audio and remaining gates.

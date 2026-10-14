@@ -1,0 +1,19 @@
+From b58c68f3c71adb7c1fea60af09a9bf620cbfefae Mon Sep 17 00:00:00 2001
+From: Local Build <local-build@localhost>
+Date: Tue, 13 Oct 2026 11:50:36 -0400
+Subject: [PATCH] Add approved A16 hibernation configuration fragment
+
+
+diff --git a/arch/arm64/configs/zenbook-a16-hibernation.config b/arch/arm64/configs/zenbook-a16-hibernation.config
+new file mode 100644
+index 000000000..88e6dca3c
+--- /dev/null
++++ b/arch/arm64/configs/zenbook-a16-hibernation.config
+@@ -0,0 +1,4 @@
++# SPDX-License-Identifier: GPL-2.0-only
++# Help: Enable kernel hibernation for a separately configured persistent target
++CONFIG_HIBERNATION=y
++# CONFIG_HIBERNATION_SNAPSHOT_DEV is not set
+-- 
+2.56.0
+

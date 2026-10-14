@@ -3,7 +3,7 @@
 `7.3.0-rc5-ZenbookA16-20261008-rc5-audiopm1+` was built on October 8 and
 promoted to the repository's working audio bringup baseline on October 12.
 Four physical speaker channels were confirmed by the user on the tested boot.
-The [current build record](../../docs/current-build.md) defines the acceptance
+The [October 12 build record](../../docs/build-20261012.md) defines the acceptance
 limits: this includes a local workaround that keeps both speaker controllers
 runtime active. Efficient audio power management and platform stability remain
 open.
@@ -57,7 +57,7 @@ performed during promotion.
 Use matching Image, modules, board DTB and initramfs, including the board ADSP
 firmware and topology. The helper does not create an initramfs, install the
 kernel or select a GRUB entry. See [firmware guidance](../../firmware/README.md)
-and the [current boot record](../../docs/current-build.md#boot-and-rollback).
+and the [October 12 boot record](../../docs/build-20261012.md#boot-and-rollback).
 
 Keep the old [RC5 integrated package](../rc5-20261002/README.md) and
 [RC3 fallback package](../rc3-20260919/README.md). Repository promotion does not

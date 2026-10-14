@@ -22,6 +22,12 @@ and experimental patches are not represented as new upstream work.
 | Zenbook A16 device tree (base board file) | **Konrad Dybcio**, reviewed by **Dmitry Baryshkov** and **Abel Vesa** | `arm64: dts: qcom: glymur: Add Asus Zenbook A16 (UX3607OA)`, 2026-07-21, `20260721-topic-a16_submission-v1-2-8ea213130d05@oss.qualcomm.com`, unmerged | Adopted 2026-07-29 as the base of our merged DTS. Carried essentially intact; our deltas are additive and commented in-place. |
 | ASUS Zenbook A16 Embedded Controller (EC) driver, dt-bindings, and board DTS | **Konrad Dybcio** | `platform: arm64: Add a driver for the EC found on ASUS Glymur machines`, 2026-09-23, `20260923-topic-asus._5Fec-v3-0-2bf3bb9da879@oss.qualcomm.com` | Promoted from test kernels 2026-09-30 (`patches/rc3-ec-v3-hid-20260923/`). Carried with local patch preserving keyboard backlight control under `hid-asus`. |
 
+## October 14 soc2 baseline
+
+The [64-patch export](patches/rc5-20261013/README.md) retains the first 59 patches
+unchanged. Patches 60–64 preserve the local commits attributed to Local Build
+and Codex; earlier upstream authorship and trailers remain intact.
+
 ## October 12 working audio baseline
 
 The [59-patch RC5 export](patches/rc5-20261008/README.md) retains the earlier

@@ -1,0 +1,22 @@
+From 5262ccfceebcf82b0681a3aa3f9c51e484eda6d0 Mon Sep 17 00:00:00 2001
+From: Codex <codex@local>
+Date: Wed, 7 Oct 2026 17:13:29 -0400
+Subject: [PATCH] Reset successful DP configuration byte count before repeater
+ training
+
+---
+ drivers/gpu/drm/msm/dp/dp_ctrl.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/msm/dp/dp_ctrl.c b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+index fe687e768..6750ea2dd 100644
+--- a/drivers/gpu/drm/msm/dp/dp_ctrl.c
++++ b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+@@ -1706,6 +1706,7 @@ static int msm_dp_ctrl_link_train(struct msm_dp_ctrl_private *ctrl,
+ 			return ret < 0 ? ret : -EIO;
+ 	}
+ 
++	ret = 0;
+ 	for (i = ctrl->link->lttpr_count - 1; i >= 0; i--) {
+ 		enum drm_dp_phy dp_phy = DP_PHY_LTTPR(i);
+ 

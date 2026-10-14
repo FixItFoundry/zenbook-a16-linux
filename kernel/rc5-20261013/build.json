@@ -1,0 +1,11 @@
+{
+  "base": "72d3fcf802c45d00b300f25b848a93c3a2bd7c7e",
+  "source_commit": "80849361fb38a8adc11dd66f1d6856260d98e01b",
+  "source_tree": "e3af70b5403334c7d762fdb00b0a7cdfbb5a362c",
+  "release": "7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+",
+  "patch_count": 64,
+  "prior_release": "7.3.0-rc5-ZenbookA16-20261008-rc5-audiopm1+",
+  "prior_source_tree": "14fd463c06510c760dde22ef215fcbd0bff9a898",
+  "promotion_date": "2026-10-14",
+  "validation_scope": "Limited development baseline; USB1 SuperSpeed, Bluetooth peer traffic, system sleep and long-duration stability remain unaccepted."
+}

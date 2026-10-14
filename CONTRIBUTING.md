@@ -1,64 +1,20 @@
-# Contributing / How you can help
+# Contributing
 
-This is a solo, self-taught bring-up of Linux on the ASUS Zenbook A16 (Snapdragon X2
-Elite Extreme, `glymur` / `sm8750`). It has gotten a long way by trial, bisection, and
-reverse-engineering the Windows drivers — but the two hardest pieces (native display and
-GPU) really need people who know the Qualcomm DRM / clock / SMMU stack.
+Target the [soc2 baseline](docs/current-build.md): Linux v7.3-rc5 plus the
+[64-patch series](patches/rc5-20261013/README.md). Use the
+[recorded config and verifier](kernel/rc5-20261013/README.md).
 
-**If you have that expertise, the project needs two things: validation and patches.**
+- Make each hardware experiment a separate change with a distinct kernel release. Preserve a tested fallback and the Windows boot route.
+- Build the board DTB from the replayed kernel source; historical files under `dts/` and `prebuilt/` do not define this baseline.
+- Preserve patch authors, review trailers and source links. Add adopted upstream work to [UPSTREAM-CREDITS.md](UPSTREAM-CREDITS.md).
+- Keep kernel-derived files under `SPDX-License-Identifier: GPL-2.0-only`. Do not commit private signing keys or proprietary firmware/driver binaries.
 
-## 1. Validation — sanity-check what's here
+## Reports and validation
 
-I'd especially value a second opinion on:
+Include the hardware variant, kernel/source identity, DTB hash, config changes,
+boot command line, boot ID and relevant kernel journal. State test duration,
+power source and attached devices; remove personal information before posting.
 
-- **The eDP `-110` link-training failure** (`docs/display-bringup-findings.md`,
-  `docs/edp-enable-findings.md`). `msm`/DPU binds, reads the Samsung ATNA60HR07 EDID,
-  then link training times out. Is this a DP PHY init-order problem, a panel
-  power-sequencing/AUX timing issue, or something in the simplefb handoff? The current
-  best theory is that it is **not** a firmware/VMID wall (see the 2026-07-15 re-framing).
-- **The `gpucc` gap** (`docs/gpu-re/`). The GPU clock controller for `sm8750` is missing
-  from mainline; the RE'd register candidates are in `docs/gpu-re/gpucc-clock-registers.md`.
-  Is a minimal `gpucc` shim enough to power the block, or is this blocked until Qualcomm
-  upstreams it?
-- **The MDSS-enabled + `msm`-loaded Wi-Fi regression.** Enabling the display driver kills
-  ath12k/PCIe at boot. Shared power domain? NoC vote? SMMU context? This is the biggest
-  mystery blocking a display-capable daily driver.
-- **The SPMI PMIC-arb probe failure — gates cooling.** Secondary PMICs fail to probe over SPMI
-  (`pmic-spmi … error -5`; `pmic_arb_wait_for_done: transaction failed`), which blocks **both**
-  `qcom-spmi-temp-alarm` and the PMIC PWM (`pmh0101` / `pm8350c`) that drives the **fan** — so
-  `/sys/class/pwm` stays empty. With no DT `cooling-maps` and no Linux fan control, the SoC hits
-  its 115 °C `critical` trip and protectively shuts down under load (an interim userspace
-  freq-throttle guard mitigates it). Fixing the SPMI arbiter probe likely unlocks the temp alarm,
-  the fan, and real thermal throttling in one shot. See `docs/ROADMAP.md`. (Distinct from the eDP
-  `-110`; this one is `-5`.)
-
-## 2. Patches
-
-- Please target **mainline Linux v7.2-rc3** — the current daily driver as of 2026-07-30.
-  v7.1 still boots and is kept as a fallback, but new work should go on 7.2.
-- ⚠️ **The old advice here said to target v7.1 because "7.2 broke the chain."** That was
-  wrong about the cause: what broke was our vendor-derived **device tree**, not the kernel.
-  Rebasing onto Konrad Dybcio's upstream A16 DTS made 7.2 work.
-- DTS changes: reference `dts/glymur-asus-zenbook-a16-ux3607oa-merged-gpu.dts` (the current
-  daily driver). ⚠️ **The booted DTB is that file plus one property** —
-  `arm,no-completion-irq` on the `scmi` node, from
-  `patches/glymur-scmi-no-completion-irq-CONFIRMED.patch`. Without it `scmi-cpufreq` probes
-  `-110` and the CPUs stay pinned at boot clock, so build with it before reporting anything
-  about performance or thermals. `dts/glymur-a16-test55.dts` is the older v7.1
-  vendor-lineage tree; diagnostic display DTBs (`test47`, `test58`) are separate again.
-- Keep kernel-derived files `SPDX-License-Identifier: GPL-2.0-only`.
-
-## Reporting
-
-Open an issue with: your exact hardware (`UX3607OA` variant), kernel + DTB build, the boot
-cmdline, and a `dmesg` (netconsole/serial preferred for crashes — see
-`docs/analysis/` for the netconsole capture setup). Please note whether you reproduced on
-`test55` (daily) or a diagnostic DTB.
-
-## What this project is NOT
-
-- Not affiliated with ASUS or Qualcomm.
-- Not redistributing proprietary firmware or decompiled Windows drivers — only the
-  *findings* derived from them (addresses, StreamIDs, register maps). See `firmware/README.md`.
-
-Thank you — even a "you're wrong about X, here's why" is valuable.
+Separate source tests, boot/enumeration, traffic/playback and physical acceptance.
+A short pass does not close the [remaining hardware limits](docs/current-build.md#remaining-limits).
+Keep README and changelog additions factual and brief: one or two sentences per item.

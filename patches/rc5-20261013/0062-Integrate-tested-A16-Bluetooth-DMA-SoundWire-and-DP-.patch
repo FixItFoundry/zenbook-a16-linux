@@ -1,0 +1,346 @@
+From c4afd15df8e87126832983b800bf9b8ceeff882d Mon Sep 17 00:00:00 2001
+From: Codex <codex@local.invalid>
+Date: Tue, 13 Oct 2026 20:37:57 -0400
+Subject: [PATCH] Integrate tested A16 Bluetooth, DMA, SoundWire and DP
+ candidate fixes
+
+
+diff --git a/drivers/bluetooth/btqca.c b/drivers/bluetooth/btqca.c
+index 22b08ab05..ab79a499e 100644
+--- a/drivers/bluetooth/btqca.c
++++ b/drivers/bluetooth/btqca.c
+@@ -712,6 +712,16 @@ static int qca_check_bdaddr(struct hci_dev *hdev, const struct qca_fw_config *co
+ 	return 0;
+ }
+ 
++/* The observed Cologne 1.0 identity uses a distinct firmware-name family. */
++static bool qca_is_cln10(enum qca_btsoc_type soc_type,
++			 struct qca_btsoc_version ver)
++{
++	return soc_type == QCA_WCN7850 &&
++	       le32_to_cpu(ver.product_id) == 0x20 &&
++	       le32_to_cpu(ver.soc_id) == 0x40292100 &&
++	       le16_to_cpu(ver.rom_ver) == 0x0101;
++}
++
+ static void qca_get_nvm_name_by_board(char *fwname, size_t max_size,
+ 		const char *stem, enum qca_btsoc_type soc_type,
+ 		struct qca_btsoc_version ver, u8 rom_ver, u16 bid)
+@@ -719,6 +729,15 @@ static void qca_get_nvm_name_by_board(char *fwname, size_t max_size,
+ 	const char *variant;
+ 	const char *prefix;
+ 
++	if (qca_is_cln10(soc_type, ver) && !strcmp(stem, "clnbtnv10")) {
++		if ((bid >> 8) > 1 || !(bid & 0xff))
++			snprintf(fwname, max_size, "qca/%s.bin", stem);
++		else
++			snprintf(fwname, max_size, "qca/%s.b%0*x", stem,
++				 bid >> 8 ? 4 : 2, bid);
++		return;
++	}
++
+ 	/* Set the default value to variant and prefix */
+ 	variant = "";
+ 	prefix = "b";
+@@ -823,8 +842,12 @@ int qca_uart_setup(struct hci_dev *hdev, uint8_t baudrate,
+ 				 "qca/wcnhpbtfw%02x.tlv", rom_ver);
+ 			break;
+ 		case QCA_WCN7850:
+-			snprintf(config.fwname, sizeof(config.fwname),
+-				 "qca/hmtbtfw%02x.tlv", rom_ver);
++			if (qca_is_cln10(soc_type, ver))
++				snprintf(config.fwname, sizeof(config.fwname),
++					 "qca/clnbtfw10.tlv");
++			else
++				snprintf(config.fwname, sizeof(config.fwname),
++					 "qca/hmtbtfw%02x.tlv", rom_ver);
+ 			break;
+ 		default:
+ 			snprintf(config.fwname, sizeof(config.fwname),
+@@ -917,8 +940,12 @@ int qca_uart_setup(struct hci_dev *hdev, uint8_t baudrate,
+ 						  "wcnhpnv", soc_type, ver, rom_ver, boardid);
+ 			break;
+ 		case QCA_WCN7850:
+-			qca_get_nvm_name_by_board(config.fwname, sizeof(config.fwname),
+-				 "hmtnv", soc_type, ver, rom_ver, boardid);
++			if (qca_is_cln10(soc_type, ver))
++				qca_get_nvm_name_by_board(config.fwname, sizeof(config.fwname),
++					 "clnbtnv10", soc_type, ver, 0, boardid);
++			else
++				qca_get_nvm_name_by_board(config.fwname, sizeof(config.fwname),
++					 "hmtnv", soc_type, ver, rom_ver, boardid);
+ 			break;
+ 		default:
+ 			snprintf(config.fwname, sizeof(config.fwname),
+diff --git a/drivers/dma/qcom/gpi.c b/drivers/dma/qcom/gpi.c
+index a1ab63bf9..46e6ffe52 100644
+--- a/drivers/dma/qcom/gpi.c
++++ b/drivers/dma/qcom/gpi.c
+@@ -1974,12 +1974,12 @@ static int gpi_ch_init(struct gchan *gchan)
+ error_start_chan:
+ 	for (i = i - 1; i >= 0; i--) {
+ 		gpi_stop_chan(&gpii->gchan[i]);
+-		gpi_send_cmd(gpii, gchan, GPI_CH_CMD_RESET);
++		gpi_send_cmd(gpii, &gpii->gchan[i], GPI_CH_CMD_RESET);
+ 	}
+ 	i = 2;
+ error_alloc_chan:
+ 	for (i = i - 1; i >= 0; i--)
+-		gpi_reset_chan(gchan, GPI_CH_CMD_DE_ALLOC);
++		gpi_reset_chan(&gpii->gchan[i], GPI_CH_CMD_DE_ALLOC);
+ error_alloc_ev_ring:
+ 	gpi_disable_interrupts(gpii);
+ error_config_int:
+@@ -2020,6 +2020,7 @@ static void gpi_free_chan_resources(struct dma_chan *chan)
+ 	gpi_free_ring(&gchan->ch_ring, gpii);
+ 	vchan_free_chan_resources(&gchan->vc);
+ 	kfree(gchan->config);
++	gchan->config = NULL;
+ 
+ 	write_lock_irq(&gpii->pm_lock);
+ 	gchan->pm_state = DISABLE_STATE;
+diff --git a/drivers/gpu/drm/msm/dp/dp_ctrl.c b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+index 2d1a9bef3..492e88a44 100644
+--- a/drivers/gpu/drm/msm/dp/dp_ctrl.c
++++ b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+@@ -139,6 +139,7 @@ struct msm_dp_ctrl_private {
+ 	bool core_clks_on;
+ 	bool link_clks_on;
+ 	bool stream_clks_on;
++	bool phy_powered_on;
+ };
+ 
+ static inline u32 msm_dp_read_ahb(const struct msm_dp_ctrl_private *ctrl, u32 offset)
+@@ -1839,6 +1840,9 @@ static void msm_dp_ctrl_link_clk_disable(struct msm_dp_ctrl *msm_dp_ctrl)
+ 
+ 	ctrl = container_of(msm_dp_ctrl, struct msm_dp_ctrl_private, msm_dp_ctrl);
+ 
++	if (!ctrl->link_clks_on)
++		return;
++
+ 	clk_bulk_disable_unprepare(ctrl->num_link_clks, ctrl->link_clks);
+ 
+ 	ctrl->link_clks_on = false;
+@@ -1850,6 +1854,20 @@ static void msm_dp_ctrl_link_clk_disable(struct msm_dp_ctrl *msm_dp_ctrl)
+ 		   str_on_off(ctrl->core_clks_on));
+ }
+ 
++static int msm_dp_ctrl_phy_power_off(struct msm_dp_ctrl_private *ctrl)
++{
++	int ret;
++
++	if (!ctrl->phy_powered_on)
++		return 0;
++
++	ret = phy_power_off(ctrl->phy);
++	if (!ret)
++		ctrl->phy_powered_on = false;
++
++	return ret;
++}
++
+ static int msm_dp_ctrl_enable_mainlink_clocks(struct msm_dp_ctrl_private *ctrl,
+ 					      struct msm_dp_panel *panel)
+ {
+@@ -1861,13 +1879,23 @@ static int msm_dp_ctrl_enable_mainlink_clocks(struct msm_dp_ctrl_private *ctrl,
+ 	ctrl->phy_opts.dp.link_rate = ctrl->link->link_params.rate / 100;
+ 	ctrl->phy_opts.dp.ssc = drm_dp_max_downspread(dpcd);
+ 
+-	phy_configure(phy, &ctrl->phy_opts);
+-	phy_power_on(phy);
++	ret = phy_configure(phy, &ctrl->phy_opts);
++	if (ret)
++		return ret;
++
++	if (!ctrl->phy_powered_on) {
++		ret = phy_power_on(phy);
++		if (ret)
++			return ret;
++		ctrl->phy_powered_on = true;
++	}
+ 
+ 	dev_pm_opp_set_rate(ctrl->dev, ctrl->link->link_params.rate * 1000);
+ 	ret = msm_dp_ctrl_link_clk_enable(&ctrl->msm_dp_ctrl);
+-	if (ret)
++	if (ret) {
+ 		DRM_ERROR("Unable to start link clocks. ret=%d\n", ret);
++		msm_dp_ctrl_phy_power_off(ctrl);
++	}
+ 
+ 	drm_dbg_dp(ctrl->drm_dev, "link rate=%d\n", ctrl->link->link_params.rate);
+ 
+@@ -2008,12 +2036,13 @@ void msm_dp_ctrl_phy_exit(struct msm_dp_ctrl *msm_dp_ctrl)
+ static int msm_dp_ctrl_reinitialize_mainlink(struct msm_dp_ctrl_private *ctrl,
+ 					     struct msm_dp_panel *panel)
+ {
+-	struct phy *phy = ctrl->phy;
+ 	int ret = 0;
+ 
+ 	msm_dp_ctrl_mainlink_disable(ctrl);
+ 	ctrl->phy_opts.dp.lanes = ctrl->link->link_params.num_lanes;
+-	phy_configure(phy, &ctrl->phy_opts);
++	ret = phy_configure(ctrl->phy, &ctrl->phy_opts);
++	if (ret)
++		return ret;
+ 
+ 	/*
+ 	 * Disable and re-enable the mainlink clock since the
+@@ -2022,7 +2051,9 @@ static int msm_dp_ctrl_reinitialize_mainlink(struct msm_dp_ctrl_private *ctrl,
+ 	 */
+ 	msm_dp_ctrl_link_clk_disable(&ctrl->msm_dp_ctrl);
+ 
+-	phy_power_off(phy);
++	ret = msm_dp_ctrl_phy_power_off(ctrl);
++	if (ret)
++		return ret;
+ 	/* hw recommended delay before re-enabling clocks */
+ 	msleep(20);
+ 
+@@ -2039,6 +2070,7 @@ static int msm_dp_ctrl_deinitialize_mainlink(struct msm_dp_ctrl_private *ctrl,
+ 					     struct msm_dp_panel *panel)
+ {
+ 	struct phy *phy;
++	int ret;
+ 
+ 	phy = ctrl->phy;
+ 
+@@ -2048,7 +2080,9 @@ static int msm_dp_ctrl_deinitialize_mainlink(struct msm_dp_ctrl_private *ctrl,
+ 
+ 	msm_dp_ctrl_link_clk_disable(&ctrl->msm_dp_ctrl);
+ 
+-	phy_power_off(phy);
++	ret = msm_dp_ctrl_phy_power_off(ctrl);
++	if (ret)
++		return ret;
+ 
+ 	/* aux channel down, reinit phy */
+ 	phy_exit(phy);
+@@ -2467,7 +2501,8 @@ int msm_dp_ctrl_on_link(struct msm_dp_ctrl *msm_dp_ctrl,
+ 		rc = msm_dp_ctrl_reinitialize_mainlink(ctrl, panel);
+ 		if (rc) {
+ 			DRM_ERROR("Failed to reinitialize mainlink. rc=%d\n", rc);
+-			break;
++			msm_dp_ctrl_deinitialize_mainlink(ctrl, panel);
++			return rc;
+ 		}
+ 	}
+ 
+@@ -2686,10 +2721,9 @@ void msm_dp_ctrl_off_link(struct msm_dp_ctrl *msm_dp_ctrl,
+ 			  struct msm_dp_panel *panel)
+ {
+ 	struct msm_dp_ctrl_private *ctrl;
+-	struct phy *phy;
++	int ret;
+ 
+ 	ctrl = container_of(msm_dp_ctrl, struct msm_dp_ctrl_private, msm_dp_ctrl);
+-	phy = ctrl->phy;
+ 
+ 	msm_dp_panel_disable_vsc_sdp(panel);
+ 
+@@ -2699,7 +2733,9 @@ void msm_dp_ctrl_off_link(struct msm_dp_ctrl *msm_dp_ctrl,
+ 
+ 	msm_dp_ctrl_link_clk_disable(&ctrl->msm_dp_ctrl);
+ 
+-	phy_power_off(phy);
++	ret = msm_dp_ctrl_phy_power_off(ctrl);
++	if (ret)
++		DRM_ERROR("Failed to power off DP PHY. ret=%d\n", ret);
+ }
+ 
+ irqreturn_t msm_dp_ctrl_isr(struct msm_dp_ctrl *msm_dp_ctrl,
+diff --git a/drivers/gpu/drm/msm/dp/dp_display.c b/drivers/gpu/drm/msm/dp/dp_display.c
+index 3ca039ff5..555aa2ff1 100644
+--- a/drivers/gpu/drm/msm/dp/dp_display.c
++++ b/drivers/gpu/drm/msm/dp/dp_display.c
+@@ -625,6 +625,8 @@ static int msm_dp_display_prepare_link(struct msm_dp_display_private *dp)
+ 	struct msm_dp *msm_dp_display = &dp->msm_dp_display;
+ 	int rc = 0;
+ 	bool force_link_train = false;
++	bool phy_deinit = false;
++	bool link_prepared = false;
+ 
+ 	drm_dbg_dp(dp->drm_dev, "sink_count=%d\n", dp->link->sink_count);
+ 
+@@ -641,7 +643,7 @@ static int msm_dp_display_prepare_link(struct msm_dp_display_private *dp)
+ 		return -ENOTCONN;
+ 
+ 	if (!msm_dp_display->power_on) {
+-		msm_dp_display_host_phy_init(dp);
++		phy_deinit = msm_dp_display_host_phy_init(dp);
+ 		force_link_train = true;
+ 	}
+ 
+@@ -649,10 +651,21 @@ static int msm_dp_display_prepare_link(struct msm_dp_display_private *dp)
+ 	if (rc) {
+ 		DRM_ERROR("Failed link training (rc=%d)\n", rc);
+ 		// TODO: schedule drm_connector_set_link_status_property()
+-		return rc;
++		goto error;
+ 	}
+ 
+-	return msm_dp_ctrl_prepare_stream_on(dp->ctrl, dp->panel, force_link_train);
++	link_prepared = !msm_dp_display->power_on;
++	rc = msm_dp_ctrl_prepare_stream_on(dp->ctrl, dp->panel, force_link_train);
++	if (!rc)
++		return 0;
++
++error:
++	if (link_prepared)
++		msm_dp_ctrl_off_link(dp->ctrl, dp->panel);
++	if (phy_deinit)
++		msm_dp_display_host_phy_exit(dp);
++
++	return rc;
+ }
+ 
+ static int msm_dp_display_enable(struct msm_dp_display_private *dp,
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index 51b0cc099..c363c8970 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -4178,6 +4178,7 @@ static int qmp_combo_dp_power_on(struct phy *phy)
+ 	const struct qmp_phy_cfg *cfg = qmp->cfg;
+ 	void __iomem *tx = qmp->dp_tx;
+ 	void __iomem *tx2 = qmp->dp_tx2;
++	int ret;
+ 
+ 	mutex_lock(&qmp->phy_mutex);
+ 
+@@ -4190,13 +4191,19 @@ static int qmp_combo_dp_power_on(struct phy *phy)
+ 	cfg->configure_dp_tx(qmp);
+ 
+ 	/* Configure link rate, swing, etc. */
+-	cfg->configure_dp_phy(qmp);
++	ret = cfg->configure_dp_phy(qmp);
++	if (ret) {
++		writel(DP_PHY_PD_CTL_PSR_PWRDN,
++		       qmp->dp_dp_phy + QSERDES_DP_PHY_PD_CTL);
++		goto out_unlock;
++	}
+ 
+ 	qmp->dp_powered_on = true;
+ 
++out_unlock:
+ 	mutex_unlock(&qmp->phy_mutex);
+ 
+-	return 0;
++	return ret;
+ }
+ 
+ static int qmp_combo_dp_power_off(struct phy *phy)
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index ff84fb8e2..907213fda 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -1957,7 +1957,7 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 						"swr_wake_irq", ctrl);
+ 		if (ret) {
+ 			dev_err(dev, "Failed to request soundwire wake irq\n");
+-			goto err_init;
++			goto err_clk;
+ 		}
+ 	}
+ 
+-- 
+2.56.0
+

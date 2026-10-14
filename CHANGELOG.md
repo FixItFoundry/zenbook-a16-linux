@@ -1,14 +1,14 @@
 # Changelog
 
-Dated record of what changed and, where it matters, what turned out to be wrong.
-Current status lives in [README.md](README.md) and
-[`docs/hardware.md`](docs/hardware.md) — this file is history.
+Dated changes and corrections; [current status](docs/current-build.md) is recorded separately.
 
-Retractions are kept rather than deleted. Several confident conclusions in this project
-were later disproved by measurement, and the record of that is more useful than a tidy
-one.
+## 2026-10-14 — soc2 baseline
 
----
+- Promoted `7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+` as the repository and future-testing baseline after ordinary-boot validation.
+- Added the exact config and 64-patch package; the prior 59 patches are unchanged. Five commits add error/cleanup fixes, DMA/SoundWire/Bluetooth/DP changes, QMP/Type-C ownership handling and a hibernation config fragment.
+- Verified source replay, 8,487 installed hashes and current boot/module provenance. Retained the same-binary scrub, short CPU/Vulkan tests and user physical checks.
+- The Btrfs free-space-cache error has not returned after cache rebuild; its cause remains unproven and no soc2 filesystem fix is claimed.
+- USB1 SuperSpeed, Bluetooth peer tests, sleep, battery and long-duration stability remain unaccepted. Audio retains the keep-active workaround; saved boot fallback and Windows route are unchanged.
 
 ## 2026-10-12 — Booted audiopm1 promoted as the working audio baseline
 

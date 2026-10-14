@@ -1,9 +1,9 @@
 # Modifications — every device-tree and kernel change, and why
 
-The current working baseline is **Linux v7.3-rc5 audiopm1 plus selected backports and local
+The current working baseline is **Linux v7.3-rc5 soc2 plus selected backports and local
 patches**; see [current-build.md](current-build.md) for its exact identity and
 validation limits. The detailed deltas below describe earlier bring-up revisions,
-not the complete [current 59-patch manifest](../patches/rc5-20261008/README.md). For components, see [hardware.md](hardware.md).
+not the complete [current 64-patch manifest](../patches/rc5-20261013/README.md). For components, see [hardware.md](hardware.md).
 
 - **Upstream baseline:** [`../upstream/dts/glymur-asus-zenbook-a16-ux3607oa.dts`](../upstream/dts/glymur-asus-zenbook-a16-ux3607oa.dts) (1271 lines)
 - **Ours:** [`../dts/glymur-asus-zenbook-a16-ux3607oa-merged-gpu.dts`](../dts/glymur-asus-zenbook-a16-ux3607oa-merged-gpu.dts) (1476 lines)

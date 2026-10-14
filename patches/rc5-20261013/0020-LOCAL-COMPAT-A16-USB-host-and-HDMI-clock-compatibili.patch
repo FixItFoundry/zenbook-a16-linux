@@ -1,0 +1,76 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Sat, 19 Sep 2026 10:16:32 -0400
+Subject: [PATCH 21/24] LOCAL COMPAT: A16 USB host and HDMI clock compatibility
+
+Selected net board hunks from test4 ffc9a506cae6, split for RC3 review. Historical comments describe prior experiments, not new validation. Not an upstream-ready patch; effective DT comparison and hardware validation pending.
+---
+ .../qcom/glymur-asus-zenbook-a16-ux3607oa.dts | 41 +++++++++++++++++++
+ 1 file changed, 41 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+index 89f3861602e698203561030b578d5dfa692028e5..39a964d1ff8dca87fd73d72186ff6e5e257d8367 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+@@ -1300,6 +1300,11 @@ &uart21 {
+ };
+ 
+ &usb_0 {
++	/* GLYMUR-A16: UCSI/Type-C only enumerates with the role switch gone
++	 * and the controller pinned to host (our test68 finding). */
++	/delete-property/ usb-role-switch;
++	dr_mode = "host";
++
+ 	status = "okay";
+ };
+ 
+@@ -1329,6 +1334,11 @@ &usb_0_qmpphy_out {
+ };
+ 
+ &usb_1 {
++	/* GLYMUR-A16: UCSI/Type-C only enumerates with the role switch gone
++	 * and the controller pinned to host (our test68 finding). */
++	/delete-property/ usb-role-switch;
++	dr_mode = "host";
++
+ 	status = "okay";
+ };
+ 
+@@ -1362,6 +1372,37 @@ &usb_2_qmpphy {
+ 	vdda-pll-supply = <&vreg_l4f_e1>;
+ 	refgen-supply = <&vreg_l4f_e1>;
+ 
++	/*
++	 * GLYMUR-A16: drop com_aux. gcc_usb3_tert_phy_com_aux_clk never leaves
++	 * halt on this instance - phy@88e1000 has no DWC3 behind it (there is no
++	 * tertiary USB controller), so the vote a USB half would normally cast is
++	 * never made. qmp_combo_com_init() then fails -EBUSY after a 200us
++	 * timeout, which kills AUX, EDID and every mode on the HDMI output.
++	 *
++	 * Legal because qmp_combo_clk_init() fetches the fixed list
++	 * {aux, cfg_ahb, ref, com_aux} with devm_clk_bulk_get_optional(): a clock
++	 * absent from the DT comes back NULL and clk_bulk_enable() skips it.
++	 * cfg_ahb already proves this - it is missing from all three combo PHY
++	 * nodes and nothing complains.
++	 *
++	 * Result: 0 clk-branch WARNs, EDID 0 -> 512 bytes, modes 0 -> 32, and the
++	 * compositor no longer wedges in msm_dp_aux_transfer on hotplug.
++	 *
++	 * WORKAROUND, not the correct fix. The DT describes the PHY's clocks
++	 * accurately; the driver is what enables com_aux unconditionally for an
++	 * instance with no USB half. The real fix likely belongs in
++	 * phy-qcom-qmp-combo.c or GCC. Do NOT present this upstream as
++	 * "the DTS was wrong".
++	 *
++	 * Back-ported to source 2026-08-02; previously only in the compiled DTB.
++	 */
++	clocks = <&gcc GCC_USB3_TERT_PHY_AUX_CLK>,
++		 <&tcsr TCSR_USB4_2_CLKREF_EN>,
++		 <&gcc GCC_USB3_TERT_PHY_PIPE_CLK>;
++	clock-names = "aux",
++		      "ref",
++		      "usb3_pipe";
++
+ 	/delete-property/ mode-switch;
+ 	/delete-property/ orientation-switch;
+ 

@@ -10,14 +10,14 @@ kernel onto the Zenbook A16.
 - `patch_dt.py` — decompile → edit → recompile a DTB (the workhorse for DT experiments).
 - `build_test55_usb.py`, `build_test55_msm.py` — build the **diagnostic** variants `test55-usb`
   (USB/battery focus, MDSS off) and `test55-msm` (display/`msm` diagnostic).
-  ⚠️ **Historical.** `test55` was the diagnostic in the v7.1 vendor-lineage era. The **current baseline is `7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+`, transitioning to Linux `v7.3-rc4`** (`7.3.0-rc4-ZenbookA16-rc4-integrated1+`), which integrates the merged eDP teardown fix, promotes EC v3, and includes SCMI polling, native HBR2 display, and quad audio.
+  Historical v7.1 tooling; use the [current build package](../kernel/rc5-20261013/README.md) for soc2.
 - `install-dt-kernel.sh` — install a built kernel + DTB and register a GRUB entry.
 - `install-battery-modules.sh` — install the out-of-tree battery/SOCCP-glink + audio modules.
 - `collect-acpi-hw.sh` — helper to dump ACPI + hardware identity.
 - `deploy-dtb.sh` — scp a DTB to the box and point GRUB at it (edit the host/user first).
 
 ## GRUB
-`grub.cfg.laptop.example` and `40_custom.laptop.example` provide sanitized samples of the on-box GRUB config, structured around:
+`grub.cfg.laptop.example` and `40_custom.laptop.example` are historical RC4 proposal samples, not the current boot configuration. See the [current boot record](../docs/current-build.md#boot-and-rollback). Their entries are:
 1. **Primary RC4 Candidate:** `7.3.0-rc4-ZenbookA16-rc4-integrated1+` (`--id zenbook-a16-rc4`)
 2. **Stable Baseline Fallback:** `7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+` (`--id zenbook-a16-stable`)
 3. **Windows Boot Manager** & **UEFI Firmware Settings**
@@ -67,7 +67,7 @@ backups out of directories that get scanned.
   TPM-probe boot stall).
 
   ★★ **UPDATED 2026-07-31 — the block above is the 7.1-era set and is NOT the current
-  cmdline.** Three tokens in it were retired after an audit; the current baseline is:
+  cmdline.** Three tokens were retired; the July 31 command line was:
 
   ```
   root=UUID=<your-root> rw clk_ignore_unused pd_ignore_unused cma=128M console=tty0

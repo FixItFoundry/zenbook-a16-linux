@@ -1,0 +1,47 @@
+From 70f088c950b43066f479036fee3d09bac5d7ac6f Mon Sep 17 00:00:00 2001
+From: Codex <codex@localhost>
+Date: Tue, 6 Oct 2026 16:05:11 -0400
+Subject: [PATCH] Stop GMU resume before MMIO when runtime power fails
+
+---
+ drivers/gpu/drm/msm/adreno/a6xx_gmu.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+index 8763b594b..92d1e01a4 100644
+--- a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
++++ b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+@@ -1278,7 +1278,7 @@ static int a6xx_gmu_gxpd_get(struct a6xx_gmu *gmu)
+ 	 * anything but it will make sure that the refcounting is correct in
+ 	 * case we need to bring down the GX after a GMU failure
+ 	 */
+-	return pm_runtime_get_sync(gmu->gxpd);
++	return pm_runtime_resume_and_get(gmu->gxpd);
+ }
+ 
+ static int a6xx_gmu_gxpd_put(struct a6xx_gmu *gmu)
+@@ -1321,9 +1321,13 @@ int a6xx_gmu_resume(struct a6xx_gpu *a6xx_gpu)
+ 	gmu->hung = false;
+ 
+ 	/* Turn on the resources */
+-	pm_runtime_get_sync(gmu->dev);
++	ret = pm_runtime_resume_and_get(gmu->dev);
++	if (ret < 0)
++		return ret;
+ 
+-	a6xx_gmu_gxpd_get(gmu);
++	ret = a6xx_gmu_gxpd_get(gmu);
++	if (ret < 0)
++		goto gmu_put;
+ 
+ 	/* Use a known rate to bring up the GMU */
+ 	clk_set_rate(gmu->core_clk, 200000000);
+@@ -1393,7 +1397,7 @@ int a6xx_gmu_resume(struct a6xx_gpu *a6xx_gpu)
+ 	clk_bulk_disable_unprepare(gmu->nr_clocks, gmu->clocks);
+ rpm_put:
+ 	a6xx_gmu_gxpd_put(gmu);
+-
++gmu_put:
+ 	pm_runtime_put(gmu->dev);
+ 
+ 	return ret;
