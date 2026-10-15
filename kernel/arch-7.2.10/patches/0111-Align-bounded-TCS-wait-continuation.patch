@@ -1,0 +1,24 @@
+From 56e81a99bd66a153873480b03cff160ee8c80550 Mon Sep 17 00:00:00 2001
+From: Codex <codex@localhost>
+Date: Tue, 6 Oct 2026 15:48:49 -0400
+Subject: [PATCH 111/127] Align bounded TCS wait continuation
+
+---
+ drivers/soc/qcom/rpmh-rsc.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/soc/qcom/rpmh-rsc.c b/drivers/soc/qcom/rpmh-rsc.c
+index 9939e9322feea0b6b4ce9a4e860f9fa6c2cd5407..d5489458546a2e1f5cd278f05be9bd2c835d468e 100644
+--- a/drivers/soc/qcom/rpmh-rsc.c
++++ b/drivers/soc/qcom/rpmh-rsc.c
+@@ -664,8 +664,8 @@ int rpmh_rsc_send_data(struct rsc_drv *drv, const struct tcs_request *msg)
+ 
+ 	/* A missing acknowledgment must not block every subsequent voter. */
+ 	time_left = wait_event_lock_irq_timeout(drv->tcs_wait,
+-			    (tcs_id = claim_tcs_for_req(drv, tcs, msg)) >= 0,
+-			    drv->lock, msecs_to_jiffies(10000));
++						(tcs_id = claim_tcs_for_req(drv, tcs, msg)) >= 0,
++						drv->lock, msecs_to_jiffies(10000));
+ 	if (!time_left) {
+ 		spin_unlock_irq(&drv->lock);
+ 		dev_err(drv->dev, "TCS unavailable for RPMh address %#x\n",

@@ -1,0 +1,67 @@
+From ce74e19fc53034c9820c37f3e7551a2b6249f394 Mon Sep 17 00:00:00 2001
+From: Jorijn van der Graaf <jorijnvdgraaf@catcrafts.net>
+Date: Mon, 6 Jul 2026 21:21:50 +0200
+Subject: [PATCH 034/127] soundwire: qcom: add SCP address paging support
+
+The Qualcomm controller driver ignores the paging fields of struct
+sdw_msg. For a paged access (register address >= 0x8000 on a
+paging-capable peripheral, e.g. the SDCA control space at
+0x40000000+) the core sets BIT(15) in the wire address and splits the
+upper bits into addr_page1/addr_page2, but since the controller never
+programmed the SCP_AddrPage registers the peripheral resolved every
+such command against their reset value: reads and writes were
+silently redirected to addr[14:0] in page 0.
+
+Write the two SCP_AddrPage registers through the command FIFO before
+the transfer, as cadence_master.c (cdns_program_scp_addr) and
+amd_manager.c (amd_program_scp_addr) do. Like those controllers the
+pages are programmed on every paged message rather than cached per
+device; a cache can be a follow-up if the two extra FIFO commands
+ever matter.
+
+No peripheral on a Qualcomm bus sets prop.paging_support in mainline
+today; the first user is the WCD9378 codec, whose driver is being
+upstreamed separately - its entire register map, the
+wcd937x-compatible analog core included, lives in the SDCA address
+space.
+
+Verified on the Fairphone 6 (SM7635): WCD9378 SDCA registers read
+back their documented reset defaults and audio capture through the
+codec works end-to-end; without this change every paged access landed
+in page 0.
+
+Assisted-by: Claude:claude-fable-5
+Signed-off-by: Jorijn van der Graaf <jorijnvdgraaf@catcrafts.net>
+Reviewed-by: Srinivas Kandagatla <srinivas.kandagatla@oss.qualcomm.com>
+Link: https://patch.msgid.link/20260706192150.143921-1-jorijnvdgraaf@catcrafts.net
+Signed-off-by: Vinod Koul <vkoul@kernel.org>
+(cherry picked from commit 999f80904763fae547c2c9c32bb7dbc31b86ffa1)
+---
+ drivers/soundwire/qcom.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index 603f228f46b5302c891b41d3955b0d8c53050bce..3562802f42045fcdbd64ca6c5aefce0339b84201 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -975,6 +975,20 @@ static enum sdw_command_response qcom_swrm_xfer_msg(struct sdw_bus *bus,
+ 	struct qcom_swrm_ctrl *ctrl = to_qcom_sdw(bus);
+ 	int ret, i, len;
+ 
++	if (msg->page) {
++		ret = qcom_swrm_cmd_fifo_wr_cmd(ctrl, msg->addr_page1,
++						msg->dev_num,
++						SDW_SCP_ADDRPAGE1);
++		if (ret)
++			return ret;
++
++		ret = qcom_swrm_cmd_fifo_wr_cmd(ctrl, msg->addr_page2,
++						msg->dev_num,
++						SDW_SCP_ADDRPAGE2);
++		if (ret)
++			return ret;
++	}
++
+ 	if (msg->flags == SDW_MSG_FLAG_READ) {
+ 		for (i = 0; i < msg->len;) {
+ 			len = min(msg->len - i, QCOM_SWRM_MAX_RD_LEN);

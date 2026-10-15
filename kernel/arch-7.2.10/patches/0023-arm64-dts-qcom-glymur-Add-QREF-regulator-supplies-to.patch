@@ -1,0 +1,47 @@
+From 9bd3045b71c0f1b6ad20c19aa4990a37df58eb92 Mon Sep 17 00:00:00 2001
+From: Qiang Yu <qiang.yu@oss.qualcomm.com>
+Date: Tue, 21 Jul 2026 22:59:01 -0700
+Subject: [PATCH 023/127] arm64: dts: qcom: glymur: Add QREF regulator supplies
+ to TCSR
+
+The TCSR clkref_en clocks gate the QREF block which provides reference
+clocks to the PCIe PHYs. Wire up the LDO supplies required by the QREF
+and refgen blocks on the CRD board.
+
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Signed-off-by: Qiang Yu <qiang.yu@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260721-tcsr_qre_0721-v10-6-d2fa68c63b78@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit fc913a5ad811395be4daf2ca6fed8bcd9653916b)
+---
+ arch/arm64/boot/dts/qcom/glymur-crd.dts | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur-crd.dts b/arch/arm64/boot/dts/qcom/glymur-crd.dts
+index 6125617de82a6684a9a0aa59ae37415f41620d7a..44766a73b0d1a2bb00beba8998458578452df27b 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-crd.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-crd.dts
+@@ -28,3 +28,23 @@ &mdss_dp1 {
+ &mdss_dp1_out {
+ 	link-frequencies = /bits/ 64 <1620000000 2700000000 5400000000 8100000000>;
+ };
++
++&tcsr {
++	vdda-qrefrpt0-0p9-supply = <&vreg_l2f_e1_0p83>;
++	vdda-qrefrpt1-0p9-supply = <&vreg_l2f_e1_0p83>;
++	vdda-qrefrpt2-0p9-supply = <&vreg_l2f_e1_0p83>;
++	vdda-qrefrpt3-0p9-supply = <&vreg_l2h_e0_0p72>;
++	vdda-qrefrpt4-0p9-supply = <&vreg_l2h_e0_0p72>;
++	vdda-qrefrx0-0p9-supply = <&vreg_l2f_e1_0p83>;
++	vdda-qrefrx1-0p9-supply = <&vreg_l2f_e1_0p83>;
++	vdda-qrefrx2-0p9-supply = <&vreg_l2f_e1_0p83>;
++	vdda-qrefrx4-0p9-supply = <&vreg_l2h_e0_0p72>;
++	vdda-qrefrx5-0p9-supply = <&vreg_l3f_e0_0p72>;
++	vdda-qreftx0-0p9-supply = <&vreg_l3f_e0_0p72>;
++	vdda-qreftx0-1p2-supply = <&vreg_l4h_e0_1p2>;
++	vdda-qreftx1-0p9-supply = <&vreg_l1f_e1_0p82>;
++	vdda-refgen3-0p9-supply = <&vreg_l2f_e0_0p82>;
++	vdda-refgen3-1p2-supply = <&vreg_l4h_e0_1p2>;
++	vdda-refgen4-0p9-supply = <&vreg_l1f_e1_0p82>;
++	vdda-refgen4-1p2-supply = <&vreg_l4f_e1_1p08>;
++};

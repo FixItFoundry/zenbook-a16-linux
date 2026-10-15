@@ -1,0 +1,63 @@
+From 8210dcc976a6d5b70d3c573840ea5014ab99a7d9 Mon Sep 17 00:00:00 2001
+From: Krishna Kurapati <krishna.kurapati@oss.qualcomm.com>
+Date: Thu, 23 Jul 2026 23:02:26 +0530
+Subject: [PATCH 028/127] arm64: dts: qcom: glymur: Configure USB controllers
+ are wakeup-capable
+
+All USB controller on Glymur are wakeup-capable device. Add wakeup-source
+property for each of them indicating the same.
+
+Signed-off-by: Krishna Kurapati <krishna.kurapati@oss.qualcomm.com>
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Reviewed-by: Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260723-glymur-usb-fixes-v1-2-816357d5319c@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit 5ac32106d3c2ea94abd236fe3ad3897925640289)
+---
+ arch/arm64/boot/dts/qcom/glymur.dtsi | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index 0e8a69c66bc33448346ca4db7f575af511b62471..f04058d2e08911de0bbf898d683473b8d98efb79 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -4603,6 +4603,7 @@ usb_0: usb@a600000 {
+ 			snps,dis_enblslpm_quirk;
+ 
+ 			usb-role-switch;
++			wakeup-source;
+ 
+ 			status = "disabled";
+ 
+@@ -4678,6 +4679,7 @@ usb_1: usb@a800000 {
+ 			snps,dis_enblslpm_quirk;
+ 
+ 			usb-role-switch;
++			wakeup-source;
+ 
+ 			status = "disabled";
+ 
+@@ -4753,6 +4755,7 @@ usb_2: usb@a000000 {
+ 			snps,dis_enblslpm_quirk;
+ 
+ 			usb-role-switch;
++			wakeup-source;
+ 
+ 			status = "disabled";
+ 
+@@ -4842,6 +4845,7 @@ &mc_virt SLAVE_EBI1 QCOM_ICC_TAG_ALWAYS>,
+ 
+ 			qcom,select-utmi-as-pipe-clk;
+ 			usb-role-switch;
++			wakeup-source;
+ 
+ 			status = "disabled";
+ 		};
+@@ -4913,6 +4917,7 @@ usb_mp: usb@a400000 {
+ 			snps,dis_enblslpm_quirk;
+ 
+ 			dr_mode = "host";
++			wakeup-source;
+ 
+ 			status = "disabled";
+ 		};

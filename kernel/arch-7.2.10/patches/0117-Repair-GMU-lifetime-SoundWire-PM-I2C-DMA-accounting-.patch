@@ -1,0 +1,798 @@
+From 482f382e502115485a8b201c2d4bd3e9f567236a Mon Sep 17 00:00:00 2001
+From: Codex <codex@local>
+Date: Wed, 7 Oct 2026 17:12:27 -0400
+Subject: [PATCH 117/127] Repair GMU lifetime, SoundWire PM, I2C DMA accounting
+ and failed vote propagation
+
+---
+ drivers/gpu/drm/msm/adreno/a6xx_gmu.c     | 132 ++++++++++++++++------
+ drivers/gpu/drm/msm/dp/dp_ctrl.c          |  36 +++---
+ drivers/i2c/busses/i2c-qcom-geni.c        |  67 ++++++-----
+ drivers/net/wireless/ath/ath12k/core.c    |   2 -
+ drivers/net/wireless/ath/ath12k/debugfs.c |  17 ++-
+ drivers/net/wireless/ath/ath12k/debugfs.h |   4 -
+ drivers/soc/qcom/rpmh.c                   |   2 +-
+ drivers/soundwire/qcom.c                  |  27 ++++-
+ 8 files changed, 186 insertions(+), 101 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+index 15f18dc9db979c7fc4328cf9246b2d30279a5d52..2ec4e1d2732b0f506d213dfcbdac506660622f5b 100644
+--- a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
++++ b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+@@ -1540,6 +1540,7 @@ static int a6xx_gmu_memory_alloc(struct a6xx_gmu *gmu, struct a6xx_gmu_bo *bo,
+ {
+ 	struct a6xx_gpu *a6xx_gpu = container_of(gmu, struct a6xx_gpu, gmu);
+ 	struct drm_device *dev = a6xx_gpu->base.base.dev;
++	struct drm_gem_object *obj;
+ 	uint32_t flags = MSM_BO_WC;
+ 	u64 range_start, range_end;
+ 	int ret;
+@@ -1557,23 +1558,32 @@ static int a6xx_gmu_memory_alloc(struct a6xx_gmu *gmu, struct a6xx_gmu_bo *bo,
+ 		flags |= MSM_BO_MAP_PRIV;
+ 	}
+ 
+-	bo->obj = msm_gem_new(dev, size, flags);
+-	if (IS_ERR(bo->obj))
+-		return PTR_ERR(bo->obj);
++	obj = msm_gem_new(dev, size, flags);
++	if (IS_ERR(obj))
++		return PTR_ERR(obj);
+ 
+-	ret = msm_gem_get_and_pin_iova_range(bo->obj, gmu->vm, &bo->iova,
++	ret = msm_gem_get_and_pin_iova_range(obj, gmu->vm, &bo->iova,
+ 					     range_start, range_end);
+-	if (ret) {
+-		drm_gem_object_put(bo->obj);
+-		return ret;
++	if (ret)
++		goto err_put;
++
++	bo->virt = msm_gem_get_vaddr(obj);
++	if (IS_ERR(bo->virt)) {
++		ret = PTR_ERR(bo->virt);
++		msm_gem_unpin_iova(obj, gmu->vm);
++		goto err_put;
+ 	}
+ 
+-	bo->virt = msm_gem_get_vaddr(bo->obj);
++	bo->obj = obj;
+ 	bo->size = size;
+ 
+-	msm_gem_object_set_name(bo->obj, "%s", name);
++	msm_gem_object_set_name(obj, "%s", name);
+ 
+ 	return 0;
++
++err_put:
++	drm_gem_object_put(obj);
++	return ret;
+ }
+ 
+ static int a6xx_gmu_memory_probe(struct drm_device *drm, struct a6xx_gmu *gmu)
+@@ -1585,8 +1595,10 @@ static int a6xx_gmu_memory_probe(struct drm_device *drm, struct a6xx_gmu *gmu)
+ 		return PTR_ERR(mmu);
+ 
+ 	gmu->vm = msm_gem_vm_create(drm, mmu, "gmu", 0x0, 0x80000000, true);
+-	if (IS_ERR(gmu->vm))
++	if (IS_ERR(gmu->vm)) {
++		mmu->funcs->destroy(mmu);
+ 		return PTR_ERR(gmu->vm);
++	}
+ 
+ 	return 0;
+ }
+@@ -1722,7 +1734,10 @@ static const u16 *a6xx_gmu_rpmh_read_arc(const char *id, size_t *count)
+ 	if (IS_ERR(vals))
+ 		return vals;
+ 
+-	*count >>= 1;
++	if (*count % sizeof(*vals))
++		return ERR_PTR(-EINVAL);
++
++	*count /= sizeof(*vals);
+ 	/* Exclude the trailing zero paddings if there are any */
+ 	while (*count && !vals[*count - 1])
+ 		(*count)--;
+@@ -1823,6 +1838,8 @@ static int a6xx_gmu_rpmh_dep_votes_init(struct device *dev, u32 *votes,
+ 	 */
+ 	gbx = a6xx_gmu_rpmh_read_arc("gbx.lvl", &gbx_count);
+ 	if (IS_ERR(gbx)) {
++		if (PTR_ERR(gbx) != -ENODEV)
++			return PTR_ERR(gbx);
+ 		gbx = NULL;
+ 	} else {
+ 		gx = a6xx_gmu_rpmh_read_arc("gfx.lvl", &gx_count);
+@@ -1857,6 +1874,10 @@ static int a6xx_gmu_rpmh_dep_votes_init(struct device *dev, u32 *votes,
+ 		 * back to the highest BX corner if none is high enough.
+ 		 */
+ 		bx = a6xx_gmu_rpmh_arc_index(dev, gbx, gbx_count, gx[index], true);
++		if (bx < 0)
++			return bx;
++		if (bx > FIELD_MAX(GMU_BX_MASK))
++			return -ERANGE;
+ 		FIELD_MODIFY(GMU_BX_MASK, &votes[i], bx);
+ 	}
+ 
+@@ -1892,16 +1913,23 @@ static int a6xx_gmu_rpmh_votes_init(struct a6xx_gmu *gmu)
+ 	ret = a6xx_gmu_rpmh_arc_votes_init(&gpu->pdev->dev, gmu->gx_arc_votes,
+ 		gmu->gpu_freqs, gmu->nr_gpu_freqs, "gfx.lvl", sec_id);
+ 
+-	ret |= a6xx_gmu_rpmh_dep_votes_init(&gpu->pdev->dev, gmu->dep_arc_votes,
++	if (ret)
++		return ret;
++
++	ret = a6xx_gmu_rpmh_dep_votes_init(&gpu->pdev->dev, gmu->dep_arc_votes,
+ 		gmu->gpu_freqs, gmu->nr_gpu_freqs);
++	if (ret)
++		return ret;
+ 
+ 	/* Build the CX votes */
+-	ret |= a6xx_gmu_rpmh_arc_votes_init(gmu->dev, gmu->cx_arc_votes,
++	ret = a6xx_gmu_rpmh_arc_votes_init(gmu->dev, gmu->cx_arc_votes,
+ 		gmu->gmu_freqs, gmu->nr_gmu_freqs, "cx.lvl", "mx.lvl");
++	if (ret)
++		return ret;
+ 
+ 	/* Build the interconnect votes */
+ 	if (info->bcms && gmu->nr_gpu_bws > 1)
+-		ret |= a6xx_gmu_rpmh_bw_votes_init(adreno_gpu, info, gmu);
++		ret = a6xx_gmu_rpmh_bw_votes_init(adreno_gpu, info, gmu);
+ 
+ 	return ret;
+ }
+@@ -2107,6 +2135,8 @@ static int a6xx_gmu_get_irq(struct a6xx_gmu *gmu, struct platform_device *pdev,
+ 	int irq, ret;
+ 
+ 	irq = platform_get_irq_byname(pdev, name);
++	if (irq < 0)
++		return irq;
+ 
+ 	ret = request_irq(irq, handler, IRQF_TRIGGER_HIGH | IRQF_NO_AUTOEN, name, gmu);
+ 	if (ret) {
+@@ -2149,6 +2179,7 @@ void a6xx_gmu_remove(struct a6xx_gpu *a6xx_gpu)
+ {
+ 	struct adreno_gpu *adreno_gpu = &a6xx_gpu->base;
+ 	struct a6xx_gmu *gmu = &a6xx_gpu->gmu;
++	int ret;
+ 
+ 	mutex_lock(&gmu->lock);
+ 	if (!gmu->initialized) {
+@@ -2160,7 +2191,10 @@ void a6xx_gmu_remove(struct a6xx_gpu *a6xx_gpu)
+ 
+ 	mutex_unlock(&gmu->lock);
+ 
+-	pm_runtime_force_suspend(gmu->dev);
++	/* force_suspend leaves runtime PM disabled unless it fails. */
++	ret = pm_runtime_force_suspend(gmu->dev);
++	if (ret)
++		pm_runtime_disable(gmu->dev);
+ 
+ 	/*
+ 	 * Since cxpd is a virt device, the devlink with gmu-dev will be removed
+@@ -2188,6 +2222,8 @@ void a6xx_gmu_remove(struct a6xx_gpu *a6xx_gpu)
+ 		free_irq(gmu->hfi_irq, gmu);
+ 	}
+ 
++	devres_release_group(gmu->dev, gmu);
++
+ 	/* Drop reference taken in of_find_device_by_node */
+ 	put_device(gmu->dev);
+ }
+@@ -2231,6 +2267,7 @@ int a6xx_gmu_wrapper_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 	struct adreno_gpu *adreno_gpu = &a6xx_gpu->base;
+ 	struct msm_gpu *gpu = &adreno_gpu->base;
+ 	struct a6xx_gmu *gmu = &a6xx_gpu->gmu;
++	struct device_link *link;
+ 	resource_size_t start;
+ 	struct resource *res;
+ 	int ret;
+@@ -2242,7 +2279,12 @@ int a6xx_gmu_wrapper_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 
+ 	ret = of_dma_configure(gmu->dev, node, true);
+ 	if (ret)
+-		return ret;
++		goto err_put_device;
++
++	if (!devres_open_group(gmu->dev, gmu, GFP_KERNEL)) {
++		ret = -ENOMEM;
++		goto err_put_device;
++	}
+ 
+ 	pm_runtime_enable(gmu->dev);
+ 
+@@ -2260,7 +2302,7 @@ int a6xx_gmu_wrapper_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 	gmu->mmio = a6xx_gmu_get_mmio(pdev, &start);
+ 	if (IS_ERR(gmu->mmio)) {
+ 		ret = PTR_ERR(gmu->mmio);
+-		goto err_mmio;
++		goto err_clk;
+ 	}
+ 
+ 	res = platform_get_resource_byname(gpu->pdev, IORESOURCE_MEM, "kgsl_3d0_reg_memory");
+@@ -2278,7 +2320,8 @@ int a6xx_gmu_wrapper_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 		goto err_mmio;
+ 	}
+ 
+-	if (!device_link_add(gmu->dev, gmu->cxpd, DL_FLAG_PM_RUNTIME)) {
++	link = device_link_add(gmu->dev, gmu->cxpd, DL_FLAG_PM_RUNTIME);
++	if (!link) {
+ 		ret = -ENODEV;
+ 		goto detach_cxpd;
+ 	}
+@@ -2291,13 +2334,17 @@ int a6xx_gmu_wrapper_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 	gmu->gxpd = dev_pm_domain_attach_by_name(gmu->dev, "gx");
+ 	if (IS_ERR(gmu->gxpd)) {
+ 		ret = PTR_ERR(gmu->gxpd);
+-		goto err_mmio;
++		goto del_link;
+ 	}
+ 
++	devres_close_group(gmu->dev, gmu);
+ 	gmu->initialized = true;
+ 
+ 	return 0;
+ 
++del_link:
++	device_link_del(link);
++
+ detach_cxpd:
+ 	dev_pm_domain_detach(gmu->cxpd, false);
+ 
+@@ -2305,6 +2352,9 @@ int a6xx_gmu_wrapper_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 	iounmap(gmu->mmio);
+ 
+ err_clk:
++	pm_runtime_disable(gmu->dev);
++	devres_release_group(gmu->dev, gmu);
++err_put_device:
+ 	/* Drop reference taken in of_find_device_by_node */
+ 	put_device(gmu->dev);
+ 
+@@ -2329,7 +2379,12 @@ int a6xx_gmu_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 
+ 	ret = of_dma_configure(gmu->dev, node, true);
+ 	if (ret)
+-		return ret;
++		goto err_put_device;
++
++	if (!devres_open_group(gmu->dev, gmu, GFP_KERNEL)) {
++		ret = -ENOMEM;
++		goto err_put_device;
++	}
+ 
+ 	/* Set GMU idle level */
+ 	gmu->idle_level = (adreno_gpu->info->quirks & ADRENO_QUIRK_IFPC) ?
+@@ -2340,11 +2395,11 @@ int a6xx_gmu_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 	/* Get the list of clocks */
+ 	ret = a6xx_gmu_clocks_probe(gmu);
+ 	if (ret)
+-		goto err_put_device;
++		goto err_resources;
+ 
+ 	ret = a6xx_gmu_memory_probe(adreno_gpu->base.dev, gmu);
+ 	if (ret)
+-		goto err_put_device;
++		goto err_resources;
+ 
+ 
+ 	/* A660 now requires handling "prealloc requests" in GMU firmware
+@@ -2435,7 +2490,7 @@ int a6xx_gmu_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 	    adreno_is_a7xx(adreno_gpu)) {
+ 		gmu->rscc = devm_platform_ioremap_resource_byname(pdev, "rscc");
+ 		if (IS_ERR(gmu->rscc)) {
+-			ret = -ENODEV;
++			ret = PTR_ERR(gmu->rscc);
+ 			goto err_mmio;
+ 		}
+ 	} else if (adreno_is_a8xx(adreno_gpu)) {
+@@ -2451,17 +2506,21 @@ int a6xx_gmu_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 
+ 	/* Get the HFI and GMU interrupts */
+ 	gmu->hfi_irq = a6xx_gmu_get_irq(gmu, pdev, "hfi", a6xx_hfi_irq);
+-	gmu->gmu_irq = a6xx_gmu_get_irq(gmu, pdev, "gmu", a6xx_gmu_irq);
+-
+-	if (gmu->hfi_irq < 0 || gmu->gmu_irq < 0) {
+-		ret = -ENODEV;
++	if (gmu->hfi_irq < 0) {
++		ret = gmu->hfi_irq;
+ 		goto err_mmio;
+ 	}
+ 
++	gmu->gmu_irq = a6xx_gmu_get_irq(gmu, pdev, "gmu", a6xx_gmu_irq);
++	if (gmu->gmu_irq < 0) {
++		ret = gmu->gmu_irq;
++		goto err_hfi_irq;
++	}
++
+ 	gmu->cxpd = dev_pm_domain_attach_by_name(gmu->dev, "cx");
+ 	if (IS_ERR(gmu->cxpd)) {
+ 		ret = PTR_ERR(gmu->cxpd);
+-		goto err_mmio;
++		goto err_gmu_irq;
+ 	}
+ 
+ 	link = device_link_add(gmu->dev, gmu->cxpd, DL_FLAG_PM_RUNTIME);
+@@ -2474,7 +2533,7 @@ int a6xx_gmu_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 	gmu->qmp = qmp_get(gmu->dev);
+ 	if (PTR_ERR_OR_ZERO(gmu->qmp) == -EPROBE_DEFER) {
+ 		ret = -EPROBE_DEFER;
+-		goto detach_gxpd;
++		goto del_link;
+ 	}
+ 
+ 	init_completion(&gmu->pd_gate);
+@@ -2488,7 +2547,9 @@ int a6xx_gmu_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 	gmu->gxpd = dev_pm_domain_attach_by_name(gmu->dev, "gx");
+ 
+ 	/* Get the power levels for the GMU and GPU */
+-	a6xx_gmu_pwrlevels_probe(gmu);
++	ret = a6xx_gmu_pwrlevels_probe(gmu);
++	if (ret)
++		goto detach_gxpd;
+ 
+ 	ret = a6xx_gmu_acd_probe(gmu);
+ 	if (ret)
+@@ -2500,6 +2561,7 @@ int a6xx_gmu_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 	/* Initialize RPMh */
+ 	a6xx_gmu_rpmh_init(gmu);
+ 
++	devres_close_group(gmu->dev, gmu);
+ 	gmu->initialized = true;
+ 
+ 	return 0;
+@@ -2511,18 +2573,24 @@ int a6xx_gmu_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 	if (!IS_ERR_OR_NULL(gmu->qmp))
+ 		qmp_put(gmu->qmp);
+ 
++del_link:
+ 	device_link_del(link);
+ 
+ detach_cxpd:
+ 	dev_pm_domain_detach(gmu->cxpd, false);
+ 
+-err_mmio:
+-	iounmap(gmu->mmio);
++err_gmu_irq:
+ 	free_irq(gmu->gmu_irq, gmu);
++err_hfi_irq:
+ 	free_irq(gmu->hfi_irq, gmu);
++err_mmio:
++	iounmap(gmu->mmio);
+ 
+ err_memory:
+ 	a6xx_gmu_memory_free(gmu);
++err_resources:
++	pm_runtime_disable(gmu->dev);
++	devres_release_group(gmu->dev, gmu);
+ err_put_device:
+ 	/* Drop reference taken in of_find_device_by_node */
+ 	put_device(gmu->dev);
+diff --git a/drivers/gpu/drm/msm/dp/dp_ctrl.c b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+index 474a33c85d5fbb8946491daa40f081cdb99993c2..06ef91c0c1514e10120f195ee702e685995cda7f 100644
+--- a/drivers/gpu/drm/msm/dp/dp_ctrl.c
++++ b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+@@ -184,8 +184,8 @@ static int msm_dp_aux_link_configure(struct drm_dp_aux *aux,
+ 		lane_count |= DP_LANE_COUNT_ENHANCED_FRAME_EN;
+ 
+ 	err = drm_dp_dpcd_writeb(aux, DP_LANE_COUNT_SET, lane_count);
+-	if (err < 0)
+-		return err;
++	if (err != 1)
++		return err < 0 ? err : -EIO;
+ 
+ 	if (link->use_rate_set) {
+ 		/*
+@@ -198,8 +198,8 @@ static int msm_dp_aux_link_configure(struct drm_dp_aux *aux,
+ 		 * leaves DP_LINK_BW_5_4 there).
+ 		 */
+ 		err = drm_dp_dpcd_writeb(aux, DP_LINK_BW_SET, 0);
+-		if (err < 0)
+-			return err;
++		if (err != 1)
++			return err < 0 ? err : -EIO;
+ 
+ 		DRM_DEBUG_DP("using LINK_RATE_SET: 0x%02x", link->rate_set);
+ 		err = drm_dp_dpcd_writeb(aux, DP_LINK_RATE_SET, link->rate_set);
+@@ -209,7 +209,7 @@ static int msm_dp_aux_link_configure(struct drm_dp_aux *aux,
+ 		err = drm_dp_dpcd_writeb(aux, DP_LINK_BW_SET, bw_code);
+ 	}
+ 
+-	return err;
++	return err == 1 ? 0 : (err < 0 ? err : -EIO);
+ }
+ 
+ /*
+@@ -1384,7 +1384,7 @@ static int msm_dp_ctrl_update_phy_vx_px(struct msm_dp_ctrl_private *ctrl,
+ 	return ret;
+ }
+ 
+-static bool msm_dp_ctrl_train_pattern_set(struct msm_dp_ctrl_private *ctrl,
++static int msm_dp_ctrl_train_pattern_set(struct msm_dp_ctrl_private *ctrl,
+ 		u8 pattern, enum drm_dp_phy dp_phy)
+ {
+ 	u8 buf;
+@@ -1404,7 +1404,7 @@ static bool msm_dp_ctrl_train_pattern_set(struct msm_dp_ctrl_private *ctrl,
+ 		reg = DP_TRAINING_PATTERN_SET_PHY_REPEATER(dp_phy);
+ 
+ 	ret = drm_dp_dpcd_writeb(ctrl->aux, reg, buf);
+-	return ret == 1;
++	return ret == 1 ? 0 : (ret < 0 ? ret : -EIO);
+ }
+ 
+ static int msm_dp_ctrl_set_pattern_state_bit(struct msm_dp_ctrl_private *ctrl,
+@@ -1449,8 +1449,10 @@ static int msm_dp_ctrl_link_train_1(struct msm_dp_ctrl_private *ctrl,
+ 	ret = msm_dp_ctrl_set_pattern_state_bit(ctrl, 1);
+ 	if (ret)
+ 		return ret;
+-	msm_dp_ctrl_train_pattern_set(ctrl, DP_TRAINING_PATTERN_1 |
++	ret = msm_dp_ctrl_train_pattern_set(ctrl, DP_TRAINING_PATTERN_1 |
+ 		DP_LINK_SCRAMBLING_DISABLE, dp_phy);
++	if (ret)
++		return ret;
+ 
+ 	msm_dp_link_reset_phy_params_vx_px(ctrl->link);
+ 	ret = msm_dp_ctrl_update_phy_vx_px(ctrl, dp_phy);
+@@ -1585,7 +1587,9 @@ static int msm_dp_ctrl_link_train_2(struct msm_dp_ctrl_private *ctrl,
+ 	if (ret)
+ 		return ret;
+ 
+-	msm_dp_ctrl_train_pattern_set(ctrl, pattern, dp_phy);
++	ret = msm_dp_ctrl_train_pattern_set(ctrl, pattern, dp_phy);
++	if (ret)
++		return ret;
+ 
+ 	for (tries = 0; tries <= maximum_retries; tries++) {
+ 		fsleep(delay_us);
+@@ -1649,18 +1653,24 @@ static int msm_dp_ctrl_link_train(struct msm_dp_ctrl_private *ctrl,
+ 	link_info.use_rate_set = ctrl->link->link_params.use_rate_set;
+ 	link_info.capabilities = DP_LINK_CAP_ENHANCED_FRAMING;
+ 
+-	msm_dp_aux_link_configure(ctrl->aux, &link_info);
++	ret = msm_dp_aux_link_configure(ctrl->aux, &link_info);
++	if (ret)
++		return ret;
+ 
+ 	if (drm_dp_max_downspread(dpcd))
+ 		encoding[0] |= DP_SPREAD_AMP_0_5;
+ 
+ 	/* config DOWNSPREAD_CTRL and MAIN_LINK_CHANNEL_CODING_SET */
+-	drm_dp_dpcd_write(ctrl->aux, DP_DOWNSPREAD_CTRL, encoding, 2);
++	ret = drm_dp_dpcd_write(ctrl->aux, DP_DOWNSPREAD_CTRL, encoding, 2);
++	if (ret != 2)
++		return ret < 0 ? ret : -EIO;
+ 
+ 	if (drm_dp_alternate_scrambler_reset_cap(dpcd)) {
+ 		assr = DP_ALTERNATE_SCRAMBLER_RESET_ENABLE;
+-		drm_dp_dpcd_write(ctrl->aux, DP_EDP_CONFIGURATION_SET,
+-				&assr, 1);
++		ret = drm_dp_dpcd_write(ctrl->aux, DP_EDP_CONFIGURATION_SET,
++					&assr, 1);
++		if (ret != 1)
++			return ret < 0 ? ret : -EIO;
+ 	}
+ 
+ 	for (i = ctrl->link->lttpr_count - 1; i >= 0; i--) {
+diff --git a/drivers/i2c/busses/i2c-qcom-geni.c b/drivers/i2c/busses/i2c-qcom-geni.c
+index b7744ad882b30d833d14f1f9688c8a4089c98d20..7bfdef1078c1420a5741d0e6c35170d54852ce4f 100644
+--- a/drivers/i2c/busses/i2c-qcom-geni.c
++++ b/drivers/i2c/busses/i2c-qcom-geni.c
+@@ -327,7 +327,7 @@ static irqreturn_t geni_i2c_irq(int irq, void *dev)
+ 	if (!cur ||
+ 	    m_stat & (M_CMD_FAILURE_EN | M_CMD_ABORT_EN) ||
+ 	    dm_rx_st & (DM_I2C_CB_ERR)) {
+-		if (m_stat & M_GP_IRQ_1_EN)
++		if (cur && m_stat & M_GP_IRQ_1_EN)
+ 			geni_i2c_check_addr_data_nack(gi2c);
+ 		if (m_stat & M_GP_IRQ_3_EN)
+ 			geni_i2c_err(gi2c, BUS_PROTO);
+@@ -429,7 +429,7 @@ static void geni_i2c_abort_xfer(struct geni_i2c_dev *gi2c)
+ 
+ static void geni_i2c_cancel_xfer(struct geni_i2c_dev *gi2c)
+ {
+-	unsigned long time_left = msecs_to_jiffies(CANCEL_TIMEOUT);
++	unsigned long time_left = CANCEL_TIMEOUT;
+ 	unsigned long flags;
+ 
+ 	reinit_completion(&gi2c->cancel_done);
+@@ -616,15 +616,13 @@ static void geni_i2c_gpi_unmap(struct geni_i2c_dev *gi2c, struct i2c_msg *msg,
+  * geni_i2c_gpi_multi_desc_unmap() - Unmaps DMA buffers post multi message TX transfers
+  * @gi2c: I2C dev handle
+  * @msgs: Array of I2C  messages
+- * @peripheral: Pointer to gpi_i2c_config
+  */
+-static void geni_i2c_gpi_multi_desc_unmap(struct geni_i2c_dev *gi2c, struct i2c_msg msgs[],
+-					  struct gpi_i2c_config *peripheral)
++static void geni_i2c_gpi_multi_desc_unmap(struct geni_i2c_dev *gi2c, struct i2c_msg msgs[])
+ {
+ 	u32 msg_xfer_cnt, wr_idx = 0;
+ 	struct geni_i2c_gpi_multi_desc_xfer *tx_multi_xfer = &gi2c->i2c_multi_desc_config;
+ 
+-	msg_xfer_cnt = gi2c->err ? tx_multi_xfer->msg_idx_cnt : tx_multi_xfer->irq_cnt;
++	msg_xfer_cnt = gi2c->err ? tx_multi_xfer->msg_idx_cnt : READ_ONCE(tx_multi_xfer->irq_cnt);
+ 
+ 	/* Unmap the processed DMA buffers based on the received interrupt count */
+ 	for (; tx_multi_xfer->unmap_msg_cnt < msg_xfer_cnt; tx_multi_xfer->unmap_msg_cnt++) {
+@@ -633,12 +631,6 @@ static void geni_i2c_gpi_multi_desc_unmap(struct geni_i2c_dev *gi2c, struct i2c_
+ 				   tx_multi_xfer->dma_buf[wr_idx],
+ 				   tx_multi_xfer->dma_addr[wr_idx],
+ 				   NULL, 0);
+-
+-		if (tx_multi_xfer->unmap_msg_cnt == gi2c->num_msgs - 1) {
+-			kfree(tx_multi_xfer->dma_buf);
+-			kfree(tx_multi_xfer->dma_addr);
+-			break;
+-		}
+ 	}
+ }
+ 
+@@ -646,7 +638,7 @@ static void geni_i2c_gpi_multi_desc_unmap(struct geni_i2c_dev *gi2c, struct i2c_
+  * geni_i2c_gpi_multi_xfer_timeout_handler() - Handles multi message transfer timeout
+  * @dev: Pointer to the corresponding dev node
+  * @multi_xfer: Pointer to the geni_i2c_gpi_multi_desc_xfer
+- * @transfer_timeout_msecs: Timeout value in milliseconds
++ * @transfer_timeout: Timeout value in jiffies
+  * @transfer_comp: Completion object of the transfer
+  *
+  * This function waits for the completion of each processed transfer messages
+@@ -656,22 +648,16 @@ static void geni_i2c_gpi_multi_desc_unmap(struct geni_i2c_dev *gi2c, struct i2c_
+  */
+ static int geni_i2c_gpi_multi_xfer_timeout_handler(struct device *dev,
+ 						   struct geni_i2c_gpi_multi_desc_xfer *multi_xfer,
+-						   u32 transfer_timeout_msecs,
++						   unsigned long transfer_timeout,
+ 						   struct completion *transfer_comp)
+ {
+-	int i;
+-	u32 time_left;
+-
+-	for (i = 0; i < multi_xfer->msg_idx_cnt - 1; i++) {
+-		reinit_completion(transfer_comp);
++	unsigned long time_left;
+ 
+-		if (multi_xfer->msg_idx_cnt != multi_xfer->irq_cnt) {
+-			time_left = wait_for_completion_timeout(transfer_comp,
+-								transfer_timeout_msecs);
+-			if (!time_left) {
+-				dev_err(dev, "%s: Transfer timeout\n", __func__);
+-				return -ETIMEDOUT;
+-			}
++	while (READ_ONCE(multi_xfer->irq_cnt) < multi_xfer->msg_idx_cnt) {
++		time_left = wait_for_completion_timeout(transfer_comp, transfer_timeout);
++		if (!time_left) {
++			dev_err(dev, "%s: Transfer timeout\n", __func__);
++			return -ETIMEDOUT;
+ 		}
+ 	}
+ 	return 0;
+@@ -773,9 +759,6 @@ static int geni_i2c_gpi(struct geni_i2c_dev *gi2c, struct i2c_msg msgs[],
+ 	desc->callback_result = i2c_gpi_cb_result;
+ 	desc->callback_param = gi2c;
+ 
+-	if (!((msgs[msg_idx].flags & I2C_M_RD) && op == I2C_WRITE))
+-		gi2c_gpi_xfer->msg_idx_cnt++;
+-
+ 	cookie = dmaengine_submit(desc);
+ 	if (dma_submit_error(cookie)) {
+ 		dev_err(gi2c->se.dev,
+@@ -784,6 +767,9 @@ static int geni_i2c_gpi(struct geni_i2c_dev *gi2c, struct i2c_msg msgs[],
+ 		goto err_config;
+ 	}
+ 
++	if (!((msgs[msg_idx].flags & I2C_M_RD) && op == I2C_WRITE))
++		gi2c_gpi_xfer->msg_idx_cnt++;
++
+ 	if (gi2c->is_tx_multi_desc_xfer) {
+ 		gi2c_gpi_xfer->dma_buf[msg_idx] = dma_buf;
+ 		gi2c_gpi_xfer->dma_addr[msg_idx] = addr;
+@@ -874,14 +860,20 @@ static int geni_i2c_gpi_xfer(struct geni_i2c_dev *gi2c, struct i2c_msg msgs[], i
+ 		tx_multi_xfer->dma_addr = kzalloc_objs(dma_addr_t, num);
+ 		if (!tx_multi_xfer->dma_buf || !tx_multi_xfer->dma_addr) {
+ 			ret = -ENOMEM;
+-			goto err;
++			goto out_free;
+ 		}
+ 	}
+ 
++	gi2c->err = 0;
++	reinit_completion(&gi2c->done);
+ 	for (i = 0; i < num; i++) {
++		tx_buf = NULL;
++		rx_buf = NULL;
++		tx_addr = 0;
++		rx_addr = 0;
+ 		gi2c->cur = &msgs[i];
+-		gi2c->err = 0;
+-		reinit_completion(&gi2c->done);
++		if (!gi2c->is_tx_multi_desc_xfer)
++			reinit_completion(&gi2c->done);
+ 		dev_dbg(gi2c->se.dev, "msg[%d].len:%d\n", i, gi2c->cur->len);
+ 
+ 		peripheral.stretch = 0;
+@@ -923,20 +915,25 @@ static int geni_i2c_gpi_xfer(struct geni_i2c_dev *gi2c, struct i2c_msg msgs[], i
+ 		if (!gi2c->is_tx_multi_desc_xfer)
+ 			geni_i2c_gpi_unmap(gi2c, &msgs[i], tx_buf, tx_addr, rx_buf, rx_addr);
+ 		else if (tx_multi_xfer->unmap_msg_cnt != tx_multi_xfer->irq_cnt)
+-			geni_i2c_gpi_multi_desc_unmap(gi2c, msgs, &peripheral);
++			geni_i2c_gpi_multi_desc_unmap(gi2c, msgs);
+ 	}
+ 
+-	return num;
++	ret = num;
++	goto out_free;
+ 
+ err:
+ 	dev_err(gi2c->se.dev, "GPI transfer failed: %d\n", ret);
+ 	dmaengine_terminate_sync(gi2c->rx_c);
+ 	dmaengine_terminate_sync(gi2c->tx_c);
+ 	if (gi2c->is_tx_multi_desc_xfer)
+-		geni_i2c_gpi_multi_desc_unmap(gi2c, msgs, &peripheral);
++		geni_i2c_gpi_multi_desc_unmap(gi2c, msgs);
+ 	else
+ 		geni_i2c_gpi_unmap(gi2c, &msgs[i], tx_buf, tx_addr, rx_buf, rx_addr);
+ 
++out_free:
++	kfree(tx_multi_xfer->dma_buf);
++	kfree(tx_multi_xfer->dma_addr);
++
+ 	return ret;
+ }
+ 
+diff --git a/drivers/net/wireless/ath/ath12k/core.c b/drivers/net/wireless/ath/ath12k/core.c
+index 5cdf4973d986afd3937ed41a5a246e10fcefcffd..091eb05333f90fd89572d6340a9a49dd5038a5ba 100644
+--- a/drivers/net/wireless/ath/ath12k/core.c
++++ b/drivers/net/wireless/ath/ath12k/core.c
+@@ -842,8 +842,6 @@ static int ath12k_core_pdev_create(struct ath12k_base *ab)
+ 		goto err_dp_pdev_free;
+ 	}
+ 
+-	ath12k_debugfs_pdev_create(ab);
+-
+ 	return 0;
+ 
+ err_dp_pdev_free:
+diff --git a/drivers/net/wireless/ath/ath12k/debugfs.c b/drivers/net/wireless/ath/ath12k/debugfs.c
+index d17d4a8f1cb7d3bbf32f1481b4d6ea75dfcfca34..1723b1d9e472845a55016bc68553770fc83dd201 100644
+--- a/drivers/net/wireless/ath/ath12k/debugfs.c
++++ b/drivers/net/wireless/ath/ath12k/debugfs.c
+@@ -1212,15 +1212,6 @@ static const struct file_operations fops_device_dp_stats = {
+ 	.llseek = default_llseek,
+ };
+ 
+-void ath12k_debugfs_pdev_create(struct ath12k_base *ab)
+-{
+-	debugfs_create_file("simulate_fw_crash", 0600, ab->debugfs_soc, ab,
+-			    &fops_simulate_fw_crash);
+-
+-	debugfs_create_file("device_dp_stats", 0400, ab->debugfs_soc, ab,
+-			    &fops_device_dp_stats);
+-}
+-
+ void ath12k_debugfs_soc_create(struct ath12k_base *ab)
+ {
+ 	bool dput_needed;
+@@ -1243,6 +1234,14 @@ void ath12k_debugfs_soc_create(struct ath12k_base *ab)
+ 
+ 	ab->debugfs_soc = debugfs_create_dir(soc_name, debugfs_ath12k);
+ 
++	if (!IS_ERR_OR_NULL(ab->debugfs_soc)) {
++		debugfs_create_file("simulate_fw_crash", 0600, ab->debugfs_soc, ab,
++				    &fops_simulate_fw_crash);
++
++		debugfs_create_file("device_dp_stats", 0400, ab->debugfs_soc, ab,
++				    &fops_device_dp_stats);
++	}
++
+ 	if (dput_needed)
+ 		dput(debugfs_ath12k);
+ }
+diff --git a/drivers/net/wireless/ath/ath12k/debugfs.h b/drivers/net/wireless/ath/ath12k/debugfs.h
+index f5dbca1b8d75114261beeb60ed00eb0c9163ca0e..f0002d41347dd8fa09ed5fdd85900ad86e63aa81 100644
+--- a/drivers/net/wireless/ath/ath12k/debugfs.h
++++ b/drivers/net/wireless/ath/ath12k/debugfs.h
+@@ -14,7 +14,6 @@ void ath12k_debugfs_register(struct ath12k *ar);
+ void ath12k_debugfs_unregister(struct ath12k *ar);
+ void ath12k_debugfs_op_vif_add(struct ieee80211_hw *hw,
+ 			       struct ieee80211_vif *vif);
+-void ath12k_debugfs_pdev_create(struct ath12k_base *ab);
+ 
+ static inline bool ath12k_debugfs_is_extd_rx_stats_enabled(struct ath12k *ar)
+ {
+@@ -139,9 +138,6 @@ static inline void ath12k_debugfs_op_vif_add(struct ieee80211_hw *hw,
+ {
+ }
+ 
+-static inline void ath12k_debugfs_pdev_create(struct ath12k_base *ab)
+-{
+-}
+ #endif /* CONFIG_ATH12K_DEBUGFS */
+ 
+ #endif /* _ATH12K_DEBUGFS_H_ */
+diff --git a/drivers/soc/qcom/rpmh.c b/drivers/soc/qcom/rpmh.c
+index 3a1e44276e1a0552a69530e2c5218a65e98fbfb6..96391f408a6cd6997d45314a6fc920062cb83ba4 100644
+--- a/drivers/soc/qcom/rpmh.c
++++ b/drivers/soc/qcom/rpmh.c
+@@ -364,7 +364,7 @@ static int flush_batch(struct rpmh_ctrlr *ctrlr)
+ 			ret = rpmh_rsc_write_ctrl_data(ctrlr_to_drv(ctrlr),
+ 						       &rpm_msg->msg);
+ 			if (ret)
+-				break;
++				return ret;
+ 		}
+ 	}
+ 
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index 5f4f4fca2cb42d642fcc1acbe5d592d960d4483b..c375df38392bc8684567a2f132348da601f40288 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -1842,7 +1842,9 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 		goto err_init;
+ 	}
+ 
+-	clk_prepare_enable(ctrl->hclk);
++	ret = clk_prepare_enable(ctrl->hclk);
++	if (ret)
++		goto err_init;
+ 
+ 	ctrl->dev = dev;
+ 	dev_set_drvdata(&pdev->dev, ctrl);
+@@ -1998,13 +2000,15 @@ static int __maybe_unused swrm_runtime_resume(struct device *dev)
+ 	struct qcom_swrm_ctrl *ctrl = dev_get_drvdata(dev);
+ 	int ret;
+ 
++	ret = clk_prepare_enable(ctrl->hclk);
++	if (ret)
++		return ret;
++
+ 	if (ctrl->wake_irq > 0) {
+ 		if (!irqd_irq_disabled(irq_get_irq_data(ctrl->wake_irq)))
+ 			disable_irq_nosync(ctrl->wake_irq);
+ 	}
+ 
+-	clk_prepare_enable(ctrl->hclk);
+-
+ 	if (ctrl->clock_stop_not_supported) {
+ 		reinit_completion(&ctrl->enumeration);
+ 		ctrl->reg_write(ctrl, SWRM_COMP_SW_RESET, 0x01);
+@@ -2061,6 +2065,7 @@ static int __maybe_unused swrm_runtime_resume(struct device *dev)
+ static int __maybe_unused swrm_runtime_suspend(struct device *dev)
+ {
+ 	struct qcom_swrm_ctrl *ctrl = dev_get_drvdata(dev);
++	u32 intr_mask = ctrl->intr_mask;
+ 	int ret;
+ 
+ 	swrm_wait_for_wr_fifo_done(ctrl);
+@@ -2077,13 +2082,13 @@ static int __maybe_unused swrm_runtime_suspend(struct device *dev)
+ 		ret = sdw_bus_prep_clk_stop(&ctrl->bus);
+ 		if (ret < 0 && ret != -ENODATA) {
+ 			dev_err(dev, "prepare clock stop failed %d", ret);
+-			return ret;
++			goto restore_intr_mask;
+ 		}
+ 
+ 		ret = sdw_bus_clk_stop(&ctrl->bus);
+ 		if (ret < 0 && ret != -ENODATA) {
+ 			dev_err(dev, "bus clock stop failed %d", ret);
+-			return ret;
++			goto restore_intr_mask;
+ 		}
+ 	}
+ 
+@@ -2097,6 +2102,18 @@ static int __maybe_unused swrm_runtime_suspend(struct device *dev)
+ 	}
+ 
+ 	return 0;
++
++restore_intr_mask:
++	/* Preserve the IRQ policy when runtime PM rejects the suspend. */
++	if (!atomic_read(&ctrl->recovery_pending))
++		ctrl->intr_mask |= intr_mask & SWRM_INTERRUPT_STATUS_MASTER_CLASH_DET;
++	if (ctrl->version < SWRM_VERSION_2_0_0)
++		ctrl->reg_write(ctrl,
++				ctrl->reg_layout[SWRM_REG_INTERRUPT_MASK_ADDR],
++				ctrl->intr_mask);
++	ctrl->reg_write(ctrl, ctrl->reg_layout[SWRM_REG_INTERRUPT_CPU_EN],
++			ctrl->intr_mask);
++	return ret;
+ }
+ 
+ static const struct dev_pm_ops swrm_dev_pm_ops = {

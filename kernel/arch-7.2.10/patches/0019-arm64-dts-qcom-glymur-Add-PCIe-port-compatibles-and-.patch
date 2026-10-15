@@ -1,0 +1,102 @@
+From 58fda34d1beec7cf9111e40e195bf75ba046d171 Mon Sep 17 00:00:00 2001
+From: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Date: Thu, 16 Jul 2026 19:33:43 +0200
+Subject: [PATCH 019/127] arm64: dts: qcom: glymur: Add PCIe port compatibles
+ and ports
+
+Centrally define the endpoints to let device DTs that describe PCIe
+devices and/or M.2 connectors refer to them without error-prone
+duplication.
+
+Signed-off-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260716-topic-smb2370_port2-v1-2-83d02b2ba4b0@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit e9d928da6f25e2c0d926c15b66fab52602e86f8f)
+---
+ arch/arm64/boot/dts/qcom/glymur.dtsi | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index ddf64fb5276292f213c2f3e88ff5b88690caa174..7ad3dc3d149c23e0532c691493acf2f447dbc498 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -2947,6 +2947,7 @@ opp-32000000-4 {
+ 
+ 			pcie4_port0: pcie@0 {
+ 				device_type = "pci";
++				compatible = "pciclass,0604";
+ 				reg = <0x0 0x0 0x0 0x0 0x0>;
+ 				bus-range = <0x01 0xff>;
+ 
+@@ -2955,6 +2956,11 @@ pcie4_port0: pcie@0 {
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;
+ 				ranges;
++
++				port {
++					pcie4_port0_ep: endpoint {
++					};
++				};
+ 			};
+ 		};
+ 
+@@ -3213,6 +3219,7 @@ opp-128000000-5 {
+ 
+ 			pcie5_port0: pcie@0 {
+ 				device_type = "pci";
++				compatible = "pciclass,0604";
+ 				reg = <0x0 0x0 0x0 0x0 0x0>;
+ 				bus-range = <0x01 0xff>;
+ 
+@@ -3221,6 +3228,11 @@ pcie5_port0: pcie@0 {
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;
+ 				ranges;
++
++				port {
++					pcie5_port0_ep: endpoint {
++					};
++				};
+ 			};
+ 		};
+ 
+@@ -3423,6 +3435,7 @@ opp-32000000-4 {
+ 
+ 			pcie6_port0: pcie@0 {
+ 				device_type = "pci";
++				compatible = "pciclass,0604";
+ 				reg = <0x0 0x0 0x0 0x0 0x0>;
+ 				bus-range = <0x01 0xff>;
+ 
+@@ -3431,6 +3444,11 @@ pcie6_port0: pcie@0 {
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;
+ 				ranges;
++
++				port {
++					pcie6_port0_ep: endpoint {
++					};
++				};
+ 			};
+ 		};
+ 
+@@ -3689,6 +3707,7 @@ opp-128000000-5 {
+ 
+ 			pcie3b_port0: pcie@0 {
+ 				device_type = "pci";
++				compatible = "pciclass,0604";
+ 				reg = <0x0 0x0 0x0 0x0 0x0>;
+ 				bus-range = <0x01 0xff>;
+ 
+@@ -3697,6 +3716,11 @@ pcie3b_port0: pcie@0 {
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;
+ 				ranges;
++
++				port {
++					pcie3b_port0_ep: endpoint {
++					};
++				};
+ 			};
+ 		};
+ 

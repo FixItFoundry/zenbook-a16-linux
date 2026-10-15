@@ -1,0 +1,58 @@
+From 647851f226828da9154584c7d1315410d8c87e7f Mon Sep 17 00:00:00 2001
+From: Abel Vesa <abel.vesa@oss.qualcomm.com>
+Date: Wed, 15 Jul 2026 16:29:14 +0300
+Subject: [PATCH 049/127] dt-bindings: clock: qcom: glymur-gcc: Add missing CX
+ power domain
+
+The GDSCs provided by the Glymur GCC are supplied by the RPMh CX power
+domain. Model that parent domain in the GCC binding so the provider can
+describe the dependency in devicetree.
+
+Add a single CX power-domain entry to the binding and make it required,
+matching the hardware description needed by the GCC node.
+
+Fixes: ee2d967030fe ("dt-bindings: clock: qcom: document the Glymur Global Clock Controller")
+Signed-off-by: Abel Vesa <abel.vesa@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260715-glymur-fix-gcc-cx-scaling-v3-1-72eb5adad156@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit d22a37e9fba7838cdcb8c55b913b1a37a7a4a198)
+---
+ .../devicetree/bindings/clock/qcom,glymur-gcc.yaml        | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/clock/qcom,glymur-gcc.yaml b/Documentation/devicetree/bindings/clock/qcom,glymur-gcc.yaml
+index b05b0e6c44830f95e21ab5d983b9b8ed80da23b4..7a4054c9f215953e9d781019674ba0fc79abf508 100644
+--- a/Documentation/devicetree/bindings/clock/qcom,glymur-gcc.yaml
++++ b/Documentation/devicetree/bindings/clock/qcom,glymur-gcc.yaml
+@@ -65,9 +65,15 @@ properties:
+       - description: USB4 PHY 2 pcie pipe clock source
+       - description: USB4 PHY 2 Max pipe clock source
+ 
++  power-domains:
++    description:
++      A phandle and PM domain specifier for the CX power domain.
++    maxItems: 1
++
+ required:
+   - compatible
+   - clocks
++  - power-domains
+   - '#power-domain-cells'
+ 
+ allOf:
+@@ -78,6 +84,7 @@ unevaluatedProperties: false
+ examples:
+   - |
+     #include <dt-bindings/clock/qcom,rpmh.h>
++    #include <dt-bindings/power/qcom-rpmpd.h>
+     clock-controller@100000 {
+       compatible = "qcom,glymur-gcc";
+       reg = <0x100000 0x1f9000>;
+@@ -113,6 +120,7 @@ examples:
+                <&usb4_phy_0_pcie_pipe>, <&usb4_phy_0_max_pipe>,
+                <&usb4_phy_1_pcie_pipe>, <&usb4_phy_1_max_pipe>,
+                <&usb4_phy_2_pcie_pipe>, <&usb4_phy_2_max_pipe>;
++      power-domains = <&rpmhpd RPMHPD_CX>;
+       #clock-cells = <1>;
+       #reset-cells = <1>;
+       #power-domain-cells = <1>;

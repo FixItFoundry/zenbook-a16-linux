@@ -1,0 +1,15 @@
+{
+  "status": "source replay verified; hardware acceptance pending",
+  "base_commit": "8d3ae59288f1e7d58d76558a6ee96d533bc5019f",
+  "base_tree": "a25d6a94ad99aa059aa6dc728c45052fb2968352",
+  "stable_patch_sha256": "347a2d6a976bd1f34662ac3ca219e51878900b1c440b380bfa40a47082bfdab1",
+  "base_archive_sha256": "f9fef3d14c0df53819026f4be74459835c2a0b0dcbf5b5bbd9ea19f0829402b3",
+  "arch_recipe_commit": "51f9eab91273ef708a1d6875d8ead2c7cb7371ce",
+  "arch_baseline_tree": "41c13c439ef463077f358529a49f4eb5ed3e878a",
+  "source_commit": "a0cfc8e35aa4a10a9d6aa907fa661468d86ba38c",
+  "source_tree": "4d6a5f56ffa9571ec5b5f053ecbe4861c158b2b2",
+  "release_pattern": "7.2.10-omarchy-a16-<pkgrel>",
+  "source_date_epoch": 1792018800,
+  "patch_count": 127,
+  "soc2_reference_tree": "e3af70b5403334c7d762fdb00b0a7cdfbb5a362c"
+}

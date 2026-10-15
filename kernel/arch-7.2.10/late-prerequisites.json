@@ -1,0 +1,50 @@
+[
+  {
+    "upstream": "3fc686d550f6dba3f4fd53aec173b6dee15e7f98",
+    "result": "b9134de70503f444118cf5b765667e0d2a3e009a",
+    "before_local_patch": 49,
+    "reason": "PCIe ECAM blocker depends on root-port recovery callback and link-down IRQ support."
+  },
+  {
+    "upstream": "4c99bace4f4efdb8dbeddf71cde4a4793f5f2228",
+    "result": "b4af4645bb6ea3f042bc88ee425d42552c6eac65",
+    "before_local_patch": 49,
+    "reason": "PCIe ECAM blocker depends on root-port recovery callback and link-down IRQ support."
+  },
+  {
+    "upstream": "4d88cb82a6d9fcd3815511fbf6df0fb77d9211da",
+    "result": "0ff4b98ddbf2cabaaa503bc5b6a02d47bab11b5f",
+    "before_local_patch": 49,
+    "reason": "PCIe ECAM blocker depends on root-port recovery callback and link-down IRQ support."
+  },
+  {
+    "upstream": "edbafe65eef2b58625db1e113fbbfb1fe10c0291",
+    "result": "cbf85fc625570f78bb8bc4d2b8f20e774ccbac72",
+    "before_local_patch": 51,
+    "reason": "RPMh lifetime fixes require read/write request metadata and shared synchronous read API."
+  },
+  {
+    "upstream": "3275b99ecb5d371df00581cac92ad0d890736b6b",
+    "result": "2350a7814558ba7612130ce7b53509fd0eab4bc7",
+    "before_local_patch": 55,
+    "reason": "GENI transfer lifetime fixes need cancel-before-abort, separate completion events and address/data NACK handling."
+  },
+  {
+    "upstream": "b64f1a070904b46c741f22e963e4ff29347ef220",
+    "result": "c9f70c3209d883327ea58f91eaeb651213cfad6a",
+    "before_local_patch": 55,
+    "reason": "GENI transfer lifetime fixes need cancel-before-abort, separate completion events and address/data NACK handling."
+  },
+  {
+    "upstream": "1275cbed80a740e4d56b6aff2745de9fce4818fa",
+    "result": "972da2f855dffa175be7a594e2edc40b4b582edd",
+    "before_local_patch": 55,
+    "reason": "GENI transfer lifetime fixes need cancel-before-abort, separate completion events and address/data NACK handling."
+  },
+  {
+    "upstream": "729e0af3c2b938a9405e6245aaab97d025e3f427",
+    "result": "a7dc3412c4e21f8ea0280fc025787fdfdd2820ad",
+    "before_local_patch": 63,
+    "reason": "Hold PHY runtime PM reference until probe and Type-C registration are ready; provide balanced err_pm_put unwind."
+  }
+]

@@ -1,0 +1,272 @@
+From ef2b922847b9a57ce6b9132a4daaf54993bda161 Mon Sep 17 00:00:00 2001
+From: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Date: Wed, 1 Jul 2026 12:32:37 +0200
+Subject: [PATCH 025/127] arm64: dts: qcom: Rename pci@ nodes to pcie@
+
+PCIe hosts/devices commonly use the 'pcie' for their node name to
+reflect they're not legacy PCI.
+
+Every couple months someone comes around to clean this up because
+people keep introducing new uses of 'pci@'. Seems like it's my turn
+now, so do that for RCs and the downstream devices (switches etc.)
+defined in board files.
+
+Signed-off-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260701-topic-dts_pci_pcie-v1-1-aab8de213b39@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit e806c63ba51a70aa8e19f749eb36b4d81760f705)
+---
+ arch/arm64/boot/dts/qcom/glymur.dtsi                      | 8 ++++----
+ arch/arm64/boot/dts/qcom/hamoa.dtsi                       | 6 +++---
+ arch/arm64/boot/dts/qcom/lemans-evk-ifp-mezzanine.dtso    | 4 ++--
+ arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts         | 4 ++--
+ arch/arm64/boot/dts/qcom/monaco-evk-ifp-mezzanine.dtso    | 4 ++--
+ arch/arm64/boot/dts/qcom/monaco.dtsi                      | 4 ++--
+ .../dts/qcom/qcs6490-rb3gen2-industrial-mezzanine.dtso    | 8 ++++----
+ arch/arm64/boot/dts/qcom/qcs6490-rb3gen2.dts              | 4 ++--
+ .../boot/dts/qcom/qcs6490-thundercomm-minipc-g1iot.dts    | 4 ++--
+ 9 files changed, 23 insertions(+), 23 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index dd62f2b29aff6a0d4b649589c4e799330e990760..985fe9e916bf628cc11571bc98d206dbacf00192 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -2827,7 +2827,7 @@ pcie_west_slv_noc: interconnect@1920000 {
+ 			#interconnect-cells = <2>;
+ 		};
+ 
+-		pcie4: pci@1bf0000 {
++		pcie4: pcie@1bf0000 {
+ 			device_type = "pci";
+ 			compatible = "qcom,glymur-pcie", "qcom,pcie-x1e80100";
+ 			reg = <0x0 0x01bf0000 0x0 0x3000>,
+@@ -3043,7 +3043,7 @@ pcie4_phy: phy@1bf6000 {
+ 			status = "disabled";
+ 		};
+ 
+-		pcie5: pci@1b40000 {
++		pcie5: pcie@1b40000 {
+ 			device_type = "pci";
+ 			compatible = "qcom,glymur-pcie", "qcom,pcie-x1e80100";
+ 			reg = <0x0 0x01b40000 0x0 0x3000>,
+@@ -3315,7 +3315,7 @@ pcie5_phy: phy@1b50000 {
+ 			status = "disabled";
+ 		};
+ 
+-		pcie6: pci@1c00000 {
++		pcie6: pcie@1c00000 {
+ 			device_type = "pci";
+ 			compatible = "qcom,glymur-pcie", "qcom,pcie-x1e80100";
+ 			reg = <0x0 0x01c00000 0x0 0x3000>,
+@@ -3531,7 +3531,7 @@ pcie6_phy: phy@1c06000 {
+ 			status = "disabled";
+ 		};
+ 
+-		pcie3b: pci@1b80000 {
++		pcie3b: pcie@1b80000 {
+ 			device_type = "pci";
+ 			compatible = "qcom,glymur-pcie", "qcom,pcie-x1e80100";
+ 			reg = <0x0 0x01b80000 0x0 0x3000>,
+diff --git a/arch/arm64/boot/dts/qcom/hamoa.dtsi b/arch/arm64/boot/dts/qcom/hamoa.dtsi
+index fd86f4761eab9addc160fda03573edda3445a013..e496da59ce33ba796be5d31193fe40dbac6af853 100644
+--- a/arch/arm64/boot/dts/qcom/hamoa.dtsi
++++ b/arch/arm64/boot/dts/qcom/hamoa.dtsi
+@@ -3462,7 +3462,7 @@ pcie3_phy: phy@1be0000 {
+ 			status = "disabled";
+ 		};
+ 
+-		pcie6a: pci@1bf8000 {
++		pcie6a: pcie@1bf8000 {
+ 			device_type = "pci";
+ 			compatible = "qcom,pcie-x1e80100";
+ 			reg = <0 0x01bf8000 0 0x3000>,
+@@ -3605,7 +3605,7 @@ pcie6a_phy: phy@1bfc000 {
+ 			status = "disabled";
+ 		};
+ 
+-		pcie5: pci@1c00000 {
++		pcie5: pcie@1c00000 {
+ 			device_type = "pci";
+ 			compatible = "qcom,pcie-x1e80100";
+ 			reg = <0 0x01c00000 0 0x3000>,
+@@ -3742,7 +3742,7 @@ pcie5_phy: phy@1c06000 {
+ 			status = "disabled";
+ 		};
+ 
+-		pcie4: pci@1c08000 {
++		pcie4: pcie@1c08000 {
+ 			device_type = "pci";
+ 			compatible = "qcom,pcie-x1e80100";
+ 			reg = <0 0x01c08000 0 0x3000>,
+diff --git a/arch/arm64/boot/dts/qcom/lemans-evk-ifp-mezzanine.dtso b/arch/arm64/boot/dts/qcom/lemans-evk-ifp-mezzanine.dtso
+index 22c975628ed791556a79d9320e621256efc5892a..6cfa0bc1440e91d32df0695ae4059050e4e20b56 100644
+--- a/arch/arm64/boot/dts/qcom/lemans-evk-ifp-mezzanine.dtso
++++ b/arch/arm64/boot/dts/qcom/lemans-evk-ifp-mezzanine.dtso
+@@ -271,7 +271,7 @@ pcie@3,0 {
+ 			ranges;
+ 			bus-range = <0x5 0xff>;
+ 
+-			pci@0,0 {
++			pcie@0,0 {
+ 				reg = <0x50000 0x0 0x0 0x0 0x0>;
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;
+@@ -279,7 +279,7 @@ pci@0,0 {
+ 				ranges;
+ 			};
+ 
+-			pci@0,1 {
++			pcie@0,1 {
+ 				reg = <0x50100 0x0 0x0 0x0 0x0>;
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;
+diff --git a/arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts b/arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts
+index 379b796f261f4c8f6b7712c5d340b20be1b9217c..e1cc3954efe887bec00d48aa99b82fa6bb1c4050 100644
+--- a/arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts
++++ b/arch/arm64/boot/dts/qcom/monaco-arduino-monza.dts
+@@ -340,7 +340,7 @@ &pcie1 {
+ &pcieport0 {
+ 	reset-gpios = <&tlmm 2 GPIO_ACTIVE_LOW>;
+ 
+-	pci@0,0 {
++	pcie@0,0 {
+ 		#address-cells = <3>;
+ 		#size-cells = <2>;
+ 		device_type = "pci";
+@@ -348,7 +348,7 @@ pci@0,0 {
+ 		ranges;
+ 		reg = <0x010000 0x00 0x00 0x00 0x00>;
+ 
+-		pci@2,0 {
++		pcie@2,0 {
+ 			#address-cells = <3>;
+ 			#size-cells = <2>;
+ 			device_type = "pci";
+diff --git a/arch/arm64/boot/dts/qcom/monaco-evk-ifp-mezzanine.dtso b/arch/arm64/boot/dts/qcom/monaco-evk-ifp-mezzanine.dtso
+index a6e57ec8a1e14c6317c60b9a64f1a4d3c9395de8..ca5bf0fe5ec6e2593e42481a42bea495e3cc9028 100644
+--- a/arch/arm64/boot/dts/qcom/monaco-evk-ifp-mezzanine.dtso
++++ b/arch/arm64/boot/dts/qcom/monaco-evk-ifp-mezzanine.dtso
+@@ -117,7 +117,7 @@ pcie@3,0 {
+ 			ranges;
+ 			bus-range = <0x5 0xff>;
+ 
+-			pci@0,0 {
++			pcie@0,0 {
+ 				reg = <0x50000 0x0 0x0 0x0 0x0>;
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;
+@@ -125,7 +125,7 @@ pci@0,0 {
+ 				ranges;
+ 			};
+ 
+-			pci@0,1 {
++			pcie@0,1 {
+ 				reg = <0x50100 0x0 0x0 0x0 0x0>;
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;
+diff --git a/arch/arm64/boot/dts/qcom/monaco.dtsi b/arch/arm64/boot/dts/qcom/monaco.dtsi
+index 61ef690f5fdf74a6906c0aadeb4abb57f9f9a5b4..aecfc14f38bd0394957f2fa8038c2ac53aaf4f2c 100644
+--- a/arch/arm64/boot/dts/qcom/monaco.dtsi
++++ b/arch/arm64/boot/dts/qcom/monaco.dtsi
+@@ -2276,7 +2276,7 @@ mmss_noc: interconnect@17a0000 {
+ 			qcom,bcm-voters = <&apps_bcm_voter>;
+ 		};
+ 
+-		pcie0: pci@1c00000 {
++		pcie0: pcie@1c00000 {
+ 			device_type = "pci";
+ 			compatible = "qcom,pcie-qcs8300", "qcom,pcie-sa8775p";
+ 			reg = <0x0 0x01c00000 0x0 0x3000>,
+@@ -2455,7 +2455,7 @@ pcie0_phy: phy@1c04000 {
+ 			status = "disabled";
+ 		};
+ 
+-		pcie1: pci@1c10000 {
++		pcie1: pcie@1c10000 {
+ 			device_type = "pci";
+ 			compatible = "qcom,pcie-qcs8300", "qcom,pcie-sa8775p";
+ 			reg = <0x0 0x01c10000 0x0 0x3000>,
+diff --git a/arch/arm64/boot/dts/qcom/qcs6490-rb3gen2-industrial-mezzanine.dtso b/arch/arm64/boot/dts/qcom/qcs6490-rb3gen2-industrial-mezzanine.dtso
+index 14c64439ae1e6c4c4d994e8782c01f77983fa2be..46bb52c667a4d7327878dcec13af9adc28ae9c56 100644
+--- a/arch/arm64/boot/dts/qcom/qcs6490-rb3gen2-industrial-mezzanine.dtso
++++ b/arch/arm64/boot/dts/qcom/qcs6490-rb3gen2-industrial-mezzanine.dtso
+@@ -130,7 +130,7 @@ pcie@3,0 {
+ 			ranges;
+ 			bus-range = <0x5 0xff>;
+ 
+-			pci@0,0 {
++			pcie@0,0 {
+ 				reg = <0x50000 0x0 0x0 0x0 0x0>;
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;
+@@ -138,7 +138,7 @@ pci@0,0 {
+ 				ranges;
+ 			};
+ 
+-			pci@0,1 {
++			pcie@0,1 {
+ 				reg = <0x50100 0x0 0x0 0x0 0x0>;
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;
+@@ -225,7 +225,7 @@ pcie@3,0 {
+ 			ranges;
+ 			bus-range = <0x5 0xff>;
+ 
+-			pci@0,0 {
++			pcie@0,0 {
+ 				reg = <0x50000 0x0 0x0 0x0 0x0>;
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;
+@@ -233,7 +233,7 @@ pci@0,0 {
+ 				ranges;
+ 			};
+ 
+-			pci@0,1 {
++			pcie@0,1 {
+ 				reg = <0x50100 0x0 0x0 0x0 0x0>;
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;
+diff --git a/arch/arm64/boot/dts/qcom/qcs6490-rb3gen2.dts b/arch/arm64/boot/dts/qcom/qcs6490-rb3gen2.dts
+index eeb422586896f401e73dff35c4dfd08af25b46d3..5e4cbd16c0a2967995999127d6ca263df23cd5a4 100644
+--- a/arch/arm64/boot/dts/qcom/qcs6490-rb3gen2.dts
++++ b/arch/arm64/boot/dts/qcom/qcs6490-rb3gen2.dts
+@@ -954,7 +954,7 @@ pcie@3,0 {
+ 			ranges;
+ 			bus-range = <0x5 0xff>;
+ 
+-			pci@0,0 {
++			pcie@0,0 {
+ 				reg = <0x50000 0x0 0x0 0x0 0x0>;
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;
+@@ -962,7 +962,7 @@ pci@0,0 {
+ 				ranges;
+ 			};
+ 
+-			pci@0,1 {
++			pcie@0,1 {
+ 				reg = <0x50100 0x0 0x0 0x0 0x0>;
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;
+diff --git a/arch/arm64/boot/dts/qcom/qcs6490-thundercomm-minipc-g1iot.dts b/arch/arm64/boot/dts/qcom/qcs6490-thundercomm-minipc-g1iot.dts
+index 1e773f9300f712e9716e6fa690e309ed18047b0d..f1c63a2d84a837f965ff1d85ada216170f768a5d 100644
+--- a/arch/arm64/boot/dts/qcom/qcs6490-thundercomm-minipc-g1iot.dts
++++ b/arch/arm64/boot/dts/qcom/qcs6490-thundercomm-minipc-g1iot.dts
+@@ -784,7 +784,7 @@ pcie@3,0 {
+ 			ranges;
+ 			bus-range = <0x5 0xff>;
+ 
+-			pci@0,0 {
++			pcie@0,0 {
+ 				reg = <0x50000 0x0 0x0 0x0 0x0>;
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;
+@@ -792,7 +792,7 @@ pci@0,0 {
+ 				ranges;
+ 			};
+ 
+-			pci@0,1 {
++			pcie@0,1 {
+ 				reg = <0x50100 0x0 0x0 0x0 0x0>;
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;

@@ -1,0 +1,50 @@
+From 6714bead8f4c2194a0f7b9094181cb22233771a3 Mon Sep 17 00:00:00 2001
+From: A16 build preparation <a16-build@localhost>
+Date: Wed, 14 Oct 2026 20:40:21 -0400
+Subject: [PATCH 003/127] Arch Linux ARM 7.2.10-1:
+ 0003-Revert-arm64-dts-rockchip-Move-rk3568-PCIe3-MSI-to-u.patch
+
+---
+ arch/arm64/boot/dts/rockchip/rk3568.dtsi | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568.dtsi b/arch/arm64/boot/dts/rockchip/rk3568.dtsi
+index 3bc653f027f1fe35c68b2fb332833efbef159700..97b731fd7340f3d8821bf5abe8650084792ede7b 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3568.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568.dtsi
+@@ -152,7 +152,7 @@ pcie3x1: pcie@fe270000 {
+ 		compatible = "rockchip,rk3568-pcie";
+ 		#address-cells = <3>;
+ 		#size-cells = <2>;
+-		bus-range = <0x10 0x1f>;
++		bus-range = <0x0 0xf>;
+ 		clocks = <&cru ACLK_PCIE30X1_MST>, <&cru ACLK_PCIE30X1_SLV>,
+ 			 <&cru ACLK_PCIE30X1_DBI>, <&cru PCLK_PCIE30X1>,
+ 			 <&cru CLK_PCIE30X1_AUX_NDFT>,
+@@ -177,7 +177,7 @@ pcie3x1: pcie@fe270000 {
+ 		num-ib-windows = <6>;
+ 		num-ob-windows = <2>;
+ 		max-link-speed = <3>;
+-		msi-map = <0x1000 &its 0x1000 0x1000>;
++		msi-map = <0x0 &gic 0x1000 0x1000>;
+ 		num-lanes = <1>;
+ 		phys = <&pcie30phy>;
+ 		phy-names = "pcie-phy";
+@@ -207,7 +207,7 @@ pcie3x2: pcie@fe280000 {
+ 		compatible = "rockchip,rk3568-pcie";
+ 		#address-cells = <3>;
+ 		#size-cells = <2>;
+-		bus-range = <0x20 0x2f>;
++		bus-range = <0x0 0xf>;
+ 		clocks = <&cru ACLK_PCIE30X2_MST>, <&cru ACLK_PCIE30X2_SLV>,
+ 			 <&cru ACLK_PCIE30X2_DBI>, <&cru PCLK_PCIE30X2>,
+ 			 <&cru CLK_PCIE30X2_AUX_NDFT>,
+@@ -232,7 +232,7 @@ pcie3x2: pcie@fe280000 {
+ 		num-ib-windows = <6>;
+ 		num-ob-windows = <2>;
+ 		max-link-speed = <3>;
+-		msi-map = <0x2000 &its 0x2000 0x1000>;
++		msi-map = <0x0 &gic 0x2000 0x1000>;
+ 		num-lanes = <2>;
+ 		phys = <&pcie30phy>;
+ 		phy-names = "pcie-phy";

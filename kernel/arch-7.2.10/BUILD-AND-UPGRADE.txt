@@ -1,0 +1,56 @@
+Arch Linux ARM 7.2.10 A16 development kernel
+
+This is an Arch Linux ARM source/config baseline with A16 backports, packaged
+under linux-omarchy-a16 and linux-omarchy-a16-headers. It is not the unmodified
+stock kernel and does not satisfy a stock-kernel hardware acceptance request.
+The source identity and upstream recipe revision are pinned in build.json.
+The 127-patch series includes five Arch patches, upstream prerequisites and
+the 64-patch A16 soc2 series adapted to 7.2.10. Replay verifies the final Git
+tree, rather than treating a patch applying without an error as sufficient.
+
+Build on an Arch Linux ARM aarch64 host/container, including an ARM Linux VM
+on an Apple Silicon Mac. Run prepare-package.py with a new output directory,
+then run makepkg there. Source archives and the deterministic backport bundle
+have mandatory SHA-256 checks. The package build validates its release,
+configuration, A16 DTB and both SoundWire keep-runtime-active properties.
+The compiler and dependencies are captured by makepkg's .BUILDINFO. A pinned
+build timestamp avoids embedding the time of each invocation in the kernel.
+
+The support package under packaging/omarchy-a16-support contains a separately
+compiled public topology, matching UCM and the retained WirePlumber keep-awake
+policy. Its early DSP hook requires this audited kernel series and signed A16
+ADSP/CDSP firmware before generating an initramfs. It loads the processors
+before root mount and stops in an emergency shell if readiness fails. The
+fallback entry disables DSP loading. That entry is a recovery profile of the
+same kernel, not a previous-version rollback. USB-root safety, four-speaker
+playback, microphone, audio after idle, battery/charging and Wi-Fi still require
+physical acceptance. Package and virtual-machine checks do not establish these.
+
+For subsequent audited releases, rebuild and upgrade both kernel and headers
+together with pacman. Their distinct package names do not replace or provide
+linux-omarchy, so a normal stock-kernel update cannot overwrite this kernel's
+files. Limine's existing pacman hooks regenerate the UKI from the versioned
+module tree and installed DTBs; the A16 hardware profile selects this package.
+Retain the previous kernel/headers/support package archives, the matching UKI
+and an independent bootable installer before upgrading. Verify the new UKI
+and its embedded release/DTB before rebooting. Keep /boot mounted throughout.
+
+To roll back, boot the retained installer or working recovery system, mount
+the installed root and its ESP, and reinstall the retained kernel and headers
+together using pacman -U inside the target chroot. Restore the matching support
+package when its interfaces changed, then rebuild the UKI using limine-update.
+Reinstalling old package archives restores their matching DTBs and module tree.
+Do not point an old kernel at a newly selected DTB or assume a saved UKI alone
+preserves all its on-disk modules. Preserve Fedora/Windows boot entries.
+
+A newer Arch kernel is a new backport exercise: update the pinned Arch recipe,
+base/stable archives and configuration, drop patches merged upstream, resolve
+remaining conflicts, verify a new final source tree, and repeat build, package,
+boot and physical tests. Update the early-DSP hook's allowed kernel series only
+after that audit. This does not blindly apply binary patches during pacman -Syu.
+
+Vendor-signed firmware and the card-specific Wi-Fi calibration are not supplied
+by the kernel recipe. The installer stages firmware from this laptop's readable
+Windows driver store or an explicit local import, before changing disk contents.
+Locked BitLocker volumes require a local unlock/export; another model's signed
+firmware or radio calibration is not a substitute.

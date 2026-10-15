@@ -1,0 +1,41 @@
+From 30f6e6f66f530ec6b5a1e39e127645ca84089455 Mon Sep 17 00:00:00 2001
+From: Jagadeesh Kona <jagadeesh.kona@oss.qualcomm.com>
+Date: Tue, 14 Jul 2026 10:59:35 +0530
+Subject: [PATCH 050/127] clk: qcom: camcc-glymur: Add const qualifier for
+ driver_data & CBCRs list
+
+The qcom_cc_driver_data and critical CBCRs list are never modified by
+common code and are expected to be const. Hence add const qualifier for
+these fields.
+
+Signed-off-by: Jagadeesh Kona <jagadeesh.kona@oss.qualcomm.com>
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260714-glymur_camcc_const_fixes-v1-1-c635123ebbeb@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit a9954d40de71cee344dbf9d61600b79379f74bb9)
+---
+ drivers/clk/qcom/camcc-glymur.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/clk/qcom/camcc-glymur.c b/drivers/clk/qcom/camcc-glymur.c
+index a80f05b7bc4841f97d03544c11a77e8821437925..044cc590624e5fa5c3254c48defb754e4b856e63 100644
+--- a/drivers/clk/qcom/camcc-glymur.c
++++ b/drivers/clk/qcom/camcc-glymur.c
+@@ -2223,7 +2223,7 @@ static struct clk_alpha_pll *cam_cc_glymur_plls[] = {
+ 	&cam_cc_pll5,
+ };
+ 
+-static u32 cam_cc_glymur_critical_cbcrs[] = {
++static const u32 cam_cc_glymur_critical_cbcrs[] = {
+ 	0x13960, /* CAM_CC_GDSC_CLK */
+ 	0x1397c, /* CAM_CC_SLEEP_CLK */
+ };
+@@ -2236,7 +2236,7 @@ static const struct regmap_config cam_cc_glymur_regmap_config = {
+ 	.fast_io = true,
+ };
+ 
+-static struct qcom_cc_driver_data cam_cc_glymur_driver_data = {
++static const struct qcom_cc_driver_data cam_cc_glymur_driver_data = {
+ 	.alpha_plls = cam_cc_glymur_plls,
+ 	.num_alpha_plls = ARRAY_SIZE(cam_cc_glymur_plls),
+ 	.clk_cbcrs = cam_cc_glymur_critical_cbcrs,

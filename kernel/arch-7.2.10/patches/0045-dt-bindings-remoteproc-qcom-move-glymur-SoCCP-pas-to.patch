@@ -1,0 +1,43 @@
+From f1df01aaf396c83b6f433da1c80c0cee56403fe7 Mon Sep 17 00:00:00 2001
+From: Ananthu C V <ananthu.cv@oss.qualcomm.com>
+Date: Thu, 9 Jul 2026 23:39:42 -0700
+Subject: [PATCH 045/127] dt-bindings: remoteproc: qcom: move glymur SoCCP pas
+ to standalone
+
+SHM bridge creation is required to enable memory protection for both
+remoteproc metadata and its memory region on Qualcomm SoCs like Glymur
+running non-Gunyah based Hypervisors, unlike Kaanapali.
+
+Having Glymur fall back to the Kaanapali binding is therefore incorrect
+and breaks subsystem restart on Glymur.
+
+Fix this by decoupling Glymur SoCCP PAS from Kaanapali and registering
+it as its own binding.
+
+Fixes: 8b54bacadc0c ("dt-bindings: remoteproc: qcom: Document pas for SoCCP on Kaanapali and Glymur platforms")
+Signed-off-by: Ananthu C V <ananthu.cv@oss.qualcomm.com>
+Reviewed-by: Krzysztof Kozlowski <krzysztof.kozlowski@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260709-glymur-soccp-v6-1-16f70227547d@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit 40acbf6097c5930e9a3ff907d02ce69023b449c4)
+---
+ .../bindings/remoteproc/qcom,kaanapali-soccp-pas.yaml           | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/remoteproc/qcom,kaanapali-soccp-pas.yaml b/Documentation/devicetree/bindings/remoteproc/qcom,kaanapali-soccp-pas.yaml
+index 8fd6913e414d57dd84472a3329bc6e701625d254..e6c78d621d17cc6c87cf280ac4eada541e63e673 100644
+--- a/Documentation/devicetree/bindings/remoteproc/qcom,kaanapali-soccp-pas.yaml
++++ b/Documentation/devicetree/bindings/remoteproc/qcom,kaanapali-soccp-pas.yaml
+@@ -20,11 +20,11 @@ properties:
+     oneOf:
+       - items:
+           - enum:
+-              - qcom,glymur-soccp-pas
+               - qcom,hawi-soccp-pas
+               - qcom,maili-soccp-pas
+           - const: qcom,kaanapali-soccp-pas
+       - enum:
++          - qcom,glymur-soccp-pas
+           - qcom,kaanapali-soccp-pas
+ 
+   reg:

@@ -1,0 +1,29 @@
+From cd4bec77d16df808d7183413c32e2788a78269a2 Mon Sep 17 00:00:00 2001
+From: Pankaj Patil <pankaj.patil@oss.qualcomm.com>
+Date: Sat, 30 May 2026 21:53:20 +0100
+Subject: [PATCH 038/127] dt-bindings: nvmem: qfprom: Add glymur compatible
+
+Document compatible string for the QFPROM on Glymur platform.
+
+Signed-off-by: Pankaj Patil <pankaj.patil@oss.qualcomm.com>
+Reviewed-by: Krzysztof Kozlowski <krzysztof.kozlowski@oss.qualcomm.com>
+Signed-off-by: Srinivas Kandagatla <srini@kernel.org>
+Link: https://patch.msgid.link/20260530205333.117458-2-srini@kernel.org
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 1123dc1ae35f8600ef191930b3c4635b62300cb2)
+---
+ Documentation/devicetree/bindings/nvmem/qcom,qfprom.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/nvmem/qcom,qfprom.yaml b/Documentation/devicetree/bindings/nvmem/qcom,qfprom.yaml
+index 2ab047f2bb69deb26bc53fb7f0941c4e9bae234c..aad8f5ea6fff8adf0e49e21ed30ddf0345b3f1b3 100644
+--- a/Documentation/devicetree/bindings/nvmem/qcom,qfprom.yaml
++++ b/Documentation/devicetree/bindings/nvmem/qcom,qfprom.yaml
+@@ -19,6 +19,7 @@ properties:
+       - enum:
+           - qcom,apq8064-qfprom
+           - qcom,apq8084-qfprom
++          - qcom,glymur-qfprom
+           - qcom,ipq5018-qfprom
+           - qcom,ipq5332-qfprom
+           - qcom,ipq5424-qfprom

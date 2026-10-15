@@ -1,0 +1,130 @@
+From afd8b012cde65caf008fbf2281cdbc0e02f429c5 Mon Sep 17 00:00:00 2001
+From: Baochen Qiang <baochen.qiang@oss.qualcomm.com>
+Date: Thu, 30 Jul 2026 14:17:40 +0800
+Subject: [PATCH 096/127] wifi: ath12k: use per-device max QMI chunk size
+
+When a target memory chunk fails to allocate, ath12k_qmi_alloc_chunk()
+compares the requested chunk size against ATH12K_QMI_MAX_CHUNK_SIZE to
+decide whether to ask the firmware to retry with smaller chunks
+(-EAGAIN) or to give up (-ENOMEM). This threshold is the boundary that
+tells a first (big) request apart from a retry (small) request, so it
+has to match the size the firmware actually falls back to on retry.
+
+That fallback size is not the same across all firmware, though. On
+WCN7850 and QCC2072 the firmware splits the request into 512 KB chunks
+on retry, whereas on QCN9274, IPQ5332 and IPQ5424 the firmware retries
+with larger 2 MB segments instead of 512 KB. A single hardcoded 2 MB
+threshold is therefore wrong for the former, and a hardcoded 512 KB
+threshold would be wrong for the latter.
+
+Replace the hardcoded ATH12K_QMI_MAX_CHUNK_SIZE with a per-device
+qmi_max_chunk_size parameter: SZ_512K for WCN7850 and QCC2072, SZ_2M for
+QCN9274, IPQ5332 and IPQ5424. No functional change for the latter (the
+value stays 2 MB); the former now use the correct 512 KB boundary.
+
+Tested-on: WCN7850 hw2.0 PCI WLAN.HMT.1.1.c5-00302-QCAHMTSWPL_V1.0_V2.0_SILICONZ-1.115823.3
+Tested-on: QCC2072 hw1.0 PCI WLAN.COL.1.0.c2-00074-QCACOLSWPL_V1_TO_SILICONZ-1
+
+Signed-off-by: Baochen Qiang <baochen.qiang@oss.qualcomm.com>
+Reviewed-by: Rameshkumar Sundaram <rameshkumar.sundaram@oss.qualcomm.com>
+Link: https://patch.msgid.link/20260730-ath12k-align-qmi-memory-v1-1-0fef98dda614@oss.qualcomm.com
+Signed-off-by: Jeff Johnson <jeff.johnson@oss.qualcomm.com>
+---
+ drivers/net/wireless/ath/ath12k/hw.h       | 1 +
+ drivers/net/wireless/ath/ath12k/qmi.c      | 3 +--
+ drivers/net/wireless/ath/ath12k/wifi7/hw.c | 7 +++++++
+ 3 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/hw.h b/drivers/net/wireless/ath/ath12k/hw.h
+index 8d2fa0bfb96c1dfdd7f195b519d9b3efbbddb675..94fe3d3cfde4b331fa23277b9699bfb52360e83d 100644
+--- a/drivers/net/wireless/ath/ath12k/hw.h
++++ b/drivers/net/wireless/ath/ath12k/hw.h
+@@ -167,6 +167,7 @@ struct ath12k_hw_params {
+ 	u8 max_radios;
+ 	bool single_pdev_only:1;
+ 	u32 qmi_service_ins_id;
++	u32 qmi_max_chunk_size;
+ 	bool internal_sleep_clock:1;
+ 
+ 	const struct ath12k_hw_ops *hw_ops;
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.c b/drivers/net/wireless/ath/ath12k/qmi.c
+index 6d506322922143d3b9a676b39f5394d8a4da6ec6..6dd4d9c1e94559e2ac64f4fcebeaaace871860f1 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.c
++++ b/drivers/net/wireless/ath/ath12k/qmi.c
+@@ -18,7 +18,6 @@
+ #define SLEEP_CLOCK_SELECT_INTERNAL_BIT	0x02
+ #define HOST_CSTATE_BIT			0x04
+ #define PLATFORM_CAP_PCIE_GLOBAL_RESET	0x08
+-#define ATH12K_QMI_MAX_CHUNK_SIZE	2097152
+ 
+ static const struct qmi_elem_info wlfw_host_mlo_chip_info_s_v01_ei[] = {
+ 	{
+@@ -2604,7 +2603,7 @@ static int ath12k_qmi_alloc_chunk(struct ath12k_base *ab,
+ 					   &chunk->paddr,
+ 					   GFP_KERNEL | __GFP_NOWARN);
+ 	if (!chunk->v.addr) {
+-		if (chunk->size > ATH12K_QMI_MAX_CHUNK_SIZE) {
++		if (chunk->size > ab->hw_params->qmi_max_chunk_size) {
+ 			ab->qmi.target_mem_delayed = true;
+ 			ath12k_warn(ab,
+ 				    "qmi dma allocation failed (%d B type %u), will try later with small size\n",
+diff --git a/drivers/net/wireless/ath/ath12k/wifi7/hw.c b/drivers/net/wireless/ath/ath12k/wifi7/hw.c
+index 855bdfca34b11a4308ee2aa31c19d911b281c275..e3d7b1184adc402dbf80c8af6feffe2f7dcb20c6 100644
+--- a/drivers/net/wireless/ath/ath12k/wifi7/hw.c
++++ b/drivers/net/wireless/ath/ath12k/wifi7/hw.c
+@@ -7,6 +7,7 @@
+ #include <linux/types.h>
+ #include <linux/bitops.h>
+ #include <linux/bitfield.h>
++#include <linux/sizes.h>
+ 
+ #include "../debug.h"
+ #include "../core.h"
+@@ -369,6 +370,7 @@ static const struct ath12k_hw_params ath12k_wifi7_hw_params[] = {
+ 		.max_radios = 1,
+ 		.single_pdev_only = false,
+ 		.qmi_service_ins_id = ATH12K_QMI_WLFW_SERVICE_INS_ID_V01_QCN9274,
++		.qmi_max_chunk_size = SZ_2M,
+ 		.internal_sleep_clock = false,
+ 
+ 		.hw_ops = &qcn9274_ops,
+@@ -460,6 +462,7 @@ static const struct ath12k_hw_params ath12k_wifi7_hw_params[] = {
+ 		.max_radios = 1,
+ 		.single_pdev_only = true,
+ 		.qmi_service_ins_id = ATH12K_QMI_WLFW_SERVICE_INS_ID_V01_WCN7850,
++		.qmi_max_chunk_size = SZ_512K,
+ 		.internal_sleep_clock = true,
+ 
+ 		.hw_ops = &wcn7850_ops,
+@@ -551,6 +554,7 @@ static const struct ath12k_hw_params ath12k_wifi7_hw_params[] = {
+ 		.max_radios = 2,
+ 		.single_pdev_only = false,
+ 		.qmi_service_ins_id = ATH12K_QMI_WLFW_SERVICE_INS_ID_V01_QCN9274,
++		.qmi_max_chunk_size = SZ_2M,
+ 		.internal_sleep_clock = false,
+ 
+ 		.hw_ops = &qcn9274_ops,
+@@ -640,6 +644,7 @@ static const struct ath12k_hw_params ath12k_wifi7_hw_params[] = {
+ 		.max_radios = 1,
+ 		.single_pdev_only = false,
+ 		.qmi_service_ins_id = ATH12K_QMI_WLFW_SERVICE_INS_ID_V01_IPQ5332,
++		.qmi_max_chunk_size = SZ_2M,
+ 		.internal_sleep_clock = false,
+ 
+ 		.hw_ops = &qcn9274_ops,
+@@ -724,6 +729,7 @@ static const struct ath12k_hw_params ath12k_wifi7_hw_params[] = {
+ 		.max_radios = 1,
+ 		.single_pdev_only = true,
+ 		.qmi_service_ins_id = ATH12K_QMI_WLFW_SERVICE_INS_ID_V01_WCN7850,
++		.qmi_max_chunk_size = SZ_512K,
+ 		.internal_sleep_clock = true,
+ 
+ 		.hw_ops = &qcc2072_ops,
+@@ -816,6 +822,7 @@ static const struct ath12k_hw_params ath12k_wifi7_hw_params[] = {
+ 		.max_radios = 1,
+ 		.single_pdev_only = false,
+ 		.qmi_service_ins_id = ATH12K_QMI_WLFW_SERVICE_INS_ID_V01_IPQ5332,
++		.qmi_max_chunk_size = SZ_2M,
+ 		.internal_sleep_clock = false,
+ 
+ 		.hw_ops = &qcn9274_ops,

@@ -1,0 +1,55 @@
+From 5eda10f8ccf7447b3e960064bf84f450be7a0269 Mon Sep 17 00:00:00 2001
+From: Jagadeesh Kona <jagadeesh.kona@oss.qualcomm.com>
+Date: Wed, 24 Jun 2026 20:20:31 +0530
+Subject: [PATCH 018/127] arm64: dts: qcom: glymur: Add camera clock controller
+ support
+
+Add support for camera clock controller for camera clients to
+be able to request for camera clocks on Glymur SoC's.
+
+Reviewed-by: Bryan O'Donoghue <bryan.odonoghue@linaro.org>
+Reviewed-by: Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>
+Reviewed-by: Vladimir Zapolskiy <vladimir.zapolskiy@linaro.org>
+Signed-off-by: Jagadeesh Kona <jagadeesh.kona@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260624-glymur_camcc-v5-3-a321df74b1a1@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit db3c61fa8bc174af66429db33445c1e141552fa2)
+---
+ arch/arm64/boot/dts/qcom/glymur.dtsi | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index c37e8c6595c3c4310be2cce4b246afe47ba99c2d..ddf64fb5276292f213c2f3e88ff5b88690caa174 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -3,6 +3,7 @@
+  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+  */
+ 
++#include <dt-bindings/clock/qcom,glymur-camcc.h>
+ #include <dt-bindings/clock/qcom,glymur-dispcc.h>
+ #include <dt-bindings/clock/qcom,glymur-evacc.h>
+ #include <dt-bindings/clock/qcom,glymur-gcc.h>
+@@ -4879,6 +4880,22 @@ usb_mp: usb@a400000 {
+ 			status = "disabled";
+ 		};
+ 
++		camcc: clock-controller@ade0000 {
++			compatible = "qcom,glymur-camcc";
++			reg = <0x0 0x0ade0000 0x0 0x20000>;
++			clocks = <&gcc GCC_CAMERA_AHB_CLK>,
++				 <&rpmhcc RPMH_CXO_CLK>,
++				 <&rpmhcc RPMH_CXO_CLK_A>,
++				 <&sleep_clk>;
++			power-domains = <&rpmhpd RPMHPD_MXC>,
++					<&rpmhpd RPMHPD_MMCX>;
++			required-opps = <&rpmhpd_opp_low_svs>,
++					<&rpmhpd_opp_low_svs>;
++			#clock-cells = <1>;
++			#reset-cells = <1>;
++			#power-domain-cells = <1>;
++		};
++
+ 		mdss: display-subsystem@ae00000 {
+ 			compatible = "qcom,glymur-mdss";
+ 			reg = <0x0 0x0ae00000 0x0 0x1000>;

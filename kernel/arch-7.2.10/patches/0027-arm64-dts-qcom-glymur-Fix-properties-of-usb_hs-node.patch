@@ -1,0 +1,54 @@
+From 711d921e19fe9ff0e9dc249c28dc84e2accfc3cd Mon Sep 17 00:00:00 2001
+From: Krishna Kurapati <krishna.kurapati@oss.qualcomm.com>
+Date: Thu, 23 Jul 2026 23:02:25 +0530
+Subject: [PATCH 027/127] arm64: dts: qcom: glymur: Fix properties of usb_hs
+ node
+
+The High-speed only controller is DRD capable. Hence move the dr_mode
+property to platform DTS and mark the controller as role switch capable.
+
+While at it, since its high-speed only controller, disable pipe clock
+requirement.
+
+Signed-off-by: Krishna Kurapati <krishna.kurapati@oss.qualcomm.com>
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Reviewed-by: Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260723-glymur-usb-fixes-v1-1-816357d5319c@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit e78c5e9d79e3c024e9b80ec067e62477c29aa29f)
+---
+ arch/arm64/boot/dts/qcom/glymur-crd.dtsi | 2 ++
+ arch/arm64/boot/dts/qcom/glymur.dtsi     | 5 +++--
+ 2 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur-crd.dtsi b/arch/arm64/boot/dts/qcom/glymur-crd.dtsi
+index ae85674c2c121253ebdd0dd487f21852996b77c3..cf54fef5d0c1817e85dbe317d1f191d24da95ebd 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-crd.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur-crd.dtsi
+@@ -1092,6 +1092,8 @@ &usb_1_qmpphy_out {
+ };
+ 
+ &usb_hs {
++	dr_mode = "host";
++
+ 	status = "okay";
+ };
+ 
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index 985fe9e916bf628cc11571bc98d206dbacf00192..0e8a69c66bc33448346ca4db7f575af511b62471 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -4838,10 +4838,11 @@ &mc_virt SLAVE_EBI1 QCOM_ICC_TAG_ALWAYS>,
+ 			snps,dis_u2_susphy_quirk;
+ 			snps,dis_enblslpm_quirk;
+ 
+-			dr_mode = "host";
+-
+ 			maximum-speed = "high-speed";
+ 
++			qcom,select-utmi-as-pipe-clk;
++			usb-role-switch;
++
+ 			status = "disabled";
+ 		};
+ 

@@ -1,0 +1,55 @@
+From 861a8bdc0f54befb49d9eb253790e61091625001 Mon Sep 17 00:00:00 2001
+From: Taniya Das <taniya.das@oss.qualcomm.com>
+Date: Wed, 17 Jun 2026 16:37:55 +0530
+Subject: [PATCH 015/127] arm64: dts: qcom: glymur: Add EVA clock controller
+ node
+
+Add the device node for the EVA clock controller (evacc) for Qualcomm
+Glymur SoC. This clock controller provides clocks and resets to the
+EVA hardware block.
+
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Signed-off-by: Taniya Das <taniya.das@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260617-evacc_glymur-v2-4-905108dacaaa@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit f135aa4dc1aa43bd55edb028f02e96c7ec8b2e63)
+---
+ arch/arm64/boot/dts/qcom/glymur.dtsi | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index b6e45ad6cd2ea961f5a54b9e53a484e86f555383..9cf16622ee6b46af79c0c227ceff6fa70feb4aa9 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -4,6 +4,7 @@
+  */
+ 
+ #include <dt-bindings/clock/qcom,glymur-dispcc.h>
++#include <dt-bindings/clock/qcom,glymur-evacc.h>
+ #include <dt-bindings/clock/qcom,glymur-gcc.h>
+ #include <dt-bindings/clock/qcom,glymur-gpucc.h>
+ #include <dt-bindings/clock/qcom,glymur-tcsr.h>
+@@ -5320,6 +5321,23 @@ videocc: clock-controller@aaf0000 {
+ 			#power-domain-cells = <1>;
+ 		};
+ 
++		evacc: clock-controller@abf0000 {
++			compatible = "qcom,glymur-evacc";
++			reg = <0x0 0x0abf0000 0x0 0x10000>;
++			clocks = <&gcc GCC_EVA_AHB_CLK>,
++				 <&rpmhcc RPMH_CXO_CLK>,
++				 <&sleep_clk>;
++
++			power-domains = <&rpmhpd RPMHPD_MMCX>,
++					<&rpmhpd RPMHPD_MXC>;
++			required-opps = <&rpmhpd_opp_low_svs>,
++					<&rpmhpd_opp_low_svs>;
++
++			#clock-cells = <1>;
++			#reset-cells = <1>;
++			#power-domain-cells = <1>;
++		};
++
+ 		dispcc: clock-controller@af00000 {
+ 			compatible = "qcom,glymur-dispcc";
+ 			reg = <0x0 0x0af00000 0x0 0x20000>;

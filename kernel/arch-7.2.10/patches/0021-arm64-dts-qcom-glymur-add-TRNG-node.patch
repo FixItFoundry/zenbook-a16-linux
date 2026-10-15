@@ -1,0 +1,34 @@
+From 326583581b6b6b75f1a1eee762f3f5533ff554e3 Mon Sep 17 00:00:00 2001
+From: Harshal Dev <harshal.dev@oss.qualcomm.com>
+Date: Fri, 24 Apr 2026 14:05:08 +0530
+Subject: [PATCH 021/127] arm64: dts: qcom: glymur: add TRNG node
+
+Glymur has a True Random Number Generator, add the node with the correct
+compatible set.
+
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Signed-off-by: Harshal Dev <harshal.dev@oss.qualcomm.com>
+Tested-by: Kuldeep Singh <kuldeep.singh@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260424-glymur_trng_enablement-v2-2-0603cbe68440@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit 5d7ebb1f36ad8a51f4e60819a8c5bddf04a8d1a2)
+---
+ arch/arm64/boot/dts/qcom/glymur.dtsi | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index b2ab96fcc7165d656cf27ab419e8fd79eecae9e3..f5e48e7c8fd42ae2530d056aea46910f1d6a6409 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -3759,6 +3759,11 @@ pcie3b_phy: phy@f10000 {
+ 			status = "disabled";
+ 		};
+ 
++		rng: rng@10c3000 {
++			compatible = "qcom,glymur-trng", "qcom,trng";
++			reg = <0x0 0x010c3000 0x0 0x1000>;
++		};
++
+ 		cryptobam: dma-controller@1dc4000 {
+ 			compatible = "qcom,bam-v1.7.4", "qcom,bam-v1.7.0";
+ 			reg = <0x0 0x01dc4000 0x0 0x28000>;

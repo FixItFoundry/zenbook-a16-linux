@@ -1,0 +1,86 @@
+From 8bec71498a243f35f45953621aca40992463c517 Mon Sep 17 00:00:00 2001
+From: Geert Uytterhoeven <geert+renesas@glider.be>
+Date: Sat, 19 Sep 2026 10:13:30 -0400
+Subject: [PATCH 063/127] ASoC: codecs: lpass: Make sure clk_init_data is fully
+ initialized
+
+The clk_init_data structure contains several mutually-exclusive members
+for different methods to specify the possible parents of a clock,
+prompting drivers to initialize only the members they need.  However,
+not initializing all members may cause subtle issues, which are only
+exposed when CONFIG_INIT_STACK_ALL_PATTERN or CONFIG_INIT_STACK_NONE is
+enabled.
+
+Make sure all members are fully initialized, to avoid such bugs, and to
+prevent future breakage when converting drivers to a different method
+for specifying the parents.
+
+Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+Link: https://patch.msgid.link/8f05a164722791336be39c83164a45b7a2d56d1f.1787239902.git.geert+renesas@glider.be
+Signed-off-by: Mark Brown <broonie@kernel.org>
+
+Backport of upstream commit 2cf55c64e64e1426def6f358d655ed036f2b9250.
+---
+ sound/soc/codecs/lpass-rx-macro.c  | 2 +-
+ sound/soc/codecs/lpass-tx-macro.c  | 2 +-
+ sound/soc/codecs/lpass-va-macro.c  | 2 +-
+ sound/soc/codecs/lpass-wsa-macro.c | 2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/sound/soc/codecs/lpass-rx-macro.c b/sound/soc/codecs/lpass-rx-macro.c
+index 6233aa9f5bc6d86d48d793ebcbea3e6ed9edbbb6..825130ec546822f8ce184baf60f52bd3aee4a1d8 100644
+--- a/sound/soc/codecs/lpass-rx-macro.c
++++ b/sound/soc/codecs/lpass-rx-macro.c
+@@ -3726,8 +3726,8 @@ static int rx_macro_register_mclk_output(struct rx_macro *rx)
+ 	struct device *dev = rx->dev;
+ 	const char *parent_clk_name = NULL;
+ 	const char *clk_name = "lpass-rx-mclk";
++	struct clk_init_data init = {};
+ 	struct clk_hw *hw;
+-	struct clk_init_data init;
+ 	int ret;
+ 
+ 	if (rx->npl)
+diff --git a/sound/soc/codecs/lpass-tx-macro.c b/sound/soc/codecs/lpass-tx-macro.c
+index 0cbf50647ff57c294e00d687eacf4675cbd221d9..832e5fc99d4f07f414e9ec2cf1da9f7d891cae71 100644
+--- a/sound/soc/codecs/lpass-tx-macro.c
++++ b/sound/soc/codecs/lpass-tx-macro.c
+@@ -2205,8 +2205,8 @@ static int tx_macro_register_mclk_output(struct tx_macro *tx)
+ 	struct device *dev = tx->dev;
+ 	const char *parent_clk_name = NULL;
+ 	const char *clk_name = "lpass-tx-mclk";
++	struct clk_init_data init = {};
+ 	struct clk_hw *hw;
+-	struct clk_init_data init;
+ 	int ret;
+ 
+ 	if (tx->npl)
+diff --git a/sound/soc/codecs/lpass-va-macro.c b/sound/soc/codecs/lpass-va-macro.c
+index 58a5798823d7fde1299ee2ee939ee39733548507..c6b7bac217a9babe37cc57f3cefaf9d132592bcd 100644
+--- a/sound/soc/codecs/lpass-va-macro.c
++++ b/sound/soc/codecs/lpass-va-macro.c
+@@ -1404,7 +1404,7 @@ static int va_macro_register_fsgen_output(struct va_macro *va)
+ 	struct device_node *np = dev->of_node;
+ 	const char *parent_clk_name;
+ 	const char *clk_name = "fsgen";
+-	struct clk_init_data init;
++	struct clk_init_data init = {};
+ 	int ret;
+ 
+ 	if (va->has_npl_clk)
+diff --git a/sound/soc/codecs/lpass-wsa-macro.c b/sound/soc/codecs/lpass-wsa-macro.c
+index 2e34bb4cebb927dacc61bcc4b0d10f3a6916508a..04ee5abfad0d18374bc4a153f837550d9400e082 100644
+--- a/sound/soc/codecs/lpass-wsa-macro.c
++++ b/sound/soc/codecs/lpass-wsa-macro.c
+@@ -2647,10 +2647,10 @@ static const struct clk_ops swclk_gate_ops = {
+ 
+ static int wsa_macro_register_mclk_output(struct wsa_macro *wsa)
+ {
++	struct clk_init_data init = {};
+ 	struct device *dev = wsa->dev;
+ 	const char *parent_clk_name;
+ 	struct clk_hw *hw;
+-	struct clk_init_data init;
+ 	int ret;
+ 
+ 	if (wsa->npl)

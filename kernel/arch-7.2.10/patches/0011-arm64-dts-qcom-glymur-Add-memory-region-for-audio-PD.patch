@@ -1,0 +1,56 @@
+From 06581b0d873035740cdd2b5d54b1edc8644536af Mon Sep 17 00:00:00 2001
+From: Vinayak Katoch <vinayak.katoch@oss.qualcomm.com>
+Date: Wed, 1 Jul 2026 15:35:31 +0530
+Subject: [PATCH 011/127] arm64: dts: qcom: glymur: Add memory-region for audio
+ PD
+
+Reserve memory region for audio PD dynamic loading and remote heap
+requirements. Add the required VMID list for memory ownership
+transfers.
+
+Signed-off-by: Vinayak Katoch <vinayak.katoch@oss.qualcomm.com>
+Reviewed-by: Ekansh Gupta <ekansh.gupta@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260701-glymur-audio-v1-1-2c3862d95a09@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit 67641246eabd0629b11e767c233d92b855a64f45)
+---
+ arch/arm64/boot/dts/qcom/glymur.dtsi | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index a348bb08fd7801cfb51d79ece7131be388094b72..c3f6ea36ce3b7482dd13a00214c3e56a2be91be8 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -11,6 +11,7 @@
+ #include <dt-bindings/clock/qcom,kaanapali-gxclkctl.h>
+ #include <dt-bindings/clock/qcom,rpmh.h>
+ #include <dt-bindings/dma/qcom-gpi.h>
++#include <dt-bindings/firmware/qcom,scm.h>
+ #include <dt-bindings/gpio/gpio.h>
+ #include <dt-bindings/interconnect/qcom,icc.h>
+ #include <dt-bindings/interconnect/qcom,glymur-rpmh.h>
+@@ -664,6 +665,14 @@ smem_mem: smem@ffe00000 {
+ 			hwlocks = <&tcsr_mutex 3>;
+ 			no-map;
+ 		};
++
++		adsp_rpc_remote_heap_mem: adsp-rpc-remote-heap {
++			compatible = "shared-dma-pool";
++			alloc-ranges = <0x0 0x80000000 0x0 0x80000000>;
++			reusable;
++			alignment = <0x0 0x400000>;
++			size = <0x0 0x800000>;
++		};
+ 	};
+ 
+ 	smp2p-adsp {
+@@ -4068,6 +4077,9 @@ fastrpc {
+ 					compatible = "qcom,glymur-fastrpc", "qcom,kaanapali-fastrpc";
+ 					qcom,glink-channels = "fastrpcglink-apps-dsp";
+ 					label = "adsp";
++					memory-region = <&adsp_rpc_remote_heap_mem>;
++					qcom,vmids = <QCOM_SCM_VMID_LPASS
++						      QCOM_SCM_VMID_ADSP_HEAP>;
+ 					#address-cells = <1>;
+ 					#size-cells = <0>;
+ 

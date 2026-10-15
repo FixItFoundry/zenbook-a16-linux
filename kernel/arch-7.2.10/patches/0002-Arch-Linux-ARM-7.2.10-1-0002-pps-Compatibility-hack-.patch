@@ -1,0 +1,38 @@
+From 9db18b0a84a31974d3823fc3103f052754b2fea0 Mon Sep 17 00:00:00 2001
+From: A16 build preparation <a16-build@localhost>
+Date: Wed, 14 Oct 2026 20:40:21 -0400
+Subject: [PATCH 002/127] Arch Linux ARM 7.2.10-1:
+ 0002-pps-Compatibility-hack-should-be-X86-specific.patch
+
+---
+ drivers/pps/pps.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/pps/pps.c b/drivers/pps/pps.c
+index 7ecdd774a44b9029df64e6d380a39b7b35c9dd0a..941639322ba112d09c2b67b09f8cc3a576d222dc 100644
+--- a/drivers/pps/pps.c
++++ b/drivers/pps/pps.c
+@@ -263,12 +263,13 @@ static long pps_cdev_ioctl(struct file *file,
+ static long pps_cdev_compat_ioctl(struct file *file,
+ 		unsigned int cmd, unsigned long arg)
+ {
+-	struct pps_device *pps = file->private_data;
+-	void __user *uarg = (void __user *) arg;
+ 
+ 	cmd = _IOC(_IOC_DIR(cmd), _IOC_TYPE(cmd), _IOC_NR(cmd), sizeof(void *));
+ 
++#ifdef CONFIG_X86_64
+ 	if (cmd == PPS_FETCH) {
++		struct pps_device *pps = file->private_data;
++		void __user *uarg = (void __user *) arg;
+ 		struct pps_fdata_compat compat;
+ 		struct pps_fdata fdata;
+ 		int err;
+@@ -305,6 +306,7 @@ static long pps_cdev_compat_ioctl(struct file *file,
+ 		return copy_to_user(uarg, &compat,
+ 				sizeof(struct pps_fdata_compat)) ? -EFAULT : 0;
+ 	}
++#endif
+ 
+ 	return pps_cdev_ioctl(file, cmd, arg);
+ }

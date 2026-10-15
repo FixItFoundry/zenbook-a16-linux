@@ -1,0 +1,31 @@
+From b2e7ddaf77ce1f37292fb95e96eda7b126ce37e0 Mon Sep 17 00:00:00 2001
+From: Akhil P Oommen <akhilpo@oss.qualcomm.com>
+Date: Wed, 23 Sep 2026 15:55:46 +0530
+Subject: [PATCH 103/127] drm/msm/a6xx: Clamp MX dependency vote
+
+In some chipsets like Hawi, the GPU arc level can exceed the highest
+available MX corner. In that case, use the highest non-zero MX vote instead
+of failing GMU initialization.
+
+Signed-off-by: Akhil P Oommen <akhilpo@oss.qualcomm.com>
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Patchwork: https://patchwork.freedesktop.org/patch/755599/
+Message-ID: <20260923-hawi-gpu-v1-6-0c3c79a1a470@oss.qualcomm.com>
+Signed-off-by: Rob Clark <robin.clark@oss.qualcomm.com>
+---
+ drivers/gpu/drm/msm/adreno/a6xx_gmu.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+index b7fc25a09a74ff51b9fa1220a3bf13d8945df2d5..b019a26e3012db8ac00df7187d976de5c007aee8 100644
+--- a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
++++ b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+@@ -1828,7 +1828,7 @@ static int a6xx_gmu_rpmh_dep_votes_init(struct device *dev, u32 *votes,
+ 	/* Construct a vote for rest of the corners */
+ 	for (int i = 1; i < freqs_count; i++) {
+ 		unsigned int level = a6xx_gmu_get_arc_level(dev, freqs[i]);
+-		int index = a6xx_gmu_rpmh_arc_index(dev, mx, count, level, false);
++		int index = a6xx_gmu_rpmh_arc_index(dev, mx, count, level, true);
+ 		int bx;
+ 
+ 		if (index < 0)

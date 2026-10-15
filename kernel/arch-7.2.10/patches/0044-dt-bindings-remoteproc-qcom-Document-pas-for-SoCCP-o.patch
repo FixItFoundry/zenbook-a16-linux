@@ -1,0 +1,34 @@
+From 07e7e08c8175ab16d0c80225094b312da3661829 Mon Sep 17 00:00:00 2001
+From: Mukesh Ojha <mukesh.ojha@oss.qualcomm.com>
+Date: Tue, 23 Jun 2026 03:05:20 -0700
+Subject: [PATCH 044/127] dt-bindings: remoteproc: qcom: Document pas for SoCCP
+ on Hawi and Maili SoC
+
+Document SoCCP remote processor used on Qualcomm Hawi and Maili SoC which
+is fully compatible with Kaanapali.
+
+Co-developed-by: Yijie Yang <yijie.yang@oss.qualcomm.com>
+Signed-off-by: Yijie Yang <yijie.yang@oss.qualcomm.com>
+Signed-off-by: Mukesh Ojha <mukesh.ojha@oss.qualcomm.com>
+Signed-off-by: Jingyi Wang <jingyi.wang@oss.qualcomm.com>
+Reviewed-by: Krzysztof Kozlowski <krzysztof.kozlowski@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260623-knp-soccp-v7-4-1ec7bb5c9fec@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit f45ec01bae29a96374690fa323b42717e62aa575)
+---
+ .../bindings/remoteproc/qcom,kaanapali-soccp-pas.yaml           | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/remoteproc/qcom,kaanapali-soccp-pas.yaml b/Documentation/devicetree/bindings/remoteproc/qcom,kaanapali-soccp-pas.yaml
+index ce18460a949fcc1104981ffc52922920a8b4f04e..8fd6913e414d57dd84472a3329bc6e701625d254 100644
+--- a/Documentation/devicetree/bindings/remoteproc/qcom,kaanapali-soccp-pas.yaml
++++ b/Documentation/devicetree/bindings/remoteproc/qcom,kaanapali-soccp-pas.yaml
+@@ -21,6 +21,8 @@ properties:
+       - items:
+           - enum:
+               - qcom,glymur-soccp-pas
++              - qcom,hawi-soccp-pas
++              - qcom,maili-soccp-pas
+           - const: qcom,kaanapali-soccp-pas
+       - enum:
+           - qcom,kaanapali-soccp-pas

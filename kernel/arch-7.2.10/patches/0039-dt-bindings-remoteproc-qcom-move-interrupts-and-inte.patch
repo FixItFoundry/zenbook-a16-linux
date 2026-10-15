@@ -1,0 +1,482 @@
+From d4d5e83cc0f1429b8dcea93cac5715c97ef68e76 Mon Sep 17 00:00:00 2001
+From: Jingyi Wang <jingyi.wang@oss.qualcomm.com>
+Date: Tue, 23 Jun 2026 03:05:18 -0700
+Subject: [PATCH 039/127] dt-bindings: remoteproc: qcom: move interrupts and
+ interrupt-names list out of pas-common
+
+Move interrupts and interrupt-names list out of pas-common since they
+will be redefined differently for Kaanapali SoCCP.
+
+Signed-off-by: Jingyi Wang <jingyi.wang@oss.qualcomm.com>
+Reviewed-by: Krzysztof Kozlowski <krzysztof.kozlowski@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260623-knp-soccp-v7-2-1ec7bb5c9fec@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit 5eb8427596322c9c51638b906f39acff7c10c963)
+---
+ .../bindings/remoteproc/qcom,adsp.yaml        | 16 +++++++++++++++
+ .../bindings/remoteproc/qcom,milos-pas.yaml   | 18 +++++++++++++----
+ .../bindings/remoteproc/qcom,pas-common.yaml  | 16 ++-------------
+ .../bindings/remoteproc/qcom,qcs404-pas.yaml  | 14 +++++++++++--
+ .../bindings/remoteproc/qcom,sa8775p-pas.yaml | 14 +++++++++++--
+ .../bindings/remoteproc/qcom,sc7180-pas.yaml  | 20 +++++++++++++++++++
+ .../remoteproc/qcom,sc8280xp-pas.yaml         | 20 +++++++++++++++++++
+ .../bindings/remoteproc/qcom,sdx55-pas.yaml   | 16 +++++++++++++--
+ .../bindings/remoteproc/qcom,shikra-pas.yaml  | 20 +++++++++++++++++++
+ .../bindings/remoteproc/qcom,sm6115-pas.yaml  | 20 +++++++++++++++++++
+ .../bindings/remoteproc/qcom,sm6350-pas.yaml  | 20 +++++++++++++++++++
+ .../bindings/remoteproc/qcom,sm6375-pas.yaml  | 20 +++++++++++++++++++
+ .../bindings/remoteproc/qcom,sm8150-pas.yaml  | 20 +++++++++++++++++++
+ .../bindings/remoteproc/qcom,sm8350-pas.yaml  | 20 +++++++++++++++++++
+ .../bindings/remoteproc/qcom,sm8550-pas.yaml  | 20 +++++++++++++++++++
+ 15 files changed, 250 insertions(+), 24 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/remoteproc/qcom,adsp.yaml b/Documentation/devicetree/bindings/remoteproc/qcom,adsp.yaml
+index 16a245fe2738d1c9506c6e67de7e73bf2118ca7a..67d9880ace524b9bd3d275271a72620a2e983bab 100644
+--- a/Documentation/devicetree/bindings/remoteproc/qcom,adsp.yaml
++++ b/Documentation/devicetree/bindings/remoteproc/qcom,adsp.yaml
+@@ -49,6 +49,22 @@ properties:
+     maxItems: 1
+     description: Firmware name for the Hexagon core
+ 
++  interrupts:
++    items:
++      - description: Watchdog interrupt
++      - description: Fatal interrupt
++      - description: Ready interrupt
++      - description: Handover interrupt
++      - description: Stop acknowledge interrupt
++
++  interrupt-names:
++    items:
++      - const: wdog
++      - const: fatal
++      - const: ready
++      - const: handover
++      - const: stop-ack
++
+ required:
+   - compatible
+   - memory-region
+diff --git a/Documentation/devicetree/bindings/remoteproc/qcom,milos-pas.yaml b/Documentation/devicetree/bindings/remoteproc/qcom,milos-pas.yaml
+index e5cce0d05fc696ea916eb8c938d6a0958157aafc..d22d50c1e1ea3c2d9114f3f0fd66f81faa013716 100644
+--- a/Documentation/devicetree/bindings/remoteproc/qcom,milos-pas.yaml
++++ b/Documentation/devicetree/bindings/remoteproc/qcom,milos-pas.yaml
+@@ -34,12 +34,22 @@ properties:
+       - const: xo
+ 
+   interrupts:
+-    minItems: 6
+-    maxItems: 6
++    items:
++      - description: Watchdog interrupt
++      - description: Fatal interrupt
++      - description: Ready interrupt
++      - description: Handover interrupt
++      - description: Stop acknowledge interrupt
++      - description: Shutdown acknowledge interrupt
+ 
+   interrupt-names:
+-    minItems: 6
+-    maxItems: 6
++    items:
++      - const: wdog
++      - const: fatal
++      - const: ready
++      - const: handover
++      - const: stop-ack
++      - const: shutdown-ack
+ 
+   qcom,qmp:
+     $ref: /schemas/types.yaml#/definitions/phandle
+diff --git a/Documentation/devicetree/bindings/remoteproc/qcom,pas-common.yaml b/Documentation/devicetree/bindings/remoteproc/qcom,pas-common.yaml
+index 4607b459131b4f2595ccbfba3812386bb7ae70ad..3847aadfa9807dd7fed505ab653f69f806f40e3f 100644
+--- a/Documentation/devicetree/bindings/remoteproc/qcom,pas-common.yaml
++++ b/Documentation/devicetree/bindings/remoteproc/qcom,pas-common.yaml
+@@ -26,23 +26,11 @@ properties:
+ 
+   interrupts:
+     minItems: 5
+-    items:
+-      - description: Watchdog interrupt
+-      - description: Fatal interrupt
+-      - description: Ready interrupt
+-      - description: Handover interrupt
+-      - description: Stop acknowledge interrupt
+-      - description: Shutdown acknowledge interrupt
++    maxItems: 6
+ 
+   interrupt-names:
+     minItems: 5
+-    items:
+-      - const: wdog
+-      - const: fatal
+-      - const: ready
+-      - const: handover
+-      - const: stop-ack
+-      - const: shutdown-ack
++    maxItems: 6
+ 
+   iommus:
+     maxItems: 1
+diff --git a/Documentation/devicetree/bindings/remoteproc/qcom,qcs404-pas.yaml b/Documentation/devicetree/bindings/remoteproc/qcom,qcs404-pas.yaml
+index ad45fd00ae346e4a4a42659f466589718f6a6dff..5854b3d2041d5e8d92bdbe6364bc1cb0cfb7dd49 100644
+--- a/Documentation/devicetree/bindings/remoteproc/qcom,qcs404-pas.yaml
++++ b/Documentation/devicetree/bindings/remoteproc/qcom,qcs404-pas.yaml
+@@ -32,10 +32,20 @@ properties:
+       - const: xo
+ 
+   interrupts:
+-    maxItems: 5
++    items:
++      - description: Watchdog interrupt
++      - description: Fatal interrupt
++      - description: Ready interrupt
++      - description: Handover interrupt
++      - description: Stop acknowledge interrupt
+ 
+   interrupt-names:
+-    maxItems: 5
++    items:
++      - const: wdog
++      - const: fatal
++      - const: ready
++      - const: handover
++      - const: stop-ack
+ 
+   power-domains: false
+   power-domain-names: false
+diff --git a/Documentation/devicetree/bindings/remoteproc/qcom,sa8775p-pas.yaml b/Documentation/devicetree/bindings/remoteproc/qcom,sa8775p-pas.yaml
+index bcd2bcf96e2466ab55cc5bd8071874e6b0d84cac..7f287e55896e5765ec5c7920721026353573c039 100644
+--- a/Documentation/devicetree/bindings/remoteproc/qcom,sa8775p-pas.yaml
++++ b/Documentation/devicetree/bindings/remoteproc/qcom,sa8775p-pas.yaml
+@@ -59,10 +59,20 @@ properties:
+       - description: Memory region for main Firmware authentication
+ 
+   interrupts:
+-    maxItems: 5
++    items:
++      - description: Watchdog interrupt
++      - description: Fatal interrupt
++      - description: Ready interrupt
++      - description: Handover interrupt
++      - description: Stop acknowledge interrupt
+ 
+   interrupt-names:
+-    maxItems: 5
++    items:
++      - const: wdog
++      - const: fatal
++      - const: ready
++      - const: handover
++      - const: stop-ack
+ 
+ required:
+   - compatible
+diff --git a/Documentation/devicetree/bindings/remoteproc/qcom,sc7180-pas.yaml b/Documentation/devicetree/bindings/remoteproc/qcom,sc7180-pas.yaml
+index 66b455d0a8e3271307028a23596d5d460f8b5d44..cb0a61fc301df16993ace43da081a521e61f850d 100644
+--- a/Documentation/devicetree/bindings/remoteproc/qcom,sc7180-pas.yaml
++++ b/Documentation/devicetree/bindings/remoteproc/qcom,sc7180-pas.yaml
+@@ -48,6 +48,26 @@ properties:
+     maxItems: 1
+     description: Firmware name for the Hexagon core
+ 
++  interrupts:
++    minItems: 5
++    items:
++      - description: Watchdog interrupt
++      - description: Fatal interrupt
++      - description: Ready interrupt
++      - description: Handover interrupt
++      - description: Stop acknowledge interrupt
++      - description: Shutdown acknowledge interrupt
++
++  interrupt-names:
++    minItems: 5
++    items:
++      - const: wdog
++      - const: fatal
++      - const: ready
++      - const: handover
++      - const: stop-ack
++      - const: shutdown-ack
++
+ required:
+   - compatible
+   - reg
+diff --git a/Documentation/devicetree/bindings/remoteproc/qcom,sc8280xp-pas.yaml b/Documentation/devicetree/bindings/remoteproc/qcom,sc8280xp-pas.yaml
+index 8227527c1d7705ef8d09c655c3c547596b47bbcc..fef9d7c39f3c5e4e32bbc5430f7933ef857bfbc4 100644
+--- a/Documentation/devicetree/bindings/remoteproc/qcom,sc8280xp-pas.yaml
++++ b/Documentation/devicetree/bindings/remoteproc/qcom,sc8280xp-pas.yaml
+@@ -45,6 +45,26 @@ properties:
+     maxItems: 1
+     description: Firmware name for the Hexagon core
+ 
++  interrupts:
++    minItems: 5
++    items:
++      - description: Watchdog interrupt
++      - description: Fatal interrupt
++      - description: Ready interrupt
++      - description: Handover interrupt
++      - description: Stop acknowledge interrupt
++      - description: Shutdown acknowledge interrupt
++
++  interrupt-names:
++    minItems: 5
++    items:
++      - const: wdog
++      - const: fatal
++      - const: ready
++      - const: handover
++      - const: stop-ack
++      - const: shutdown-ack
++
+ required:
+   - compatible
+   - reg
+diff --git a/Documentation/devicetree/bindings/remoteproc/qcom,sdx55-pas.yaml b/Documentation/devicetree/bindings/remoteproc/qcom,sdx55-pas.yaml
+index 8c4abde74915048b440d860add58a03ef551dedc..2bbd427c6ea493a155336ee5ba6c4df19507a559 100644
+--- a/Documentation/devicetree/bindings/remoteproc/qcom,sdx55-pas.yaml
++++ b/Documentation/devicetree/bindings/remoteproc/qcom,sdx55-pas.yaml
+@@ -30,10 +30,22 @@ properties:
+       - const: xo
+ 
+   interrupts:
+-    minItems: 6
++    items:
++      - description: Watchdog interrupt
++      - description: Fatal interrupt
++      - description: Ready interrupt
++      - description: Handover interrupt
++      - description: Stop acknowledge interrupt
++      - description: Shutdown acknowledge interrupt
+ 
+   interrupt-names:
+-    minItems: 6
++    items:
++      - const: wdog
++      - const: fatal
++      - const: ready
++      - const: handover
++      - const: stop-ack
++      - const: shutdown-ack
+ 
+   power-domains:
+     items:
+diff --git a/Documentation/devicetree/bindings/remoteproc/qcom,shikra-pas.yaml b/Documentation/devicetree/bindings/remoteproc/qcom,shikra-pas.yaml
+index 253b14eb2b598f0ca91854c8ff4d0b785090e621..34a2f15e9361695370625ec1629147f60496c3d5 100644
+--- a/Documentation/devicetree/bindings/remoteproc/qcom,shikra-pas.yaml
++++ b/Documentation/devicetree/bindings/remoteproc/qcom,shikra-pas.yaml
+@@ -51,6 +51,26 @@ properties:
+       and devices related to the remoteproc core.
+     unevaluatedProperties: false
+ 
++  interrupts:
++    minItems: 5
++    items:
++      - description: Watchdog interrupt
++      - description: Fatal interrupt
++      - description: Ready interrupt
++      - description: Handover interrupt
++      - description: Stop acknowledge interrupt
++      - description: Shutdown acknowledge interrupt
++
++  interrupt-names:
++    minItems: 5
++    items:
++      - const: wdog
++      - const: fatal
++      - const: ready
++      - const: handover
++      - const: stop-ack
++      - const: shutdown-ack
++
+   qcom,smem-states:
+     $ref: /schemas/types.yaml#/definitions/phandle-array
+     description: States used by the AP to signal the Hexagon core
+diff --git a/Documentation/devicetree/bindings/remoteproc/qcom,sm6115-pas.yaml b/Documentation/devicetree/bindings/remoteproc/qcom,sm6115-pas.yaml
+index eeb6a8aafeb92a374aab11281ab4dae035f58e7d..987fac433fae53b3b733fdb5963709166ac1b334 100644
+--- a/Documentation/devicetree/bindings/remoteproc/qcom,sm6115-pas.yaml
++++ b/Documentation/devicetree/bindings/remoteproc/qcom,sm6115-pas.yaml
+@@ -51,6 +51,26 @@ properties:
+     maxItems: 1
+     description: Firmware name for the Hexagon core
+ 
++  interrupts:
++    minItems: 5
++    items:
++      - description: Watchdog interrupt
++      - description: Fatal interrupt
++      - description: Ready interrupt
++      - description: Handover interrupt
++      - description: Stop acknowledge interrupt
++      - description: Shutdown acknowledge interrupt
++
++  interrupt-names:
++    minItems: 5
++    items:
++      - const: wdog
++      - const: fatal
++      - const: ready
++      - const: handover
++      - const: stop-ack
++      - const: shutdown-ack
++
+ required:
+   - compatible
+   - reg
+diff --git a/Documentation/devicetree/bindings/remoteproc/qcom,sm6350-pas.yaml b/Documentation/devicetree/bindings/remoteproc/qcom,sm6350-pas.yaml
+index c1a3cc308bdb2d9ab73358d557c98442b9ac6a2a..53ffb1ccd199590beb50e448440a79d4640cd642 100644
+--- a/Documentation/devicetree/bindings/remoteproc/qcom,sm6350-pas.yaml
++++ b/Documentation/devicetree/bindings/remoteproc/qcom,sm6350-pas.yaml
+@@ -45,6 +45,26 @@ properties:
+     maxItems: 1
+     description: Firmware name for the Hexagon core
+ 
++  interrupts:
++    minItems: 5
++    items:
++      - description: Watchdog interrupt
++      - description: Fatal interrupt
++      - description: Ready interrupt
++      - description: Handover interrupt
++      - description: Stop acknowledge interrupt
++      - description: Shutdown acknowledge interrupt
++
++  interrupt-names:
++    minItems: 5
++    items:
++      - const: wdog
++      - const: fatal
++      - const: ready
++      - const: handover
++      - const: stop-ack
++      - const: shutdown-ack
++
+ required:
+   - compatible
+   - reg
+diff --git a/Documentation/devicetree/bindings/remoteproc/qcom,sm6375-pas.yaml b/Documentation/devicetree/bindings/remoteproc/qcom,sm6375-pas.yaml
+index 7286b2baa19f2a8a41fbf193bd946a9cbe6b8fe1..6823a2a8d74e7bd557518cd48fd8086f7e054b93 100644
+--- a/Documentation/devicetree/bindings/remoteproc/qcom,sm6375-pas.yaml
++++ b/Documentation/devicetree/bindings/remoteproc/qcom,sm6375-pas.yaml
+@@ -39,6 +39,26 @@ properties:
+     maxItems: 1
+     description: Firmware name for the Hexagon core
+ 
++  interrupts:
++    minItems: 5
++    items:
++      - description: Watchdog interrupt
++      - description: Fatal interrupt
++      - description: Ready interrupt
++      - description: Handover interrupt
++      - description: Stop acknowledge interrupt
++      - description: Shutdown acknowledge interrupt
++
++  interrupt-names:
++    minItems: 5
++    items:
++      - const: wdog
++      - const: fatal
++      - const: ready
++      - const: handover
++      - const: stop-ack
++      - const: shutdown-ack
++
+   smd-edge: false
+ 
+ required:
+diff --git a/Documentation/devicetree/bindings/remoteproc/qcom,sm8150-pas.yaml b/Documentation/devicetree/bindings/remoteproc/qcom,sm8150-pas.yaml
+index a8cddf7e2fe1a84064730d847d2f0601b67572ff..8a1fae095a3bdd1be6b09f0a92da0a63bc105709 100644
+--- a/Documentation/devicetree/bindings/remoteproc/qcom,sm8150-pas.yaml
++++ b/Documentation/devicetree/bindings/remoteproc/qcom,sm8150-pas.yaml
+@@ -61,6 +61,26 @@ properties:
+     maxItems: 1
+     description: Firmware name for the Hexagon core
+ 
++  interrupts:
++    minItems: 5
++    items:
++      - description: Watchdog interrupt
++      - description: Fatal interrupt
++      - description: Ready interrupt
++      - description: Handover interrupt
++      - description: Stop acknowledge interrupt
++      - description: Shutdown acknowledge interrupt
++
++  interrupt-names:
++    minItems: 5
++    items:
++      - const: wdog
++      - const: fatal
++      - const: ready
++      - const: handover
++      - const: stop-ack
++      - const: shutdown-ack
++
+ required:
+   - compatible
+   - reg
+diff --git a/Documentation/devicetree/bindings/remoteproc/qcom,sm8350-pas.yaml b/Documentation/devicetree/bindings/remoteproc/qcom,sm8350-pas.yaml
+index 6d09823153fc8331f04d4657d9acba718533cce6..4ea7518db537465b10ee58f7348866f38b9a6889 100644
+--- a/Documentation/devicetree/bindings/remoteproc/qcom,sm8350-pas.yaml
++++ b/Documentation/devicetree/bindings/remoteproc/qcom,sm8350-pas.yaml
+@@ -55,6 +55,26 @@ properties:
+     maxItems: 1
+     description: Firmware name for the Hexagon core
+ 
++  interrupts:
++    minItems: 5
++    items:
++      - description: Watchdog interrupt
++      - description: Fatal interrupt
++      - description: Ready interrupt
++      - description: Handover interrupt
++      - description: Stop acknowledge interrupt
++      - description: Shutdown acknowledge interrupt
++
++  interrupt-names:
++    minItems: 5
++    items:
++      - const: wdog
++      - const: fatal
++      - const: ready
++      - const: handover
++      - const: stop-ack
++      - const: shutdown-ack
++
+ required:
+   - compatible
+   - reg
+diff --git a/Documentation/devicetree/bindings/remoteproc/qcom,sm8550-pas.yaml b/Documentation/devicetree/bindings/remoteproc/qcom,sm8550-pas.yaml
+index 9f30a38152a387806d756b759fe779f8e24983a7..4721c04ce09b40fc8e9ea1b02693b504986039ed 100644
+--- a/Documentation/devicetree/bindings/remoteproc/qcom,sm8550-pas.yaml
++++ b/Documentation/devicetree/bindings/remoteproc/qcom,sm8550-pas.yaml
+@@ -75,6 +75,26 @@ properties:
+       - description: DSM Memory region 2
+       - description: Memory region for Qlink Logging
+ 
++  interrupts:
++    minItems: 5
++    items:
++      - description: Watchdog interrupt
++      - description: Fatal interrupt
++      - description: Ready interrupt
++      - description: Handover interrupt
++      - description: Stop acknowledge interrupt
++      - description: Shutdown acknowledge interrupt
++
++  interrupt-names:
++    minItems: 5
++    items:
++      - const: wdog
++      - const: fatal
++      - const: ready
++      - const: handover
++      - const: stop-ack
++      - const: shutdown-ack
++
+ required:
+   - compatible
+   - reg

@@ -1,0 +1,195 @@
+From f87aff2b06563f040a82fa69e00c847801e4d798 Mon Sep 17 00:00:00 2001
+From: Baochen Qiang <baochen.qiang@oss.qualcomm.com>
+Date: Thu, 30 Jul 2026 14:17:42 +0800
+Subject: [PATCH 098/127] wifi: ath12k: align QMI target memory to 64 KB
+
+ath12k_qmi_alloc_chunk() allocates the target memory chunks the firmware
+requests via dma_alloc_coherent() and hands the resulting physical
+addresses to the firmware. The firmware does not require every chunk to
+be aligned, but each unaligned chunk consumes extra TLB entries when the
+firmware maps it, and too many unaligned chunks exhaust the TLB and make
+the firmware crash. The firmware team recommends aligning the chunks to
+64 KB so that the TLB stays within budget. dma_alloc_coherent() only
+guarantees page alignment, so a chunk can end up unaligned.
+
+Align the physical address handed to the firmware to 64 KB. A natural
+allocation is often already 64 KB aligned, so try the exact size first
+and keep it when it happens to be aligned; only when it is not, free it
+and over-allocate by SZ_64K - PAGE_SIZE and round the base up. Since the
+DMA allocator already guarantees page alignment, that padding is enough
+to reach the next 64 KB boundary. Record the raw allocation in
+paddr_unaligned/vaddr_unaligned/total_size so the chunk can still be
+freed correctly.
+
+Tested-on: WCN7850 hw2.0 PCI WLAN.HMT.1.1.c5-00302-QCAHMTSWPL_V1.0_V2.0_SILICONZ-1.115823.3
+Tested-on: QCC2072 hw1.0 PCI WLAN.COL.1.0.c2-00074-QCACOLSWPL_V1_TO_SILICONZ-1
+
+Signed-off-by: Baochen Qiang <baochen.qiang@oss.qualcomm.com>
+Reviewed-by: Rameshkumar Sundaram <rameshkumar.sundaram@oss.qualcomm.com>
+Link: https://patch.msgid.link/20260730-ath12k-align-qmi-memory-v1-3-0fef98dda614@oss.qualcomm.com
+Signed-off-by: Jeff Johnson <jeff.johnson@oss.qualcomm.com>
+---
+ drivers/net/wireless/ath/ath12k/qmi.c | 79 +++++++++++++++++++++------
+ drivers/net/wireless/ath/ath12k/qmi.h |  4 ++
+ 2 files changed, 65 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.c b/drivers/net/wireless/ath/ath12k/qmi.c
+index fe524ffb35549a7ed3c93c7953896c53f3a22b7c..866d58f446f855fe89f44a7f3d8b8244b73fe1d3 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.c
++++ b/drivers/net/wireless/ath/ath12k/qmi.c
+@@ -14,6 +14,7 @@
+ #include <linux/of_address.h>
+ #include <linux/ioport.h>
+ #include <linux/of_reserved_mem.h>
++#include <linux/sizes.h>
+ 
+ #define SLEEP_CLOCK_SELECT_INTERNAL_BIT	0x02
+ #define HOST_CSTATE_BIT			0x04
+@@ -2532,20 +2533,28 @@ static void ath12k_qmi_free_mlo_mem_chunk(struct ath12k_base *ab,
+ 		mlo_chunk->v.ioaddr = NULL;
+ 	} else if (mlo_chunk->v.addr) {
+ 		dma_free_coherent(ab->dev,
+-				  mlo_chunk->size,
+-				  mlo_chunk->v.addr,
+-				  mlo_chunk->paddr);
++				  mlo_chunk->total_size,
++				  mlo_chunk->vaddr_unaligned,
++				  mlo_chunk->paddr_unaligned);
++		mlo_chunk->vaddr_unaligned = NULL;
+ 		mlo_chunk->v.addr = NULL;
+ 	}
+ 
+ 	mlo_chunk->paddr = 0;
++	mlo_chunk->paddr_unaligned = 0;
+ 	mlo_chunk->size = 0;
+-	if (fixed_mem)
++	mlo_chunk->total_size = 0;
++
++	if (fixed_mem) {
+ 		chunk->v.ioaddr = NULL;
+-	else
++	} else {
+ 		chunk->v.addr = NULL;
++		chunk->vaddr_unaligned = NULL;
++	}
+ 	chunk->paddr = 0;
++	chunk->paddr_unaligned = 0;
+ 	chunk->size = 0;
++	chunk->total_size = 0;
+ }
+ 
+ static void ath12k_qmi_free_target_mem_chunk(struct ath12k_base *ab)
+@@ -2570,14 +2579,17 @@ static void ath12k_qmi_free_target_mem_chunk(struct ath12k_base *ab)
+ 				if (!chunk->v.addr)
+ 					continue;
+ 				dma_free_coherent(ab->dev,
+-						  chunk->prev_size,
+-						  chunk->v.addr,
+-						  chunk->paddr);
++						  chunk->total_size,
++						  chunk->vaddr_unaligned,
++						  chunk->paddr_unaligned);
++				chunk->vaddr_unaligned = NULL;
+ 				chunk->v.addr = NULL;
+ 			}
+ 
+ 			chunk->paddr = 0;
++			chunk->paddr_unaligned = 0;
+ 			chunk->size = 0;
++			chunk->total_size = 0;
+ 		}
+ 	}
+ 
+@@ -2590,6 +2602,10 @@ static void ath12k_qmi_free_target_mem_chunk(struct ath12k_base *ab)
+ static int ath12k_qmi_alloc_chunk(struct ath12k_base *ab,
+ 				  struct target_mem_chunk *chunk)
+ {
++	dma_addr_t paddr;
++	size_t size;
++	void *vaddr;
++
+ 	/* Firmware reloads in recovery/resume.
+ 	 * In such cases, no need to allocate memory for FW again.
+ 	 */
+@@ -2599,29 +2615,56 @@ static int ath12k_qmi_alloc_chunk(struct ath12k_base *ab,
+ 			goto this_chunk_done;
+ 
+ 		/* cannot reuse the existing chunk */
+-		dma_free_coherent(ab->dev, chunk->prev_size,
+-				  chunk->v.addr, chunk->paddr);
++		dma_free_coherent(ab->dev, chunk->total_size,
++				  chunk->vaddr_unaligned, chunk->paddr_unaligned);
+ 		chunk->v.addr = NULL;
++		chunk->vaddr_unaligned = NULL;
++		chunk->paddr_unaligned = 0;
++		chunk->total_size = 0;
+ 	}
+ 
+-	chunk->v.addr = dma_alloc_coherent(ab->dev,
+-					   chunk->size,
+-					   &chunk->paddr,
++	/*
++	 * Each unaligned chunk costs the firmware extra TLB entries when
++	 * mapping it, and too many unaligned chunks exhaust the TLB and
++	 * crash the firmware, so align the base to 64 KB. The DMA
++	 * allocator only guarantees page alignment, but a natural
++	 * allocation is often already 64 KB aligned. Try the exact size
++	 * first and keep it when it happens to be aligned; only fall back
++	 * to over-allocating and rounding up when it is not.
++	 */
++	size = chunk->size;
++	vaddr = dma_alloc_coherent(ab->dev, size, &paddr,
++				   GFP_KERNEL | __GFP_NOWARN);
++	if (vaddr && !IS_ALIGNED(paddr, SZ_64K)) {
++		dma_free_coherent(ab->dev, size, vaddr, paddr);
++
++		size = chunk->size + SZ_64K - PAGE_SIZE;
++		vaddr = dma_alloc_coherent(ab->dev, size, &paddr,
+ 					   GFP_KERNEL | __GFP_NOWARN);
+-	if (!chunk->v.addr) {
++	}
++
++	if (!vaddr) {
+ 		if (chunk->size > ab->hw_params->qmi_max_chunk_size) {
+ 			ab->qmi.target_mem_delayed = true;
+ 			ath12k_warn(ab,
+-				    "qmi dma allocation failed (%d B type %u), will try later with small size\n",
+-				    chunk->size,
++				    "qmi dma allocation failed (%zu B type %u), will try later with small size\n",
++				    size,
+ 				    chunk->type);
+ 			ath12k_qmi_free_target_mem_chunk(ab);
+ 			return -EAGAIN;
+ 		}
+-		ath12k_warn(ab, "memory allocation failure for %u size: %d\n",
+-			    chunk->type, chunk->size);
++		ath12k_warn(ab, "memory allocation failure for %u size: %zu\n",
++			    chunk->type, size);
+ 		return -ENOMEM;
+ 	}
++
++	chunk->vaddr_unaligned = vaddr;
++	chunk->paddr_unaligned = paddr;
++	chunk->total_size = size;
++
++	chunk->paddr = ALIGN(paddr, SZ_64K);
++	chunk->v.addr = (u8 *)vaddr + (chunk->paddr - paddr);
++
+ 	chunk->prev_type = chunk->type;
+ 	chunk->prev_size = chunk->size;
+ this_chunk_done:
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.h b/drivers/net/wireless/ath/ath12k/qmi.h
+index 2a63e214eb42c5526607351a97fab2118eb26238..9281ed711c65e7fd5b1f01b0a0c81960396616e7 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.h
++++ b/drivers/net/wireless/ath/ath12k/qmi.h
+@@ -104,6 +104,10 @@ struct target_mem_chunk {
+ 		void __iomem *ioaddr;
+ 		void *addr;
+ 	} v;
++
++	dma_addr_t paddr_unaligned;
++	void *vaddr_unaligned;
++	u32 total_size;
+ };
+ 
+ struct target_info {
