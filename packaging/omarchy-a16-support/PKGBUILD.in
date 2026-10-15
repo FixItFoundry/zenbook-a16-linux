@@ -1,13 +1,21 @@
 pkgname=omarchy-a16-support
 pkgver=20261014
-pkgrel=3
+pkgrel=4
 pkgdesc='Experimental ASUS Zenbook A16 audio and early DSP support'
 arch=(aarch64)
 url='https://github.com/FixItFoundry/zenbook-a16-linux'
 license=(BSD-3-Clause GPL-2.0-only)
-depends=(alsa-ucm-conf mkinitcpio wireplumber)
+# A new kernel series needs an audited hook update in the same transaction.
+# pacman compares pkgver here, allowing subsequent package revisions of 7.2.10.
+depends=(alsa-ucm-conf mkinitcpio wireplumber python util-linux
+         'linux-omarchy-a16=7.2.10' 'linux-omarchy-a16-headers=7.2.10')
 source=(support.tar.xz)
 sha256sums=('@SUPPORT_SHA256@')
+
+check() {
+  cd "$srcdir/support"
+  python test_verify_boot.py
+}
 
 package() {
   cd "$srcdir/support"
@@ -25,4 +33,7 @@ package() {
   install -Dm644 LICENSE.BSD-3-Clause "$pkgdir/usr/share/licenses/$pkgname/LICENSE.BSD-3-Clause"
   install -Dm644 GLYMUR-A16.build.txt "$pkgdir/usr/share/doc/$pkgname/topology-build.txt"
   install -Dm644 SHA256SUMS "$pkgdir/usr/share/doc/$pkgname/source-SHA256SUMS"
+  install -Dm755 verify-boot.py "$pkgdir/usr/lib/omarchy-a16/verify-boot"
+  install -Dm644 60-omarchy-a16-boot-check.hook zz-omarchy-a16-boot-check.hook \
+    -t "$pkgdir/usr/share/libalpm/hooks"
 }

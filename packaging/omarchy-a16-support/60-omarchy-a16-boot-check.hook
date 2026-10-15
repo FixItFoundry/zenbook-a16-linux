@@ -1,0 +1,16 @@
+[Trigger]
+Operation = Upgrade
+Type = Package
+Target = linux-omarchy-a16
+Target = linux-omarchy-a16-headers
+Target = omarchy-a16-support
+Target = mkinitcpio
+Target = systemd
+Target = linux-firmware*
+Target = qcom-firmware-extract
+
+[Action]
+Description = Checking the A16 EFI mount and current boot image...
+When = PreTransaction
+Exec = /usr/lib/omarchy-a16/verify-boot pre
+AbortOnFail
