@@ -3,7 +3,7 @@
 build() {
   case "$KERNELVERSION" in
     7.2.10-omarchy-a16-*) ;;
-    *) error 'The A16 early-DSP profile requires its audited kernel'; return 1 ;;
+    *) die 'The A16 early-DSP profile requires its audited kernel' ;;
   esac
   local firmware directory suffix found module
   for firmware in \
@@ -23,8 +23,9 @@ build() {
       done
     done
     if (( ! found )); then
-      error "Missing required A16 early firmware: $firmware"
-      return 1
+      # mkinitcpio deliberately ignores build()'s return status. Abort through
+      # its fatal-error API so an incomplete image cannot look successful.
+      die "Missing required A16 early firmware: $firmware"
     fi
   done
   # The kernel's Glymur PD mapper supplies the service map; no untracked JSON
