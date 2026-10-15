@@ -45,7 +45,7 @@ build() {
     # PHY dependencies are described by DT phandles, so modinfo's dependency
     # closure alone cannot include the drivers needed to find USB/NVMe root.
     for module in dwc3_qcom phy_qcom_qmp_combo phy_qcom_qmp_usb \
-      phy_qcom_m31_eusb phy_qcom_eusb2_repeater phy_qcom_qmp_pcie_multiphy \
+      phy_qcom_m31_eusb2 phy_qcom_eusb2_repeater phy_qcom_qmp_pcie_multiphy \
       qcom_glink_smem dispcc_glymur gpucc_glymur; do
       add_module "$module" || die "Missing required A16 platform module: $module"
     done
