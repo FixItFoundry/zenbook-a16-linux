@@ -3,7 +3,7 @@
 pkgbase=linux-omarchy-a16
 pkgname=(linux-omarchy-a16 linux-omarchy-a16-headers)
 pkgver=7.2.10
-pkgrel=1
+pkgrel=2
 pkgdesc='Arch Linux ARM kernel with ASUS Zenbook A16 bring-up backports'
 arch=(aarch64)
 url='https://github.com/FixItFoundry/zenbook-a16-linux'
