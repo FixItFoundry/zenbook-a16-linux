@@ -1,0 +1,28 @@
+pkgname=omarchy-a16-support
+pkgver=20261014
+pkgrel=2
+pkgdesc='Experimental ASUS Zenbook A16 audio and early DSP support'
+arch=(aarch64)
+url='https://github.com/FixItFoundry/zenbook-a16-linux'
+license=(BSD-3-Clause GPL-2.0-only)
+depends=(alsa-ucm-conf mkinitcpio wireplumber)
+source=(support.tar.xz)
+sha256sums=('@SUPPORT_SHA256@')
+
+package() {
+  cd "$srcdir/support"
+  install -Dm755 initcpio-install "$pkgdir/usr/lib/initcpio/install/omarchy-a16-dsp"
+  install -Dm755 initcpio-hook "$pkgdir/usr/lib/initcpio/hooks/omarchy-a16-dsp"
+  install -Dm644 remoteproc-blacklist.conf "$pkgdir/usr/share/omarchy-a16/remoteproc-blacklist.conf"
+  install -Dm644 mkinitcpio.conf "$pkgdir/usr/share/omarchy-a16/mkinitcpio.conf"
+  install -Dm644 GLYMUR-A16.tplg \
+    "$pkgdir/usr/lib/firmware/qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin"
+  install -Dm644 HiFi.conf "$pkgdir/usr/share/alsa/ucm2/Qualcomm/omarchy-a16/HiFi.conf"
+  install -Dm644 ucm.conf \
+    "$pkgdir/usr/share/alsa/ucm2/conf.d/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA.conf"
+  install -Dm644 51-glymur-ucm.conf \
+    "$pkgdir/usr/share/wireplumber/wireplumber.conf.d/51-omarchy-a16-keep-awake.conf"
+  install -Dm644 LICENSE.BSD-3-Clause "$pkgdir/usr/share/licenses/$pkgname/LICENSE.BSD-3-Clause"
+  install -Dm644 GLYMUR-A16.build.txt "$pkgdir/usr/share/doc/$pkgname/topology-build.txt"
+  install -Dm644 SHA256SUMS "$pkgdir/usr/share/doc/$pkgname/source-SHA256SUMS"
+}

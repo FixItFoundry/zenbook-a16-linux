@@ -1,0 +1,62 @@
+#!/usr/bin/ash
+# BusyBox initramfs hook. Never unload, restart or hand-start a remote processor.
+
+a16_wait_remoteprocs() {
+  local root="$1" attempts="$2" attempt=0 remote name state adsp cdsp soccp
+  while [ "$attempt" -lt "$attempts" ]; do
+    adsp=0 cdsp=0 soccp=0
+    for remote in "$root"/remoteproc*; do
+      [ -r "$remote/name" ] && [ -r "$remote/state" ] || continue
+      read -r name < "$remote/name"
+      read -r state < "$remote/state"
+      case "$name:$state" in
+        adsp:running) adsp=1 ;;
+        cdsp:running) cdsp=1 ;;
+        soccp:attached|soccp:running) soccp=1 ;;
+        adsp:crashed|cdsp:crashed|soccp:crashed) return 1 ;;
+      esac
+    done
+    [ "$adsp$cdsp$soccp" = 111 ] && return 0
+    attempt=$((attempt + 1))
+    sleep 1
+  done
+  return 1
+}
+
+a16_emergency() {
+  err "$1"
+  echo 'A16 DSP startup stopped before mounting root. Reboot into the DSP-disabled rescue entry.'
+  echo 'Do not start or reload these processors after mounting a USB root disk.'
+  # Replace PID 1; exiting this shell must not resume the root-mount sequence.
+  launch_interactive_shell --exec
+}
+
+run_hook() {
+  if ! tr '\000' '\n' < /sys/firmware/devicetree/base/compatible 2>/dev/null |
+    grep -Fqix -e asus,zenbook-a16-ux3607oa -e asus,ux3607oa; then
+    return
+  fi
+  if [ "$(getarg omarchy.a16.dsp)" = off ]; then
+    msg 'A16 DSPs remain disabled for this rescue boot'
+    return
+  fi
+  if grep -Eq ' /(sysroot|new_root) ' /proc/mounts; then
+    a16_emergency 'Refusing to start A16 DSPs after root has been mounted'
+    return 1
+  fi
+  if ! modprobe qcom_pd_mapper || ! modprobe qcom_q6v5_pas; then
+    a16_emergency 'Could not load the A16 remote-processor drivers'
+    return 1
+  fi
+  if ! a16_wait_remoteprocs /sys/class/remoteproc 60; then
+    a16_emergency 'ADSP, CDSP and SoCCP did not become ready within 60 seconds'
+    return 1
+  fi
+  # Finish handling any USB disconnect/reconnect triggered by DSP startup
+  # before block/encrypt hooks discover the root disk.
+  if ! udevadm settle --timeout=30; then
+    a16_emergency 'Devices did not settle after A16 DSP startup'
+    return 1
+  fi
+  msg 'A16 ADSP/CDSP running and SoCCP ready before root mount'
+}
