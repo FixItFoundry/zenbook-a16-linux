@@ -1,9 +1,14 @@
 #!/bin/bash
 # mkinitcpio build hook: only activated by the installed A16 profile.
 build() {
+  local a16_abi=legacy
   case "$KERNELVERSION" in
     7.2.10-omarchy-a16-*) ;;
-    *) die 'The A16 early-DSP profile requires its audited kernel' ;;
+    *)
+      read -r a16_abi < "/usr/lib/modules/$KERNELVERSION/omarchy-a16-dsp-abi" ||
+        die 'The A16 early-DSP profile requires its audited kernel capability'
+      [[ $a16_abi == 1 ]] || die 'Unsupported A16 early-DSP kernel ABI'
+      ;;
   esac
   local firmware directory suffix found module
   for firmware in \
@@ -35,6 +40,16 @@ build() {
     pinctrl_sm8550_lpass_lpi snd_soc_lpass_wsa_macro snd_soc_lpass_va_macro; do
     add_module "$module" || die "Missing required A16 DSP module: $module"
   done
+  if [[ $a16_abi == 1 ]]; then
+    # Include the shared kernel's modular USB, PHY and display drivers.
+    # PHY dependencies are described by DT phandles, so modinfo's dependency
+    # closure alone cannot include the drivers needed to find USB/NVMe root.
+    for module in dwc3_qcom phy_qcom_qmp_combo phy_qcom_qmp_usb \
+      phy_qcom_m31_eusb phy_qcom_eusb2_repeater phy_qcom_qmp_pcie_multiphy \
+      qcom_glink_smem dispcc_glymur gpucc_glymur; do
+      add_module "$module" || die "Missing required A16 platform module: $module"
+    done
+  fi
   # Block udev's automatic load until run_hook has checked the machine and
   # rescue flag. Explicit modprobe in that hook does not use --use-blacklist.
   add_file /usr/share/omarchy-a16/remoteproc-blacklist.conf \

@@ -67,6 +67,26 @@ class BootVerification(unittest.TestCase):
         with self.assertRaises(ValueError):
             boot.verify(self.root)
 
+    def test_shared_kernel_updates_follow_abi_instead_of_version_pin(self):
+        updated = "7.2.11-2-omarchy"
+        (self.root / "usr/share/doc/linux-omarchy-a16").rename(self.root / "usr/share/doc/linux-omarchy")
+        metadata = self.root / "usr/share/doc/linux-omarchy/kernel-release"
+        metadata.write_text(updated)
+        modules = self.root / f"usr/lib/modules/{updated}"
+        (self.root / f"usr/lib/modules/{self.release}").rename(modules)
+        (modules / "build/include/config/kernel.release").write_text(updated)
+        marker = modules / "omarchy-a16-dsp-abi"
+        marker.write_text("1\n")
+        (self.root / "boot/dtbs/linux-omarchy-a16").rename(self.root / "boot/dtbs/linux-omarchy")
+        self.uki.unlink()
+        self.uki = self.root / "boot/EFI/Linux/machine_linux-omarchy.efi"
+        self.uki.write_bytes(image([(key, updated.encode()) if key == ".uname" else (key, value)
+                                    for key, value in self.parts]))
+        self.assertEqual(boot.verify(self.root)["kernel_release"], updated)
+        marker.write_text("2\n")
+        with self.assertRaises(ValueError):
+            boot.verify(self.root)
+
     def test_rejects_truncated_pe(self):
         with self.assertRaises((ValueError, struct.error)):
             boot.sections(b"MZ")

@@ -35,19 +35,28 @@ def sections(data):
 
 
 def verify(root):
-    release = (root / "usr/share/doc/linux-omarchy-a16/kernel-release").read_text().strip()
-    if not release.startswith("7.2.10-omarchy-a16-"):
-        raise ValueError(f"unaudited A16 kernel release: {release}")
+    package = "linux-omarchy"
+    metadata = root / f"usr/share/doc/{package}/kernel-release"
+    if not metadata.exists():
+        # Compatibility for the original independently named test kernel.
+        package = "linux-omarchy-a16"
+        metadata = root / f"usr/share/doc/{package}/kernel-release"
+    release = metadata.read_text().strip()
     modules = root / "usr/lib/modules" / release
+    if package == "linux-omarchy":
+        if (modules / "omarchy-a16-dsp-abi").read_text().strip() != "1":
+            raise ValueError("the shared kernel lacks the required A16 DSP ABI")
+    elif not release.startswith("7.2.10-omarchy-a16-"):
+        raise ValueError(f"unaudited A16 development kernel release: {release}")
     headers = (modules / "build/include/config/kernel.release").read_text().strip()
     if headers != release:
         raise ValueError("installed headers do not match the A16 kernel")
     kernel = (modules / "vmlinuz").read_bytes()
-    dtb = (root / "boot/dtbs/linux-omarchy-a16/qcom/glymur-asus-zenbook-a16-ux3607oa.dtb").read_bytes()
+    dtb = (root / f"boot/dtbs/{package}/qcom/glymur-asus-zenbook-a16-ux3607oa.dtb").read_bytes()
     machine = (root / "etc/machine-id").read_text().strip()
     # Omarchy uses machine-id UKI filenames. A custom prefix must be audited
     # explicitly rather than accidentally selecting another installation's UKI.
-    uki = root / f"boot/EFI/Linux/{machine}_linux-omarchy-a16.efi"
+    uki = root / f"boot/EFI/Linux/{machine}_{package}.efi"
     parts = sections(uki.read_bytes())
     single = dict(parts)
     if single.get(".uname", b"").rstrip(b"\0").decode() != release:
