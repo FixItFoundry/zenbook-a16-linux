@@ -12,7 +12,9 @@ worktree, so it never changes your current kernel checkout.
 
 Environment:
   JOBS=4          Parallel build jobs. Keep this moderate on the A16.
-  BUILD_RPM=1     Build Fedora-installable RPMs (set to 0 for a live bundle only).
+  BUILD_RPM=1     Build Fedora-installable RPMs (default: 1).
+  BUILD_DEB=0     Build Ubuntu/Debian-installable DEBs (default: 0).
+  STAGE_BUNDLE=1  Stage portable distro-agnostic bundle (default: 1).
   ARCH=arm64      Kernel architecture.
   CROSS_COMPILE=  Optional cross-compiler prefix.
 EOF
@@ -35,6 +37,8 @@ meta="$project/kernel/rc5-20261013/build.json"
 patch_dir="$project/patches/rc5-20261013"
 jobs=${JOBS:-4}
 build_rpm=${BUILD_RPM:-1}
+build_deb=${BUILD_DEB:-0}
+stage_bundle=${STAGE_BUNDLE:-1}
 export ARCH=${ARCH:-arm64}
 export CROSS_COMPILE=${CROSS_COMPILE:-}
 
@@ -51,6 +55,8 @@ fi
 }
 [[ "$jobs" =~ ^[1-9][0-9]*$ ]] || { echo "error: JOBS must be a positive integer" >&2; exit 1; }
 [[ "$build_rpm" == 0 || "$build_rpm" == 1 ]] || { echo "error: BUILD_RPM must be 0 or 1" >&2; exit 1; }
+[[ "$build_deb" == 0 || "$build_deb" == 1 ]] || { echo "error: BUILD_DEB must be 0 or 1" >&2; exit 1; }
+[[ "$stage_bundle" == 0 || "$stage_bundle" == 1 ]] || { echo "error: STAGE_BUNDLE must be 0 or 1" >&2; exit 1; }
 
 for command in git make python3 sha256sum; do
     command -v "$command" >/dev/null || { echo "error: missing command: $command" >&2; exit 1; }
@@ -59,6 +65,14 @@ if [[ "$build_rpm" == 1 ]]; then
     for command in rpmbuild rpm; do
         command -v "$command" >/dev/null || {
             echo "error: $command is required (Fedora: sudo dnf install rpm-build rpm)" >&2
+            exit 1
+        }
+    done
+fi
+if [[ "$build_deb" == 1 ]]; then
+    for command in dpkg-buildpackage dpkg-deb; do
+        command -v "$command" >/dev/null || {
+            echo "error: $command is required (Debian/Ubuntu: sudo apt-get install dpkg-dev)" >&2
             exit 1
         }
     done
@@ -93,7 +107,7 @@ actual_tree=$(git -C "$source_tree" rev-parse 'HEAD^{tree}')
     exit 1
 }
 
-mkdir -p "$object_dir" "$bundle/modules"
+mkdir -p "$object_dir"
 cp "$project/kernel/rc5-20261013/config" "$object_dir/.config"
 make -C "$source_tree" O="$object_dir" LOCALVERSION=+ olddefconfig
 release=$(make -s -C "$source_tree" O="$object_dir" LOCALVERSION=+ kernelrelease)
@@ -104,17 +118,50 @@ release=$(make -s -C "$source_tree" O="$object_dir" LOCALVERSION=+ kernelrelease
 
 echo "Building $release with $jobs jobs..."
 make -C "$source_tree" O="$object_dir" LOCALVERSION=+ -j"$jobs" Image modules dtbs
-make -C "$source_tree" O="$object_dir" LOCALVERSION=+ \
-    INSTALL_MOD_PATH="$bundle" modules_install
 
-install -Dm644 "$object_dir/arch/arm64/boot/Image" "$bundle/vmlinuz-$release"
-install -Dm644 \
-    "$object_dir/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dtb" \
-    "$bundle/$release.dtb"
-install -Dm644 "$object_dir/.config" "$bundle/config-$release"
-rm -f "$bundle/lib/modules/$release/build" "$bundle/lib/modules/$release/source"
-mv "$bundle/lib/modules/$release" "$bundle/modules/"
-rmdir "$bundle/lib/modules" "$bundle/lib"
+echo "Verifying built device tree..."
+dtb_file="$object_dir/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dtb"
+[[ -s "$dtb_file" ]] || {
+    echo "error: built DTB not found: $dtb_file" >&2
+    exit 1
+}
+dtc_bin="dtc"
+if [[ -x "$object_dir/scripts/dtc/dtc" ]]; then
+    dtc_bin="$object_dir/scripts/dtc/dtc"
+fi
+dt_source=$("$dtc_bin" -I dtb -O dts "$dtb_file" 2>/dev/null) || {
+    echo "error: failed to decompile built DTB with $dtc_bin: $dtb_file" >&2
+    exit 1
+}
+grep -q 'qcom,keep-runtime-active;' <<< "$dt_source" || {
+    echo "error: built DTB is missing required 'qcom,keep-runtime-active;' property" >&2
+    exit 1
+}
+echo "Verified: DTB contains qcom,keep-runtime-active;"
+
+if [[ "$stage_bundle" == 1 ]]; then
+    echo "Staging portable distro-agnostic bundle at $bundle..."
+    mkdir -p "$bundle"
+    make -C "$source_tree" O="$object_dir" LOCALVERSION=+ \
+        INSTALL_MOD_PATH="$bundle" modules_install
+
+    install -Dm644 "$object_dir/arch/arm64/boot/Image" "$bundle/vmlinuz-$release"
+    install -Dm644 "$dtb_file" "$bundle/glymur-asus-zenbook-a16-ux3607oa.dtb"
+    ln -sf "glymur-asus-zenbook-a16-ux3607oa.dtb" "$bundle/$release.dtb"
+    install -Dm644 "$object_dir/.config" "$bundle/config-$release"
+
+    rm -f "$bundle/lib/modules/$release/build" "$bundle/lib/modules/$release/source"
+
+    # Distro ABI and identification markers
+    printf '1\n' > "$bundle/lib/modules/$release/omarchy-a16-dsp-abi"
+    printf '1\n' > "$bundle/lib/modules/$release/zenbook-a16-dsp-abi"
+    install -d "$bundle/usr/share/doc/linux-zenbook-a16"
+    printf '%s\n' "$release" > "$bundle/usr/share/doc/linux-zenbook-a16/kernel-release"
+
+    # Compatibility symlink for tools expecting $bundle/modules/$release
+    mkdir -p "$bundle/modules"
+    ln -sfn "../lib/modules/$release" "$bundle/modules/$release"
+fi
 
 if [[ "$build_rpm" == 1 ]]; then
     echo "Building the installed-system RPM..."
@@ -143,22 +190,45 @@ if [[ "$build_rpm" == 1 ]]; then
     }
 fi
 
-(
-    cd "$bundle"
-    # Exclude the manifest itself: the shell creates SHA256SUMS for the
-    # redirection before find runs, so including it hashes a partial file.
-    find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
-)
+if [[ "$build_deb" == 1 ]]; then
+    echo "Building Debian/Ubuntu packages (bindeb-pkg)..."
+    make -C "$source_tree" O="$object_dir" LOCALVERSION=+ -j"$jobs" bindeb-pkg
+    mkdir -p "$bundle/debs"
+    find "$output" -maxdepth 1 -type f -name '*.deb' -exec cp -t "$bundle/debs" {} + 2>/dev/null || \
+    find "$output" -type f -name '*.deb' ! -path "$bundle/*" -exec cp -t "$bundle/debs" {} + 2>/dev/null || true
+    kernel_deb=
+    while IFS= read -r candidate; do
+        [[ $(dpkg-deb -f "$candidate" Package 2>/dev/null) =~ ^linux-image ]] || continue
+        kernel_deb=$candidate
+        break
+    done < <(find "$bundle/debs" -type f -name '*.deb' -print | sort)
+    [[ -n "$kernel_deb" ]] || {
+        echo "error: kernel DEB was not produced" >&2
+        exit 1
+    }
+fi
+
+if [[ -d "$bundle" ]]; then
+    (
+        cd "$bundle"
+        find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
+    )
+fi
 
 rpm_summary="not requested (BUILD_RPM=0)"
 [[ "$build_rpm" == 1 ]] && rpm_summary=$bundle/rpms
+deb_summary="not requested (BUILD_DEB=0)"
+[[ "$build_deb" == 1 ]] && deb_summary=$bundle/debs
+bundle_summary="not staged (STAGE_BUNDLE=0)"
+[[ "$stage_bundle" == 1 ]] && bundle_summary=$bundle
 cat <<EOF
 
 Build complete: $release
-  Live-image inputs: $bundle
-  Fedora RPMs:       $rpm_summary
+  Portable bundle:    $bundle_summary
+  Fedora RPMs:        $rpm_summary
+  Ubuntu/Debian DEBs: $deb_summary
 
 The live initramfs is intentionally not built here. Build it from the matching
-modules as described in iso/README.md. Install the kernel RPM on the target
-Fedora system; loose files on a live USB are not copied by Anaconda.
+modules as described in iso/README.md. Install the kernel packages on the target
+system; loose files on a live USB are not copied by Anaconda/Subiquity.
 EOF

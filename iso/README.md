@@ -22,14 +22,36 @@ To install the custom kernel and platform support onto the target disk:
      ```sh
      sudo zenbook-install-to-disk
      ```
-   The script installs the custom 7.3-rc3 kernel, matching A16 DTB, firmware blobs,
-   power tweaks, and configures the target GRUB/BLS bootloader with the required
-   kernel cmdline parameters (`clk_ignore_unused pd_ignore_unused cma=128M glymur_pci_skip=5`).
+   The script auto-detects the target root (/mnt/sysimage, /target, or /mnt) and distro,
+   copies the custom 7.3 kernel, matching A16 DTB, firmware blobs, platform tweaks,
+   and installs persistent kernel-update hooks. It then generates the initramfs in chroot,
+   syncs top-level Btrfs `/boot` if needed, and verifies boot integrity via `verify-boot.py`.
 4. **Reboot** into your new, fully functional Linux installation.
 
 *Recovery note:* If you accidentally rebooted into an unbootable disk, boot the
 live USB again, mount the target root (`sudo mount /dev/nvme0n1p... /mnt`), and
 run `sudo zenbook-install-to-disk /mnt`.
+
+## Live Media Architecture
+
+The live image architecture guarantees self-contained reliability:
+1. **In-Squashfs Bundle Staging**: Artifacts are staged directly into the live rootfs at
+   `/usr/share/zenbook-a16/bundle/` (`vmlinuz-$KREL`, `glymur-asus-zenbook-a16-ux3607oa.dtb`,
+   `modules/$KREL/`, `firmware/`, `tweaks/`, and `packaging/`). This ensures `zenbook-install-to-disk`
+   always has access to all required assets even if partition 1 (`LIVEESP`) is unmounted.
+2. **ASUS-Signed Board Firmware**: `glymur-fetch-firmware.sh` enforces and stages the OEM ASUS-signed
+   DSP binaries (`qcadsp8480.mbn`, `adsp_dtbs.elf`, `qccdsp8480.mbn`, `cdsp_dtbs.elf`) and the
+   `UX3607OA-tplg.bin` audio topology required by `glymur-asus-zenbook-a16-ux3607oa.dts`.
+3. **Early DSP/QRTR Initramfs Ordering**: The live image and persistent hooks load `qrtr`,
+   `qcom_pd_mapper`, and `qcom_q6v5_pas` before `systemd-udevd` starts, preventing `msm_drm`
+   from racing `cdsp` during device probe.
+4. **Persistent Multi-Distro Hooks**:
+   - **Fedora**: Dracut module `90zenbook-a16`, `/etc/dracut.conf.d/99-zenbook-a16.conf`, and `/etc/kernel/install.d/95-zenbook-a16.install`.
+   - **Ubuntu**: `/etc/initramfs-tools/hooks/zenbook-a16`, `/etc/initramfs-tools/scripts/init-premount/zenbook-a16`, and `/etc/kernel/postinst.d/zz-zenbook-a16`.
+   - **Arch**: `/usr/lib/initcpio/install/omarchy-a16-dsp`, `/usr/lib/initcpio/hooks/omarchy-a16-dsp`, and ALPM pre/post transaction hooks.
+5. **Boot Verification Gate**: `/usr/lib/zenbook-a16/verify-boot.py` verifies kernel binaries, DTB
+   `qcom,keep-runtime-active;` presence, initramfs DSP firmware, and bootloader entries before
+   installation completes.
 
 ## Prepare the staging directory
 
@@ -37,7 +59,7 @@ The builder defaults to `~/glymur-images`. Copy the live bundle into it, then
 add a non-host-only live initramfs and a distro base image:
 
 ```sh
-export KREL='7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+'
+export KREL='7.3.0-rc5-glymur-rc5-20261013'
 export STAGE="$HOME/glymur-images"
 
 mkdir -p "$STAGE"
@@ -52,17 +74,18 @@ Populate `$STAGE/firmware/` as described in
 
 ```text
 firmware/
-├── ath12k/QCC2072/hw1.0/
+├── ath12k/WCN7850/hw2.0/ (or ath12k/QCC2072/hw1.0/)
 ├── qca/
-└── qcom/glymur/
+└── qcom/
+    ├── gen80500_sqe.fw
+    ├── gen80500_gmu.bin
+    └── glymur/ASUSTeK/UX3607OA/
+        ├── qcadsp8480.mbn
+        ├── adsp_dtbs.elf
+        ├── qccdsp8480.mbn
+        ├── cdsp_dtbs.elf
+        └── UX3607OA-tplg.bin
 ```
-
-Do not flatten these directories. In particular,
-`ath12k/QCC2072/hw1.0/firmware-2.bin` and
-`qcom/glymur/adsp.mbn` must retain their parent directories. Build and install
-the model-specific topology as
-`qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin` using
-[`../firmware/tplg/README.md`](../firmware/tplg/README.md).
 
 Add the base image needed by the selected target:
 

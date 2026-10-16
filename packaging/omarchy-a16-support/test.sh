@@ -49,7 +49,7 @@ if run_hook; then fail 'module failure accepted'; fi
 rm "$scratch/emergency" "$scratch/modprobes"
 module_status=0
 run_hook
-[[ $(wc -l < "$scratch/modprobes") == 2 && -s $scratch/settle ]] || fail 'ready boot did not settle devices'
+[[ $(wc -l < "$scratch/modprobes") -eq 2 && -s $scratch/settle ]] || fail 'ready boot did not settle devices'
 [[ ! -e $scratch/emergency ]] || fail 'ready boot entered emergency'
 rm "$scratch/modprobes" "$scratch/settle"
 
@@ -63,10 +63,20 @@ echo fixture > "$scratch/firmware/qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-t
 sed "s|/usr/lib/firmware|$scratch/firmware|g" "$here/initcpio-install" > "$scratch/install"
 source "$scratch/install"
 add_file() { :; }
-add_module() { :; }
+add_module() { echo "$1" >> "$scratch/build-modules"; }
 add_runscript() { :; }
 add_binary() { ln -s "$(command -v "$1")" "$scratch/initramfs-bin/$1"; }
 KERNELVERSION=7.2.10-omarchy-a16-1 build
+grep -Fxq qrtr "$scratch/build-modules" || fail 'QRTR core missing from early DSP image'
+grep -Fxq qrtr_smd "$scratch/build-modules" || fail 'QRTR transport depends on host autodetection'
+if (
+  add_binary() { :; }
+  add_module() { [[ $1 != qrtr_smd ]]; }
+  die() { echo "$*" >&2; exit 1; }
+  KERNELVERSION=7.2.10-omarchy-a16-1 build
+); then
+  fail 'missing required QRTR transport did not abort the build'
+fi
 PATH="$scratch/initramfs-bin" run_hook
 [[ -s $scratch/modprobes && -s $scratch/settle ]] || fail 'minimal initramfs silently skipped A16 DSP startup'
 rm "$scratch/modprobes" "$scratch/settle"

@@ -1,0 +1,11 @@
+#!/bin/sh
+# /etc/grub.d/09_zenbook_a16
+# Pre-generation hook for ASUS Zenbook A16
+set -e
+
+# Inform grub-mkconfig about A16 device tree if present
+for dtb in /boot/dtb-* /boot/dtbs/*/qcom/glymur-asus-zenbook-a16-ux3607oa.dtb; do
+    if [ -f "$dtb" ]; then
+        break
+    fi
+done

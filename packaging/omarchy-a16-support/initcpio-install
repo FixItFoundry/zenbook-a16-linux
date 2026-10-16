@@ -1,5 +1,27 @@
 #!/bin/bash
 # mkinitcpio build hook: only activated by the installed A16 profile.
+add_module_if_present() {
+  local mod="$1"
+  local mod_pat="${mod//[-_]/[-_]}"
+  local base=""
+  for base in "/usr/lib/modules/${KERNELVERSION}" "/lib/modules/${KERNELVERSION}"; do
+    if [[ -d "$base" ]]; then
+      break
+    fi
+  done
+  if [[ -n "$base" && -d "$base" ]]; then
+    if [[ -f "$base/modules.builtin" ]] && grep -Eq "/${mod_pat}\.ko" "$base/modules.builtin"; then
+      return 0
+    fi
+    if find "$base" -regex ".*/${mod_pat}\.ko.*" -print -quit 2>/dev/null | grep -q .; then
+      add_module "$mod" || true
+      return 0
+    fi
+    return 0
+  fi
+  add_module "$mod" 2>/dev/null || true
+}
+
 build() {
   # mkinitcpio's BusyBox omits tr; the runtime model check requires it.
   add_binary tr || die 'Could not include tr for A16 model detection'
@@ -18,15 +40,21 @@ build() {
     qcom/glymur/ASUSTeK/UX3607OA/adsp_dtbs.elf \
     qcom/glymur/ASUSTeK/UX3607OA/qccdsp8480.mbn \
     qcom/glymur/ASUSTeK/UX3607OA/cdsp_dtbs.elf \
-    qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin; do
+    qcom/glymur/ASUSTeK/UX3607OA-tplg.bin; do
     found=0
-    for suffix in '' .zst .xz; do
-      for directory in /usr/lib/firmware/updates /usr/lib/firmware; do
-        if [[ -s $directory/$firmware$suffix ]]; then
-          add_file "$directory/$firmware$suffix" || die "Could not include A16 firmware: $firmware"
-          found=1
-          break 2
-        fi
+    local fw_alts=("$firmware")
+    if [[ "$firmware" == *"UX3607OA-tplg.bin"* ]]; then
+      fw_alts+=("qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin")
+    fi
+    for fw_candidate in "${fw_alts[@]}"; do
+      for suffix in '' .zst .xz; do
+        for directory in /usr/lib/firmware/updates /usr/lib/firmware; do
+          if [[ -s $directory/$fw_candidate$suffix ]]; then
+            add_file "$directory/$fw_candidate$suffix" || die "Could not include A16 firmware: $fw_candidate"
+            found=1
+            break 3
+          fi
+        done
       done
     done
     if (( ! found )); then
@@ -37,11 +65,20 @@ build() {
   done
   # The kernel's Glymur PD mapper supplies the service map; no untracked JSON
   # copied from another laptop is needed. add_module includes dependencies.
-  for module in qcom_q6v5_pas qcom_pd_mapper qcom_battmgr \
+  # QRTR's RPMSG transport is not a direct dependency of the PD mapper.
+  for module in qrtr qrtr_smd qcom_q6v5_pas qcom_pd_mapper qcom_battmgr \
     snd_soc_x1e80100 snd_soc_wsa884x soundwire_qcom \
     pinctrl_sm8550_lpass_lpi snd_soc_lpass_wsa_macro snd_soc_lpass_va_macro; do
     add_module "$module" || die "Missing required A16 DSP module: $module"
   done
+
+  # Include early regulator, PMIC, PHY, USB and NVMe modules when built as
+  # modules (=m) while ignoring built-ins (=y) on mainline 7.3-rc5 configs.
+  for module in qcom_rpmh_regulator fixed qcom_spmi_pmic llcc_qcom qcom_aoss \
+    phy_qcom_edp phy_qcom_qmp_pcie pmic_glink xhci_plat_hcd nvme nvme_core; do
+    add_module_if_present "$module"
+  done
+
   if [[ $a16_abi == 1 ]]; then
     # Include the shared kernel's modular USB, PHY and display drivers.
     # PHY dependencies are described by DT phandles, so modinfo's dependency

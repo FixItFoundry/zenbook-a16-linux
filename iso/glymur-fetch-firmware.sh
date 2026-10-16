@@ -20,21 +20,17 @@ EOF
 }
 
 required=(
-    ath12k/QCC2072/hw1.0/Notice.txt
-    ath12k/QCC2072/hw1.0/board-2.bin
-    ath12k/QCC2072/hw1.0/firmware-2.bin
-    qca/ornbtfw11.tlv
-    qca/ornnv11.bin
-    qcom/glymur/adsp.mbn
-    qcom/glymur/adsp_dtb.mbn
-    qcom/glymur/adspr.jsn
-    qcom/glymur/adsps.jsn
-    qcom/glymur/adspua.jsn
-    qcom/glymur/cdsp.mbn
-    qcom/glymur/cdsp_dtb.mbn
-    qcom/glymur/cdspr.jsn
-    qcom/glymur/gen80100_zap.mbn
-    qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin
+    ath12k/WCN7850/hw2.0/board-2.bin
+    ath12k/WCN7850/hw2.0/firmware-2.bin
+    qca/hmtbtfw20.tlv
+    qca/hmtbtnv20.bin
+    qcom/gen80500_sqe.fw
+    qcom/gen80500_gmu.bin
+    qcom/glymur/ASUSTeK/UX3607OA/qcadsp8480.mbn
+    qcom/glymur/ASUSTeK/UX3607OA/adsp_dtbs.elf
+    qcom/glymur/ASUSTeK/UX3607OA/qccdsp8480.mbn
+    qcom/glymur/ASUSTeK/UX3607OA/cdsp_dtbs.elf
+    qcom/glymur/ASUSTeK/UX3607OA-tplg.bin
 )
 
 check_all() {
@@ -42,11 +38,17 @@ check_all() {
     echo "Checking $dest"
     for file in "${required[@]}"; do
         found=""
-        for ext in "" ".xz" ".zst"; do
-            if [[ -s "$dest/$file$ext" ]]; then
-                found="$file$ext"
-                break
-            fi
+        local check_targets=("$file")
+        if [[ "$file" == *"UX3607OA-tplg.bin" ]]; then
+            check_targets+=("qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin")
+        fi
+        for target in "${check_targets[@]}"; do
+            for ext in "" ".xz" ".zst"; do
+                if [[ -s "$dest/$target$ext" ]]; then
+                    found="$target$ext"
+                    break 2
+                fi
+            done
         done
         if [[ -n "$found" ]]; then
             printf '  OK       %s\n' "$found"
@@ -67,23 +69,52 @@ copy_from_linux() {
     [[ -d "$input" ]] || { echo "error: no such directory: $input" >&2; return 1; }
 
     for candidate in "$input" "$input/lib/firmware" "$input/usr/lib/firmware"; do
-        if [[ -d "$candidate/ath12k/QCC2072/hw1.0" ]]; then
+        if [[ -d "$candidate/ath12k" || -d "$candidate/qcom" ]]; then
             source=$candidate
             break
         fi
     done
     [[ -n "$source" ]] || {
-        echo "error: no ath12k/QCC2072/hw1.0 tree found below $input" >&2
+        echo "error: no firmware tree found below $input" >&2
         return 1
     }
 
     echo "Copying from $source to $dest"
     install -d "$dest/ath12k" "$dest/qca" "$dest/qcom"
-    cp -a --no-preserve=ownership "$source/ath12k/QCC2072" "$dest/ath12k/"
-    for candidate in ornbtfw11.tlv ornnv11.bin; do
+
+    # Wi-Fi
+    if [[ -d "$source/ath12k/WCN7850" ]]; then
+        cp -a --no-preserve=ownership "$source/ath12k/WCN7850" "$dest/ath12k/"
+    fi
+    if [[ -d "$source/ath12k/QCC2072" ]]; then
+        cp -a --no-preserve=ownership "$source/ath12k/QCC2072" "$dest/ath12k/"
+    fi
+
+    # Bluetooth
+    for candidate in hmtbtfw20.tlv hmtbtnv20.bin ornbtfw11.tlv ornnv11.bin; do
         cp -a --no-preserve=ownership "$source/qca/$candidate"* "$dest/qca/" 2>/dev/null || true
     done
-    cp -a --no-preserve=ownership "$source/qcom/glymur" "$dest/qcom/"
+
+    # GPU
+    for candidate in gen80500_sqe.fw gen80500_gmu.bin gen80100_zap.mbn; do
+        cp -a --no-preserve=ownership "$source/qcom/$candidate"* "$dest/qcom/" 2>/dev/null || true
+    done
+
+    # Glymur / ASUS platform firmware
+    if [[ -d "$source/qcom/glymur" ]]; then
+        cp -a --no-preserve=ownership "$source/qcom/glymur" "$dest/qcom/"
+    fi
+
+    # Copy firmware/audioreach/UX3607OA-tplg.bin from repo if present
+    local repo_root
+    repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd || true)
+    if [[ -n "$repo_root" && -s "$repo_root/firmware/audioreach/UX3607OA-tplg.bin" ]]; then
+        install -Dm644 "$repo_root/firmware/audioreach/UX3607OA-tplg.bin" \
+            "$dest/qcom/glymur/ASUSTeK/UX3607OA/UX3607OA-tplg.bin"
+        install -Dm644 "$repo_root/firmware/audioreach/UX3607OA-tplg.bin" \
+            "$dest/qcom/glymur/ASUSTeK/UX3607OA-tplg.bin"
+    fi
+
     check_all
 }
 

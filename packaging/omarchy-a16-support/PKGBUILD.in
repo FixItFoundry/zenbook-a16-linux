@@ -1,6 +1,6 @@
 pkgname=omarchy-a16-support
 pkgver=20261014
-pkgrel=9
+pkgrel=10
 pkgdesc='Experimental ASUS Zenbook A16 audio and early DSP support'
 arch=(aarch64)
 url='https://github.com/FixItFoundry/zenbook-a16-linux'
@@ -32,11 +32,13 @@ package() {
   ln -s GLYMUR-ASUS-Zenbook-A16-UX3607OA.conf \
     "$pkgdir/usr/share/alsa/ucm2/conf.d/glymur/ASUSTeKCOMPUTERINC.-ZenbookA16UX3607OA-1.0-UX3607OA.conf"
   install -Dm644 51-glymur-ucm.conf \
-    "$pkgdir/usr/share/wireplumber/wireplumber.conf.d/51-omarchy-a16-keep-awake.conf"
+    "$pkgdir/usr/share/omarchy-a16/51-glymur-ucm.conf"
   install -Dm644 LICENSE.BSD-3-Clause "$pkgdir/usr/share/licenses/$pkgname/LICENSE.BSD-3-Clause"
   install -Dm644 GLYMUR-A16.build.txt "$pkgdir/usr/share/doc/$pkgname/topology-build.txt"
   install -Dm644 SHA256SUMS "$pkgdir/usr/share/doc/$pkgname/source-SHA256SUMS"
-  install -Dm755 verify-boot.py "$pkgdir/usr/lib/omarchy-a16/verify-boot"
+  install -Dm755 verify-boot.py "$pkgdir/usr/lib/zenbook-a16/verify-boot.py"
+  mkdir -p "$pkgdir/usr/lib/omarchy-a16"
+  ln -s ../zenbook-a16/verify-boot.py "$pkgdir/usr/lib/omarchy-a16/verify-boot"
   install -Dm644 60-omarchy-a16-boot-check.hook zz-omarchy-a16-boot-check.hook \
     -t "$pkgdir/usr/share/libalpm/hooks"
 }

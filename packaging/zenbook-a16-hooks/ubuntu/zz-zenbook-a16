@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# /etc/kernel/postinst.d/zz-zenbook-a16
+# Post-install hook for Debian/Ubuntu on ASUS Zenbook A16 (UX3607OA / Glymur)
+set -Eeuo pipefail
+
+KVER="${1:-}"
+KIMAGE="${2:-}"
+
+if [[ -z "$KVER" ]]; then
+    # Fallback to current running kernel or latest installed vmlinuz
+    KVER=$(uname -r)
+fi
+
+echo "zenbook-a16: configuring Ubuntu boot artifacts for kernel $KVER..."
+
+# 1. Stage DTB into /boot/dtb-$KVER and /boot/dtbs/$KVER/qcom/
+dtb_source=""
+for cand in \
+    "/lib/modules/$KVER/dtb/qcom/glymur-asus-zenbook-a16-ux3607oa.dtb" \
+    "/usr/lib/modules/$KVER/dtb/qcom/glymur-asus-zenbook-a16-ux3607oa.dtb" \
+    "/usr/share/zenbook-a16/dtb/glymur-asus-zenbook-a16-ux3607oa.dtb" \
+    "/boot/glymur/glymur-asus-zenbook-a16-ux3607oa.dtb" \
+    "/boot/dtb-$KVER"; do
+    if [[ -s "$cand" ]]; then
+        dtb_source="$cand"
+        break
+    fi
+done
+
+if [[ -n "$dtb_source" ]]; then
+    mkdir -p "/boot/dtbs/$KVER/qcom" "/boot/glymur"
+    install -Dm644 "$dtb_source" "/boot/dtb-$KVER"
+    install -Dm644 "$dtb_source" "/boot/dtbs/$KVER/qcom/glymur-asus-zenbook-a16-ux3607oa.dtb"
+    install -Dm644 "$dtb_source" "/boot/glymur/$KVER.dtb"
+else
+    echo "zenbook-a16: warning: source DTB for $KVER not found" >&2
+fi
+
+# 2. Ensure /etc/default/grub contains required cmdline parameters
+REQUIRED_PARAMS=(
+    "clk_ignore_unused"
+    "pd_ignore_unused"
+    "arm64.nopauth"
+    "iommu.passthrough=0"
+    "nvme_core.default_ps_max_latency_us=0"
+    "pcie_aspm=off"
+)
+
+if [[ -f "/etc/default/grub" ]]; then
+    for param in "${REQUIRED_PARAMS[@]}"; do
+        if ! grep -q "$param" "/etc/default/grub"; then
+            sed -i "/^GRUB_CMDLINE_LINUX_DEFAULT=/ s/\"$/ $param\"/" "/etc/default/grub" 2>/dev/null || \
+            sed -i "/^GRUB_CMDLINE_LINUX=/ s/\"$/ $param\"/" "/etc/default/grub" 2>/dev/null || true
+        fi
+    done
+fi
+
+# 3. Ensure /etc/grub.d/09_zenbook_a16 is present
+if [[ ! -f "/etc/grub.d/09_zenbook_a16" && -d "/etc/grub.d" ]]; then
+    if [[ -f "/usr/share/zenbook-a16/hooks/ubuntu/09_zenbook_a16" ]]; then
+        install -Dm755 "/usr/share/zenbook-a16/hooks/ubuntu/09_zenbook_a16" "/etc/grub.d/09_zenbook_a16"
+    fi
+fi
+
+# 4. Update GRUB configuration
+if command -v update-grub >/dev/null 2>&1; then
+    echo "zenbook-a16: updating GRUB..."
+    update-grub || true
+elif command -v grub-mkconfig >/dev/null 2>&1; then
+    echo "zenbook-a16: running grub-mkconfig..."
+    grub-mkconfig -o /boot/grub/grub.cfg || true
+fi
+
+# 5. Run boot verification
+verifier="/usr/lib/zenbook-a16/verify-boot.py"
+if [[ -x "$verifier" ]]; then
+    python3 "$verifier" --bootloader grub-ubuntu --kernel-release "$KVER"
+fi

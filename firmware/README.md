@@ -12,12 +12,12 @@ that no image could ship because firmware was proprietary no longer holds.
 ## What is upstream and redistributable
 
 All of the below are in [`kernel-firmware/linux-firmware`](https://gitlab.com/kernel-firmware/linux-firmware)
-at tag `20260622`.
+at tag `20260622` and ASUS OEM firmware bundles.
 
-### Wi-Fi — `ath12k/QCC2072/hw1.0/`
+### Wi-Fi — `ath12k/WCN7850/hw2.0/` (or `ath12k/QCC2072/hw1.0/`)
 
 ```
-Notice.txt   board-2.bin   firmware-2.bin
+board-2.bin   firmware-2.bin
 ```
 
 `WHENCE` says: **`Licence: Redistributable. See LICENSE.QualcommAtheros_ath10k`**
@@ -25,30 +25,31 @@ Notice.txt   board-2.bin   firmware-2.bin
 ★ Version `WLAN.COL.1.0.c2-00074-QCACOLSWPL_V1_TO_SILICONZ-1` — **byte-for-byte the build this
 hardware reports at probe.** Upstream ships exactly what the machine runs.
 
-⚠️ Note the *modern bundled* layout: `firmware-2.bin` replaces the older loose
-`amss.bin` / `m3.bin` / `aux_ucode.bin` set this document used to list. Do not go hunting for
-files that current ath12k no longer asks for.
-
 ### Bluetooth — `qca/`
 
 ```
-ornbtfw11.tlv   ornnv11.bin
+hmtbtfw20.tlv   hmtbtnv20.bin   (or ornbtfw11.tlv / ornnv11.bin)
 ```
 
-Listed in `WHENCE` under *"btqca — Qualcomm Atheros Bluetooth support for QCA_QCC2072 chip"*.
+Listed in `WHENCE` under *"btqca — Qualcomm Atheros Bluetooth support"*.
 
-### DSPs, GPU and audio — `qcom/glymur/`
+### GPU — `qcom/`
 
 ```
-adsp.mbn      adsp_dtb.mbn      adspr.jsn  adsps.jsn  adspua.jsn
-cdsp.mbn      cdsp_dtb.mbn      cdspr.jsn
-gen80100_zap.mbn                            <- the GPU zap shader
-GLYMUR-CRD-tplg.bin                         <- audio topology, reference design
+gen80500_sqe.fw   gen80500_gmu.bin   (and gen80100_zap.mbn)
 ```
 
-★ **`gen80100_zap.mbn` closes a gap `docs/hardware.md` recorded as open.** The Adreno driver
-falls back to `SECVID_TRUST_CNTL` because the file is not installed locally, not because it does
-not exist.
+### ASUS Zenbook A16 Signed DSPs and Audio Topology — `qcom/glymur/ASUSTeK/UX3607OA/`
+
+The board devicetree (`glymur-asus-zenbook-a16-ux3607oa.dts`) requires ASUS OEM board-signed firmware:
+
+```
+qcadsp8480.mbn   adsp_dtbs.elf    <- ASUS-signed ADSP firmware & DTBs
+qccdsp8480.mbn   cdsp_dtbs.elf    <- ASUS-signed CDSP firmware & DTBs
+UX3607OA-tplg.bin                 <- AudioReach topology (or GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin)
+```
+
+★ These signed binaries ensure ADSP, CDSP, and AudioReach hardware protection and clock gates are initialized properly without firmware verification rejections during boot.
 
 ---
 

@@ -15,6 +15,7 @@ Image, modules, DTB and RPMs. It does not install files or change boot selection
 | Package | Status |
 |---|---|
 | [rc5-20261013](rc5-20261013/README.md) | Current soc2 baseline: 64 patches and exact tested config. |
+| [arch-7.2.10](arch-7.2.10/BUILD-AND-UPGRADE.txt) | Arch Linux / Omarchy 7.2.10 stable backport: 127 patches (56 mainline 7.3-rc + 64 A16 + 7 7.2 bridges). |
 | [rc5-20261008](rc5-20261008/README.md) | Retained audiopm1 package and saved boot fallback. |
 | [rc5-20261002](rc5-20261002/README.md) | Earlier RC5 integrated package. |
 | [rc3-20260919](rc3-20260919/README.md) | Retained RC3 fallback package. |

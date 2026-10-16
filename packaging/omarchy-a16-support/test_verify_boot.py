@@ -110,6 +110,47 @@ class BootVerification(unittest.TestCase):
         with self.assertRaises((ValueError, struct.error)):
             boot.sections(b"MZ")
 
+    def test_grub_bls_verification(self):
+        kver = "7.3.0-rc5-glymur"
+        (self.root / f"boot/vmlinuz-{kver}").write_text("vmlinuz")
+        initramfs = self.root / f"boot/initramfs-{kver}.img"
+        initramfs.write_bytes(b"something qcadsp8480.mbn and qccdsp8480.mbn included")
+        dtb = self.root / f"boot/dtb-{kver}"
+        dtb.write_text("dtb content")
+        bls_dir = self.root / "boot/loader/entries"
+        bls_dir.mkdir(parents=True, exist_ok=True)
+        bls_file = bls_dir / f"test-{kver}.conf"
+        bls_file.write_text(
+            f"title Fedora\n"
+            f"linux /boot/vmlinuz-{kver}\n"
+            f"initrd /boot/initramfs-{kver}.img\n"
+            f"devicetree /boot/dtb-{kver}\n"
+            f"options root=UUID=1234 clk_ignore_unused pd_ignore_unused arm64.nopauth iommu.passthrough=0 nvme_core.default_ps_max_latency_us=0 pcie_aspm=off\n"
+        )
+        res = boot.verify_grub_bls(self.root, kver)
+        self.assertEqual(res["status"], "pass")
+        self.assertEqual(res["bootloader"], "grub-bls")
+
+    def test_grub_ubuntu_verification(self):
+        kver = "7.3.0-rc5-glymur"
+        (self.root / f"boot/vmlinuz-{kver}").write_text("vmlinuz")
+        initrd = self.root / f"boot/initrd.img-{kver}"
+        initrd.write_bytes(b"firmware qcadsp8480.mbn qccdsp8480.mbn")
+        dtb = self.root / f"boot/dtb-{kver}"
+        dtb.write_text("dtb content")
+        grub_dir = self.root / "boot/grub"
+        grub_dir.mkdir(parents=True, exist_ok=True)
+        (grub_dir / "grub.cfg").write_text(
+            f"menuentry 'Ubuntu' {{\n"
+            f"  devicetree /boot/dtb-{kver}\n"
+            f"  linux /boot/vmlinuz-{kver} clk_ignore_unused pd_ignore_unused arm64.nopauth iommu.passthrough=0 nvme_core.default_ps_max_latency_us=0 pcie_aspm=off\n"
+            f"  initrd /boot/initrd.img-{kver}\n"
+            f"}}\n"
+        )
+        res = boot.verify_grub_ubuntu(self.root, kver)
+        self.assertEqual(res["status"], "pass")
+        self.assertEqual(res["bootloader"], "grub-ubuntu")
+
 
 if __name__ == "__main__":
     unittest.main()

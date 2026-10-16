@@ -32,20 +32,47 @@ from retained tests. Historical resets and RPMh timeouts remain unresolved.
 The saved GRUB fallback remains `zenbook-a16-rc5-audiopm1-fan2-20261008`;
 previous kernels and the Windows route are retained.
 
+## Branches & Distro Tracks
+
+All cross-compatible kernel tracks, multi-distro installer scripts, and persistent kernel-update hooks are synced to `main`, with dedicated working branches for concurrent development:
+
+- **`main`**: Unified baseline carrying the mainline `7.3-rc5` (`rc5-20261013`) and Arch `7.2.10` (`arch-7.2.10`) kernel packages, cross-distro installer (`iso/`), and persistent kernel-update hooks (`packaging/`).
+- **`feature/multi-distro-installer`**: Working branch for the cross-distro installer, kernel builder (`RPM`/`DEB`/bundle), and persistent kernel-update hooks across Fedora (`aarch64`), Ubuntu (`arm64`), and Arch Linux (`aarch64`).
+- **`feature/arch-7.2.10-a16`**: Working branch for the Arch Linux / Omarchy `7.2.10` kernel & support package port (contributing to the Omarchy `dragon` / `quattro` / `feature/asus-zenbook-a16` branches).
+
 ## Build and test
+
+Build the tested kernel baseline and generate distro packages or a portable bundle:
 
 ```sh
 python3 kernel/rc5-20261013/verify.py /path/to/linux
 JOBS=4 ./kernel/rc5-20261013/build.sh /path/to/linux /path/to/new-output
 ```
 
-Use matching Image, modules, DTB and initramfs, including board ADSP firmware
-and audio topology. See [build instructions](kernel/rc5-20261013/README.md),
-[firmware requirements](firmware/README.md) and [contribution guidance](CONTRIBUTING.md).
+Build options are configured via environment variables:
+- `BUILD_RPM=1`: Build Fedora-installable RPMs via `binrpm-pkg` (default: 1).
+- `BUILD_DEB=1`: Build Ubuntu/Debian-installable DEBs via `bindeb-pkg` (default: 0).
+- `STAGE_BUNDLE=1`: Stage portable distro-agnostic bundle at `$OUTPUT_DIR/bundle/` containing `vmlinuz-$KREL`, `glymur-asus-zenbook-a16-ux3607oa.dtb`, `lib/modules/$KREL/`, ABI markers, and release metadata (default: 1).
 
-The tested GRUB setup loads an explicit DTB and needs top-level `insmod fdt`.
-Preserve a bootable fallback; old DTS/DTB snapshots and [live-image tooling](iso/README.md)
-are separate from the current package.
+The build script automatically validates the compiled DTB against the required `qcom,keep-runtime-active;` safety property via `dtc`, aborting the build if missing.
+
+## Installation & Persistent Kernel Hooks
+
+To install the kernel, DTB, firmware, platform tweaks, and persistent update hooks onto a target system:
+
+```sh
+# Install persistent hooks into a mounted target or running root:
+sudo packaging/zenbook-a16-hooks/install-hooks.sh --root / --distro auto
+
+# Or run the end-to-end disk installer from live media:
+sudo iso/zenbook-install-to-disk /mnt
+```
+
+The persistent hooks maintain bootability across future kernel upgrades:
+- **Fedora**: Dracut module `90zenbook-a16` (early ADSP/CDSP firmware and `pre-udev` ordering), `/etc/dracut.conf.d/99-zenbook-a16.conf`, and `/etc/kernel/install.d/95-zenbook-a16.install` (BLS devicetree injection, required cmdline flags, and Btrfs top-level `/boot` sync).
+- **Ubuntu**: `/etc/initramfs-tools/hooks/zenbook-a16`, `/etc/initramfs-tools/scripts/init-premount/zenbook-a16`, and `/etc/kernel/postinst.d/zz-zenbook-a16` with `update-grub`.
+- **Arch**: `/usr/lib/initcpio/install/omarchy-a16-dsp`, `/usr/lib/initcpio/hooks/omarchy-a16-dsp`, and ALPM pre/post transaction verification hooks.
+- **Boot Verification**: `/usr/lib/zenbook-a16/verify-boot.py` verifies the kernel image, DTB `keep-runtime-active` property, initramfs DSP firmware presence, and bootloader entry configuration across `grub-bls`, `grub-ubuntu`, and `limine`.
 
 ## Reference
 

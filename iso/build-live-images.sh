@@ -27,11 +27,11 @@
 #     dracut --force --no-hostonly --add dmsquash-live --kver "$KREL" \
 #       --kmoddir "$STAGE/modules/$KREL" out.img
 #
-# Run as root:  sudo -E bash build-live-images.sh [arch] [fedora] [ubuntu]
+# Run as root:  sudo -E bash build-live-images.sh [--fedora] [--ubuntu] [--arch] [--all]
 # ============================================================================
 set -Eeuo pipefail
 
-KREL="${KREL:-7.3.0-rc3-ZenbookA16-20260919-rc3-integrated1+}"
+KREL="${KREL:-7.3.0-rc5-glymur-rc5-20261013}"
 STAGE="${STAGE:-$HOME/glymur-images}"
 OUT="${OUT:-$STAGE/out-live}"
 
@@ -61,17 +61,23 @@ preflight(){
   [ -d "$MODS/$KREL" ] || { say "MISSING modules: $MODS/$KREL"; bad=1; }
   local firmware_file
   for firmware_file in \
-    ath12k/QCC2072/hw1.0/Notice.txt \
-    ath12k/QCC2072/hw1.0/board-2.bin \
-    ath12k/QCC2072/hw1.0/firmware-2.bin \
-    qca/ornbtfw11.tlv qca/ornnv11.bin \
-    qcom/glymur/adsp.mbn qcom/glymur/adsp_dtb.mbn \
-    qcom/glymur/adspr.jsn qcom/glymur/adsps.jsn \
-    qcom/glymur/adspua.jsn qcom/glymur/cdspr.jsn \
-    qcom/glymur/cdsp.mbn qcom/glymur/cdsp_dtb.mbn \
-    qcom/glymur/gen80100_zap.mbn \
-    qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin; do
-    if [ ! -s "$FW/$firmware_file" ] && [ ! -s "$FW/$firmware_file.xz" ] && [ ! -s "$FW/$firmware_file.zst" ]; then
+    qcom/glymur/ASUSTeK/UX3607OA/qcadsp8480.mbn \
+    qcom/glymur/ASUSTeK/UX3607OA/adsp_dtbs.elf \
+    qcom/glymur/ASUSTeK/UX3607OA/qccdsp8480.mbn \
+    qcom/glymur/ASUSTeK/UX3607OA/cdsp_dtbs.elf \
+    qcom/glymur/ASUSTeK/UX3607OA-tplg.bin; do
+    local fw_alts=("$firmware_file")
+    if [[ "$firmware_file" == *"UX3607OA-tplg.bin"* ]]; then
+      fw_alts+=("qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin")
+    fi
+    local fw_found=0
+    for cand in "${fw_alts[@]}"; do
+      if [ -s "$FW/$cand" ] || [ -s "$FW/$cand.xz" ] || [ -s "$FW/$cand.zst" ]; then
+        fw_found=1
+        break
+      fi
+    done
+    if [ "$fw_found" -eq 0 ]; then
       say "MISSING firmware: $FW/$firmware_file"; bad=1
     fi
   done
@@ -106,16 +112,62 @@ addmods(){ mkdir -p "$1/lib/modules"; cp -a "$MODS/$KREL" "$1/lib/modules/" || r
 addfw(){
   local root=$1
   mkdir -p "$root/lib/firmware"
-  cp -a "$FW/ath12k" "$FW/qca" "$FW/qcom" "$root/lib/firmware/"
+  [ -d "$FW/ath12k" ] && cp -a "$FW/ath12k" "$root/lib/firmware/"
+  [ -d "$FW/qca" ] && cp -a "$FW/qca" "$root/lib/firmware/"
+  [ -d "$FW/qcom" ] && cp -a "$FW/qcom" "$root/lib/firmware/"
   [ -d "$FW/audio" ] && cp -a "$FW/audio" "$root/lib/firmware/"
-  # Catch accidental flattening such as ath12k/hw1.0 or qcom/adsp.mbn.
-  [ -s "$root/lib/firmware/ath12k/QCC2072/hw1.0/firmware-2.bin" ] || \
-  [ -s "$root/lib/firmware/ath12k/QCC2072/hw1.0/firmware-2.bin.xz" ] || \
-  [ -s "$root/lib/firmware/ath12k/QCC2072/hw1.0/firmware-2.bin.zst" ]
-  [ -s "$root/lib/firmware/qcom/glymur/adsp.mbn" ] || \
-  [ -s "$root/lib/firmware/qcom/glymur/adsp.mbn.xz" ] || \
-  [ -s "$root/lib/firmware/qcom/glymur/adsp.mbn.zst" ]
+  if [ -s "$REPO/firmware/audioreach/UX3607OA-tplg.bin" ]; then
+    install -Dm644 "$REPO/firmware/audioreach/UX3607OA-tplg.bin" \
+      "$root/lib/firmware/qcom/glymur/ASUSTeK/UX3607OA/UX3607OA-tplg.bin"
+    install -Dm644 "$REPO/firmware/audioreach/UX3607OA-tplg.bin" \
+      "$root/lib/firmware/qcom/glymur/ASUSTeK/UX3607OA-tplg.bin"
+  fi
 }
+
+stage_bundle_rootfs(){
+  local rd="$1"
+  local bdir="$rd/usr/share/zenbook-a16/bundle"
+  mkdir -p "$bdir"
+  [ -f "$VM" ] && cp -p "$VM" "$bdir/vmlinuz-$KREL"
+  local dtb_dest="$bdir/glymur-asus-zenbook-a16-ux3607oa.dtb"
+  [ -f "$DTB" ] && cp -p "$DTB" "$dtb_dest"
+  ln -sf "glymur-asus-zenbook-a16-ux3607oa.dtb" "$bdir/$KREL.dtb" 2>/dev/null || true
+  if [ -d "$MODS/$KREL" ]; then
+    mkdir -p "$bdir/modules"
+    cp -a "$MODS/$KREL" "$bdir/modules/"
+    mkdir -p "$bdir/lib/modules"
+    ln -sfn "../../modules/$KREL" "$bdir/lib/modules/$KREL" 2>/dev/null || true
+    printf '1\n' > "$bdir/modules/$KREL/omarchy-a16-dsp-abi"
+    printf '1\n' > "$bdir/modules/$KREL/zenbook-a16-dsp-abi"
+  fi
+  mkdir -p "$bdir/usr/share/doc/linux-zenbook-a16"
+  printf '%s\n' "$KREL" > "$bdir/usr/share/doc/linux-zenbook-a16/kernel-release"
+  if [ -d "$FW" ]; then
+    mkdir -p "$bdir/firmware"
+    cp -a "$FW"/* "$bdir/firmware/" 2>/dev/null || true
+  fi
+  if [ -d "$REPO/tweaks" ]; then
+    mkdir -p "$bdir/tweaks"
+    cp -a "$REPO/tweaks"/* "$bdir/tweaks/" 2>/dev/null || true
+  fi
+  if [ -d "$REPO/packaging/zenbook-a16-hooks" ]; then
+    mkdir -p "$bdir/packaging/zenbook-a16-hooks"
+    cp -a "$REPO/packaging/zenbook-a16-hooks"/* "$bdir/packaging/zenbook-a16-hooks/" 2>/dev/null || true
+  fi
+  if [ -d "$REPO/packaging/omarchy-a16-support" ]; then
+    mkdir -p "$bdir/packaging/omarchy-a16-support"
+    cp -a "$REPO/packaging/omarchy-a16-support"/* "$bdir/packaging/omarchy-a16-support/" 2>/dev/null || true
+  fi
+  if [ -d "$STAGE/rpms" ]; then
+    mkdir -p "$bdir/rpms"
+    cp -a "$STAGE/rpms"/* "$bdir/rpms/" 2>/dev/null || true
+  fi
+  if [ -d "$STAGE/debs" ]; then
+    mkdir -p "$bdir/debs"
+    cp -a "$STAGE/debs"/* "$bdir/debs/" 2>/dev/null || true
+  fi
+}
+
 add_installer(){
   local rd="$1"
   mkdir -p "$rd/usr/local/bin" "$rd/opt/zenbook-kernel" "$rd/usr/share/applications"
@@ -129,7 +181,7 @@ add_installer(){
   cat > "$rd/usr/share/applications/zenbook-install.desktop" <<'EOF'
 [Desktop Entry]
 Name=Install Zenbook A16 Kernel to Disk
-Comment=Install custom 7.3-rc3 kernel, DTB, and firmware onto disk after distro installer
+Comment=Install custom 7.3 kernel, DTB, firmware, and hooks onto disk after distro installer
 Exec=sudo /usr/local/bin/zenbook-install-to-disk
 Icon=system-software-install
 Terminal=true
@@ -153,6 +205,10 @@ add_power_tweaks(){
   install -Dm755 "$src/usr/local/bin/glymur-cpu-profile.sh" "$rd/usr/local/bin/glymur-cpu-profile.sh" || return 1
   mkdir -p "$rd/etc/tuned/profiles"
   cp -a "$src/etc/tuned/profiles/glymur-balanced" "$src/etc/tuned/profiles/glymur-performance" "$src/etc/tuned/profiles/glymur-powersave" "$rd/etc/tuned/profiles/" || return 1
+  if [ -d "$src/usr/share/alsa/ucm2" ]; then
+    mkdir -p "$rd/usr/share/alsa/ucm2"
+    cp -a "$src/usr/share/alsa/ucm2"/* "$rd/usr/share/alsa/ucm2/" 2>/dev/null || true
+  fi
 }
 
 # $1 = rootfs dir, $2 = output name
@@ -258,6 +314,8 @@ build_fedora(){
   addmods "$SQD" || return 1
   addfw "$SQD" || return 1
   add_power_tweaks "$SQD" || return 1
+  bash "$REPO/packaging/zenbook-a16-hooks/install-hooks.sh" --root "$SQD" --distro fedora || return 1
+  stage_bundle_rootfs "$SQD" || return 1
   add_installer "$SQD" || return 1
   mklive "$SQD" "fedora-glymur-kde-live"
 }
@@ -277,6 +335,8 @@ build_arch(){
   addmods "$RD" || return 1
   addfw "$RD" || return 1
   add_power_tweaks "$RD" || return 1
+  bash "$REPO/packaging/zenbook-a16-hooks/install-hooks.sh" --root "$RD" --distro arch || return 1
+  stage_bundle_rootfs "$RD" || return 1
   add_installer "$RD" || return 1
   mklive "$RD" "arch-manjaro-kde-live"
   rm -rf "$RD"
@@ -287,7 +347,15 @@ build_ubuntu(){
   local RD=$STAGE/rd_ubuntu ISO SMIN=$STAGE/u-min.squashfs SDE=$STAGE/u-de.squashfs
   ISO=$(ls "$STAGE"/ubuntu-*-desktop-arm64.iso 2>/dev/null | tail -1)
   [ -n "${ISO:-}" ] || { say "UBUNTU: FAIL no ISO"; return 1; }
-  bsdtar -xOf "$ISO" casper/minimal.squashfs > "$SMIN" 2>/dev/null && [ -s "$SMIN" ] || return 1
+  rm -f "$SMIN" "$SDE"
+  for sname in minimal.standard.live.squashfs minimal.squashfs; do
+    if bsdtar -tf "$ISO" "casper/$sname" >/dev/null 2>&1; then
+      say "UBUNTU: extracting casper/$sname"
+      bsdtar -xOf "$ISO" "casper/$sname" > "$SMIN" 2>/dev/null || true
+      break
+    fi
+  done
+  [ -s "$SMIN" ] || { say "UBUNTU: FAIL no minimal squashfs in $ISO"; return 1; }
   bsdtar -xOf "$ISO" casper/minimal.de.squashfs > "$SDE" 2>/dev/null || true
   rm -rf "$RD"
   unsquashfs -f -d "$RD" "$SMIN" >/dev/null 2>&1 || return 1
@@ -295,16 +363,32 @@ build_ubuntu(){
   addmods "$RD" || return 1
   addfw "$RD" || return 1
   add_power_tweaks "$RD" || return 1
+  bash "$REPO/packaging/zenbook-a16-hooks/install-hooks.sh" --root "$RD" --distro ubuntu || return 1
+  stage_bundle_rootfs "$RD" || return 1
   add_installer "$RD" || return 1
   mklive "$RD" "ubuntu-glymur-gnome-live"
   rm -rf "$RD" "$SMIN" "$SDE"
 }
 
-echo "======== LIVE RUN $(date) targets=[${*:-arch fedora ubuntu}] ========" >> "$ST"
+targets=()
+for arg in "$@"; do
+  case "$arg" in
+    --fedora|fedora) targets+=(fedora) ;;
+    --ubuntu|ubuntu) targets+=(ubuntu) ;;
+    --arch|arch)     targets+=(arch) ;;
+    --all|all)       targets=(fedora ubuntu arch) ;;
+    *) say "unknown target: $arg"; exit 1 ;;
+  esac
+done
+if [ ${#targets[@]} -eq 0 ]; then
+  targets=(fedora ubuntu arch)
+fi
+
+echo "======== LIVE RUN $(date) targets=[${targets[*]}] ========" >> "$ST"
 say "kernel=$KREL  stage=$STAGE  out=$OUT"
 preflight || { say "preflight failed"; exit 1; }
 status=0
-for t in ${*:-arch fedora ubuntu}; do
+for t in "${targets[@]}"; do
   case "$t" in
     arch)   build_arch   || { say "ARCH: aborted"; status=1; } ;;
     fedora) build_fedora || { say "FEDORA: aborted"; status=1; } ;;

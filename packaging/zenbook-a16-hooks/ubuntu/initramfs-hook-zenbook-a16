@@ -1,0 +1,53 @@
+#!/bin/sh
+# /etc/initramfs-tools/hooks/zenbook-a16
+# Installs ASUS-signed ADSP/CDSP firmware and early platform modules for Zenbook A16.
+set -e
+
+PREREQ=""
+prereqs() {
+    echo "$PREREQ"
+}
+
+case $1 in
+prereqs)
+    prereqs
+    exit 0
+    ;;
+esac
+
+. /usr/share/initramfs-tools/hook-functions
+
+# 1. Install ASUS-signed ADSP/CDSP firmware and topology
+for fw in \
+    qcom/glymur/ASUSTeK/UX3607OA/qcadsp8480.mbn \
+    qcom/glymur/ASUSTeK/UX3607OA/adsp_dtbs.elf \
+    qcom/glymur/ASUSTeK/UX3607OA/qccdsp8480.mbn \
+    qcom/glymur/ASUSTeK/UX3607OA/cdsp_dtbs.elf \
+    qcom/glymur/ASUSTeK/UX3607OA-tplg.bin \
+    qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin; do
+    for dir in /lib/firmware/updates /lib/firmware /usr/lib/firmware; do
+        for ext in "" ".zst" ".xz"; do
+            if [ -s "$dir/$fw$ext" ]; then
+                mkdir -p "$DESTDIR/lib/firmware/$(dirname "$fw")"
+                cp -p "$dir/$fw$ext" "$DESTDIR/lib/firmware/$fw$ext"
+                break 2
+            fi
+        done
+    done
+done
+
+# 2. Add early Qualcomm DSP, QRTR and RPMSG modules
+for mod in qrtr qrtr_smd qcom_q6v5_pas qcom_pd_mapper qcom_battmgr \
+    snd_soc_x1e80100 snd_soc_wsa884x soundwire_qcom \
+    pinctrl_sm8550_lpass_lpi snd_soc_lpass_wsa_macro snd_soc_lpass_va_macro; do
+    manual_add_modules "$mod" 2>/dev/null || true
+done
+
+# 3. Add early regulator, PMIC, PHY, USB, and NVMe modules
+for mod in qcom_rpmh_regulator fixed qcom_spmi_pmic llcc_qcom qcom_aoss \
+    phy_qcom_edp phy_qcom_qmp_pcie pmic_glink xhci_plat_hcd nvme nvme_core \
+    dwc3_qcom phy_qcom_qmp_combo phy_qcom_qmp_usb \
+    phy_qcom_m31_eusb2 phy_qcom_eusb2_repeater phy_qcom_qmp_pcie_multiphy \
+    qcom_glink_smem dispcc_glymur gpucc_glymur; do
+    manual_add_modules "$mod" 2>/dev/null || true
+done
