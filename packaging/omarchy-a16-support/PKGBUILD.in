@@ -1,6 +1,6 @@
 pkgname=omarchy-a16-support
 pkgver=20261014
-pkgrel=7
+pkgrel=9
 pkgdesc='Experimental ASUS Zenbook A16 audio and early DSP support'
 arch=(aarch64)
 url='https://github.com/FixItFoundry/zenbook-a16-linux'
@@ -8,13 +8,14 @@ license=(BSD-3-Clause GPL-2.0-only)
 # The shared kernel keeps this capability only while it carries the audited
 # early-DSP interface. Stable updates retain support without a version pin.
 depends=(alsa-ucm-conf mkinitcpio wireplumber python util-linux
-         'omarchy-a16-dsp-abi=1' linux-omarchy-headers)
+         'omarchy-a16-dsp-abi=1' linux-omarchy-headers asus-zenbook-a16-firmware)
 source=(support.tar.xz)
 sha256sums=('@SUPPORT_SHA256@')
 
 check() {
   cd "$srcdir/support"
   python test_verify_boot.py
+  bash test.sh
 }
 
 package() {

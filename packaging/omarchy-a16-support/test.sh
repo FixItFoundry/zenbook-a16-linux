@@ -52,6 +52,25 @@ run_hook
 [[ $(wc -l < "$scratch/modprobes") == 2 && -s $scratch/settle ]] || fail 'ready boot did not settle devices'
 [[ ! -e $scratch/emergency ]] || fail 'ready boot entered emergency'
 rm "$scratch/modprobes" "$scratch/settle"
+
+# Exercise the runtime with only commands added by base and our build hook.
+mkdir -p "$scratch/initramfs-bin" "$scratch/firmware/qcom/glymur/ASUSTeK/UX3607OA"
+ln -s "$(command -v grep)" "$scratch/initramfs-bin/grep"
+for name in qcadsp8480.mbn adsp_dtbs.elf qccdsp8480.mbn cdsp_dtbs.elf; do
+  echo fixture > "$scratch/firmware/qcom/glymur/ASUSTeK/UX3607OA/$name"
+done
+echo fixture > "$scratch/firmware/qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin"
+sed "s|/usr/lib/firmware|$scratch/firmware|g" "$here/initcpio-install" > "$scratch/install"
+source "$scratch/install"
+add_file() { :; }
+add_module() { :; }
+add_runscript() { :; }
+add_binary() { ln -s "$(command -v "$1")" "$scratch/initramfs-bin/$1"; }
+KERNELVERSION=7.2.10-omarchy-a16-1 build
+PATH="$scratch/initramfs-bin" run_hook
+[[ -s $scratch/modprobes && -s $scratch/settle ]] || fail 'minimal initramfs silently skipped A16 DSP startup'
+rm "$scratch/modprobes" "$scratch/settle"
+
 printf 'asus,ux3607oa-other\0qcom,glymur\0' > "$scratch/compatible"
 run_hook
 [[ ! -e $scratch/modprobes ]] || fail 'partial model name accepted'

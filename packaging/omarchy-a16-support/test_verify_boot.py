@@ -52,6 +52,25 @@ class BootVerification(unittest.TestCase):
     def test_matching_multiboard_uki(self):
         self.assertEqual(boot.verify(self.root)["kernel_release"], self.release)
 
+    def test_limine_custom_prefix_and_config_precedence(self):
+        configs = {
+            "usr/share/limine-entry-tool.d/default.conf": "vendor",
+            "etc/limine-entry-tool.conf": "local",
+            "etc/limine-entry-tool.d/omarchy-defaults.conf": "omarchy",
+            "etc/default/limine": "override",
+        }
+        for name, prefix in configs.items():
+            config = self.root / name
+            config.parent.mkdir(parents=True, exist_ok=True)
+            config.write_text(f'CUSTOM_UKI_NAME="{prefix}"\n')
+            renamed = self.uki.with_name(f"{prefix}_linux-omarchy-a16.efi")
+            self.uki.rename(renamed)
+            self.uki = renamed
+            self.assertEqual(boot.verify(self.root)["uki"], str(renamed))
+        config.write_text('CUSTOM_UKI_NAME="../invalid"\n')
+        self.uki.rename(self.uki.with_name("machine_linux-omarchy-a16.efi"))
+        self.assertTrue(boot.verify(self.root)["uki"].endswith("machine_linux-omarchy-a16.efi"))
+
     def test_rejects_stale_kernel_dtb_release_and_missing_initrd(self):
         for name in (".linux", ".dtbauto", ".uname", ".initrd"):
             with self.subTest(name=name):

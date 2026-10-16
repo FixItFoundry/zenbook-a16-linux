@@ -19,7 +19,7 @@ with tempfile.TemporaryDirectory() as scratch:
                     str(decoded)], check=True)
 files = {name: (here / name).read_bytes() for name in
          ("initcpio-install", "initcpio-hook", "remoteproc-blacklist.conf", "mkinitcpio.conf", "ucm.conf",
-          "verify-boot.py", "test_verify_boot.py", "60-omarchy-a16-boot-check.hook", "zz-omarchy-a16-boot-check.hook")}
+          "verify-boot.py", "test_verify_boot.py", "test.sh", "60-omarchy-a16-boot-check.hook", "zz-omarchy-a16-boot-check.hook")}
 for name in ("GLYMUR-A16.tplg", "GLYMUR-A16.build.txt"):
     files[name] = (topology / name).read_bytes()
 files["HiFi.conf"] = (repo / "tweaks/usr/share/alsa/ucm2/Qualcomm/glymur/HiFi.conf").read_bytes()

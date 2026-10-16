@@ -1,6 +1,8 @@
 #!/bin/bash
 # mkinitcpio build hook: only activated by the installed A16 profile.
 build() {
+  # mkinitcpio's BusyBox omits tr; the runtime model check requires it.
+  add_binary tr || die 'Could not include tr for A16 model detection'
   local a16_abi=legacy
   case "$KERNELVERSION" in
     7.2.10-omarchy-a16-*) ;;

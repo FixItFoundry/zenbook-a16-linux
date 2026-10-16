@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 import struct
@@ -54,9 +55,20 @@ def verify(root):
     kernel = (modules / "vmlinuz").read_bytes()
     dtb = (root / f"boot/dtbs/{package}/qcom/glymur-asus-zenbook-a16-ux3607oa.dtb").read_bytes()
     machine = (root / "etc/machine-id").read_text().strip()
-    # Omarchy uses machine-id UKI filenames. A custom prefix must be audited
-    # explicitly rather than accidentally selecting another installation's UKI.
-    uki = root / f"boot/EFI/Linux/{machine}_{package}.efi"
+    # Follow Limine's config order and prefix validation, without executing config.
+    configs = [*sorted((root / "usr/share/limine-entry-tool.d").glob("*.conf")),
+               root / "etc/limine-entry-tool.conf",
+               *sorted((root / "etc/limine-entry-tool.d").glob("*.conf")),
+               root / "etc/default/limine"]
+    custom = ""
+    for config in configs:
+        if config.is_file():
+            for line in config.read_text().splitlines():
+                match = re.match(r"^\s*CUSTOM_UKI_NAME\s*=\s*(.*)$", line)
+                if match:
+                    custom = match[1].removesuffix('"').removeprefix('"')
+    prefix = custom if re.fullmatch(r"[a-z0-9]+", custom) else machine
+    uki = root / f"boot/EFI/Linux/{prefix}_{package}.efi"
     parts = sections(uki.read_bytes())
     single = dict(parts)
     if single.get(".uname", b"").rstrip(b"\0").decode() != release:
