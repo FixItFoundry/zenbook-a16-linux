@@ -1,17 +1,13 @@
 #!/bin/sh
-# Zenbook A16: Pre-load QRTR, PD mapper, and Q6V5 PAS before systemd-udevd starts
-# so that msm_drm never races CDSP bringup.
-if ! type getarg >/dev/null 2>&1 && [ -f /lib/dracut-lib.sh ]; then
-    . /lib/dracut-lib.sh
-fi
+# Run after coldplug, before mounting root; the name is retained for installed layouts.
+. /lib/dracut-lib.sh
+. /usr/lib/zenbook-a16/dsp-policy.sh
 
-if [ -r /sys/firmware/devicetree/base/compatible ]; then
-    if ! tr '\0' '\n' < /sys/firmware/devicetree/base/compatible 2>/dev/null | grep -Eq '^(asus,zenbook-a16-ux3607oa|qcom,glymur)$'; then
-        return 0 2>/dev/null || exit 0
-    fi
-fi
-
-modprobe qrtr 2>/dev/null || true
-modprobe qrtr_smd 2>/dev/null || true
-modprobe qcom_pd_mapper 2>/dev/null || true
-modprobe qcom_q6v5_pas 2>/dev/null || true
+msg() { info "$*"; }
+a16_emergency() {
+    warn "$1"
+    warn 'A16 DSP startup stopped before root mount; reboot into the DSP-disabled rescue entry.'
+    # A hook subprocess must never return to the root-mount sequence.
+    while :; do /bin/sh -i </dev/console >/dev/console 2>&1; done
+}
+run_hook

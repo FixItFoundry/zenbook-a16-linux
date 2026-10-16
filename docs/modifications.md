@@ -120,9 +120,12 @@ belongs in `phy-qcom-qmp-combo.c` or GCC.
 ```
 
 **Why:** the PDP0/CPUCP firmware answers SCMI protocol 0x13 (Performance) in shared memory but
-**never rings the mailbox doorbell** for it. The same message returns `status 0` in polling mode
+**produced no observed completion interrupt in the original configuration**. The same message returns `status 0` in polling mode
 and hangs forever in interrupt mode; the doorbell IRQ counter never moves for 0x13. This
 property makes the SCMI core poll. Documented upstream boolean, no kernel patch needed.
+The [August follow-up](https://patchew.org/linux/20260808172211.137577-1-jesse.casco%40gmail.com/)
+reported successful interrupt mode with the mailbox driver built in, so initialization
+timing remains unresolved.
 
 Measured, not guessed: 8 messages sent in IRQ mode → IRQ 156 went 9→16 (one per reply) and
 **zero** for 0x13.

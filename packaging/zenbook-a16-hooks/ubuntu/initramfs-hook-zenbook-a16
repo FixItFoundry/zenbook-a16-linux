@@ -17,30 +17,43 @@ esac
 
 . /usr/share/initramfs-tools/hook-functions
 
+copy_exec /usr/bin/tr
+copy_exec /usr/bin/udevadm
+mkdir -p "$DESTDIR/usr/lib/zenbook-a16" "$DESTDIR/etc/modprobe.d"
+cp /usr/lib/zenbook-a16/dsp-policy.sh "$DESTDIR/usr/lib/zenbook-a16/dsp-policy.sh"
+cp /usr/share/omarchy-a16/remoteproc-blacklist.conf "$DESTDIR/etc/modprobe.d/zenbook-a16-remoteproc.conf"
+
 # 1. Install ASUS-signed ADSP/CDSP firmware and topology
 for fw in \
     qcom/glymur/ASUSTeK/UX3607OA/qcadsp8480.mbn \
     qcom/glymur/ASUSTeK/UX3607OA/adsp_dtbs.elf \
     qcom/glymur/ASUSTeK/UX3607OA/qccdsp8480.mbn \
     qcom/glymur/ASUSTeK/UX3607OA/cdsp_dtbs.elf \
-    qcom/glymur/ASUSTeK/UX3607OA-tplg.bin \
-    qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin; do
+    qcom/glymur/ASUSTeK/UX3607OA-tplg.bin; do
+    found=0
+    candidates="$fw"
+    case "$fw" in *UX3607OA-tplg.bin) candidates="$candidates qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin" ;; esac
+    for candidate in $candidates; do
     for dir in /lib/firmware/updates /lib/firmware /usr/lib/firmware; do
         for ext in "" ".zst" ".xz"; do
-            if [ -s "$dir/$fw$ext" ]; then
-                mkdir -p "$DESTDIR/lib/firmware/$(dirname "$fw")"
-                cp -p "$dir/$fw$ext" "$DESTDIR/lib/firmware/$fw$ext"
-                break 2
+            if [ -s "$dir/$candidate$ext" ]; then
+                mkdir -p "$DESTDIR/lib/firmware/$(dirname "$candidate")"
+                cp -p "$dir/$candidate$ext" "$DESTDIR/lib/firmware/$candidate$ext"
+                found=1
+                break 3
             fi
         done
     done
+    done
+    [ "$found" = 1 ] || { echo "Missing required A16 firmware: $fw" >&2; exit 1; }
 done
 
 # 2. Add early Qualcomm DSP, QRTR and RPMSG modules
 for mod in qrtr qrtr_smd qcom_q6v5_pas qcom_pd_mapper qcom_battmgr \
     snd_soc_x1e80100 snd_soc_wsa884x soundwire_qcom \
     pinctrl_sm8550_lpass_lpi snd_soc_lpass_wsa_macro snd_soc_lpass_va_macro; do
-    manual_add_modules "$mod" 2>/dev/null || true
+    modinfo -k "$version" "$mod" >/dev/null || { echo "Missing required A16 module: $mod" >&2; exit 1; }
+    manual_add_modules "$mod"
 done
 
 # 3. Add early regulator, PMIC, PHY, USB, and NVMe modules

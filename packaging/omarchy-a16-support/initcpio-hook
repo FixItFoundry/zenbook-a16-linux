@@ -40,7 +40,7 @@ run_hook() {
     msg 'A16 DSPs remain disabled for this rescue boot'
     return
   fi
-  if grep -Eq ' /(sysroot|new_root) ' /proc/mounts; then
+  if grep -Eq ' /(sysroot|new_root|root) ' /proc/mounts; then
     a16_emergency 'Refusing to start A16 DSPs after root has been mounted'
     return 1
   fi

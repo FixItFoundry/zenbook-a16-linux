@@ -1,11 +1,4 @@
 #!/bin/sh
-# /etc/grub.d/09_zenbook_a16
-# Pre-generation hook for ASUS Zenbook A16
+# Emit explicit kernel/DTB pairs; 10_linux does not attach an A16 device tree.
 set -e
-
-# Inform grub-mkconfig about A16 device tree if present
-for dtb in /boot/dtb-* /boot/dtbs/*/qcom/glymur-asus-zenbook-a16-ux3607oa.dtb; do
-    if [ -f "$dtb" ]; then
-        break
-    fi
-done
+exec python3 /usr/lib/zenbook-a16/boot-artifacts.py grub

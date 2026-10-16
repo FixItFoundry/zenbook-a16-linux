@@ -1,37 +1,12 @@
 #!/usr/bin/env bash
-# ============================================================================
-# LIVE images for the ASUS Zenbook A16 (glymur) — compressed root, RAM overlay.
-#
-# Why this exists, and why it replaces legacy raw-image builders for USB use:
-#
-#   A raw disk image with an uncompressed ext4 root has major drawbacks on a USB stick:
-#     - `dd` writes the full 14 GB no matter how well the .gz compresses, so
-#       flashing takes ~half an hour
-#     - every read at runtime is uncompressed I/O straight off USB
-#     - every write lands on the stick, so it wears and it is slow
-#
-#   This builder instead produces an image sized to its CONTENT (~3 GB), whose
-#   root is a compressed squashfs mounted read-only with a tmpfs overlay on
-#   top. Reads decompress from RAM cache, writes go to RAM, the stick is only
-#   touched at boot.
-#
-# Layout produced:
-#     p1  ESP  vfat   bootloader, kernel, live initramfs, DTB, loader entry
-#     p2  ext4 LABEL=GLYMURLIVE   LiveOS/squashfs.img   (the compressed root)
-#
-#   ext4 for p2 rather than one big vfat because FAT32 caps a single file at
-#   4 GB and a full desktop squashfs can exceed that.
-#
-# The live initramfs must carry dracut's dmsquash-live module; build it on the
-# A16 (matching kernel) with:
-#     dracut --force --no-hostonly --add dmsquash-live --kver "$KREL" \
-#       --kmoddir "$STAGE/modules/$KREL" out.img
-#
-# Run as root:  sudo -E bash build-live-images.sh [--fedora] [--ubuntu] [--arch] [--all]
-# ============================================================================
+# Build Fedora/Ubuntu live media with a compressed root and RAM overlay.
+# p1: FAT ESP with boot artifacts; p2: ext4 GLYMURLIVE with LiveOS/squashfs.img.
+# ext4 permits squashfs images larger than FAT32's 4 GiB limit.
+# Supply a non-host-only dracut initramfs with dmsquash-live and the A16 DSP hook.
+# Run as root: sudo -E bash build-live-images.sh [fedora|ubuntu|--all]
 set -Eeuo pipefail
 
-KREL="${KREL:-7.3.0-rc5-glymur-rc5-20261013}"
+KREL="${KREL:-7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+}"
 STAGE="${STAGE:-$HOME/glymur-images}"
 OUT="${OUT:-$STAGE/out-live}"
 
@@ -54,117 +29,107 @@ say(){ echo "[$(date '+%m-%d %H:%M:%S')] $*"; echo "[$(date '+%m-%d %H:%M:%S')] 
 preflight(){
   mkdir -p "$STAGE" "$OUT"
   local bad=0
+  for distro in "${targets[@]}"; do
+    bash "$REPO/packaging/zenbook-a16-hooks/install-hooks.sh" --root "$STAGE" --distro "$distro" --check || bad=1
+  done
+  local support_root
+  support_root=$(mktemp -d) || return 1
+  bash "$REPO/packaging/zenbook-a16-hooks/install-hooks.sh" --root "$support_root" --distro fedora || bad=1
+  python3 "$REPO/packaging/omarchy-a16-support/verify-boot.py" --validate-kernel \
+    --root "$support_root" --initramfs-image "$LIVEINITRD" \
+    --modules-dir "$MODS/$KREL" --kernel-release "$KREL" --kernel-image "$VM" --dtb-image "$DTB" || bad=1
+  rm -rf "$support_root" || bad=1
+  [[ "$(uname -m)" == aarch64 ]] || { say "build on native aarch64 Linux"; bad=1; }
   [ -f "$VM" ]         || { say "MISSING kernel: $VM"; bad=1; }
   [ -f "$LIVEINITRD" ] || { say "MISSING live initramfs: $LIVEINITRD"; bad=1; }
   [ -f "$DTB" ]        || { say "MISSING dtb: $DTB"; bad=1; }
   [ -f "$SB" ]         || { say "MISSING systemd-bootaa64.efi: $SB"; bad=1; }
   [ -d "$MODS/$KREL" ] || { say "MISSING modules: $MODS/$KREL"; bad=1; }
-  local firmware_file
-  for firmware_file in \
-    qcom/glymur/ASUSTeK/UX3607OA/qcadsp8480.mbn \
-    qcom/glymur/ASUSTeK/UX3607OA/adsp_dtbs.elf \
-    qcom/glymur/ASUSTeK/UX3607OA/qccdsp8480.mbn \
-    qcom/glymur/ASUSTeK/UX3607OA/cdsp_dtbs.elf \
-    qcom/glymur/ASUSTeK/UX3607OA-tplg.bin; do
-    local fw_alts=("$firmware_file")
-    if [[ "$firmware_file" == *"UX3607OA-tplg.bin"* ]]; then
-      fw_alts+=("qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin")
-    fi
-    local fw_found=0
-    for cand in "${fw_alts[@]}"; do
-      if [ -s "$FW/$cand" ] || [ -s "$FW/$cand.xz" ] || [ -s "$FW/$cand.zst" ]; then
-        fw_found=1
-        break
-      fi
-    done
-    if [ "$fw_found" -eq 0 ]; then
-      say "MISSING firmware: $FW/$firmware_file"; bad=1
-    fi
-  done
-  # A hostonly initramfs carries only the drivers the BUILD host happened to need,
-  # so an image built on an ext4 box silently fails to mount a btrfs (or xfs, or
-  # LVM) root on anyone else's machine -- it boots for us and for nobody else.
-  # dracut's default is hostonly=yes, so this is the easy mistake, and it is
-  # invisible until a stranger writes the stick. btrfs.ko is the canary: absent
-  # from a hostonly build on an ext4 host, present in any --no-hostonly build.
-  # (Learned the hard way 2026-08-08: converting loazen's root ext4->btrfs left
-  # its installed initramfs with the btrfs *userspace* but no btrfs.ko, which
-  # would have dropped the box into a dracut emergency shell on first boot.)
+  DEST="$FW" bash "$REPO/iso/glymur-fetch-firmware.sh" --check || bad=1
+  # A host-only image can omit filesystems needed on the target; check btrfs as a canary.
   if [ -f "$LIVEINITRD" ]; then
     if command -v lsinitrd >/dev/null; then
-      local ls_out; ls_out=$(lsinitrd "$LIVEINITRD" 2>/dev/null)
+      local ls_out; ls_out=$(lsinitrd "$LIVEINITRD") || { say "cannot read live initramfs"; bad=1; }
       grep -q 'btrfs\.ko'   <<<"$ls_out" || { say "LIVE INITRAMFS looks HOSTONLY (no btrfs.ko) -- see iso/README.md"; bad=1; }
       grep -q 'dmsquash'    <<<"$ls_out" || { say "LIVE INITRAMFS lacks dmsquash-live -- it cannot find LiveOS/squashfs.img"; bad=1; }
     else
-      say "WARN: lsinitrd unavailable -- cannot verify $LIVEINITRD is generic (--no-hostonly) or carries dmsquash-live"
+      say "MISSING TOOL: lsinitrd -- cannot verify live initramfs"; bad=1
     fi
   fi
 
-  for c in mksquashfs parted losetup mkfs.vfat mkfs.ext4 blkid; do
+  for c in mksquashfs parted losetup mkfs.vfat mkfs.ext4 blkid python3 dtc fdtget mountpoint mount umount chroot; do
     command -v "$c" >/dev/null || { say "MISSING TOOL: $c"; bad=1; }
   done
+  if [[ " ${targets[*]} " == *" ubuntu "* ]]; then
+    for c in bsdtar unsquashfs; do
+      command -v "$c" >/dev/null || { say "MISSING TOOL: $c"; bad=1; }
+    done
+  fi
   [ "$(id -u)" -eq 0 ] || { say "must run as root"; bad=1; }
   return $bad
 }
 
-addmods(){ mkdir -p "$1/lib/modules"; cp -a "$MODS/$KREL" "$1/lib/modules/" || return 1
-           rm -rf "$1/lib/modules/$KREL/build" "$1/lib/modules/$KREL/source"; }
+addmods(){
+  local destination="$1/lib/modules/$KREL"
+  [[ ! -L "$destination" ]] || { say "module destination is a symlink: $destination"; return 1; }
+  mkdir -p "$destination"
+  cp -a "$MODS/$KREL/." "$destination/"
+  rm -rf "$destination/build" "$destination/source"
+}
 addfw(){
   local root=$1
   mkdir -p "$root/lib/firmware"
-  [ -d "$FW/ath12k" ] && cp -a "$FW/ath12k" "$root/lib/firmware/"
-  [ -d "$FW/qca" ] && cp -a "$FW/qca" "$root/lib/firmware/"
-  [ -d "$FW/qcom" ] && cp -a "$FW/qcom" "$root/lib/firmware/"
-  [ -d "$FW/audio" ] && cp -a "$FW/audio" "$root/lib/firmware/"
-  if [ -s "$REPO/firmware/audioreach/UX3607OA-tplg.bin" ]; then
-    install -Dm644 "$REPO/firmware/audioreach/UX3607OA-tplg.bin" \
-      "$root/lib/firmware/qcom/glymur/ASUSTeK/UX3607OA/UX3607OA-tplg.bin"
-    install -Dm644 "$REPO/firmware/audioreach/UX3607OA-tplg.bin" \
-      "$root/lib/firmware/qcom/glymur/ASUSTeK/UX3607OA-tplg.bin"
-  fi
+  local sub
+  for sub in ath12k qca qcom audio; do
+    if [ -d "$FW/$sub" ]; then
+      cp -a "$FW/$sub" "$root/lib/firmware/"
+    fi
+  done
 }
 
 stage_bundle_rootfs(){
   local rd="$1"
   local bdir="$rd/usr/share/zenbook-a16/bundle"
   mkdir -p "$bdir"
+  install -m755 "$REPO/iso/glymur-fetch-firmware.sh" "$bdir/glymur-fetch-firmware.sh"
+  [[ ! -L "$bdir/modules/$KREL" ]] || return 1
   [ -f "$VM" ] && cp -p "$VM" "$bdir/vmlinuz-$KREL"
   local dtb_dest="$bdir/glymur-asus-zenbook-a16-ux3607oa.dtb"
   [ -f "$DTB" ] && cp -p "$DTB" "$dtb_dest"
-  ln -sf "glymur-asus-zenbook-a16-ux3607oa.dtb" "$bdir/$KREL.dtb" 2>/dev/null || true
+  ln -sf "glymur-asus-zenbook-a16-ux3607oa.dtb" "$bdir/$KREL.dtb"
   if [ -d "$MODS/$KREL" ]; then
     mkdir -p "$bdir/modules"
-    cp -a "$MODS/$KREL" "$bdir/modules/"
+    mkdir -p "$bdir/modules/$KREL"
+    cp -a "$MODS/$KREL/." "$bdir/modules/$KREL/"
     mkdir -p "$bdir/lib/modules"
-    ln -sfn "../../modules/$KREL" "$bdir/lib/modules/$KREL" 2>/dev/null || true
-    printf '1\n' > "$bdir/modules/$KREL/omarchy-a16-dsp-abi"
-    printf '1\n' > "$bdir/modules/$KREL/zenbook-a16-dsp-abi"
+    [[ ! -d "$bdir/lib/modules/$KREL" || -L "$bdir/lib/modules/$KREL" ]] || return 1
+    ln -sfn "../../modules/$KREL" "$bdir/lib/modules/$KREL"
   fi
   mkdir -p "$bdir/usr/share/doc/linux-zenbook-a16"
   printf '%s\n' "$KREL" > "$bdir/usr/share/doc/linux-zenbook-a16/kernel-release"
   if [ -d "$FW" ]; then
     mkdir -p "$bdir/firmware"
-    cp -a "$FW"/* "$bdir/firmware/" 2>/dev/null || true
+    cp -a "$FW"/* "$bdir/firmware/"
   fi
   if [ -d "$REPO/tweaks" ]; then
     mkdir -p "$bdir/tweaks"
-    cp -a "$REPO/tweaks"/* "$bdir/tweaks/" 2>/dev/null || true
+    cp -a "$REPO/tweaks"/* "$bdir/tweaks/"
   fi
   if [ -d "$REPO/packaging/zenbook-a16-hooks" ]; then
     mkdir -p "$bdir/packaging/zenbook-a16-hooks"
-    cp -a "$REPO/packaging/zenbook-a16-hooks"/* "$bdir/packaging/zenbook-a16-hooks/" 2>/dev/null || true
+    cp -a "$REPO/packaging/zenbook-a16-hooks"/* "$bdir/packaging/zenbook-a16-hooks/"
   fi
   if [ -d "$REPO/packaging/omarchy-a16-support" ]; then
     mkdir -p "$bdir/packaging/omarchy-a16-support"
-    cp -a "$REPO/packaging/omarchy-a16-support"/* "$bdir/packaging/omarchy-a16-support/" 2>/dev/null || true
+    cp -a "$REPO/packaging/omarchy-a16-support"/* "$bdir/packaging/omarchy-a16-support/"
   fi
   if [ -d "$STAGE/rpms" ]; then
     mkdir -p "$bdir/rpms"
-    cp -a "$STAGE/rpms"/* "$bdir/rpms/" 2>/dev/null || true
+    cp -a "$STAGE/rpms"/* "$bdir/rpms/"
   fi
   if [ -d "$STAGE/debs" ]; then
     mkdir -p "$bdir/debs"
-    cp -a "$STAGE/debs"/* "$bdir/debs/" 2>/dev/null || true
+    cp -a "$STAGE/debs"/* "$bdir/debs/"
   fi
 }
 
@@ -175,7 +140,7 @@ add_installer(){
   chmod 755 "$rd/usr/local/bin/zenbook-install-to-disk"
 
   if [ -d "$STAGE/rpms" ]; then
-    cp -a "$STAGE/rpms/"*.rpm "$rd/opt/zenbook-kernel/" 2>/dev/null || true
+    cp -a "$STAGE/rpms/"*.rpm "$rd/opt/zenbook-kernel/"
   fi
 
   cat > "$rd/usr/share/applications/zenbook-install.desktop" <<'EOF'
@@ -192,23 +157,33 @@ EOF
   for u in liveuser root; do
     if [ -d "$rd/home/$u/Desktop" ]; then
       cp -a "$rd/usr/share/applications/zenbook-install.desktop" "$rd/home/$u/Desktop/"
-      chmod 755 "$rd/home/$u/Desktop/zenbook-install.desktop" 2>/dev/null || true
+      chmod 755 "$rd/home/$u/Desktop/zenbook-install.desktop"
     fi
   done
 }
 add_power_tweaks(){
   local rd="$1" src="$REPO/tweaks"
+  # Drop defaults from previously staged live rootfs trees, retaining repository experiments.
+  rm -f "$rd/etc/systemd/logind.conf.d/99-glymur-suspend.conf" "$rd/usr/lib/systemd/system-sleep/glymur-resume-guard"
   install -Dm644 "$src/etc/modules-load.d/battery-baseline.conf" "$rd/etc/modules-load.d/battery-baseline.conf" || return 1
   install -Dm644 "$src/etc/tmpfiles.d/glymur-s2idle.conf" "$rd/etc/tmpfiles.d/glymur-s2idle.conf" || return 1
-  install -Dm644 "$src/etc/systemd/logind.conf.d/99-glymur-suspend.conf" "$rd/etc/systemd/logind.conf.d/99-glymur-suspend.conf" || return 1
-  install -Dm755 "$src/usr/lib/systemd/system-sleep/glymur-resume-guard" "$rd/usr/lib/systemd/system-sleep/glymur-resume-guard" || return 1
   install -Dm755 "$src/usr/local/bin/glymur-cpu-profile.sh" "$rd/usr/local/bin/glymur-cpu-profile.sh" || return 1
   mkdir -p "$rd/etc/tuned/profiles"
   cp -a "$src/etc/tuned/profiles/glymur-balanced" "$src/etc/tuned/profiles/glymur-performance" "$src/etc/tuned/profiles/glymur-powersave" "$rd/etc/tuned/profiles/" || return 1
   if [ -d "$src/usr/share/alsa/ucm2" ]; then
     mkdir -p "$rd/usr/share/alsa/ucm2"
-    cp -a "$src/usr/share/alsa/ucm2"/* "$rd/usr/share/alsa/ucm2/" 2>/dev/null || true
+    cp -a "$src/usr/share/alsa/ucm2"/* "$rd/usr/share/alsa/ucm2/"
   fi
+}
+
+check_live_tools(){
+  local tool
+  for tool in bash python3 dtc fdtget findmnt chroot mountpoint; do
+    chroot "$1" /bin/sh -c 'command -v "$1" >/dev/null' sh "$tool" || {
+      say "live rootfs requires native tool: $tool"
+      return 1
+    }
+  done
 }
 
 # $1 = rootfs dir, $2 = output name
@@ -218,7 +193,13 @@ mklive(){
   # line as NAME="$2" is an unbound variable under `set -u`.
   local RD="$1" NAME="$2"
   local SQ="$STAGE/$NAME.squashfs" IMG="$STAGE/$NAME.img"
-  local SQMB IMGMB LOOP MNT
+  local SQMB IMGMB LOOP="" MNT=""
+  local LIVEOPTS GLYMUROPTS POLICYOPTS
+  trap 'if [[ -n "${MNT:-}" ]]; then
+          mountpoint -q "$MNT" && umount "$MNT" || true
+          rmdir "$MNT" 2>/dev/null || true
+        fi
+        [[ -z "${LOOP:-}" ]] || losetup -d "$LOOP" || true' EXIT
 
   # The rootfs still carries the source distro's /etc/fstab (and friends),
   # which reference partitions that do not exist on a live stick. Left in
@@ -228,10 +209,10 @@ mklive(){
   # be empty -- this is what distro live images ship.
   say "$NAME: neutralising fstab/crypttab/resume for live boot"
   printf '# live image: root comes from the dmsquash-live overlay\n' > "$RD/etc/fstab"
-  : > "$RD/etc/crypttab" 2>/dev/null || true
-  rm -f "$RD/etc/dracut.conf.d/"*resume* 2>/dev/null || true
+  : > "$RD/etc/crypttab"
+  rm -f "$RD/etc/dracut.conf.d/"*resume*
   # a stale machine-id makes every live stick share an identity; let it regenerate
-  : > "$RD/etc/machine-id" 2>/dev/null || true
+  : > "$RD/etc/machine-id"
 
   say "$NAME: squashing rootfs (zstd)"
   rm -f "$SQ"
@@ -275,7 +256,8 @@ mklive(){
   # loglevel, so a failure shows nothing but the last permitted lines (systemd
   # BPF audit records), and without panic=10 a panic hangs instead of rebooting.
   LIVEOPTS="root=live:LABEL=$LABEL rd.live.image rd.live.overlay.overlayfs=1"
-  GLYMUROPTS="rw clk_ignore_unused pd_ignore_unused cma=128M glymur_pci_skip=5 console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device"
+  POLICYOPTS=$(python3 -c 'import json,sys; print(" ".join(json.load(open(sys.argv[1]))["cmdline"]))' "$MODS/$KREL/zenbook-a16-boot.json")
+  GLYMUROPTS="rw $POLICYOPTS console=tty0 ignore_loglevel rd.timeout=60 panic=10 systemd.mask=dev-tpm0.device systemd.mask=dev-tpmrm0.device"
 
   cat > "$MNT/loader/entries/glymur-live.conf" <<EOF
 title      $NAME live (Zenbook A16)
@@ -299,6 +281,7 @@ options    $LIVEOPTS $GLYMUROPTS rd.shell rd.debug systemd.log_level=debug
 EOF
 
   sync; umount "$MNT"; losetup -d "$LOOP"; rmdir "$MNT"
+  MNT=""; LOOP=""
   rm -f "$SQ"
   mv -f "$IMG" "$OUT/"
   say "$NAME: DONE -> $OUT/$NAME.img ($(du -h "$OUT/$NAME.img" | cut -f1)) -- dd writes only this much"
@@ -310,36 +293,15 @@ build_fedora(){
   say "FEDORA: live boot media with bundled disk installer (see iso/README.md)"
   local SQD=$STAGE/fed_sqroot
   [ -d "$SQD/usr/bin" ] || { say "FEDORA: FAIL no extracted rootfs at $SQD"; return 1; }
+  check_live_tools "$SQD"
   say "FEDORA: reusing extracted rootfs"
-  addmods "$SQD" || return 1
-  addfw "$SQD" || return 1
-  add_power_tweaks "$SQD" || return 1
-  bash "$REPO/packaging/zenbook-a16-hooks/install-hooks.sh" --root "$SQD" --distro fedora || return 1
-  stage_bundle_rootfs "$SQD" || return 1
-  add_installer "$SQD" || return 1
+  addmods "$SQD"
+  addfw "$SQD"
+  add_power_tweaks "$SQD"
+  bash "$REPO/packaging/zenbook-a16-hooks/install-hooks.sh" --root "$SQD" --distro fedora
+  stage_bundle_rootfs "$SQD"
+  add_installer "$SQD"
   mklive "$SQD" "fedora-glymur-kde-live"
-}
-
-build_arch(){
-  say "ARCH(Manjaro) live: === START ==="
-  local RD=$STAGE/rd_arch XZ IMG2=$STAGE/manjaro-kde.img LOOP MNT
-  XZ=$(ls "$STAGE"/Manjaro-ARM-kde-plasma-generic-efi-*.img.xz 2>/dev/null | tail -1)
-  [ -n "${XZ:-}" ] || { say "ARCH: FAIL no Manjaro image"; return 1; }
-  if [ ! -s "$IMG2" ]; then say "ARCH: decompressing"; unxz -c "$XZ" > "$IMG2" || return 1; fi
-  LOOP=$(losetup --find --show --partscan "$IMG2") || return 1
-  MNT=$(mktemp -d)
-  mount "${LOOP}p2" "$MNT" 2>/dev/null || mount "${LOOP}p1" "$MNT" 2>/dev/null || { losetup -d "$LOOP"; return 1; }
-  rm -rf "$RD"; mkdir -p "$RD"; say "ARCH: extracting rootfs"
-  cp -a "$MNT"/. "$RD"/ 2>/dev/null
-  umount "$MNT"; rmdir "$MNT"; losetup -d "$LOOP"
-  addmods "$RD" || return 1
-  addfw "$RD" || return 1
-  add_power_tweaks "$RD" || return 1
-  bash "$REPO/packaging/zenbook-a16-hooks/install-hooks.sh" --root "$RD" --distro arch || return 1
-  stage_bundle_rootfs "$RD" || return 1
-  add_installer "$RD" || return 1
-  mklive "$RD" "arch-manjaro-kde-live"
-  rm -rf "$RD"
 }
 
 build_ubuntu(){
@@ -351,50 +313,61 @@ build_ubuntu(){
   for sname in minimal.standard.live.squashfs minimal.squashfs; do
     if bsdtar -tf "$ISO" "casper/$sname" >/dev/null 2>&1; then
       say "UBUNTU: extracting casper/$sname"
-      bsdtar -xOf "$ISO" "casper/$sname" > "$SMIN" 2>/dev/null || true
+      bsdtar -xOf "$ISO" "casper/$sname" > "$SMIN"
       break
     fi
   done
   [ -s "$SMIN" ] || { say "UBUNTU: FAIL no minimal squashfs in $ISO"; return 1; }
-  bsdtar -xOf "$ISO" casper/minimal.de.squashfs > "$SDE" 2>/dev/null || true
+  if bsdtar -tf "$ISO" casper/minimal.de.squashfs >/dev/null 2>&1; then
+    bsdtar -xOf "$ISO" casper/minimal.de.squashfs > "$SDE"
+  fi
   rm -rf "$RD"
-  unsquashfs -f -d "$RD" "$SMIN" >/dev/null 2>&1 || return 1
+  unsquashfs -f -d "$RD" "$SMIN" >/dev/null 2>&1
   [ -s "$SDE" ] && unsquashfs -f -d "$RD" "$SDE" >/dev/null 2>&1
-  addmods "$RD" || return 1
-  addfw "$RD" || return 1
-  add_power_tweaks "$RD" || return 1
-  bash "$REPO/packaging/zenbook-a16-hooks/install-hooks.sh" --root "$RD" --distro ubuntu || return 1
-  stage_bundle_rootfs "$RD" || return 1
-  add_installer "$RD" || return 1
+  check_live_tools "$RD"
+  addmods "$RD"
+  addfw "$RD"
+  add_power_tweaks "$RD"
+  bash "$REPO/packaging/zenbook-a16-hooks/install-hooks.sh" --root "$RD" --distro ubuntu
+  stage_bundle_rootfs "$RD"
+  add_installer "$RD"
   mklive "$RD" "ubuntu-glymur-gnome-live"
   rm -rf "$RD" "$SMIN" "$SDE"
 }
 
+main(){
 targets=()
 for arg in "$@"; do
   case "$arg" in
     --fedora|fedora) targets+=(fedora) ;;
     --ubuntu|ubuntu) targets+=(ubuntu) ;;
-    --arch|arch)     targets+=(arch) ;;
-    --all|all)       targets=(fedora ubuntu arch) ;;
-    *) say "unknown target: $arg"; exit 1 ;;
+    --arch|arch) echo "error: generic Arch/Limine installation is unsupported; use the packaged Omarchy workflow" >&2; exit 1 ;;
+    --all|all)       targets=(fedora ubuntu) ;;
+    *) echo "error: unknown target: $arg" >&2; exit 1 ;;
   esac
 done
 if [ ${#targets[@]} -eq 0 ]; then
-  targets=(fedora ubuntu arch)
+  targets=(fedora ubuntu)
 fi
 
+mkdir -p "$STAGE" "$OUT"
 echo "======== LIVE RUN $(date) targets=[${targets[*]}] ========" >> "$ST"
 say "kernel=$KREL  stage=$STAGE  out=$OUT"
 preflight || { say "preflight failed"; exit 1; }
 status=0
 for t in "${targets[@]}"; do
-  case "$t" in
-    arch)   build_arch   || { say "ARCH: aborted"; status=1; } ;;
-    fedora) build_fedora || { say "FEDORA: aborted"; status=1; } ;;
-    ubuntu) build_ubuntu || { say "UBUNTU: aborted"; status=1; } ;;
-    *) say "unknown target: $t"; status=1 ;;
-  esac
+  # A separate shell keeps errexit active inside helpers while collecting status.
+  if bash -Eeuo pipefail -c 'source "$1"; "build_$2"' bash "${BASH_SOURCE[0]}" "$t"; then
+    :
+  else
+    say "$t: aborted"
+    status=1
+  fi
 done
 say "======== LIVE RUN DONE $(date) ========"
 exit "$status"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

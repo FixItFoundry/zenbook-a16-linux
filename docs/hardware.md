@@ -365,11 +365,10 @@ policy6   cpus 6-11   355 MHz - 4.45 GHz   21 OPPs
 policy12  cpus 12-17  355 MHz - 4.45 GHz   21 OPPs
 ```
 
-**What we changed — one DT property.** `scmi-cpufreq` had probed `-110` (`-ETIMEDOUT`) for the
-project's entire life. Root cause, measured with SCMI RAW: **the firmware answers protocol 0x13
-(Performance) in shared memory but never rings the mailbox doorbell for it.** The doorbell IRQ
-counter does not move for 0x13 at all. Fix: `arm,no-completion-irq` on the `scmi` node, which
-makes the SCMI core poll instead of waiting.
+The early SCMI tests observed replies in shared memory without completion interrupts;
+`arm,no-completion-irq` supplied a polling workaround. The [August follow-up](https://patchew.org/linux/20260808172211.137577-1-jesse.casco%40gmail.com/)
+reported working interrupts after building `qcom_cpucp_mbox` into the kernel.
+Initialization timing remains the question; this is not proof that firmware never signals replies.
 
 ⛔ **Two log lines look like failures and are not:** `Failed to query supported version for
 protocol 0x13` (the firmware does not implement `0x13/0x0`; the kernel falls back) and
@@ -790,7 +789,7 @@ deliberately removed from the DT.
 
 Extracted via `setupapi.dev.log` and registry configuration (`HKLM\...\Device Parameters`):
 - **Front sensor**: OmniVision **OV02C10** (2 MP) — `qccamfrontsensor_extension8480.inf`. Driver `drivers/media/i2c/ov02c10.c` already in-tree (2 lanes, 400 MHz link freq, 1928x1092).
-- **Aux / IR sensor**: SK Hynix **HM1092** — `qccamauxsensor_extension8480.inf`. **No Linux driver exists.** Windows Hello IR is out of scope; it does not block the webcam.
+- **Aux / IR sensor**: Himax **HM1092** — `qccamauxsensor_extension8480.inf`. The [Linux sensor driver v7](https://patchew.org/linux/20261013-hm1092-driver-v7-0-d81a9b152ffd@gmail.com/) is under review as of 2026-10-16; it is not yet an accepted A16 capture path. IR capture and face authentication are separate tasks.
 
 ### ★ Board wiring — recovered 2026-09-06 from the AeoB power-sequence binaries
 
@@ -803,6 +802,7 @@ tables turn the raw mux indices into names.
 
 | Resource | Value | Evidence |
 |---|---|---|
+| MCLK (aux / IR) | `cam_cc_mclk0_clk` @ 24 MHz | decoded ASUS BSP 1.312.4500.0 `CAMI_RES_QRD.bin` CLOCK record at `0x460`; differs from RGB |
 | MCLK (front) | `cam_cc_mclk4_clk` @ 19.2 MHz | literal string + `0x0124f800` in AeoB — **proven** |
 | MCLK4 pin | **TLMM 100**, function `cam_asc_mclk4` | `cam_mclk_groups[]` is gpio96–99 = MCLK0–3 only; gpio100 is the *sole* MCLK4-capable pin — **proven by elimination** |
 | CCI SCL pin | **TLMM 106**, function index 1 = `cci_i2c_scl` | AeoB `TLMMGPIO_V2 {gpio=0x6a, func=1}`, identical in both sensors; `PINGROUP()` puts `msm_mux_gpio` at index 0 so f1 = `cci_i2c_scl` — **proven** |
@@ -811,7 +811,7 @@ tables turn the raw mux indices into names.
 | Front reset | **TLMM 239** (egpio) | AeoB plain `TLMMGPIO` with `EGPIO_DISABLE`/`EGPIO_ENABLE`, front blob only. `PINGROUP()` carries `egpio_enable`/`egpio_present`, `ngpios = 251` — **strong** |
 | Aux reset | TLMM 109 | same field in the aux blob only — strong |
 | `dovdd` | **LDO4 on PMIC `I_E0`** @ 1.8 V | `PPP_RESOURCE_ID_LDO4_I0`, `0x001b7740`; present in **both** blobs ⇒ shared I/O rail — **proven** |
-| `avdd` + `dvdd` | **LDO7 on `I_E0`** @ 2.8 V | `PPP_RESOURCE_ID_LDO7_I0`, `0x002ab980`, front only — **proven** |
+| RGB rail vote | **LDO7 on `I_E0`** @ 2.8 V | `PPP_RESOURCE_ID_LDO7_I0`, `0x002ab980`, front only; physical AVDD/DVDD connection remains inferred |
 | aux analog | LDO3 on `I_E0` | `PPP_RESOURCE_ID_LDO3_I0`, aux only — proven |
 | module boost | BUCK_BOOST1 on `B_E0` @ 3.4 V | `0x0033e140`, both blobs — proven |
 | CPAS AHB | 80 MHz (`0x04c4b400`) | AeoB — proven |
@@ -822,9 +822,8 @@ tables turn the raw mux indices into names.
 already uses the identical id convention — `qcom,pmic-id = "B_E0"` matches the AeoB
 string `..._B_E0` exactly.
 
-**There is no separate DVDD rail, and that is not a gap.** The sequence votes only two
-LDOs because `avdd` and `dvdd` share the 2.8 V rail — the same arrangement the ASUS
-Zenbook A14 uses.
+The resource sequence votes two LDOs for RGB. A shared AVDD/DVDD supply is an
+inference from those votes, not proof of physical pin wiring.
 
 #### ⚠️ Retraction: the `cci0_i2c0` placement was wrong
 
@@ -860,11 +859,15 @@ CCI register addresses and GIC SPI interrupts from ACPI `CAMP._CRS` and device t
 `camss.c` indexes `camss->csiphy[]` by array position, not by the `.id` field. It is not
 a typo for `port@4`.
 
-### ⛔ Blocker — `pmh0104` has no LDOs in the kernel
+### Historical regulator blocker — driver support is now in the RC5 queue
+
+Current `rc5-20261013` patch 28 adds PMH0104 LDO3/4/7 support. Board consumers,
+sequencing and successful capture still need validation; the paragraph below
+describes the older kernel, not the current baseline.
 
 `pmh0104_vreg_data[]` in `drivers/regulator/qcom-rpmh-regulator.c` declares **only
 `smps1`–`smps4`**, and the board dts has no `I_E0` `rpmh-regulators` node at all. So
-`LDO4_I0` / `LDO7_I0` cannot be requested today, and any sensor node naming them will sit
+`LDO4_I0` / `LDO7_I0` could not be requested in that kernel, and any sensor node naming them will sit
 in deferred probe forever.
 
 Fix staged as [`patches/glymur-pmh0104-camera-ldos.patch`](../patches/glymur-pmh0104-camera-ldos.patch):
@@ -918,4 +921,4 @@ for the camera.**
 | GPU zap shader | ❌ **tested 2026-08-02** — DT node works, TrustZone rejects the image (`-EINVAL`); adding the node costs the GPU. `SECVID_TRUST_CNTL` fallback is correct here |
 | Headphone jack, DP audio | ❌ known cause (missing DT node), unfixed |
 | USB4 | ❌ blocked upstream — binding is an unmerged RFC |
-| Camera | ⏳ camcc, CCI (i2c-24..27), and CAMSS (28 v4l-subdevs) verified on hardware; board wiring recovered 2026-09-06 (OV02C10 on `cci1_i2c0`, MCLK4/TLMM100, reset TLMM239, LDO4/LDO7 on `I_E0`). Blocked on the `pmh0104` LDO patch |
+| Camera | ⏳ camcc, CCI (i2c-24..27), and CAMSS (28 v4l-subdevs) verified on hardware; board wiring recovered 2026-09-06 (OV02C10 on `cci1_i2c0`, MCLK4/TLMM100, reset TLMM239, LDO4/LDO7 on `I_E0`). PMH0104 LDO driver support is in current patch 28; board wiring and streaming remain unaccepted |

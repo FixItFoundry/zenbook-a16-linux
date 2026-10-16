@@ -1,33 +1,13 @@
 #!/bin/bash
-# glymur-cpu-profile.sh — apply per-cluster frequency caps for a power profile.
-#
-# There is no EPP on this platform. EPP is an x86 concept (intel_pstate /
-# amd-pstate HWP). Here the CPU is driven by scmi-cpufreq + schedutil, and the
-# equivalent levers are: per-policy scaling_max_freq, the boost switch, and the
-# Energy Model that EAS already uses for placement. This script drives the first
-# two; EAS handles the rest by itself.
-#
-# Clusters (from Konrad's DT: capacity-dmips-mhz 1024 x6, 1372 x12, three
-# scmi_perf domains):
-#   policy0   cpus 0-5    efficiency   355.2 MHz - 3.6096 GHz   capacity 619
-#   policy6   cpus 6-11   performance  355.2 MHz - 4.4544 GHz   capacity 1024
-#   policy12  cpus 12-17  performance  355.2 MHz - 4.4544 GHz   capacity 1024
-#   boost bins on policy6/policy12 only: 4.5696 GHz, 4.7232 GHz
-#
-# NOTE policy6 and policy12 are IDENTICAL — same capacity-dmips-mhz, same OPP
-# table, same boost bins. They are two perf domains, not a "performance" and a
-# "prime" tier. Nothing here treats them differently, on purpose.
-#
-# The cap values are taken from the kernel's own Energy Model
-# (/sys/kernel/debug/energy_model/cpuN/ps:*/cost), which is energy per unit of
-# work and is comparable across clusters. See docs/power-and-thermal.md.
+# Apply SCMI frequency caps from the measured Energy Model; see docs/power-and-thermal.md.
+# policy0 is the efficiency cluster; policy6 and policy12 have identical performance OPPs.
 
 set -u
 
 CPUFREQ=/sys/devices/system/cpu/cpufreq
 PROFILE="${1:-}"
 
-log() { echo "glymur-cpu-profile: $*"; command -v logger >/dev/null && logger -t glymur-cpu-profile "$*"; }
+log() { echo "glymur-cpu-profile: $*"; if command -v logger >/dev/null; then logger -t glymur-cpu-profile "$*" || :; fi; }
 
 usage() {
 	echo "usage: $0 {performance|balanced|powersave|reset|status}" >&2
@@ -39,8 +19,8 @@ have_policy() { [ -d "$CPUFREQ/$1" ]; }
 # Write $2 to policy $1's scaling_max_freq, clamped to what the policy allows.
 set_max() {
 	local pol="$1" want="$2" p="$CPUFREQ/$1" ceil
-	have_policy "$pol" || { log "WARN: $pol absent, skipping"; return 0; }
-	ceil=$(cat "$p/cpuinfo_max_freq")
+	have_policy "$pol" || { log "ERROR: $pol absent"; return 1; }
+	ceil=$(cat "$p/cpuinfo_max_freq") || return 1
 	# cpuinfo_max_freq already reflects whether boost is on.
 	if [ "$want" -gt "$ceil" ]; then
 		log "WARN: $pol requested ${want} > ceiling ${ceil}, clamping"
@@ -54,21 +34,26 @@ set_max() {
 # to the top boost bin, and a max-freq write above the current ceiling is clamped.
 set_boost() {
 	local want="$1" pol p
-	if [ -w "$CPUFREQ/boost" ]; then
-		echo "$want" > "$CPUFREQ/boost" 2>/dev/null || log "WARN: global boost write failed"
+	local found=0
+	if [ -e "$CPUFREQ/boost" ]; then
+		echo "$want" > "$CPUFREQ/boost" 2>/dev/null || { log "ERROR: global boost write failed"; return 1; }
+		found=1
 	fi
 	for pol in policy0 policy6 policy12; do
 		p="$CPUFREQ/$pol/boost"
-		[ -w "$p" ] && { echo "$want" > "$p" 2>/dev/null || true; }
+		[ -e "$p" ] || continue
+		echo "$want" > "$p" 2>/dev/null || { log "ERROR: boost write failed: $p"; return 1; }
+		found=1
 	done
+	[ "$found" = 1 ] || { log "ERROR: no boost control found"; return 1; }
 }
 
 apply() {
 	local boost="$1" e="$2" p="$3"
-	set_boost "$boost"
-	set_max policy0  "$e"
-	set_max policy6  "$p"
-	set_max policy12 "$p"
+	set_boost "$boost" || return 1
+	set_max policy0  "$e" || return 1
+	set_max policy6  "$p" || return 1
+	set_max policy12 "$p" || return 1
 	log "applied ${PROFILE}: boost=${boost} policy0<=${e} policy6/12<=${p}"
 }
 
@@ -104,10 +89,10 @@ case "$PROFILE" in
 
 	# Hand every policy back its full non-boost ceiling.
 	reset)
-		set_boost 0
+		set_boost 0 || exit 1
 		for pol in policy0 policy6 policy12; do
-			have_policy "$pol" || continue
-			cat "$CPUFREQ/$pol/cpuinfo_max_freq" > "$CPUFREQ/$pol/scaling_max_freq" 2>/dev/null || true
+			have_policy "$pol" || { log "ERROR: $pol absent"; exit 1; }
+			cat "$CPUFREQ/$pol/cpuinfo_max_freq" > "$CPUFREQ/$pol/scaling_max_freq" 2>/dev/null || exit 1
 		done
 		log "reset: all policies back to their non-boost ceiling"
 		;;

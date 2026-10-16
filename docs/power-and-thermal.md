@@ -10,7 +10,13 @@ this boot (`7.2.0-ZenbookA16-20260819+`): cpufreq policies exist on all three do
 (`schedutil`, not stuck at `performance`), and every `cpu*`/`cpullc*`/`gpu*`/`gpuss*`
 thermal zone has a bound `cdevN`. **`docs/hardware.md`'s "Thermal ✅" section and
 `docs/modifications.md` are the current status — read this file for the root-cause
-narrative (§§1–2, still accurate and worth keeping), not for what's still outstanding.**
+historical observations (§§1–2, qualified by the correction below), not for what's still outstanding.**
+
+Current correction (2026-10-16): the [August SCMI follow-up](https://patchew.org/linux/20260808172211.137577-1-jesse.casco%40gmail.com/)
+reported that building the CPUCP mailbox driver in restored interrupt-driven
+transfers. The July observations below describe that configuration and do not
+establish a permanent firmware defect. See [current-build.md](current-build.md)
+for current sleep and hardware acceptance limits.
 
 Two goals: **unlock the `scmi-cpufreq -110`**, and **get fan control into Linux instead of
 leaving it to the EC**. This document is the map. It starts with how the pieces are supposed
@@ -170,10 +176,10 @@ messages addressed to protocol 0x13 is being dropped.
 
 ---
 
-## ★★★ 2. bis — ROOT CAUSE, measured 2026-07-30. The contradiction is resolved.
+## 2. bis — Missing completion interrupts in the 2026-07-30 configuration
 
 **The CPUCP firmware processes protocol 0x13 messages and writes correct replies into the
-SCMI shared memory — but it never rings the mailbox doorbell for them.** The kernel waits
+SCMI shared memory — but no completion interrupt was observed in this configuration.** The kernel waits
 on an interrupt that never arrives, times out, and gives up.
 
 SCMI RAW exposes both a normal interrupt-driven file (`raw/message`) and a **polling** file

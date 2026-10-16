@@ -1,116 +1,45 @@
-# Firmware — almost all of it is now upstream and redistributable
+# Firmware for the current A16 baseline
 
-⚠️ **This file previously said "none of it is redistributable — extract it from your own
-device." That was true when written and is now WRONG.** Upstream `linux-firmware` has absorbed
-glymur. Verified against tag **20260622** on 2026-08-02.
+[`iso/glymur-fetch-firmware.sh`](../iso/glymur-fetch-firmware.sh) is the list of
+known required firmware requests. It accepts uncompressed, `.xz` or `.zst`
+files and preserves Linux firmware paths. Passing this presence check does not
+establish successful firmware loading or hardware acceptance.
 
-**Consequence: bootable images for this laptop CAN be published.** The long-standing position
-that no image could ship because firmware was proprietary no longer holds.
+| Component | Required location |
+|---|---|
+| Wi-Fi | `ath12k/QCC2072/hw1.0/{board-2.bin,firmware-2.bin}` |
+| Bluetooth rampatch | `qca/clnbtfw10.tlv` |
+| GPU | `qcom/{gen80500_sqe.fw,gen80500_gmu.bin}` |
+| ASUS ADSP | `qcom/glymur/ASUSTeK/UX3607OA/{qcadsp8480.mbn,adsp_dtbs.elf}` |
+| ASUS CDSP | `qcom/glymur/ASUSTeK/UX3607OA/{qccdsp8480.mbn,cdsp_dtbs.elf}` |
+| Audio topology | `qcom/glymur/ASUSTeK/UX3607OA-tplg.bin` or `qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin` |
 
----
+The current boot reports missing `clnbtfw10.tlv`. Older `hmt*` or `orn*` files
+are not substitutes. The board-specific Bluetooth NVM request and pairing still
+need confirmation after the rampatch loads; copying an existing `qca` directory
+preserves those filenames without guessing a replacement.
 
-## What is upstream and redistributable
+Use distro/upstream `linux-firmware` where it supplies the exact files. Obtain
+ASUS board-signed DSP firmware from a verified matching source, including the
+[ASUS UX3607OA package](https://www.asus.com/us/supportonly/ux3607oa/helpdesk_download/)
+where required. Generic reference-board DSP files are not interchangeable with
+ASUS-signed files. Check the license attached to each redistributed file;
+upstream availability of some firmware does not establish redistribution rights
+for every file in an OEM package.
 
-All of the below are in [`kernel-firmware/linux-firmware`](https://gitlab.com/kernel-firmware/linux-firmware)
-at tag `20260622` and ASUS OEM firmware bundles.
-
-### Wi-Fi — `ath12k/WCN7850/hw2.0/` (or `ath12k/QCC2072/hw1.0/`)
-
-```
-board-2.bin   firmware-2.bin
-```
-
-`WHENCE` says: **`Licence: Redistributable. See LICENSE.QualcommAtheros_ath10k`**
-
-★ Version `WLAN.COL.1.0.c2-00074-QCACOLSWPL_V1_TO_SILICONZ-1` — **byte-for-byte the build this
-hardware reports at probe.** Upstream ships exactly what the machine runs.
-
-### Bluetooth — `qca/`
-
-```
-hmtbtfw20.tlv   hmtbtnv20.bin   (or ornbtfw11.tlv / ornnv11.bin)
-```
-
-Listed in `WHENCE` under *"btqca — Qualcomm Atheros Bluetooth support"*.
-
-### GPU — `qcom/`
-
-```
-gen80500_sqe.fw   gen80500_gmu.bin   (and gen80100_zap.mbn)
-```
-
-### ASUS Zenbook A16 Signed DSPs and Audio Topology — `qcom/glymur/ASUSTeK/UX3607OA/`
-
-The board devicetree (`glymur-asus-zenbook-a16-ux3607oa.dts`) requires ASUS OEM board-signed firmware:
-
-```
-qcadsp8480.mbn   adsp_dtbs.elf    <- ASUS-signed ADSP firmware & DTBs
-qccdsp8480.mbn   cdsp_dtbs.elf    <- ASUS-signed CDSP firmware & DTBs
-UX3607OA-tplg.bin                 <- AudioReach topology (or GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin)
-```
-
-★ These signed binaries ensure ADSP, CDSP, and AudioReach hardware protection and clock gates are initialized properly without firmware verification rejections during boot.
-
----
-
-## What is genuinely NOT upstream
-
-Two things, and neither is a proprietary blob that must be extracted.
-
-### 1. The A16 audio topology
-
-Upstream ships `GLYMUR-CRD-tplg.bin` — Qualcomm's **CRD reference design**, not this laptop.
-
-The AudioReach driver derives the filename from the `model` property of the `sound` node:
-
-```dts
-sound {
-    model = "GLYMUR-ASUS-Zenbook-A16-UX3607OA";  ->  GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin
-};
-```
-
-So the "missing firmware" is a file named after **our own model string**. It is **open source**
-and built from [`tplg/`](tplg/) in this repo. It is not a redistribution problem.
-
-⚠️ Worth testing: the in-tree upstream A16 DT (`x2e94100-asus-zenbook-a16.dts`) has **no sound
-node at all** — upstream has not done audio on this laptop. Whether `model = "GLYMUR-CRD"` would
-load the reference topology usefully on A16 hardware (4× WSA8845 in a 4.0 layout) is untested,
-and is the cheapest experiment available here.
-
-### 2. `soccp.mbn`
-
-Upstream has `soccp.mbn` for **kaanapali** but not for **glymur**. Probably irrelevant — the
-SOCCP on this laptop is **UEFI-loaded and already running**, which is exactly why the device tree
-deliberately omits `&remoteproc_soccp`.
-
----
-
-## Getting the firmware
-
-**Preferred — upstream, redistributable:**
+Copy an existing Linux firmware tree into a staging directory, or check one:
 
 ```sh
-git clone --depth 1 --branch 20260622 \
-  https://gitlab.com/kernel-firmware/linux-firmware.git
-sudo cp -a linux-firmware/ath12k/QCC2072 /lib/firmware/ath12k/
-sudo cp -a linux-firmware/qcom/glymur    /lib/firmware/qcom/
-sudo cp -a linux-firmware/qca/orn*       /lib/firmware/qca/
+DEST=/path/to/stage/firmware iso/glymur-fetch-firmware.sh --from-linux /path/to/source
+DEST=/path/to/stage/firmware iso/glymur-fetch-firmware.sh --check
 ```
 
-Or install your distro's `linux-firmware` once it reaches a tag ≥ 20260622.
-⚠️ Fedora 44 ships `ath12k/QCN9274` and `WCN7850` but **not** `QCC2072` yet, which is why the
-live images in [`../iso/`](../iso/) inject it explicitly.
+The check intentionally fails until every known required file is present. It
+never renames Windows driver binaries to guessed Linux names. The A16 topology
+candidate is built by [`tplg/build-glymur-a16-tplg.sh`](tplg/build-glymur-a16-tplg.sh)
+from pinned sources and verified before installation under the model-specific
+name. A generic CRD topology is not a tested drop-in replacement.
 
-**Copy or check an existing firmware tree:**
-[`../iso/glymur-fetch-firmware.sh`](../iso/glymur-fetch-firmware.sh) preserves
-the required directory layout and reports every missing file. It does not guess
-Linux filenames from Windows driver files.
-
----
-
-## Why this matters
-
-Published live images for this laptop can now carry working Wi-Fi, Bluetooth,
-audio DSP and the GPU zap shader from upstream linux-firmware. The model-specific
-A16 topology is built from the source in this repository; its distribution
-terms should be reviewed before publishing a binary image.
+No standalone Glymur `soccp.mbn` is required by this manifest: the current
+kernel attaches to the firmware-loaded SoCCP. See
+[`docs/current-build.md`](../docs/current-build.md) for accepted behavior and limits.

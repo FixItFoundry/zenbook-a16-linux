@@ -1,49 +1,7 @@
 #!/bin/bash
-# glymur-resume-guard — systemd system-sleep hook for the Zenbook A16.
-#
-# Handles BOTH s2idle resume bugs. They are unrelated and need opposite
-# strategies:
-#   USB    PREVENTED  — tear the xHCI controllers down before sleep so no
-#                       stale DMA ring exists to fault on.
-#   ath12k REPAIRED   — cannot be prevented; detect the failure after resume
-#                       and re-enumerate the device.
-#
-# PREVENTS the xHCI Host System Error that s2idle otherwise causes on glymur,
-# instead of reacting to it after the fact.
-#
-# THE BUG (root-caused 2026-08-02):
-#   At suspend entry all three controllers report
-#       usb usbN-portM: device N-M not suspended yet
-#       dwc3-qcom aN00000.usb: port-N HS-PHY not in L2
-#   They go down with live DMA rings. On resume the controller DMAs into a
-#   stale IOVA, the SMMU raises a translation fault (fsr=0x402 [Format=2 TF]),
-#   and xHCI latches a Host System Error. An HSE is FATAL: slot allocation
-#   stops, every enumeration returns "couldn't allocate usb_device", and no
-#   amount of replugging or `authorized` toggling recovers it.
-#
-# WHAT THIS DOES
-#   pre  : unbind the xHCI platform devices, so the controllers are torn down
-#          cleanly and no stale rings exist across the sleep.
-#   post : rebind them, which re-initialises and re-enumerates from scratch.
-#
-#   Controller rebind is PROVEN to clear the HSE (verified 2026-08-02 on
-#   loazen after a real failure). This hook applies the same operation
-#   proactively.
-#
-# ⚠️ This is a WORKAROUND, not the fix. The fix is for the ports to reach L2 —
-#    see glymur-usb-autosuspend.conf and docs/hardware.md. Try that first; if
-#    it works, this hook becomes unnecessary and should be removed, not kept
-#    "just in case".
-#
-# ⛔ EVERY ACTION IS LOGGED to the journal with tag glymur-usb-guard. If you
-#    ever wonder whether this is doing anything, run:
-#        journalctl -t glymur-usb-guard
-#    A hook that has never logged a successful rebind is doing nothing and must
-#    be removed. This project has been burned by a bandaid that ran for 62
-#    boots, logged 33,048 errors, never once fired, and was credited with a fix
-#    it could not have made. Do not repeat that.
-#
-# Install: /usr/lib/systemd/system-sleep/glymur-usb-suspend-guard  (chmod +x)
+# Experimental USB/ath12k resume recovery; not installed by the live builder or installer.
+# Unbinding xHCI disconnects mounted USB storage. Do not enable this on USB root or swap.
+# Historical recovery observations: docs/hardware.md. Proactive prevention is unaccepted.
 
 DRV=/sys/bus/platform/drivers/xhci-hcd
 log() { logger -t glymur-usb-guard "$*"; }

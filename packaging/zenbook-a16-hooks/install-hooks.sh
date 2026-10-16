@@ -1,31 +1,39 @@
 #!/usr/bin/env bash
-# install-hooks.sh — Install persistent kernel-update hooks across Fedora, Ubuntu, and Arch.
+# Install persistent Fedora/Ubuntu hooks; Omarchy uses its packaged support contract.
 set -Eeuo pipefail
 
 usage() {
     cat <<'EOF'
 Usage:
-  install-hooks.sh [--root <dir>] [--distro auto|fedora|ubuntu|arch]
+  install-hooks.sh [--root <dir>] [--distro auto|fedora|ubuntu|arch] [--check]
 
 Options:
   --root <dir>     Target root directory (default: /)
   --distro <name>  Target distribution: auto (default), fedora, ubuntu, or arch
+  --check         Validate hook sources without installing
   -h, --help       Show this help message
 EOF
 }
 
 TARGET="/"
 DISTRO="auto"
+CHECK=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --root)
+            [[ $# -ge 2 && -n $2 ]] || { echo "error: --root requires a directory" >&2; exit 1; }
             TARGET=$(realpath "$2")
             shift 2
             ;;
         --distro)
+            [[ $# -ge 2 && -n $2 ]] || { echo "error: --distro requires a value" >&2; exit 1; }
             DISTRO="$2"
             shift 2
+            ;;
+        --check)
+            CHECK=1
+            shift
             ;;
         -h|--help)
             usage
@@ -58,8 +66,8 @@ if [[ "$DISTRO" == "auto" ]]; then
                 DISTRO="arch"
                 ;;
             *)
-                echo "warning: unknown distro ID '$ID', falling back to fedora" >&2
-                DISTRO="fedora"
+                echo "error: unsupported distro ID ${ID:-unknown}" >&2
+                exit 1
                 ;;
         esac
     elif [[ -d "$TARGET/etc/dracut.conf.d" || -d "$TARGET/usr/lib/dracut" ]]; then
@@ -69,21 +77,46 @@ if [[ "$DISTRO" == "auto" ]]; then
     elif [[ -d "$TARGET/etc/mkinitcpio.d" || -d "$TARGET/usr/lib/initcpio" ]]; then
         DISTRO="arch"
     else
-        DISTRO="fedora"
+        echo "error: cannot identify target distribution" >&2
+        exit 1
     fi
 fi
+
+case "$DISTRO" in
+    fedora|ubuntu) ;;
+    arch) echo 'error: generic Arch hooks are unsupported; use the Omarchy support package with its kernel metadata, pkgbase and UKI hook ordering' >&2; exit 1 ;;
+    *) echo "error: unsupported distro: $DISTRO" >&2; exit 1 ;;
+esac
+
+required=(
+    "$SCRIPT_DIR/boot-artifacts.py"
+    "$REPO_ROOT/packaging/omarchy-a16-support/verify-boot.py"
+    "$REPO_ROOT/packaging/omarchy-a16-support/initcpio-hook"
+    "$REPO_ROOT/packaging/omarchy-a16-support/remoteproc-blacklist.conf"
+)
+if [[ $DISTRO == fedora ]]; then
+    required+=("$SCRIPT_DIR/fedora/90zenbook-a16/module-setup.sh"
+        "$SCRIPT_DIR/fedora/90zenbook-a16/zenbook-a16-pre-udev.sh"
+        "$SCRIPT_DIR/fedora/95-zenbook-a16.install" "$SCRIPT_DIR/fedora/99-zenbook-a16.conf")
+else
+    required+=("$SCRIPT_DIR/ubuntu/09_zenbook_a16" "$SCRIPT_DIR/ubuntu/zz-zenbook-a16"
+        "$SCRIPT_DIR/ubuntu/init-premount-zenbook-a16" "$SCRIPT_DIR/ubuntu/initramfs-hook-zenbook-a16")
+fi
+for source in "${required[@]}"; do
+    [[ -s $source ]] || { echo "error: missing hook source: $source" >&2; exit 1; }
+done
+[[ $CHECK == 0 ]] || exit 0
 
 echo "Installing Zenbook A16 persistent kernel-update hooks for distro: $DISTRO into $TARGET"
 
 # 2. Always install verify-boot.py into /usr/lib/zenbook-a16/
-mkdir -p "$TARGET/usr/lib/zenbook-a16" "$TARGET/usr/lib/omarchy-a16"
+mkdir -p "$TARGET/usr/lib/zenbook-a16"
 install -Dm755 "$REPO_ROOT/packaging/omarchy-a16-support/verify-boot.py" \
     "$TARGET/usr/lib/zenbook-a16/verify-boot.py"
-ln -sf "../zenbook-a16/verify-boot.py" "$TARGET/usr/lib/omarchy-a16/verify-boot"
-
-# Also stage hook sources for runtime script references if needed
-mkdir -p "$TARGET/usr/share/zenbook-a16/hooks"
-cp -a "$SCRIPT_DIR"/* "$TARGET/usr/share/zenbook-a16/hooks/" 2>/dev/null || true
+install -Dm755 "$SCRIPT_DIR/boot-artifacts.py" "$TARGET/usr/lib/zenbook-a16/boot-artifacts.py"
+install -Dm644 "$REPO_ROOT/packaging/omarchy-a16-support/initcpio-hook" "$TARGET/usr/lib/zenbook-a16/dsp-policy.sh"
+install -Dm644 "$REPO_ROOT/packaging/omarchy-a16-support/remoteproc-blacklist.conf" "$TARGET/usr/share/omarchy-a16/remoteproc-blacklist.conf"
+install -Dm644 "$REPO_ROOT/packaging/omarchy-a16-support/remoteproc-blacklist.conf" "$TARGET/etc/modprobe.d/zenbook-a16-remoteproc.conf"
 
 # 3. Distribution-specific hooks
 case "$DISTRO" in
@@ -126,28 +159,7 @@ case "$DISTRO" in
             "$TARGET/etc/kernel/postinst.d/zz-zenbook-a16"
         ;;
 
-    arch)
-        # mkinitcpio hooks
-        mkdir -p "$TARGET/usr/lib/initcpio/install" \
-                 "$TARGET/usr/lib/initcpio/hooks" \
-                 "$TARGET/etc/mkinitcpio.conf.d" \
-                 "$TARGET/usr/share/omarchy-a16"
-        install -Dm755 "$REPO_ROOT/packaging/omarchy-a16-support/initcpio-install" \
-            "$TARGET/usr/lib/initcpio/install/omarchy-a16-dsp"
-        install -Dm755 "$REPO_ROOT/packaging/omarchy-a16-support/initcpio-hook" \
-            "$TARGET/usr/lib/initcpio/hooks/omarchy-a16-dsp"
-        install -Dm644 "$REPO_ROOT/packaging/omarchy-a16-support/mkinitcpio.conf" \
-            "$TARGET/etc/mkinitcpio.conf.d/zz-zenbook-a16-dsp.conf"
-        install -Dm644 "$REPO_ROOT/packaging/omarchy-a16-support/remoteproc-blacklist.conf" \
-            "$TARGET/usr/share/omarchy-a16/remoteproc-blacklist.conf"
 
-        # libalpm pacman hooks
-        mkdir -p "$TARGET/usr/share/libalpm/hooks"
-        install -Dm644 "$REPO_ROOT/packaging/omarchy-a16-support/60-omarchy-a16-boot-check.hook" \
-            "$TARGET/usr/share/libalpm/hooks/60-omarchy-a16-pre.hook"
-        install -Dm644 "$REPO_ROOT/packaging/omarchy-a16-support/zz-omarchy-a16-boot-check.hook" \
-            "$TARGET/usr/share/libalpm/hooks/95-omarchy-a16-post.hook"
-        ;;
 esac
 
 echo "Zenbook A16 persistent kernel-update hooks installed successfully."

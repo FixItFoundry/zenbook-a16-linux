@@ -13,17 +13,16 @@ Usage:
 --check verifies DEST (default: /lib/firmware).
 --from-linux copies from PATH, PATH/lib/firmware, or PATH/usr/lib/firmware.
 
-Current Glymur firmware is available from upstream linux-firmware. This script
-preserves its directory layout; it does not guess Linux filenames from Windows
-driver files. See firmware/README.md for the tested upstream tag.
+Checks the known firmware requests of the current A16 baseline. A successful
+check does not establish Bluetooth pairing or firmware redistribution rights.
+See firmware/README.md for board-specific sources and remaining limits.
 EOF
 }
 
 required=(
-    ath12k/WCN7850/hw2.0/board-2.bin
-    ath12k/WCN7850/hw2.0/firmware-2.bin
-    qca/hmtbtfw20.tlv
-    qca/hmtbtnv20.bin
+    ath12k/QCC2072/hw1.0/board-2.bin
+    ath12k/QCC2072/hw1.0/firmware-2.bin
+    qca/clnbtfw10.tlv
     qcom/gen80500_sqe.fw
     qcom/gen80500_gmu.bin
     qcom/glymur/ASUSTeK/UX3607OA/qcadsp8480.mbn
@@ -34,7 +33,7 @@ required=(
 )
 
 check_all() {
-    local missing=0 file found ext
+    local missing=0 file found ext target
     echo "Checking $dest"
     for file in "${required[@]}"; do
         found=""
@@ -61,11 +60,11 @@ check_all() {
         echo "Incomplete: $missing required file(s) are missing." >&2
         return 1
     fi
-    echo "Complete: all required files are present."
+    echo "Complete: all known required files are present; hardware acceptance remains separate."
 }
 
 copy_from_linux() {
-    local input=$1 source= candidate
+    local input=$1 source='' candidate
     [[ -d "$input" ]] || { echo "error: no such directory: $input" >&2; return 1; }
 
     for candidate in "$input" "$input/lib/firmware" "$input/usr/lib/firmware"; do
@@ -83,17 +82,15 @@ copy_from_linux() {
     install -d "$dest/ath12k" "$dest/qca" "$dest/qcom"
 
     # Wi-Fi
-    if [[ -d "$source/ath12k/WCN7850" ]]; then
-        cp -a --no-preserve=ownership "$source/ath12k/WCN7850" "$dest/ath12k/"
-    fi
     if [[ -d "$source/ath12k/QCC2072" ]]; then
         cp -a --no-preserve=ownership "$source/ath12k/QCC2072" "$dest/ath12k/"
     fi
 
     # Bluetooth
-    for candidate in hmtbtfw20.tlv hmtbtnv20.bin ornbtfw11.tlv ornnv11.bin; do
-        cp -a --no-preserve=ownership "$source/qca/$candidate"* "$dest/qca/" 2>/dev/null || true
-    done
+    # Preserve board-specific NVM filenames; the missing rampatch alone does not identify them.
+    if [[ -d "$source/qca" ]]; then
+        cp -a --no-preserve=ownership "$source/qca/." "$dest/qca/"
+    fi
 
     # GPU
     for candidate in gen80500_sqe.fw gen80500_gmu.bin gen80100_zap.mbn; do
@@ -103,16 +100,6 @@ copy_from_linux() {
     # Glymur / ASUS platform firmware
     if [[ -d "$source/qcom/glymur" ]]; then
         cp -a --no-preserve=ownership "$source/qcom/glymur" "$dest/qcom/"
-    fi
-
-    # Copy firmware/audioreach/UX3607OA-tplg.bin from repo if present
-    local repo_root
-    repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd || true)
-    if [[ -n "$repo_root" && -s "$repo_root/firmware/audioreach/UX3607OA-tplg.bin" ]]; then
-        install -Dm644 "$repo_root/firmware/audioreach/UX3607OA-tplg.bin" \
-            "$dest/qcom/glymur/ASUSTeK/UX3607OA/UX3607OA-tplg.bin"
-        install -Dm644 "$repo_root/firmware/audioreach/UX3607OA-tplg.bin" \
-            "$dest/qcom/glymur/ASUSTeK/UX3607OA-tplg.bin"
     fi
 
     check_all

@@ -1,26 +1,18 @@
 #!/bin/sh
-# /etc/initramfs-tools/scripts/init-premount/zenbook-a16
-# Pre-mount script for Zenbook A16: loads QRTR, PD mapper, and Q6V5 PAS
-# before udev device discovery and root filesystem mount.
-PREREQ=""
-prereqs() {
-    echo "$PREREQ"
+# init-premount runs after init-top udev, and before mounting root.
+case "${1:-}" in prereqs) exit 0 ;; esac
+. /usr/lib/zenbook-a16/dsp-policy.sh
+
+getarg() {
+    for arg in $(cat /proc/cmdline); do
+        case "$arg" in "$1"=*) printf '%s\n' "${arg#*=}"; return ;; esac
+    done
 }
-
-case $1 in
-prereqs)
-    prereqs
-    exit 0
-    ;;
-esac
-
-if [ -r /sys/firmware/devicetree/base/compatible ]; then
-    if ! tr '\0' '\n' < /sys/firmware/devicetree/base/compatible 2>/dev/null | grep -Eq '^(asus,zenbook-a16-ux3607oa|qcom,glymur)$'; then
-        exit 0
-    fi
-fi
-
-modprobe qrtr 2>/dev/null || true
-modprobe qrtr_smd 2>/dev/null || true
-modprobe qcom_pd_mapper 2>/dev/null || true
-modprobe qcom_q6v5_pas 2>/dev/null || true
+msg() { echo "$*"; }
+a16_emergency() {
+    echo "$1" >&2
+    echo 'A16 DSP startup stopped before root mount; reboot into the DSP-disabled rescue entry.' >&2
+    # initramfs-tools runs this script as a child: never return, even after shell exit.
+    while :; do /bin/sh -i </dev/console >/dev/console 2>&1; done
+}
+run_hook

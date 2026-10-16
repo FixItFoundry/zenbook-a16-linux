@@ -152,11 +152,35 @@ if [[ "$stage_bundle" == 1 ]]; then
 
     rm -f "$bundle/lib/modules/$release/build" "$bundle/lib/modules/$release/source"
 
-    # Distro ABI and identification markers
-    printf '1\n' > "$bundle/lib/modules/$release/omarchy-a16-dsp-abi"
-    printf '1\n' > "$bundle/lib/modules/$release/zenbook-a16-dsp-abi"
+    # Bind boot policy to this verified source build, not an arbitrary installed kernel.
+    python3 - "$bundle/lib/modules/$release/zenbook-a16-boot.json" \
+        "$release" "$expected_tree" "$bundle/vmlinuz-$release" \
+        "$bundle/glymur-asus-zenbook-a16-ux3607oa.dtb" <<'PY'
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+destination, release, tree, image, dtb = sys.argv[1:]
+metadata = {
+    'schema': 1,
+    'kernel_release': release,
+    'source_tree': tree,
+    'kernel_sha256': hashlib.sha256(Path(image).read_bytes()).hexdigest(),
+    'dtb_sha256': hashlib.sha256(Path(dtb).read_bytes()).hexdigest(),
+    'dsp_policy': 'pre-root-v1',
+    'cmdline': [
+        'clk_ignore_unused', 'pd_ignore_unused', 'cma=128M', 'glymur_pci_skip=5',
+        'selinux=0', 'asus_glymur_ec.fan_profile=2',
+        'modprobe.blacklist=i2c_qcom_cci,qcom_camss,ov02c10',
+    ],
+}
+Path(destination).write_text(json.dumps(metadata, indent=2) + '\n')
+PY
     install -d "$bundle/usr/share/doc/linux-zenbook-a16"
     printf '%s\n' "$release" > "$bundle/usr/share/doc/linux-zenbook-a16/kernel-release"
+    install -Dm755 "$project/iso/glymur-fetch-firmware.sh" "$bundle/glymur-fetch-firmware.sh"
+    cp -a "$project/packaging" "$project/tweaks" "$bundle/"
 
     # Compatibility symlink for tools expecting $bundle/modules/$release
     mkdir -p "$bundle/modules"

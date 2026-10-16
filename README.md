@@ -52,7 +52,7 @@ JOBS=4 ./kernel/rc5-20261013/build.sh /path/to/linux /path/to/new-output
 Build options are configured via environment variables:
 - `BUILD_RPM=1`: Build Fedora-installable RPMs via `binrpm-pkg` (default: 1).
 - `BUILD_DEB=1`: Build Ubuntu/Debian-installable DEBs via `bindeb-pkg` (default: 0).
-- `STAGE_BUNDLE=1`: Stage portable distro-agnostic bundle at `$OUTPUT_DIR/bundle/` containing `vmlinuz-$KREL`, `glymur-asus-zenbook-a16-ux3607oa.dtb`, `lib/modules/$KREL/`, ABI markers, and release metadata (default: 1).
+- `STAGE_BUNDLE=1`: Stage portable distro-agnostic bundle at `$OUTPUT_DIR/bundle/` containing `vmlinuz-$KREL`, `glymur-asus-zenbook-a16-ux3607oa.dtb`, `lib/modules/$KREL/`, per-kernel boot hashes/policy, and release metadata (default: 1).
 
 The build script automatically validates the compiled DTB against the required `qcom,keep-runtime-active;` safety property via `dtc`, aborting the build if missing.
 
@@ -65,14 +65,22 @@ To install the kernel, DTB, firmware, platform tweaks, and persistent update hoo
 sudo packaging/zenbook-a16-hooks/install-hooks.sh --root / --distro auto
 
 # Or run the end-to-end disk installer from live media:
-sudo iso/zenbook-install-to-disk /mnt
+sudo iso/zenbook-install-to-disk.sh /mnt
 ```
 
-The persistent hooks maintain bootability across future kernel upgrades:
-- **Fedora**: Dracut module `90zenbook-a16` (early ADSP/CDSP firmware and `pre-udev` ordering), `/etc/dracut.conf.d/99-zenbook-a16.conf`, and `/etc/kernel/install.d/95-zenbook-a16.install` (BLS devicetree injection, required cmdline flags, and Btrfs top-level `/boot` sync).
-- **Ubuntu**: `/etc/initramfs-tools/hooks/zenbook-a16`, `/etc/initramfs-tools/scripts/init-premount/zenbook-a16`, and `/etc/kernel/postinst.d/zz-zenbook-a16` with `update-grub`.
-- **Arch**: `/usr/lib/initcpio/install/omarchy-a16-dsp`, `/usr/lib/initcpio/hooks/omarchy-a16-dsp`, and ALPM pre/post transaction verification hooks.
-- **Boot Verification**: `/usr/lib/zenbook-a16/verify-boot.py` verifies the kernel image, DTB `keep-runtime-active` property, initramfs DSP firmware presence, and bootloader entry configuration across `grub-bls`, `grub-ubuntu`, and `limine`.
+The persistent hooks support build-identified Fedora and Ubuntu kernels. They
+reject unknown kernels and stop on artifact or boot-entry errors; they cannot
+reapply source patches to binary distro kernels. Experimental suspend is not
+enabled by installation. Btrfs subvolume roots need a separate `/boot`.
+
+Fedora uses a dracut pre-mount readiness barrier and versioned BLS entries.
+Ubuntu uses an init-premount barrier and explicit A16 GRUB entries. Both reuse
+the same DSP policy and preserve rescue entries. Generic Arch/Manjaro hooks are
+rejected; Omarchy retains its separate packaged kernel/UKI workflow.
+
+See [installation requirements and limitations](iso/README.md) before building
+or installing. Hardware boot, update/rollback and sleep acceptance remain separate
+from the software checks.
 
 ## Reference
 

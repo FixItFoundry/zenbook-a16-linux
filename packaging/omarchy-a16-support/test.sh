@@ -38,10 +38,12 @@ dsp_mode=off
 run_hook
 [[ ! -e $scratch/modprobes ]] || fail 'rescue boot loaded DSPs'
 dsp_mode=
-printf '/dev/sda2 /sysroot btrfs rw 0 0\n' > "$scratch/mounts"
-if run_hook; then fail 'late startup accepted'; fi
-[[ -s $scratch/emergency && ! -e $scratch/modprobes ]] || fail 'late startup reached module load'
-rm "$scratch/emergency"
+for mountpoint in /sysroot /new_root /root; do
+  printf '/dev/sda2 %s btrfs rw 0 0\n' "$mountpoint" > "$scratch/mounts"
+  if run_hook; then fail 'late startup accepted'; fi
+  [[ -s $scratch/emergency && ! -e $scratch/modprobes ]] || fail 'late startup reached module load'
+  rm "$scratch/emergency"
+done
 : > "$scratch/mounts"
 module_status=1
 if run_hook; then fail 'module failure accepted'; fi
