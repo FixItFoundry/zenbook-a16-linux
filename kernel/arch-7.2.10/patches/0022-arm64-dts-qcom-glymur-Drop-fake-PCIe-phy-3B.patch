@@ -1,0 +1,104 @@
+From d1c6a1922db355d61e718d8c34ef1beab3e4e751 Mon Sep 17 00:00:00 2001
+From: Krzysztof Kozlowski <krzysztof.kozlowski@oss.qualcomm.com>
+Date: Tue, 9 Jun 2026 16:16:09 +0200
+Subject: [PATCH 022/127] arm64: dts: qcom: glymur: Drop fake PCIe phy 3B
+
+According to user manual / programming guide there is no separate PCIe
+phy 3A and 3B, but one 8-lane QMP PCIe Gen5 PHY which consists of two
+4-lane blocks.  This is also visible in memory map, where the 0xf00000
+is marked as the main block with additional sub blocks for each 4-lane
+phys.
+
+Describing the sub phys without the rest is not correct from hardware
+description, even if it works.
+
+Link: https://lore.kernel.org/r/20260420-optimistic-unnatural-stingray-80da35@quoll/
+Signed-off-by: Krzysztof Kozlowski <krzysztof.kozlowski@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260609141608.354186-2-krzysztof.kozlowski@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit d3ca4252d21ec85ada29689f78d13d4596749e3a)
+---
+ arch/arm64/boot/dts/qcom/glymur-crd.dtsi |  5 ---
+ arch/arm64/boot/dts/qcom/glymur.dtsi     | 39 +-----------------------
+ 2 files changed, 1 insertion(+), 43 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur-crd.dtsi b/arch/arm64/boot/dts/qcom/glymur-crd.dtsi
+index 79548f6f03f3f28047e402f731a22ce538026f05..55f4f64b350970b7169de5fa3906728928045fc7 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-crd.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur-crd.dtsi
+@@ -694,11 +694,6 @@ &pcie3b {
+ 	pinctrl-names = "default";
+ };
+ 
+-&pcie3b_phy {
+-	vdda-phy-supply = <&vreg_l3c_e1_0p89>;
+-	vdda-pll-supply = <&vreg_l2c_e1_1p14>;
+-};
+-
+ &pcie3b_port0 {
+ 	reset-gpios = <&tlmm 155 GPIO_ACTIVE_LOW>;
+ 	wake-gpios = <&tlmm 157 GPIO_ACTIVE_LOW>;
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index f5e48e7c8fd42ae2530d056aea46910f1d6a6409..489c2f93bba7835b66458a9a5f7329182df99cb9 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -802,7 +802,7 @@ gcc: clock-controller@100000 {
+ 				 <0>,				/* USB 2 Phy PIPEGMUX */
+ 				 <0>,				/* USB 2 Phy SYS PCIE PIPEGMUX */
+ 				 <0>,				/* PCIe 3a */
+-				 <&pcie3b_phy>,			/* PCIe 3b */
++				 <0>,				/* PCIe 3b */
+ 				 <&pcie4_phy>,			/* PCIe 4 */
+ 				 <&pcie5_phy>,			/* PCIe 5 */
+ 				 <&pcie6_phy>,			/* PCIe 6 */
+@@ -3711,8 +3711,6 @@ pcie3b_port0: pcie@0 {
+ 				reg = <0x0 0x0 0x0 0x0 0x0>;
+ 				bus-range = <0x01 0xff>;
+ 
+-				phys = <&pcie3b_phy>;
+-
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;
+ 				ranges;
+@@ -3724,41 +3722,6 @@ pcie3b_port0_ep: endpoint {
+ 			};
+ 		};
+ 
+-		pcie3b_phy: phy@f10000 {
+-			compatible = "qcom,glymur-qmp-gen5x4-pcie-phy";
+-			reg = <0x0 0x00f10000 0x0 0x10000>;
+-
+-			clocks = <&gcc GCC_PCIE_PHY_3B_AUX_CLK>,
+-				 <&gcc GCC_PCIE_3B_CFG_AHB_CLK>,
+-				 <&tcsr TCSR_PCIE_3_CLKREF_EN>,
+-				 <&gcc GCC_PCIE_3B_PHY_RCHNG_CLK>,
+-				 <&gcc GCC_PCIE_3B_PIPE_CLK>,
+-				 <&gcc GCC_PCIE_3B_PIPE_DIV2_CLK>;
+-			clock-names = "aux",
+-				      "cfg_ahb",
+-				      "ref",
+-				      "rchng",
+-				      "pipe",
+-				      "pipediv2";
+-
+-			resets = <&gcc GCC_PCIE_3B_PHY_BCR>,
+-				 <&gcc GCC_PCIE_3B_NOCSR_COM_PHY_BCR>;
+-			reset-names = "phy",
+-				      "phy_nocsr";
+-
+-			assigned-clocks = <&gcc GCC_PCIE_3B_PHY_RCHNG_CLK>;
+-			assigned-clock-rates = <100000000>;
+-
+-			power-domains = <&gcc GCC_PCIE_3B_PHY_GDSC>;
+-
+-			#clock-cells = <0>;
+-			clock-output-names = "pcie3b_pipe_clk";
+-
+-			#phy-cells = <0>;
+-
+-			status = "disabled";
+-		};
+-
+ 		rng: rng@10c3000 {
+ 			compatible = "qcom,glymur-trng", "qcom,trng";
+ 			reg = <0x0 0x010c3000 0x0 0x1000>;

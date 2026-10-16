@@ -1,0 +1,159 @@
+From ef49fc5ba83246e53840492e7146f69e62841944 Mon Sep 17 00:00:00 2001
+From: Abel Vesa <abel.vesa@oss.qualcomm.com>
+Date: Fri, 12 Jun 2026 14:09:08 +0300
+Subject: [PATCH 043/127] remoteproc: qcom: q6v5: Make handover IRQ one-shot
+
+The handover interrupt is expected to be consumed once during each prepare
+cycle. If the remote processor keeps signalling handover after the first
+event, qcom_q6v5 currently logs the duplicate interrupt repeatedly while
+leaving the IRQ enabled.
+
+Track the handover IRQ enable state explicitly and route all handover IRQ
+enable/disable operations through idempotent helpers. Request the handover
+IRQ with IRQF_NO_AUTOEN so it is only enabled through the helper during
+prepare. The handover handler disables it after marking handover as issued,
+while unprepare disables and synchronizes it before checking whether
+handover was issued.
+
+Signed-off-by: Abel Vesa <abel.vesa@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260612-rproc-q6v5-handover-irq-one-shot-v1-1-bb688f4446b3@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit bb7c5d6f5b41d192fa81ce404e463f5d3ce70cb3)
+---
+ drivers/remoteproc/qcom_q6v5.c | 54 +++++++++++++++++++++++++++-------
+ drivers/remoteproc/qcom_q6v5.h |  4 +++
+ 2 files changed, 48 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/remoteproc/qcom_q6v5.c b/drivers/remoteproc/qcom_q6v5.c
+index 241478ea29782a1cb0ad48a165798f82fccb7953..bb27388735214656fae0e7584bc15c9386cecaf3 100644
+--- a/drivers/remoteproc/qcom_q6v5.c
++++ b/drivers/remoteproc/qcom_q6v5.c
+@@ -36,6 +36,40 @@ static int q6v5_load_state_toggle(struct qcom_q6v5 *q6v5, bool enable)
+ 	return ret;
+ }
+ 
++static void q6v5_handover_irq_enable(struct qcom_q6v5 *q6v5)
++{
++	unsigned long flags;
++	bool enable = false;
++
++	spin_lock_irqsave(&q6v5->handover_lock, flags);
++	if (!q6v5->handover_irq_enabled) {
++		q6v5->handover_irq_enabled = true;
++		enable = true;
++	}
++	spin_unlock_irqrestore(&q6v5->handover_lock, flags);
++
++	if (enable)
++		enable_irq(q6v5->handover_irq);
++}
++
++static void q6v5_handover_irq_disable(struct qcom_q6v5 *q6v5, bool sync)
++{
++	unsigned long flags;
++	bool disable = false;
++
++	spin_lock_irqsave(&q6v5->handover_lock, flags);
++	if (q6v5->handover_irq_enabled) {
++		q6v5->handover_irq_enabled = false;
++		disable = true;
++	}
++	spin_unlock_irqrestore(&q6v5->handover_lock, flags);
++
++	if (disable)
++		disable_irq_nosync(q6v5->handover_irq);
++	if (sync)
++		synchronize_irq(q6v5->handover_irq);
++}
++
+ /**
+  * qcom_q6v5_prepare() - reinitialize the qcom_q6v5 context before start
+  * @q6v5:	reference to qcom_q6v5 context to be reinitialized
+@@ -64,7 +98,7 @@ int qcom_q6v5_prepare(struct qcom_q6v5 *q6v5)
+ 	q6v5->running = true;
+ 	q6v5->handover_issued = false;
+ 
+-	enable_irq(q6v5->handover_irq);
++	q6v5_handover_irq_enable(q6v5);
+ 
+ 	return 0;
+ }
+@@ -78,7 +112,8 @@ EXPORT_SYMBOL_GPL(qcom_q6v5_prepare);
+  */
+ int qcom_q6v5_unprepare(struct qcom_q6v5 *q6v5)
+ {
+-	disable_irq(q6v5->handover_irq);
++	q6v5_handover_irq_disable(q6v5, true);
++
+ 	q6v5_load_state_toggle(q6v5, false);
+ 
+ 	/* Disable interconnect vote, in case handover never happened */
+@@ -164,18 +199,15 @@ static irqreturn_t q6v5_handover_interrupt(int irq, void *data)
+ {
+ 	struct qcom_q6v5 *q6v5 = data;
+ 
+-	if (q6v5->handover_issued) {
+-		dev_err(q6v5->dev, "Handover signaled, but it already happened\n");
+-		return IRQ_HANDLED;
+-	}
++	q6v5->handover_issued = true;
++
++	q6v5_handover_irq_disable(q6v5, false);
+ 
+ 	if (q6v5->handover)
+ 		q6v5->handover(q6v5);
+ 
+ 	icc_set_bw(q6v5->path, 0, 0);
+ 
+-	q6v5->handover_issued = true;
+-
+ 	return IRQ_HANDLED;
+ }
+ 
+@@ -257,6 +289,8 @@ int qcom_q6v5_init(struct qcom_q6v5 *q6v5, struct platform_device *pdev,
+ 	q6v5->crash_reason = crash_reason;
+ 	q6v5->handover = handover;
+ 
++	spin_lock_init(&q6v5->handover_lock);
++
+ 	init_completion(&q6v5->start_done);
+ 	init_completion(&q6v5->stop_done);
+ 
+@@ -305,13 +339,13 @@ int qcom_q6v5_init(struct qcom_q6v5 *q6v5, struct platform_device *pdev,
+ 
+ 	ret = devm_request_threaded_irq(&pdev->dev, q6v5->handover_irq,
+ 					NULL, q6v5_handover_interrupt,
+-					IRQF_TRIGGER_RISING | IRQF_ONESHOT,
++					IRQF_TRIGGER_RISING | IRQF_ONESHOT |
++					IRQF_NO_AUTOEN,
+ 					"q6v5 handover", q6v5);
+ 	if (ret) {
+ 		dev_err(&pdev->dev, "failed to acquire handover IRQ\n");
+ 		return ret;
+ 	}
+-	disable_irq(q6v5->handover_irq);
+ 
+ 	q6v5->stop_irq = platform_get_irq_byname(pdev, "stop-ack");
+ 	if (q6v5->stop_irq < 0)
+diff --git a/drivers/remoteproc/qcom_q6v5.h b/drivers/remoteproc/qcom_q6v5.h
+index 5a859c41896e99d947e70e8d01c829d189cb0247..8991ff09057926d559dac556399865a0a78555ca 100644
+--- a/drivers/remoteproc/qcom_q6v5.h
++++ b/drivers/remoteproc/qcom_q6v5.h
+@@ -5,6 +5,7 @@
+ 
+ #include <linux/kernel.h>
+ #include <linux/completion.h>
++#include <linux/spinlock.h>
+ #include <linux/soc/qcom/qcom_aoss.h>
+ 
+ struct icc_path;
+@@ -29,6 +30,9 @@ struct qcom_q6v5 {
+ 	int handover_irq;
+ 	int stop_irq;
+ 
++	/* Protects handover_irq_enabled against stop/handover races. */
++	spinlock_t handover_lock;
++	bool handover_irq_enabled;
+ 	bool handover_issued;
+ 
+ 	struct completion start_done;

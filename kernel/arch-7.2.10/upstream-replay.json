@@ -1,0 +1,456 @@
+[
+  {
+    "commit": "b90a899027ae9def17cff2c566f50e406bb95307",
+    "subject": "arm64: dts: qcom: glymur: Add GPU smmu node",
+    "reason": "Glymur platform prerequisite",
+    "result": "0502ccef7e9cf088fdfb74e16bf1b925ec9e7693",
+    "already_present": false
+  },
+  {
+    "commit": "b6ff8cec8aaac2128a4fe82ccfba263cf645cc68",
+    "subject": "arm64: dts: qcom: Add GPU support for Glymur",
+    "reason": "Glymur platform prerequisite",
+    "result": "e59d7bbced6b88d3a18f177ddb67e508ad644831",
+    "already_present": false
+  },
+  {
+    "commit": "7d260e77d88fa026a1e181cecee545687fa80f92",
+    "subject": "arm64: dts: qcom: glymur: Add GPU cooling",
+    "reason": "Glymur platform prerequisite",
+    "result": "ad158ec13a3024b41c206165dbf87b815d3fc017",
+    "already_present": false
+  },
+  {
+    "commit": "fdb2f446c4e6758802d678858b5811d46709d0e6",
+    "subject": "dt-bindings: sram: document glymur as compatible",
+    "reason": "Glymur platform prerequisite",
+    "result": "329209e201168ed3e9d557879618186c9e1d00e5",
+    "already_present": false
+  },
+  {
+    "commit": "4c53f51b442ae8cc4545fc5ec349ce6ed7afb4cf",
+    "subject": "arm64: dts: qcom: glymur: add IMEM and PIL regions",
+    "reason": "Glymur platform prerequisite",
+    "result": "b4599d0da50863c4baa512afcb2da8abf03fdcfa",
+    "already_present": false
+  },
+  {
+    "commit": "82a766b68cd4d323b302a28082fbb7924f1146e6",
+    "subject": "arm64: dts: qcom: glymur: Fix unit-address mismatch for spmi_bus2",
+    "reason": "Glymur platform prerequisite",
+    "result": "b4599d0da50863c4baa512afcb2da8abf03fdcfa",
+    "already_present": true
+  },
+  {
+    "commit": "711e6f11640f800f649d416b260c7f8555b0c955",
+    "subject": "arm64: dts: qcom: glymur-crd: Move common board nodes to shared DTSI",
+    "reason": "Glymur platform prerequisite",
+    "result": "b4599d0da50863c4baa512afcb2da8abf03fdcfa",
+    "already_present": true,
+    "resolution": "Stable 7.2.10 already has shared CRD nodes. Reapplying only conflicts with newer stable touchscreen and USB supply fixes and duplicates regulator nodes; preserve stable version."
+  },
+  {
+    "commit": "67641246eabd0629b11e767c233d92b855a64f45",
+    "subject": "arm64: dts: qcom: glymur: Add memory-region for audio PD",
+    "reason": "Glymur platform prerequisite",
+    "result": "06581b0d873035740cdd2b5d54b1edc8644536af",
+    "already_present": false
+  },
+  {
+    "commit": "eca50d95b60cdcabb82a8e1b727fad2547e52f1d",
+    "subject": "arm64: dts: qcom: glymur: Fix gcc clock specifier for usb_mp_qmpphy nodes",
+    "reason": "Glymur platform prerequisite",
+    "result": "06581b0d873035740cdd2b5d54b1edc8644536af",
+    "already_present": true
+  },
+  {
+    "commit": "859c3b73d40f961c4d1a5459effea6d9a947f879",
+    "subject": "arm64: dts: glymur: Add LPASS macro codecs and pinctrl",
+    "reason": "Glymur platform prerequisite",
+    "result": "61515a88ebb5d7fa050985c9d319df9eab178c76",
+    "already_present": false
+  },
+  {
+    "commit": "e1a6af9411568dd4b135892d0f0905d676816196",
+    "subject": "arm64: dts: qcom: glymur: add CPU capacity-dmips-mhz",
+    "reason": "Glymur platform prerequisite",
+    "result": "bb0cb4c2d492df80d2cebbf89dd0aab78f8c4e77",
+    "already_present": false
+  },
+  {
+    "commit": "7803dfda924f3c892ca93aab34a93619a67b7fe2",
+    "subject": "dt-bindings: clock: qcom: Add EVA clock and reset controller for Glymur SoC",
+    "reason": "Glymur platform prerequisite",
+    "result": "bfb561596c612d87fdd03a504bf07a0a60137fa8",
+    "already_present": false
+  },
+  {
+    "commit": "f135aa4dc1aa43bd55edb028f02e96c7ec8b2e63",
+    "subject": "arm64: dts: qcom: glymur: Add EVA clock controller node",
+    "reason": "Glymur platform prerequisite",
+    "result": "861a8bdc0f54befb49d9eb253790e61091625001",
+    "already_present": false
+  },
+  {
+    "commit": "c4f26a1987f84a904880dc25598d26b178b829ec",
+    "subject": "arm64: dts: qcom: glymur: Add label properties to CoreSight devices",
+    "reason": "Glymur platform prerequisite",
+    "result": "aad36c452d16500ea55b39dbeeea975ca6236961",
+    "already_present": false
+  },
+  {
+    "commit": "618949bb99d72561e36e1373d504d891d0117cd7",
+    "subject": "dt-bindings: clock: qcom: Add Glymur camera clock controller",
+    "reason": "Glymur platform prerequisite",
+    "result": "58674b34f4d5df3a60a902b2b535ec5b5ad47eb9",
+    "already_present": false
+  },
+  {
+    "commit": "db3c61fa8bc174af66429db33445c1e141552fa2",
+    "subject": "arm64: dts: qcom: glymur: Add camera clock controller support",
+    "reason": "Glymur platform prerequisite",
+    "result": "5eda10f8ccf7447b3e960064bf84f450be7a0269",
+    "already_present": false
+  },
+  {
+    "commit": "b8d47a9d22d22631c66877a686404ce4ae53dfbb",
+    "subject": "arm64: dts: qcom: kaanapali: Switch SCMI perf protocol to use power-domain-cells",
+    "reason": "Glymur SoCCP, PCIe or SCMI dependency",
+    "result": "5eda10f8ccf7447b3e960064bf84f450be7a0269",
+    "disposition": "skip",
+    "resolution": "Kaanapali-only change; Glymur already uses power-domain-cells, so exclude this unrelated board change."
+  },
+  {
+    "commit": "e9d928da6f25e2c0d926c15b66fab52602e86f8f",
+    "subject": "arm64: dts: qcom: glymur: Add PCIe port compatibles and ports",
+    "reason": "Glymur platform prerequisite",
+    "result": "58fda34d1beec7cf9111e40e195bf75ba046d171",
+    "already_present": false
+  },
+  {
+    "commit": "394b63a2bbf2d1e98d411ee5ec52d68f66bbf984",
+    "subject": "arm64: dts: qcom: glymur: enable ETR and CTCU devices",
+    "reason": "Glymur platform prerequisite",
+    "result": "84bab902757db0ec69a619232cdb6ca2d3a9d19a",
+    "already_present": false
+  },
+  {
+    "commit": "5d7ebb1f36ad8a51f4e60819a8c5bddf04a8d1a2",
+    "subject": "arm64: dts: qcom: glymur: add TRNG node",
+    "reason": "Glymur platform prerequisite",
+    "result": "326583581b6b6b75f1a1eee762f3f5533ff554e3",
+    "already_present": false
+  },
+  {
+    "commit": "d3ca4252d21ec85ada29689f78d13d4596749e3a",
+    "subject": "arm64: dts: qcom: glymur: Drop fake PCIe phy 3B",
+    "reason": "Glymur platform prerequisite",
+    "result": "d1c6a1922db355d61e718d8c34ef1beab3e4e751",
+    "already_present": false
+  },
+  {
+    "commit": "2edbea82d8edbddb2a235b8f988f17b86f075476",
+    "subject": "arm64: dts: qcom: glymur: Add CX power domain to GCC",
+    "reason": "Glymur platform prerequisite",
+    "result": "d1c6a1922db355d61e718d8c34ef1beab3e4e751",
+    "already_present": true
+  },
+  {
+    "commit": "fc913a5ad811395be4daf2ca6fed8bcd9653916b",
+    "subject": "arm64: dts: qcom: glymur: Add QREF regulator supplies to TCSR",
+    "reason": "Glymur platform prerequisite",
+    "result": "9bd3045b71c0f1b6ad20c19aa4990a37df58eb92",
+    "already_present": false
+  },
+  {
+    "commit": "61e5b39e96aadeafa884ab96c1477b781dccf145",
+    "subject": "arm64: dts: qcom: glymur: fix SoCCP memory mappings",
+    "reason": "Glymur platform prerequisite",
+    "result": "9bd3045b71c0f1b6ad20c19aa4990a37df58eb92",
+    "already_present": true
+  },
+  {
+    "commit": "fe76d6b32eb2d3193c65c834693fa4f58b558080",
+    "subject": "arm64: dts: qcom: glymur: add SoCCP DT node",
+    "reason": "Glymur platform prerequisite",
+    "result": "79539931b903796ac13cba225ce29dfb43bef636",
+    "disposition": "adapted",
+    "resolution": "Keep stable CRD audio configuration; add only the SoCCP firmware-name node from this commit. No unrelated CRD speaker nodes imported."
+  },
+  {
+    "commit": "e806c63ba51a70aa8e19f749eb36b4d81760f705",
+    "subject": "arm64: dts: qcom: Rename pci@ nodes to pcie@",
+    "reason": "A16 peripheral prerequisite",
+    "result": "ef2b922847b9a57ce6b9132a4daaf54993bda161",
+    "already_present": false
+  },
+  {
+    "commit": "8ed8ee7499f2de55e3f63457936aaeb0ccbe0d72",
+    "subject": "dt-bindings: arm: qcom: Add Asus Zenbook A16 (UX3607OA)",
+    "reason": "Glymur platform prerequisite",
+    "result": "1397204e0eb6a32dee055d5783b7b959592c145c",
+    "already_present": false
+  },
+  {
+    "commit": "e78c5e9d79e3c024e9b80ec067e62477c29aa29f",
+    "subject": "arm64: dts: qcom: glymur: Fix properties of usb_hs node",
+    "reason": "Glymur platform prerequisite",
+    "result": "711d921e19fe9ff0e9dc249c28dc84e2accfc3cd",
+    "already_present": false
+  },
+  {
+    "commit": "5ac32106d3c2ea94abd236fe3ad3897925640289",
+    "subject": "arm64: dts: qcom: glymur: Configure USB controllers are wakeup-capable",
+    "reason": "Glymur platform prerequisite",
+    "result": "8210dcc976a6d5b70d3c573840ea5014ab99a7d9",
+    "already_present": false
+  },
+  {
+    "commit": "1b0b6ddd0299efa29d18f68a2d7152ad67cb9576",
+    "subject": "arm64: dts: qcom: glymur: Fix PDC IRQ mapping",
+    "reason": "Glymur platform prerequisite",
+    "result": "8210dcc976a6d5b70d3c573840ea5014ab99a7d9",
+    "already_present": true
+  },
+  {
+    "commit": "e8fbbca94db752ab94d9dadf2f65872905eafecd",
+    "subject": "arm64: dts: qcom: glymur: Add Asus Zenbook A16 (UX3607OA)",
+    "reason": "Glymur platform prerequisite",
+    "result": "ae067eabcfdee990d4e824e40ef254f7d3f83818",
+    "already_present": false
+  },
+  {
+    "commit": "c3c6b388edba50aad0d41b0b2a5e50482e320611",
+    "subject": "arm64: dts: qcom: glymur: Fix swapped USB QMP PHY vdda-phy/vdda-pll supplies",
+    "reason": "Glymur platform prerequisite",
+    "result": "ae067eabcfdee990d4e824e40ef254f7d3f83818",
+    "already_present": true
+  },
+  {
+    "commit": "ca8c96d3187a11229b3bd44992a9bc3d22caf13a",
+    "subject": "firmware: qcom: scm: Allow QSEECOM on Asus Zenbook A16 (UX3607OA)",
+    "reason": "Glymur platform prerequisite",
+    "result": "d1a26c412a46a3b95ca9065263507fc92b080134",
+    "already_present": false
+  },
+  {
+    "commit": "206107536018272a9c786fab74cdd90ee748ac2f",
+    "subject": "HID: asus: support the Zenbook A16 (UX3607OA) keyboard",
+    "reason": "Glymur platform prerequisite",
+    "result": "ce31abcc7f4be8070e55925c2ec1493d06dc66d5",
+    "already_present": false
+  },
+  {
+    "commit": "c663014e452d69d5f34b8b16fecf1590b3696082",
+    "subject": "ASoC: qcom: audioreach: compute active channel maps from channel_map",
+    "reason": "A16 peripheral prerequisite",
+    "result": "f7b7652f03f946a280990faa10ba85075845c43f",
+    "already_present": false
+  },
+  {
+    "commit": "daa7ffd765ae67a83e77dae32c66ce2d6d995d19",
+    "subject": "ASoC: qcom: q6apm: keep the graph start count in sync with the DSP",
+    "reason": "A16 peripheral prerequisite",
+    "result": "f7b7652f03f946a280990faa10ba85075845c43f",
+    "already_present": true
+  },
+  {
+    "commit": "3edb3a038d423480efeb204dbc6ddc9a292f8ecb",
+    "subject": "PCI: qcom: Skip PERST# GPIOs provided by downstream PCIe devices",
+    "reason": "A16 peripheral prerequisite",
+    "result": "f7b7652f03f946a280990faa10ba85075845c43f",
+    "already_present": true
+  },
+  {
+    "commit": "6ccec91c3535b07310e12d32fe9c67ff8d31d965",
+    "subject": "soundwire: qcom: Fix port exhaustion check in stream_alloc_ports",
+    "reason": "A16 peripheral prerequisite",
+    "result": "f7b7652f03f946a280990faa10ba85075845c43f",
+    "already_present": true
+  },
+  {
+    "commit": "4f9df964ba4507958df39612103d0eb318b1e3e5",
+    "subject": "soundwire: qcom: Allocate sruntime array dynamically",
+    "reason": "A16 peripheral prerequisite",
+    "result": "2f1ceacf30c9c2ebf8ba0a6e28e08671be4efd2f",
+    "already_present": false
+  },
+  {
+    "commit": "999f80904763fae547c2c9c32bb7dbc31b86ffa1",
+    "subject": "soundwire: qcom: add SCP address paging support",
+    "reason": "A16 peripheral prerequisite",
+    "result": "ce74e19fc53034c9820c37f3e7551a2b6249f394",
+    "already_present": false
+  },
+  {
+    "commit": "f64c5d5ff8f9d25272562560ba1bc994f53a6def",
+    "subject": "soundwire: qcom: set the bus mclk_freq property",
+    "reason": "A16 peripheral prerequisite",
+    "result": "0b2342ca482ae69001e536c54b53460983a6ed21",
+    "already_present": false
+  },
+  {
+    "commit": "5619458024925b3a488f9046b3ab26647582b99f",
+    "subject": "dt-bindings: phy: qcom: Add Glymur QMP PCIe multiple link-mode PHY",
+    "reason": "Glymur platform prerequisite",
+    "result": "66988924f9f0e2d31693a2e2009ffe79709c79ae",
+    "already_present": false
+  },
+  {
+    "commit": "1781be3c8a5ddf40f5f9e7b9dc32cc577d491062",
+    "subject": "phy: qcom: qmp-pcie: Add QMP PCIe Multi-PHY driver",
+    "reason": "Glymur SoCCP, PCIe or SCMI dependency",
+    "result": "7ddcdc7e20826f2439dc9d895955bd103d0ab832",
+    "already_present": false
+  },
+  {
+    "commit": "1123dc1ae35f8600ef191930b3c4635b62300cb2",
+    "subject": "dt-bindings: nvmem: qfprom: Add glymur compatible",
+    "reason": "Glymur platform prerequisite",
+    "result": "cd4bec77d16df808d7183413c32e2788a78269a2",
+    "already_present": false
+  },
+  {
+    "commit": "5eb8427596322c9c51638b906f39acff7c10c963",
+    "subject": "dt-bindings: remoteproc: qcom: move interrupts and interrupt-names list out of pas-common",
+    "reason": "SoCCP binding requires different interrupt list than ADSP; split common binding first.",
+    "result": "d4d5e83cc0f1429b8dcea93cac5715c97ef68e76",
+    "disposition": "adapted",
+    "resolution": "Move the existing five ADSP interrupt entries from common binding to ADSP binding, retaining other stable schema changes."
+  },
+  {
+    "commit": "8b54bacadc0c17e735ea8cb45e78ff360803a302",
+    "subject": "dt-bindings: remoteproc: qcom: Document pas for SoCCP on Kaanapali and Glymur platforms",
+    "reason": "Glymur platform prerequisite",
+    "result": "00a0945c1dd522d866eedd097a921d9f0793421b",
+    "already_present": false
+  },
+  {
+    "commit": "16472c99f4699cb28f2f5f946400ead02f58a15e",
+    "subject": "remoteproc: qcom: pas: Add late attach support for subsystems",
+    "reason": "A16 peripheral prerequisite",
+    "result": "00a0945c1dd522d866eedd097a921d9f0793421b",
+    "disposition": "skip",
+    "resolution": "Late attach is already in 7.2.10, including qcom_pas_attach and RPROC_DETACHED handling. Preserve stable was_running shutdown fix instead of reverting to upstream state check."
+  },
+  {
+    "commit": "1f9ecae2ec6aa473825d713221d43bae72fcdfe9",
+    "subject": "remoteproc: qcom_q6v5_pas: Add SoCCP node on Kaanapali",
+    "reason": "A16 peripheral prerequisite",
+    "result": "b93e8abf310a734adec5088479c51215e42feb46",
+    "already_present": false
+  },
+  {
+    "commit": "c2200063763645d3c23a9428d3f636ed67b2df7a",
+    "subject": "remoteproc: qcom: pas: add needs_tzmem flag to trigger shmbridge creation",
+    "reason": "Glymur SoCCP, PCIe or SCMI dependency",
+    "result": "a5a1f431072a29ad345d0b4e3197897fc4f5276d",
+    "already_present": false
+  },
+  {
+    "commit": "bb7c5d6f5b41d192fa81ce404e463f5d3ce70cb3",
+    "subject": "remoteproc: qcom: q6v5: Make handover IRQ one-shot",
+    "reason": "A16 peripheral prerequisite",
+    "result": "ef49fc5ba83246e53840492e7146f69e62841944",
+    "already_present": false
+  },
+  {
+    "commit": "f45ec01bae29a96374690fa323b42717e62aa575",
+    "subject": "dt-bindings: remoteproc: qcom: Document pas for SoCCP on Hawi and Maili SoC",
+    "reason": "Maintain upstream SoCCP binding enum before separating Glymur compatible.",
+    "result": "07e7e08c8175ab16d0c80225094b312da3661829",
+    "already_present": false
+  },
+  {
+    "commit": "40acbf6097c5930e9a3ff907d02ce69023b449c4",
+    "subject": "dt-bindings: remoteproc: qcom: move glymur SoCCP pas to standalone",
+    "reason": "Glymur platform prerequisite",
+    "result": "f1df01aaf396c83b6f433da1c80c0cee56403fe7",
+    "already_present": false
+  },
+  {
+    "commit": "027dc284d5b36733c0868045ff58b6b25b786bb5",
+    "subject": "clk: qcom: Don't use all caps for Glymur GPUCC",
+    "reason": "Glymur platform prerequisite",
+    "result": "579f76d0ccb6459544ce1597b5d09d0867874674",
+    "already_present": false
+  },
+  {
+    "commit": "7399034fd78615ba826b864fca2e4572f13cf8e3",
+    "subject": "clk: qcom: gcc-glymur: Move EVA clocks to critical clock list",
+    "reason": "Glymur platform prerequisite",
+    "result": "579f76d0ccb6459544ce1597b5d09d0867874674",
+    "already_present": true
+  },
+  {
+    "commit": "e291ec812dec1a5a37aeaed0a510761ffcf2bef0",
+    "subject": "clk: qcom: Add EVA clock controller driver for Glymur SoC",
+    "reason": "Glymur platform prerequisite",
+    "result": "76bbb1968c366e14ab5eea2b2c433954c3b14c0c",
+    "already_present": false
+  },
+  {
+    "commit": "97255eedd6905980c85eb93b438edcb91277f831",
+    "subject": "clk: qcom: camcc-glymur: Add camera clock controller driver",
+    "reason": "Glymur platform prerequisite",
+    "result": "8270906f230f219682b51b55e53804f7308a61a7",
+    "already_present": false
+  },
+  {
+    "commit": "d22a37e9fba7838cdcb8c55b913b1a37a7a4a198",
+    "subject": "dt-bindings: clock: qcom: glymur-gcc: Add missing CX power domain",
+    "reason": "Glymur platform prerequisite",
+    "result": "647851f226828da9154584c7d1315410d8c87e7f",
+    "already_present": false
+  },
+  {
+    "commit": "8d4f342369d0d77f32a0211692442d3b6d455872",
+    "subject": "clk: qcom: gcc-glymur: Enable runtime PM",
+    "reason": "Glymur platform prerequisite",
+    "result": "647851f226828da9154584c7d1315410d8c87e7f",
+    "already_present": true
+  },
+  {
+    "commit": "a9954d40de71cee344dbf9d61600b79379f74bb9",
+    "subject": "clk: qcom: camcc-glymur: Add const qualifier for driver_data & CBCRs list",
+    "reason": "Glymur platform prerequisite",
+    "result": "30f6e6f66f530ec6b5a1e39e127645ca84089455",
+    "already_present": false
+  },
+  {
+    "commit": "f9cbc4bddb636dd9d446bfba31f58fbceaf09424",
+    "subject": "dt-bindings: clock: qcom: Move glymur TCSR to own binding",
+    "reason": "Glymur platform prerequisite",
+    "result": "1c3c23e8043e69d944bd41f98e37cc3cdeb754f8",
+    "already_present": false
+  },
+  {
+    "commit": "22c70e5732005356a4bc2601e7dcf878aab101e0",
+    "subject": "clk: qcom: Add generic clkref_en support",
+    "reason": "A16 peripheral prerequisite",
+    "result": "174f204912176e38bdc4a3232b67a6b8d7f0ea19",
+    "already_present": false
+  },
+  {
+    "commit": "0753091abc4b480abf76cb40c10fffe2764bfcf7",
+    "subject": "clk: qcom: tcsrcc-glymur: Add regulator supplies and migrate to clk_ref helper",
+    "reason": "Glymur platform prerequisite",
+    "result": "c3d8b49c204edc2a993169578ae9bd5e70cf54f6",
+    "disposition": "adapted",
+    "resolution": "Retain upstream explicit qcom clock and device-table includes needed by regulator-supported reference clocks."
+  },
+  {
+    "commit": "9c9fb79f9769ba9042086817ee57aa4eef8b8a97",
+    "subject": "ASoC: qcom: qdsp6: Zero-initialize AudioReach module config",
+    "reason": "A16 peripheral prerequisite",
+    "result": "f13349e440cccfffe557393221d621e2fd814d1b",
+    "already_present": false
+  },
+  {
+    "commit": "34b8b2d78b6276dc2dc4ebc06625a39956f266e4",
+    "subject": "remoteproc: qcom: q6v5_pas: Don't enable handover IRQ on attach",
+    "reason": "A16 peripheral prerequisite",
+    "result": "410d00a99b103b7465157a3972571f0ba3d022e2",
+    "already_present": false
+  }
+]

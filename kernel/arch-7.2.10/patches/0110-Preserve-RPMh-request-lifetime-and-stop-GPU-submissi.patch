@@ -1,0 +1,447 @@
+From 2ca0985d5f1c0ed428625a0576294a74d73cf551 Mon Sep 17 00:00:00 2001
+From: Codex <codex@localhost>
+Date: Tue, 6 Oct 2026 15:45:08 -0400
+Subject: [PATCH 110/127] Preserve RPMh request lifetime and stop GPU
+ submission after failed power votes
+
+---
+ drivers/gpu/drm/msm/adreno/a6xx_gmu.c |  12 ++-
+ drivers/gpu/drm/msm/msm_gpu.c         |  14 +++-
+ drivers/gpu/drm/msm/msm_gpu.h         |   2 +-
+ drivers/gpu/drm/msm/msm_ringbuffer.c  |   7 +-
+ drivers/interconnect/qcom/icc-rpmh.c  |   4 +-
+ drivers/soc/qcom/rpmh-internal.h      |   8 ++
+ drivers/soc/qcom/rpmh-rsc.c           |  17 ++--
+ drivers/soc/qcom/rpmh.c               | 109 +++++++++++++++++---------
+ 8 files changed, 118 insertions(+), 55 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+index b019a26e3012db8ac00df7187d976de5c007aee8..d0fd14bd0b5665b2d3fc10f4cb64c35ecec670e6 100644
+--- a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
++++ b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+@@ -1179,17 +1179,19 @@ static void a6xx_gmu_set_initial_freq(struct msm_gpu *gpu, struct a6xx_gmu *gmu)
+ 	dev_pm_opp_put(gpu_opp);
+ }
+ 
+-static void a6xx_gmu_set_initial_bw(struct msm_gpu *gpu, struct a6xx_gmu *gmu)
++static int a6xx_gmu_set_initial_bw(struct msm_gpu *gpu, struct a6xx_gmu *gmu)
+ {
+ 	struct dev_pm_opp *gpu_opp;
+ 	unsigned long gpu_freq = gmu->gpu_freqs[gmu->current_perf_index];
++	int ret;
+ 
+ 	gpu_opp = dev_pm_opp_find_freq_exact(&gpu->pdev->dev, gpu_freq, true);
+ 	if (IS_ERR(gpu_opp))
+-		return;
++		return PTR_ERR(gpu_opp);
+ 
+-	dev_pm_opp_set_opp(&gpu->pdev->dev, gpu_opp);
++	ret = dev_pm_opp_set_opp(&gpu->pdev->dev, gpu_opp);
+ 	dev_pm_opp_put(gpu_opp);
++	return ret;
+ }
+ 
+ static int a6xx_gmu_secure_init(struct a6xx_gpu *a6xx_gpu)
+@@ -1334,7 +1336,9 @@ int a6xx_gmu_resume(struct a6xx_gpu *a6xx_gpu)
+ 	a8xx_gpu_get_slice_info(gpu);
+ 
+ 	/* Set the bus quota to a reasonable value for boot */
+-	a6xx_gmu_set_initial_bw(gpu, gmu);
++	ret = a6xx_gmu_set_initial_bw(gpu, gmu);
++	if (ret)
++		goto disable_clk;
+ 
+ 	/* Enable the GMU interrupt */
+ 	gmu_write(gmu, REG_A6XX_GMU_AO_HOST_INTERRUPT_CLR, ~0);
+diff --git a/drivers/gpu/drm/msm/msm_gpu.c b/drivers/gpu/drm/msm/msm_gpu.c
+index 03c057856065863fdf9a9dbb0a7b92479b56e8cc..cba61078430948e6a565534700ae4d350d872a30 100644
+--- a/drivers/gpu/drm/msm/msm_gpu.c
++++ b/drivers/gpu/drm/msm/msm_gpu.c
+@@ -790,16 +790,23 @@ void msm_gpu_retire(struct msm_gpu *gpu)
+ }
+ 
+ /* add bo's to gpu's ring, and kick gpu: */
+-void msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
++int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
+ {
+ 	struct msm_ringbuffer *ring = submit->ring;
+ 	unsigned long flags;
++	int ret;
+ 
+ 	WARN_ON(!mutex_is_locked(&gpu->lock));
+ 
+-	pm_runtime_get_sync(&gpu->pdev->dev);
++	ret = pm_runtime_resume_and_get(&gpu->pdev->dev);
++	if (ret < 0)
++		return ret;
+ 
+-	msm_gpu_hw_init(gpu);
++	ret = msm_gpu_hw_init(gpu);
++	if (ret) {
++		pm_runtime_put(&gpu->pdev->dev);
++		return ret;
++	}
+ 
+ 	submit->seqno = submit->hw_fence->seqno;
+ 
+@@ -827,6 +834,7 @@ void msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
+ 
+ 	pm_runtime_put(&gpu->pdev->dev);
+ 	hangcheck_timer_reset(gpu);
++	return 0;
+ }
+ 
+ /*
+diff --git a/drivers/gpu/drm/msm/msm_gpu.h b/drivers/gpu/drm/msm/msm_gpu.h
+index 6c83b8cbbb904a6a1515f49bbf94fc153376e159..3467bb7ad1e7c5b6af92a7c64d4252985af4e4ab 100644
+--- a/drivers/gpu/drm/msm/msm_gpu.h
++++ b/drivers/gpu/drm/msm/msm_gpu.h
+@@ -743,7 +743,7 @@ void msm_devfreq_idle(struct msm_gpu *gpu);
+ int msm_gpu_hw_init(struct msm_gpu *gpu);
+ 
+ void msm_gpu_retire(struct msm_gpu *gpu);
+-void msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit);
++int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit);
+ 
+ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
+ 		struct msm_gpu *gpu, const struct msm_gpu_funcs *funcs,
+diff --git a/drivers/gpu/drm/msm/msm_ringbuffer.c b/drivers/gpu/drm/msm/msm_ringbuffer.c
+index 38e1e6866301e539ec6d9c15b2c0776d81516169..835126530a24730da7175fcdab37efcb37aebcb8 100644
+--- a/drivers/gpu/drm/msm/msm_ringbuffer.c
++++ b/drivers/gpu/drm/msm/msm_ringbuffer.c
+@@ -18,7 +18,7 @@ static struct dma_fence *msm_job_run(struct drm_sched_job *job)
+ 	struct msm_gpu *gpu = submit->gpu;
+ 	struct drm_device *dev = gpu->dev;
+ 	unsigned nr_cmds = submit->nr_cmds;
+-	int i;
++	int i, ret;
+ 
+ 	msm_fence_init(submit->hw_fence, fctx);
+ 
+@@ -40,12 +40,15 @@ static struct dma_fence *msm_job_run(struct drm_sched_job *job)
+ 	if (submit->queue->ctx->closed)
+ 		submit->nr_cmds = 0;
+ 
+-	msm_gpu_submit(gpu, submit);
++	ret = msm_gpu_submit(gpu, submit);
+ 
+ 	submit->nr_cmds = nr_cmds;
+ 
+ 	mutex_unlock(&gpu->lock);
+ 
++	if (ret)
++		return ERR_PTR(ret);
++
+ 	return dma_fence_get(submit->hw_fence);
+ }
+ 
+diff --git a/drivers/interconnect/qcom/icc-rpmh.c b/drivers/interconnect/qcom/icc-rpmh.c
+index 3b445acefece7f1b3620ad921617694d2105e37f..b1346cdb349cf2d00459c3c78addb25478c533b2 100644
+--- a/drivers/interconnect/qcom/icc-rpmh.c
++++ b/drivers/interconnect/qcom/icc-rpmh.c
+@@ -130,9 +130,7 @@ int qcom_icc_set(struct icc_node *src, struct icc_node *dst)
+ 
+ 	qp = to_qcom_provider(node->provider);
+ 
+-	qcom_icc_bcm_voter_commit(qp->voter);
+-
+-	return 0;
++	return qcom_icc_bcm_voter_commit(qp->voter);
+ }
+ EXPORT_SYMBOL_GPL(qcom_icc_set);
+ 
+diff --git a/drivers/soc/qcom/rpmh-internal.h b/drivers/soc/qcom/rpmh-internal.h
+index e3cf1beff8038827e45334efddceb69a3bf2cf32..9899edc0f00922696cdbe5bc81a540ef5f6f583b 100644
+--- a/drivers/soc/qcom/rpmh-internal.h
++++ b/drivers/soc/qcom/rpmh-internal.h
+@@ -8,6 +8,8 @@
+ #define __RPM_INTERNAL_H__
+ 
+ #include <linux/bitmap.h>
++#include <linux/completion.h>
++#include <linux/refcount.h>
+ #include <linux/wait.h>
+ #include <soc/qcom/tcs.h>
+ 
+@@ -60,6 +62,9 @@ struct tcs_group {
+  * @completion: triggered when request is done
+  * @dev: the device making the request
+  * @needs_free: check to free dynamically allocated request object
++ * @refs: caller and completion references for an allocated request
++ * @done: completion storage owned by an allocated request
++ * @batch: owner of a request within an active batch
+  */
+ struct rpmh_request {
+ 	struct tcs_request msg;
+@@ -67,6 +72,9 @@ struct rpmh_request {
+ 	struct completion *completion;
+ 	const struct device *dev;
+ 	bool needs_free;
++	refcount_t refs;
++	struct completion done;
++	struct batch_cache_req *batch;
+ };
+ 
+ /**
+diff --git a/drivers/soc/qcom/rpmh-rsc.c b/drivers/soc/qcom/rpmh-rsc.c
+index f881af35ecfc51d4dbcc7d2d3c32eea854210d5e..9939e9322feea0b6b4ce9a4e860f9fa6c2cd5407 100644
+--- a/drivers/soc/qcom/rpmh-rsc.c
++++ b/drivers/soc/qcom/rpmh-rsc.c
+@@ -635,7 +635,7 @@ static int claim_tcs_for_req(struct rsc_drv *drv, struct tcs_group *tcs,
+  * - This is only used for "ACTIVE_ONLY" since the limitations of this
+  *   function don't make sense for sleep/wake cases.
+  * - To do the transfer, we will grab a whole TCS for ourselves--we don't
+- *   try to share. If there are none available we'll wait indefinitely
++ *   try to share. If there are none available we'll wait up to 10 seconds
+  *   for a free one.
+  * - This function will not wait for the commands to be finished, only for
+  *   data to be programmed into the RPMh. See rpmh_tx_done() which will
+@@ -646,12 +646,13 @@ static int claim_tcs_for_req(struct rsc_drv *drv, struct tcs_group *tcs,
+  *   the interrupt handler to run. If the interrupts is set to run on the
+  *   active CPU this can never happen if interrupts are disabled.
+  *
+- * Return: 0 on success, -EINVAL on error.
++ * Return: 0 on success, negative error code on failure.
+  */
+ int rpmh_rsc_send_data(struct rsc_drv *drv, const struct tcs_request *msg)
+ {
+ 	struct tcs_group *tcs;
+ 	int tcs_id;
++	long time_left;
+ 
+ 	might_sleep();
+ 
+@@ -661,10 +662,16 @@ int rpmh_rsc_send_data(struct rsc_drv *drv, const struct tcs_request *msg)
+ 
+ 	spin_lock_irq(&drv->lock);
+ 
+-	/* Wait forever for a free tcs. It better be there eventually! */
+-	wait_event_lock_irq(drv->tcs_wait,
++	/* A missing acknowledgment must not block every subsequent voter. */
++	time_left = wait_event_lock_irq_timeout(drv->tcs_wait,
+ 			    (tcs_id = claim_tcs_for_req(drv, tcs, msg)) >= 0,
+-			    drv->lock);
++			    drv->lock, msecs_to_jiffies(10000));
++	if (!time_left) {
++		spin_unlock_irq(&drv->lock);
++		dev_err(drv->dev, "TCS unavailable for RPMh address %#x\n",
++			msg->cmds[0].addr);
++		return -ETIMEDOUT;
++	}
+ 
+ 	tcs->req[tcs_id - tcs->offset] = msg;
+ 	set_bit(tcs_id, drv->tcs_in_use);
+diff --git a/drivers/soc/qcom/rpmh.c b/drivers/soc/qcom/rpmh.c
+index f881c4c757ec8302b09eabf2f18bc79941a6f2c5..3a1e44276e1a0552a69530e2c5218a65e98fbfb6 100644
+--- a/drivers/soc/qcom/rpmh.c
++++ b/drivers/soc/qcom/rpmh.c
+@@ -59,12 +59,14 @@ struct cache_req {
+  * struct batch_cache_req - An entry in our batch catch
+  *
+  * @list: linked list obj
++ * @refs: caller and pending completion references
+  * @count: number of messages
+  * @rpm_msgs: the messages
+  */
+ 
+ struct batch_cache_req {
+ 	struct list_head list;
++	refcount_t refs;
+ 	int count;
+ 	struct rpmh_request rpm_msgs[];
+ };
+@@ -82,6 +84,7 @@ void rpmh_tx_done(const struct tcs_request *msg)
+ 						    msg);
+ 	struct completion *compl = rpm_msg->completion;
+ 	bool free = rpm_msg->needs_free;
++	struct batch_cache_req *batch = rpm_msg->batch;
+ 
+ 	if (!compl)
+ 		goto exit;
+@@ -90,8 +93,12 @@ void rpmh_tx_done(const struct tcs_request *msg)
+ 	complete(compl);
+ 
+ exit:
+-	if (free)
++	if (batch) {
++		if (refcount_dec_and_test(&batch->refs))
++			kfree(batch);
++	} else if (free && refcount_dec_and_test(&rpm_msg->refs)) {
+ 		kfree(rpm_msg);
++	}
+ }
+ 
+ static struct cache_req *__find_req(struct rpmh_ctrlr *ctrlr, u32 addr)
+@@ -213,6 +220,46 @@ static int __fill_rpmh_msg(struct rpmh_request *req, enum rpmh_state state,
+ 	return 0;
+ }
+ 
++static int rpmh_write_sync(const struct device *dev, enum rpmh_state state,
++			   const struct tcs_cmd *cmd, u32 n, bool is_read,
++			   u32 *value)
++{
++	struct rpmh_request *req;
++	int ret;
++
++	req = kzalloc_obj(*req, GFP_ATOMIC);
++	if (!req)
++		return -ENOMEM;
++
++	ret = __fill_rpmh_msg(req, state, cmd, n, is_read);
++	if (ret) {
++		kfree(req);
++		return ret;
++	}
++
++	req->dev = dev;
++	req->needs_free = true;
++	req->msg.wait_for_compl = true;
++	init_completion(&req->done);
++	req->completion = &req->done;
++	/* One reference for the caller, one for the eventual acknowledgment. */
++	refcount_set(&req->refs, 2);
++
++	ret = __rpmh_write(dev, state, req);
++	if (ret) {
++		/* An unsuccessful send has no completion callback. */
++		refcount_dec(&req->refs);
++	} else if (!wait_for_completion_timeout(&req->done, RPMH_TIMEOUT_MS)) {
++		ret = -ETIMEDOUT;
++	} else if (value) {
++		*value = req->cmd[0].data;
++	}
++
++	if (refcount_dec_and_test(&req->refs))
++		kfree(req);
++	return ret;
++}
++
+ /**
+  * rpmh_read: Read a resource value
+  *
+@@ -228,22 +275,11 @@ static int __fill_rpmh_msg(struct rpmh_request *req, enum rpmh_state state,
+  */
+ int rpmh_read(const struct device *dev, struct tcs_cmd *cmd)
+ {
+-	DECLARE_COMPLETION_ONSTACK(compl);
+-	DEFINE_RPMH_MSG_ONSTACK(dev, RPMH_ACTIVE_ONLY_STATE, &compl, rpm_msg);
+-	int ret;
+-
+-	ret = __fill_rpmh_msg(&rpm_msg, RPMH_ACTIVE_ONLY_STATE, cmd, 1, true);
+-	if (ret)
+-		return ret;
+-
+-	ret = __rpmh_write(dev, RPMH_ACTIVE_ONLY_STATE, &rpm_msg);
+-	if (ret)
+-		return ret;
+-
+-	ret = wait_for_completion_timeout(&compl, RPMH_TIMEOUT_MS);
+-	cmd[0].data = rpm_msg.cmd[0].data;
++	if (!cmd)
++		return -EINVAL;
+ 
+-	return (ret > 0) ? 0 : -ETIMEDOUT;
++	return rpmh_write_sync(dev, RPMH_ACTIVE_ONLY_STATE, cmd, 1, true,
++			       &cmd[0].data);
+ }
+ EXPORT_SYMBOL_GPL(rpmh_read);
+ 
+@@ -268,6 +304,7 @@ int rpmh_write_async(const struct device *dev, enum rpmh_state state,
+ 	if (!rpm_msg)
+ 		return -ENOMEM;
+ 	rpm_msg->needs_free = true;
++	refcount_set(&rpm_msg->refs, 1);
+ 
+ 	ret = __fill_rpmh_msg(rpm_msg, state, cmd, n, false);
+ 	if (ret) {
+@@ -275,7 +312,10 @@ int rpmh_write_async(const struct device *dev, enum rpmh_state state,
+ 		return ret;
+ 	}
+ 
+-	return __rpmh_write(dev, state, rpm_msg);
++	ret = __rpmh_write(dev, state, rpm_msg);
++	if (ret)
++		kfree(rpm_msg);
++	return ret;
+ }
+ EXPORT_SYMBOL_GPL(rpmh_write_async);
+ 
+@@ -292,21 +332,11 @@ EXPORT_SYMBOL_GPL(rpmh_write_async);
+ int rpmh_write(const struct device *dev, enum rpmh_state state,
+ 	       const struct tcs_cmd *cmd, u32 n)
+ {
+-	DECLARE_COMPLETION_ONSTACK(compl);
+-	DEFINE_RPMH_MSG_ONSTACK(dev, state, &compl, rpm_msg);
+ 	int ret;
+ 
+-	ret = __fill_rpmh_msg(&rpm_msg, state, cmd, n, false);
+-	if (ret)
+-		return ret;
+-
+-	ret = __rpmh_write(dev, state, &rpm_msg);
+-	if (ret)
+-		return ret;
+-
+-	ret = wait_for_completion_timeout(&compl, RPMH_TIMEOUT_MS);
+-	WARN_ON(!ret);
+-	return (ret > 0) ? 0 : -ETIMEDOUT;
++	ret = rpmh_write_sync(dev, state, cmd, n, false, NULL);
++	WARN_ON(ret == -ETIMEDOUT);
++	return ret;
+ }
+ EXPORT_SYMBOL_GPL(rpmh_write);
+ 
+@@ -391,7 +421,11 @@ int rpmh_write_batch(const struct device *dev, enum rpmh_state state,
+ 	rpm_msgs = req->rpm_msgs;
+ 
+ 	for (i = 0; i < count; i++) {
+-		__fill_rpmh_msg(rpm_msgs + i, state, cmd, n[i], false);
++		ret = __fill_rpmh_msg(rpm_msgs + i, state, cmd, n[i], false);
++		if (ret) {
++			kfree(ptr);
++			return ret;
++		}
+ 		cmd += n[i];
+ 	}
+ 
+@@ -400,13 +434,17 @@ int rpmh_write_batch(const struct device *dev, enum rpmh_state state,
+ 		return 0;
+ 	}
+ 
++	refcount_set(&req->refs, 1);
+ 	for (i = 0; i < count; i++) {
+ 		struct completion *compl = &compls[i];
+ 
+ 		init_completion(compl);
+ 		rpm_msgs[i].completion = compl;
++		rpm_msgs[i].batch = req;
++		refcount_inc(&req->refs);
+ 		ret = rpmh_rsc_send_data(ctrlr_to_drv(ctrlr), &rpm_msgs[i].msg);
+ 		if (ret) {
++			refcount_dec(&req->refs);
+ 			pr_err("Error(%d) sending RPMH message addr=%#x\n",
+ 			       ret, rpm_msgs[i].msg.cmds[0].addr);
+ 			break;
+@@ -417,11 +455,7 @@ int rpmh_write_batch(const struct device *dev, enum rpmh_state state,
+ 	while (i--) {
+ 		time_left = wait_for_completion_timeout(&compls[i], time_left);
+ 		if (!time_left) {
+-			/*
+-			 * Better hope they never finish because they'll signal
+-			 * the completion that we're going to free once
+-			 * we've returned from this function.
+-			 */
++			/* Pending acknowledgments retain the batch after timeout. */
+ 			WARN_ON(1);
+ 			ret = -ETIMEDOUT;
+ 			goto exit;
+@@ -429,7 +463,8 @@ int rpmh_write_batch(const struct device *dev, enum rpmh_state state,
+ 	}
+ 
+ exit:
+-	kfree(ptr);
++	if (refcount_dec_and_test(&req->refs))
++		kfree(ptr);
+ 
+ 	return ret;
+ }

@@ -1,0 +1,195 @@
+From 84bab902757db0ec69a619232cdb6ca2d3a9d19a Mon Sep 17 00:00:00 2001
+From: Jie Gan <jie.gan@oss.qualcomm.com>
+Date: Tue, 14 Jul 2026 14:50:58 +0800
+Subject: [PATCH 020/127] arm64: dts: qcom: glymur: enable ETR and CTCU devices
+
+Embedded Trace Router(ETR) is working as a DDR memory sink to collect
+tracing data from source device and the CTCU device serves as the
+control unit for the ETR device.
+
+Signed-off-by: Jie Gan <jie.gan@oss.qualcomm.com>
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260714-add-ctcu-etr-for-glymur-v1-1-791de63c0713@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit 394b63a2bbf2d1e98d411ee5ec52d68f66bbf984)
+---
+ arch/arm64/boot/dts/qcom/glymur.dtsi | 152 +++++++++++++++++++++++++++
+ 1 file changed, 152 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index 7ad3dc3d149c23e0532c691493acf2f447dbc498..b2ab96fcc7165d656cf27ab419e8fd79eecae9e3 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -6295,6 +6295,35 @@ rx-pins {
+ 			};
+ 		};
+ 
++		ctcu@10001000 {
++			compatible = "qcom,glymur-ctcu", "qcom,sa8775p-ctcu";
++			reg = <0x0 0x10001000 0x0 0x1000>;
++
++			clocks = <&aoss_qmp>;
++			clock-names = "apb";
++
++			in-ports {
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				port@0 {
++					reg = <0>;
++
++					ctcu_in0: endpoint {
++						remote-endpoint = <&etr0_out>;
++					};
++				};
++
++				port@1 {
++					reg = <1>;
++
++					ctcu_in1: endpoint {
++						remote-endpoint = <&etr1_out>;
++					};
++				};
++			};
++		};
++
+ 		stm: stm@10002000 {
+ 			compatible = "arm,coresight-stm", "arm,primecell";
+ 			reg = <0x0 0x10002000 0x0 0x1000>,
+@@ -6408,6 +6437,121 @@ funnel0_out: endpoint {
+ 			};
+ 		};
+ 
++		replicator@10046000 {
++			compatible = "arm,coresight-dynamic-replicator", "arm,primecell";
++			reg = <0x0 0x10046000 0x0 0x1000>;
++
++			clocks = <&aoss_qmp>;
++			clock-names = "apb_pclk";
++
++			in-ports {
++				port {
++					qdss_rep_in: endpoint {
++						remote-endpoint = <&swao_rep_out0>;
++					};
++				};
++			};
++
++			out-ports {
++				port {
++					qdss_rep_out0: endpoint {
++						remote-endpoint = <&etr_rep_in>;
++					};
++				};
++			};
++		};
++
++		tmc@10048000 {
++			compatible = "arm,coresight-tmc", "arm,primecell";
++			reg = <0x0 0x10048000 0x0 0x1000>;
++
++			clocks = <&aoss_qmp>;
++			clock-names = "apb_pclk";
++
++			iommus = <&apps_smmu 0x00e0 0x0000>;
++			arm,scatter-gather;
++
++			in-ports {
++				port {
++					etr0_in: endpoint {
++						remote-endpoint = <&etr_rep_out0>;
++					};
++				};
++			};
++
++			out-ports {
++				port {
++					etr0_out: endpoint {
++						remote-endpoint = <&ctcu_in0>;
++					};
++				};
++			};
++		};
++
++		replicator@1004e000 {
++			compatible = "arm,coresight-dynamic-replicator", "arm,primecell";
++			reg = <0x0 0x1004e000 0x0 0x1000>;
++
++			clocks = <&aoss_qmp>;
++			clock-names = "apb_pclk";
++
++			in-ports {
++				port {
++					etr_rep_in: endpoint {
++						remote-endpoint = <&qdss_rep_out0>;
++					};
++				};
++			};
++
++			out-ports {
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				port@0 {
++					reg = <0>;
++
++					etr_rep_out0: endpoint {
++						remote-endpoint = <&etr0_in>;
++					};
++				};
++
++				port@1 {
++					reg = <1>;
++
++					etr_rep_out1: endpoint {
++						remote-endpoint = <&etr1_in>;
++					};
++				};
++			};
++		};
++
++		tmc@1004f000 {
++			compatible = "arm,coresight-tmc", "arm,primecell";
++			reg = <0x0 0x1004f000 0x0 0x1000>;
++
++			clocks = <&aoss_qmp>;
++			clock-names = "apb_pclk";
++
++			iommus = <&apps_smmu 0x0100 0x0000>;
++			arm,scatter-gather;
++
++			in-ports {
++				port {
++					etr1_in: endpoint {
++						remote-endpoint = <&etr_rep_out1>;
++					};
++				};
++			};
++
++			out-ports {
++				port {
++					etr1_out: endpoint {
++						remote-endpoint = <&ctcu_in1>;
++					};
++				};
++			};
++		};
++
+ 		tpdm@1102c000 {
+ 			compatible = "qcom,coresight-tpdm", "arm,primecell";
+ 			reg = <0x0 0x1102c000 0x0 0x1000>;
+@@ -7173,6 +7317,14 @@ out-ports {
+ 				#address-cells = <1>;
+ 				#size-cells = <0>;
+ 
++				port@0 {
++					reg = <0>;
++
++					swao_rep_out0: endpoint {
++						remote-endpoint = <&qdss_rep_in>;
++					};
++				};
++
+ 				port@1 {
+ 					reg = <1>;
+ 

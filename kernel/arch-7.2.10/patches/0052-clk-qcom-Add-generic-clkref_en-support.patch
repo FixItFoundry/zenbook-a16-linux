@@ -1,0 +1,329 @@
+From 174f204912176e38bdc4a3232b67a6b8d7f0ea19 Mon Sep 17 00:00:00 2001
+From: Qiang Yu <qiang.yu@oss.qualcomm.com>
+Date: Tue, 21 Jul 2026 22:58:58 -0700
+Subject: [PATCH 052/127] clk: qcom: Add generic clkref_en support
+
+Before XO refclk is distributed to PCIe/USB/eDP PHYs, it passes through
+a QREF block. QREF is powered by dedicated LDO rails, and the clkref_en
+register controls whether refclk is gated through to the PHY side.
+
+These clkref controls are different from typical GCC branch clocks:
+- only a single enable bit is present, without branch-style config bits
+- regulators must be voted before enable and unvoted after disable
+
+Model this as a dedicated clk_ref clock type with custom clk_ops instead
+of reusing struct clk_branch semantics.
+
+Also provide a common registration/probe API so the same clkref model
+can be reused regardless of where clkref_en registers are placed, e.g.
+TCSR on glymur and TLMM on SM8750.
+
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Signed-off-by: Qiang Yu <qiang.yu@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260721-tcsr_qre_0721-v10-3-d2fa68c63b78@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit 22c70e5732005356a4bc2601e7dcf878aab101e0)
+---
+ drivers/clk/qcom/Makefile  |   1 +
+ drivers/clk/qcom/clk-ref.c | 205 +++++++++++++++++++++++++++++++++++++
+ include/linux/clk/qcom.h   |  67 ++++++++++++
+ 3 files changed, 273 insertions(+)
+ create mode 100644 drivers/clk/qcom/clk-ref.c
+ create mode 100644 include/linux/clk/qcom.h
+
+diff --git a/drivers/clk/qcom/Makefile b/drivers/clk/qcom/Makefile
+index 75a1fb1f3bbbf07fa0ec952848ff4563896f7d35..6622c00f5aaa1eee0e84501a0b17252ee792a423 100644
+--- a/drivers/clk/qcom/Makefile
++++ b/drivers/clk/qcom/Makefile
+@@ -8,6 +8,7 @@ clk-qcom-y += clk-pll.o
+ clk-qcom-y += clk-rcg.o
+ clk-qcom-y += clk-rcg2.o
+ clk-qcom-y += clk-branch.o
++clk-qcom-y += clk-ref.o
+ clk-qcom-y += clk-regmap-divider.o
+ clk-qcom-y += clk-regmap-mux.o
+ clk-qcom-y += clk-regmap-mux-div.o
+diff --git a/drivers/clk/qcom/clk-ref.c b/drivers/clk/qcom/clk-ref.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..3efdf6749770d4f269ded976ff981cec1273536f
+--- /dev/null
++++ b/drivers/clk/qcom/clk-ref.c
+@@ -0,0 +1,205 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright (c) 2026, Qualcomm Technologies, Inc. and/or its subsidiaries.
++ */
++
++#include <linux/clk-provider.h>
++#include <linux/clk/qcom.h>
++#include <linux/delay.h>
++#include <linux/err.h>
++#include <linux/export.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++#include <linux/regulator/consumer.h>
++#include <linux/slab.h>
++
++#define QCOM_CLK_REF_EN_MASK BIT(0)
++
++struct qcom_clk_ref_provider {
++	size_t num_refs;
++	struct qcom_clk_ref refs[] __counted_by(num_refs);
++};
++
++static inline struct qcom_clk_ref *to_qcom_clk_ref(struct clk_hw *hw)
++{
++	return container_of(hw, struct qcom_clk_ref, hw);
++}
++
++static const struct clk_parent_data qcom_clk_ref_parent_data = {
++	.index = 0,
++};
++
++static int qcom_clk_ref_prepare(struct clk_hw *hw)
++{
++	struct qcom_clk_ref *rclk = to_qcom_clk_ref(hw);
++	int ret;
++
++	if (!rclk->desc.num_regulators)
++		return 0;
++
++	ret = regulator_bulk_enable(rclk->desc.num_regulators, rclk->regulators);
++	if (ret)
++		pr_err("Failed to enable regulators for %s: %d\n",
++		       clk_hw_get_name(hw), ret);
++
++	return ret;
++}
++
++static void qcom_clk_ref_unprepare(struct clk_hw *hw)
++{
++	struct qcom_clk_ref *rclk = to_qcom_clk_ref(hw);
++
++	if (rclk->desc.num_regulators)
++		regulator_bulk_disable(rclk->desc.num_regulators, rclk->regulators);
++}
++
++static int qcom_clk_ref_enable(struct clk_hw *hw)
++{
++	struct qcom_clk_ref *rclk = to_qcom_clk_ref(hw);
++	int ret;
++
++	ret = regmap_set_bits(rclk->regmap, rclk->desc.offset, QCOM_CLK_REF_EN_MASK);
++	if (ret)
++		return ret;
++
++	udelay(10);
++
++	return 0;
++}
++
++static void qcom_clk_ref_disable(struct clk_hw *hw)
++{
++	struct qcom_clk_ref *rclk = to_qcom_clk_ref(hw);
++
++	regmap_clear_bits(rclk->regmap, rclk->desc.offset, QCOM_CLK_REF_EN_MASK);
++	udelay(10);
++}
++
++static int qcom_clk_ref_is_enabled(struct clk_hw *hw)
++{
++	struct qcom_clk_ref *rclk = to_qcom_clk_ref(hw);
++	u32 val;
++	int ret;
++
++	ret = regmap_read(rclk->regmap, rclk->desc.offset, &val);
++	if (ret)
++		return 0;
++
++	return !!(val & QCOM_CLK_REF_EN_MASK);
++}
++
++static const struct clk_ops qcom_clk_ref_ops = {
++	.prepare = qcom_clk_ref_prepare,
++	.unprepare = qcom_clk_ref_unprepare,
++	.enable = qcom_clk_ref_enable,
++	.disable = qcom_clk_ref_disable,
++	.is_enabled = qcom_clk_ref_is_enabled,
++};
++
++static int qcom_clk_ref_register(struct device *dev, struct regmap *regmap,
++				 struct qcom_clk_ref *clk_refs,
++				 const struct qcom_clk_ref_desc * const *descs,
++				 size_t num_clk_refs)
++{
++	const struct qcom_clk_ref_desc *desc;
++	struct clk_init_data init_data = {};
++	struct qcom_clk_ref *clk_ref;
++	size_t clk_idx;
++	unsigned int i;
++	int ret;
++
++	for (clk_idx = 0; clk_idx < num_clk_refs; clk_idx++) {
++		clk_ref = &clk_refs[clk_idx];
++		desc = descs[clk_idx];
++
++		/* Skip unpopulated indices; the array is indexed by clock ID. */
++		if (!desc)
++			continue;
++
++		if (WARN_ON(!desc->name))
++			continue;
++
++		clk_ref->regmap = regmap;
++		clk_ref->desc = *desc;
++
++		if (clk_ref->desc.num_regulators) {
++			clk_ref->regulators = devm_kcalloc(dev, clk_ref->desc.num_regulators,
++							   sizeof(*clk_ref->regulators),
++							   GFP_KERNEL);
++			if (!clk_ref->regulators)
++				return -ENOMEM;
++
++			for (i = 0; i < clk_ref->desc.num_regulators; i++)
++				clk_ref->regulators[i].supply =
++					clk_ref->desc.regulator_names[i];
++
++			ret = devm_regulator_bulk_get(dev, clk_ref->desc.num_regulators,
++						      clk_ref->regulators);
++			if (ret)
++				return dev_err_probe(dev, ret,
++						     "Failed to get regulators for %s\n",
++						     clk_ref->desc.name);
++		}
++
++		init_data.name = clk_ref->desc.name;
++		init_data.parent_data = &qcom_clk_ref_parent_data;
++		init_data.num_parents = 1;
++		init_data.ops = &qcom_clk_ref_ops;
++		clk_ref->hw.init = &init_data;
++
++		ret = devm_clk_hw_register(dev, &clk_ref->hw);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static struct clk_hw *qcom_clk_ref_provider_get(struct of_phandle_args *clkspec, void *data)
++{
++	struct qcom_clk_ref_provider *provider = data;
++	unsigned int idx = clkspec->args[0];
++
++	if (idx >= provider->num_refs)
++		return ERR_PTR(-EINVAL);
++
++	if (!provider->refs[idx].regmap)
++		return ERR_PTR(-ENOENT);
++
++	return &provider->refs[idx].hw;
++}
++
++int qcom_clk_ref_probe(struct platform_device *pdev,
++		       const struct regmap_config *config,
++		       const struct qcom_clk_ref_desc * const *descs,
++		       size_t num_clk_refs)
++{
++	struct qcom_clk_ref_provider *provider;
++	struct device *dev = &pdev->dev;
++	struct regmap *regmap;
++	void __iomem *base;
++	int ret;
++
++	base = devm_platform_ioremap_resource(pdev, 0);
++	if (IS_ERR(base))
++		return PTR_ERR(base);
++
++	regmap = devm_regmap_init_mmio(dev, base, config);
++	if (IS_ERR(regmap))
++		return PTR_ERR(regmap);
++
++	provider = devm_kzalloc(dev, struct_size(provider, refs, num_clk_refs),
++				GFP_KERNEL);
++	if (!provider)
++		return -ENOMEM;
++
++	provider->num_refs = num_clk_refs;
++
++	ret = qcom_clk_ref_register(dev, regmap, provider->refs, descs,
++				    provider->num_refs);
++	if (ret)
++		return ret;
++
++	return devm_of_clk_add_hw_provider(dev, qcom_clk_ref_provider_get, provider);
++}
++EXPORT_SYMBOL_GPL(qcom_clk_ref_probe);
+diff --git a/include/linux/clk/qcom.h b/include/linux/clk/qcom.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..11ac2d42ff9e15f1fcc08b2547bf00fe850bbada
+--- /dev/null
++++ b/include/linux/clk/qcom.h
+@@ -0,0 +1,67 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * Copyright (c) 2026, Qualcomm Technologies, Inc. and/or its subsidiaries.
++ */
++
++#ifndef __LINUX_CLK_QCOM_H
++#define __LINUX_CLK_QCOM_H
++
++#include <linux/clk-provider.h>
++#include <linux/errno.h>
++#include <linux/kconfig.h>
++#include <linux/regmap.h>
++#include <linux/types.h>
++
++struct device;
++struct platform_device;
++struct regulator_bulk_data;
++
++/**
++ * struct qcom_clk_ref_desc - descriptor for a clkref_en gate clock
++ * @name: clock name exposed to the common clock framework
++ * @offset: clkref_en register offset from the block base
++ * @regulator_names: optional supply names enabled while preparing the clock
++ * @num_regulators: number of entries in @regulator_names
++ */
++struct qcom_clk_ref_desc {
++	const char *name;
++	u32 offset;
++	const char * const *regulator_names;
++	unsigned int num_regulators;
++};
++
++/**
++ * struct qcom_clk_ref - per-clock data for a clkref_en gate clock
++ * @hw: common clock framework hardware clock handle
++ * @regmap: register map backing the clkref_en register
++ * @desc: clock descriptor copied at registration time
++ * @regulators: optional bulk regulator handles for @desc.regulator_names
++ */
++struct qcom_clk_ref {
++	struct clk_hw hw;
++	struct regmap *regmap;
++	struct qcom_clk_ref_desc desc;
++	struct regulator_bulk_data *regulators;
++};
++
++#if IS_ENABLED(CONFIG_COMMON_CLK_QCOM)
++
++int qcom_clk_ref_probe(struct platform_device *pdev,
++		       const struct regmap_config *config,
++		       const struct qcom_clk_ref_desc * const *descs,
++		       size_t num_clk_refs);
++
++#else
++
++static inline int
++qcom_clk_ref_probe(struct platform_device *pdev,
++		   const struct regmap_config *config,
++		   const struct qcom_clk_ref_desc * const *descs,
++		   size_t num_clk_refs)
++{
++	return -EOPNOTSUPP;
++}
++
++#endif
++
++#endif

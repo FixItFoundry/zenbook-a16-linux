@@ -1,0 +1,67 @@
+From 0502ccef7e9cf088fdfb74e16bf1b925ec9e7693 Mon Sep 17 00:00:00 2001
+From: Rajendra Nayak <rajendra.nayak@oss.qualcomm.com>
+Date: Fri, 22 May 2026 15:41:59 +0530
+Subject: [PATCH 006/127] arm64: dts: qcom: glymur: Add GPU smmu node
+
+Add the nodes to describe the GPU SMMU node.
+
+Signed-off-by: Rajendra Nayak <rajendra.nayak@oss.qualcomm.com>
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Reviewed-by: Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>
+Signed-off-by: Akhil P Oommen <akhilpo@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260522-glymur-gpu-dt-v5-3-562c406b210c@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit b90a899027ae9def17cff2c566f50e406bb95307)
+---
+ arch/arm64/boot/dts/qcom/glymur.dtsi | 38 ++++++++++++++++++++++++++++
+ 1 file changed, 38 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index 16f51854748110d6acf2914cea99b25b14f7cb40..6bf9be02b65e18b18940cdb34c04adc57ae410a4 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -3780,6 +3780,44 @@ gpucc: clock-controller@3d90000 {
+ 			#power-domain-cells = <1>;
+ 		};
+ 
++		adreno_smmu: iommu@3da0000 {
++			compatible = "qcom,glymur-smmu-500", "qcom,adreno-smmu",
++				     "qcom,smmu-500", "arm,mmu-500";
++			reg = <0x0 0x03da0000 0x0 0x40000>;
++			#iommu-cells = <2>;
++			#global-interrupts = <1>;
++			interrupts = <GIC_SPI 674 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 678 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 679 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 680 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 681 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 682 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 683 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 684 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 685 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 686 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 687 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 688 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 422 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 476 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 574 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 575 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 576 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 577 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 660 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 662 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 665 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 666 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 667 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 669 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 670 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 700 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&gpucc GPU_CC_GPU_SMMU_VOTE_CLK>;
++			clock-names = "hlos";
++			power-domains = <&gpucc GPU_CC_CX_GDSC>;
++			dma-coherent;
++		};
++
+ 		ipcc: mailbox@3e04000 {
+ 			compatible = "qcom,glymur-ipcc", "qcom,ipcc";
+ 			reg = <0x0 0x03e04000 0x0 0x1000>;

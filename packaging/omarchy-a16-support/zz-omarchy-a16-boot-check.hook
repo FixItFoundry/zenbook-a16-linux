@@ -1,0 +1,13 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Path
+Target = usr/lib/modules/*/modules.builtin
+Target = usr/lib/initcpio/*
+Target = usr/lib/firmware/*
+Target = usr/lib/systemd/systemd
+
+[Action]
+Description = Verifying the updated A16 kernel and device tree in its UKI...
+When = PostTransaction
+Exec = /usr/lib/omarchy-a16/verify-boot post

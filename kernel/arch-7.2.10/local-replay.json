@@ -1,0 +1,390 @@
+[
+  {
+    "patch": "0001-drm-msm-dp-make-the-eDP-1.4-LINK_RATE_SET-path-actua.patch",
+    "sha256": "73d754992616b6c879f2d27381b51ab9171babce4b4fcd63828dd6551738ef8f",
+    "result": "d36ca394d0bd8a2187bcd5a247f4e7ed2c56254c",
+    "resolution": "7.2 DP API owns panel at ctrl->panel; retain that access for the new LINK_RATE_SET copy."
+  },
+  {
+    "patch": "0002-phy-qcom-edp-split-power-on-sequencing-by-PHY-versio.patch",
+    "sha256": "0ebab1b5d069c18b7d666588336b8478fab4191a004fbffb1b3635174ed38c2a",
+    "result": "f8c705286c2b1beb060e35868a7487ac0796436a",
+    "already_present": false
+  },
+  {
+    "patch": "0003-phy-qcom-edp-update-v8-power-on-programming-sequence.patch",
+    "sha256": "137f2d1dcc4ba2e5c6678f49f756bb7ccde02002a1dda62a5dc047636e741c95",
+    "result": "56385d93d322d067066c1e818e2705d50458cf72",
+    "already_present": false
+  },
+  {
+    "patch": "0004-HID-asus-complete-the-feature-set-for-the-Zenbook-I2.patch",
+    "sha256": "a6efc8eea36f757b2f0acab4081ea73a5851fb3ac507ff2b803e72fdfdbbba03",
+    "result": "3739ac8a8b4d958869c6bdbebac1edaa7166abc4",
+    "already_present": false
+  },
+  {
+    "patch": "0005-wifi-carry-proven-A16-QCC2072-baseline-into-audio-te.patch",
+    "sha256": "f5c20707de4b00f96a9a5dfd1bda4b5a3f572056723b8ad26b8061519244c7e4",
+    "result": "c90e21013583045f294c41ba1bcea5c4fc2feae7",
+    "already_present": false
+  },
+  {
+    "patch": "0006-clk-qcom-gpucc-glymur-Mark-the-GPU-CX-GDSC-as-votabl.patch",
+    "sha256": "7d6faddc816b6a7ea599fe5c69a03793969af2992523efb1f602e65a98a97d33",
+    "result": "280a37c6080ef5d281a2647e8282ead9b371c1c9",
+    "already_present": false
+  },
+  {
+    "patch": "0007-ASoC-codecs-lpass-wsa-macro-use-v2.5-Compander1-addr.patch",
+    "sha256": "6a76d3b147fc3c0f20c323453574ef82be880146dd04e957e1ed87e8de6d08c6",
+    "result": "bd531e023b7627ac8c0b9b261216869a343686c9",
+    "already_present": false
+  },
+  {
+    "patch": "0008-ASoC-codecs-lpass-Make-sure-clk_init_data-is-fully-i.patch",
+    "sha256": "ecf982d6cbf28d9fbc97e58c19f16429b133f4194838fa71a38f6153bd003f98",
+    "result": "8bec71498a243f35f45953621aca40992463c517",
+    "already_present": false
+  },
+  {
+    "patch": "0009-arm64-dts-qcom-glymur-Add-missing-USB-clock-power-an.patch",
+    "sha256": "f3d3f9c53c63d3989cf85667b0fc3cd2fe9dfb8da60bcd561c2af10629692191",
+    "result": "73ec0b813c2b664d73ff0d44dc52bb1f678cd9f4",
+    "already_present": false
+  },
+  {
+    "patch": "0010-LOCAL-EXPERIMENT-preserve-test4-SoundWire-compatibil.patch",
+    "sha256": "8079431e50156299d0286bbbf07df0cf7bdca4bceeaad824a93fe191e96cc24f",
+    "result": "6acf2d91c0a08cd6f0678e0317c294f06216fef8",
+    "already_present": false
+  },
+  {
+    "patch": "0011-ASoC-wsa884x-balance-pm_runtime_enable-with-devm-man.patch",
+    "sha256": "792ac0fd879b364bea65b1c899f1857a00fbd1668feee3b11b2b8153d360587b",
+    "result": "2b956079ce7a68fe87439d24fd53493a5f0b8aec",
+    "already_present": false
+  },
+  {
+    "patch": "0012-ASoC-qdsp6-q6apm-fast-retry-APM_CMD_GET_SPF_STATE-to.patch",
+    "sha256": "1a4d29824dc0b5d60c5100d18150ee976f6ec0b957f5cdef932d461c104449e1",
+    "result": "4f0be98b4da5e78ea08373d990d7ffd05b6277cb",
+    "already_present": false
+  },
+  {
+    "patch": "0013-LOCAL-PCI-add-glymur_pci_skip-to-work-around-the-sus.patch",
+    "sha256": "eceb26011ec7ca9d345532098d4406ff46782cd13fb9f56a93e6c76e5c73908d",
+    "result": "267cbb17f65c6ada70ec2d8d638dc3bedb1693ed",
+    "already_present": false
+  },
+  {
+    "patch": "0014-security-keys-trusted-keys-include-asn1_decoder.h-fo.patch",
+    "sha256": "2ec163060a049bd89410bb2280df67f5356e2fec7533dcde18f6e29ff61617f7",
+    "result": "50f4af523db5bfd06e9339e861e9d258e075c407",
+    "already_present": false
+  },
+  {
+    "patch": "0015-soundwire-qcom-cache-SCP_ADDRPAGE1-2-to-preserve-MBQ.patch",
+    "sha256": "a5bc0d82c727cf4fa5aed7fde5b96aee173e6f8e0bbecb239b57f817f9fb45ef",
+    "result": "1f2925adb02be43e12ecab6da622135e4640e47a",
+    "already_present": false
+  },
+  {
+    "patch": "0016-arm64-dts-qcom-glymur-asus-zenbook-a16-Fix-up-the-mi.patch",
+    "sha256": "67871b84f4d0f1424c960bb67ef1103744505feb269edac0c76aa0c66bb1c6c3",
+    "result": "1ca0ad4ea64ea53e2716edb5125b3c5cbaa2b6ea",
+    "already_present": false
+  },
+  {
+    "patch": "0017-LOCAL-COMPAT-A16-Wi-Fi-and-Bluetooth-power-sequencin.patch",
+    "sha256": "4e6064c180812474a9188945e4d05efffc3d1a0aa0e33b43241a93e12f2268d3",
+    "result": "0ca3787094c6192f99e4449cf0aaccc687304e34",
+    "already_present": false
+  },
+  {
+    "patch": "0018-LOCAL-COMPAT-A16-display-supply-compatibility.patch",
+    "sha256": "f84d238285264ff79a882337c7379ab1485ad97116113bfb0f1967648da28e29",
+    "result": "108351b8b63f6f969cb3e9a2c1f59bda7adc18d7",
+    "already_present": false
+  },
+  {
+    "patch": "0019-LOCAL-COMPAT-A16-RTC-compatibility.patch",
+    "sha256": "8235d3011be5064c4c7257b3f990bb31cb6e427b385de09ca3ef54baadd88912",
+    "result": "89321d5c46a320086bf302ffad9c1c8f03e884e3",
+    "already_present": false
+  },
+  {
+    "patch": "0020-LOCAL-COMPAT-A16-USB-host-and-HDMI-clock-compatibili.patch",
+    "sha256": "d587d6685c3bda85ad3e41a11d0201ba12cce65ca8f0d74eb1b36e778eac280a",
+    "result": "f97c2fc39869d21a882b4e2b0adc6675aca4b4e6",
+    "already_present": false
+  },
+  {
+    "patch": "0021-LOCAL-COMPAT-A16-retain-CPU-and-LLC-passive-cooling-.patch",
+    "sha256": "9b21287853704b64ea9971840a56479a31c4350d8db5be6eef36f820c226a532",
+    "result": "c3bfba0bbbfda200b3900eed175c1ce3a930db3a",
+    "already_present": false
+  },
+  {
+    "patch": "0022-LOCAL-COMPAT-A16-retain-board-scoped-SCMI-polling-an.patch",
+    "sha256": "aa95c57123d8563062d5262d52af1b10f17e8034ea60736f03c0c49091dd74bd",
+    "result": "5ea020adbf22d451ecb3e9ed8913612bc9a00e52",
+    "already_present": false
+  },
+  {
+    "patch": "0023-LOCAL-COMPAT-align-QCC2072-endpoint-with-effective-b.patch",
+    "sha256": "da3ec8a69af639f19bd0462d2f733ee0e0ce7ee4cefa78e6bbe7c86e1a9c082c",
+    "result": "cbc6332331e43464d306e657b96f9f7a49e2e74a",
+    "already_present": false
+  },
+  {
+    "patch": "0024-dt-bindings-embedded-controller-Add-ASUS-Zenbook-A16.patch",
+    "sha256": "160620aec65b20713b44f3f669e60b3d7b165e2480d2734969eba806c9df6adc",
+    "result": "1a3b16c5c3e1d936c610731414d48629b4d24849",
+    "already_present": false
+  },
+  {
+    "patch": "0025-platform-arm64-Add-a-driver-for-the-EC-found-on-ASUS.patch",
+    "sha256": "667116ea406f9311b84c90249c3272fb7471eb80c6027cdd0bb29a6ed2b75def",
+    "result": "424e07812fa472a1cae031ee53366c99cb48455e",
+    "already_present": false
+  },
+  {
+    "patch": "0026-arm64-dts-qcom-glymur-zenbook-a16-Add-Embedded-Contr.patch",
+    "sha256": "bd7d1a4cf11c24d643298f1c189b1decbfda32e20b504f74ace811bde3422bb5",
+    "result": "97db53fcc45f0ebd6e1a972d7f4a3ebb58bc7ace",
+    "already_present": false
+  },
+  {
+    "patch": "0027-LOCAL-keep-HID-ownership-of-Zenbook-keyboard-backlig.patch",
+    "sha256": "f544c66294c0eb08cbe749e6bee5038f38bf49bfd8f779c2c9442db84044b675",
+    "result": "1335fa5aa5c9175488d07e0026bfa7cac7a9e675",
+    "already_present": false
+  },
+  {
+    "patch": "0028-regulator-qcom-rpmh-add-PMH0104-camera-LDOs.patch",
+    "sha256": "834be2ee2585421026c8256eb4a48ed0447d20226a19d4fae0bf2aa7303158e3",
+    "result": "65ad9c9d1301ea53261014a68dd41f06403d41ff",
+    "already_present": false
+  },
+  {
+    "patch": "0029-Snapshot-RC5-source-only-build-push-for-Windows-WSL-continuation.patch",
+    "sha256": "e733caf0b8f2caed84354ce0f54dce6c0f544de3a7c742f67cd21e6427638461",
+    "result": "007a0513a8caa6682691664a516eddbe2face0b4",
+    "already_present": false
+  },
+  {
+    "patch": "0030-drm-msm-a6xx-Fix-secondary-rail-vote-in-ARC-votes.patch",
+    "sha256": "826fb1df2d6ce555d0fe4b4b4b60cd5fec5264cd3148b2404facd584edc12a02",
+    "result": "25c6c6f08d71cf56850d356832bc7a9fd855051c",
+    "already_present": false
+  },
+  {
+    "patch": "0031-drm-msm-a6xx-Fix-RPMH-dependency-votes.patch",
+    "sha256": "cc8a04d64fc5c291086958186e3a01c0cadc145e557be1636e98c28aff6cfe30",
+    "result": "65e2aa132a87450c7c71761ae0e2b6d7de4060cc",
+    "already_present": false
+  },
+  {
+    "patch": "0032-drm-msm-a6xx-Honor-perfmode_bw-threshold-on-A8x.patch",
+    "sha256": "583f4a1c3f48f0f65bd2afcd99e28b62e5f640111362edce8bc35fbd04e38161",
+    "result": "b9b4a28c8c309446ffbe618032cfa7c701ea982b",
+    "already_present": false
+  },
+  {
+    "patch": "0033-PCI-qcom-Only-check-bridge-nodes-for-PERST-GPIOs.patch",
+    "sha256": "004ac010eb6a90c71c0137242a3da87b3d11aadafab6adfd26f7016cad1966bc",
+    "result": "024d5d5d118b0800f74f419eeb190af0b615a821",
+    "already_present": false
+  },
+  {
+    "patch": "0034-wifi-ath12k-signal-regd-update-completion-when-reg-event-is-dropped.patch",
+    "sha256": "cbea52225b98277eaa374ae9407cfd10c63895f7f94cd46acd2a7cc4fe0396cd",
+    "result": "fd6d472a72e17d250749ca1616f5b929f0c831ea",
+    "already_present": false
+  },
+  {
+    "patch": "0035-wifi-ath12k-use-per-radio-ab-in-ath12k_mac_hw_register.patch",
+    "sha256": "1fb925d9af50d89b454c8f1752bc6d720017b1d9b67e95b43e261baffb0f44b4",
+    "result": "ed4cef315ec2a59a85ace459191c42d65cd7158e",
+    "already_present": false
+  },
+  {
+    "patch": "0036-wifi-ath12k-protect-new_alpha2-access-with-base_lock.patch",
+    "sha256": "c33cfe5dac5b2f756426fcdf640966736a2e411462da28888b1d82d2137f678a",
+    "result": "66a9d646060b53a7934f646dff4c8200c51a07d3",
+    "already_present": false
+  },
+  {
+    "patch": "0037-wifi-ath12k-skip-setting-country-code-during-registration-when-unchanged.patch",
+    "sha256": "7d01881e5a56000f31c88d8c04f08c69f15c4c936bb2a476f099d9b42df958c7",
+    "result": "2da4ba7e9a1ec16db9e550980fe2a5b4d4da04bb",
+    "already_present": false
+  },
+  {
+    "patch": "0038-wifi-ath12k-Free-allocated-CE-IRQs-on-request_irq-failure.patch",
+    "sha256": "572b4b6f56586bcf871c82c7c433626eaab97ad3117c8930d66d894deccce184",
+    "result": "6864cfe4be5bb5ed7d2ce61dcd25c1c74eeb6f6d",
+    "already_present": false
+  },
+  {
+    "patch": "0039-wifi-ath12k-Free-allocated-external-IRQs-on-request_irq-failure.patch",
+    "sha256": "936c07b2f70ca265442e518be03e57755283fdcb08d6c302655380a010ab175d",
+    "result": "e0f7fcea66d9fb2be6e9cdc72d0396698a3d95fa",
+    "already_present": false
+  },
+  {
+    "patch": "0040-wifi-ath12k-clear-dangling-channel-pointers-on-error-paths.patch",
+    "sha256": "40fd679119c5b2bcb8ab13aee090bb4243f19ba733d550df27ca52d42a5c6af1",
+    "result": "a8cf001dcefe5b0ba63daf85094fdf7e4cee2ff3",
+    "already_present": false
+  },
+  {
+    "patch": "0041-wifi-ath12k-use-per-device-max-QMI-chunk-size.patch",
+    "sha256": "aafb4f04ed6cb2dfa50e71c4790d620a83efd28882b99e041718aac098b3406c",
+    "result": "afd8b012cde65caf008fbf2281cdbc0e02f429c5",
+    "already_present": false
+  },
+  {
+    "patch": "0042-wifi-ath12k-clear-chunk-paddr-and-size-in-ath12k_qmi_free_target_mem_chunk.patch",
+    "sha256": "8e9a27b55ce614e88c93bfaef221e54df185a6d54e0dd2696941b930ae22eaca",
+    "result": "166d318f094d967f98482a04e125ef7d43159011",
+    "already_present": false
+  },
+  {
+    "patch": "0043-wifi-ath12k-align-QMI-target-memory-to-64-KB.patch",
+    "sha256": "a8c525d5a305bd140bca2f5a6895b50f9efd2f5f10773b82666bfa8c16e26bec",
+    "result": "f87aff2b06563f040a82fa69e00c847801e4d798",
+    "disposition": "adapted",
+    "resolution": "Use the padded allocation size_t size with %zu in both allocation failure messages; preserve 7.2 QMI APIs."
+  },
+  {
+    "patch": "0044-soc-qcom-pmic_glink-Avoid-losing-early-rpmsg-probe.patch",
+    "sha256": "232100611e7d7718837420e9921065ea4b6e2e83f21f81a0730022a05bddf871",
+    "result": "9155ed8eb0f5555944943417660b6d2e5ff0f25e",
+    "already_present": false
+  },
+  {
+    "patch": "0045-wifi-ath12k-bound-padded-QMI-DMA-allocation-size.patch",
+    "sha256": "8c340e370bca49c0757f1fb8ee3910aa583faea77a521929b14819a4bac189b7",
+    "result": "65cd1fdcbbe44c23266c7399702a6f064618b34d",
+    "already_present": false
+  },
+  {
+    "patch": "0046-drm-msm-a6xx-Factor-out-RPMh-arc-vote-helpers.patch",
+    "sha256": "57a8d55a30a2032963a4d8cfd549254b5df8b44a9707059db4c71dd12d1f6a47",
+    "result": "ff817f91a0dbbed7bbcf9d1fbbce6bb6e80cfb50",
+    "already_present": false
+  },
+  {
+    "patch": "0047-drm-msm-a6xx-Add-BX-rail-support-to-GMU-dependency-votes.patch",
+    "sha256": "c707f003178f34ad725498266a4bc743b632826d20c897a2618607e7f6e07a43",
+    "result": "d8f558f0224c3ef863f490e8635f4a039c1e5745",
+    "already_present": false
+  },
+  {
+    "patch": "0048-drm-msm-a6xx-Clamp-MX-dependency-vote.patch",
+    "sha256": "42e3b8f3393731caa82b34dc33588a7e3cdf0d1396f76824de37c962c14cbb46",
+    "result": "b2e7ddaf77ce1f37292fb95e96eda7b126ce37e0",
+    "already_present": false
+  },
+  {
+    "patch": "0049-PCI-qcom-Block-accesses-to-downstream-devices-on-link-down.patch",
+    "sha256": "23cec4aef3add60838e1a81e9fc69131da64bf76212407e82948447cc7a0e5c8",
+    "result": "654e062e04963993212960d708d169eb18a64ff4",
+    "already_present": false
+  },
+  {
+    "patch": "0050-PCI-qcom-Skip-system-suspend-resume-for-firmware-managed-PCIe.patch",
+    "sha256": "422bf97b32901168f6cee10af4b0aec1b1feeaf5af360c41ea06353522e78d96",
+    "result": "05ce3be5f7f396fb0cceb8cc9db206843bafaa26",
+    "already_present": false
+  },
+  {
+    "patch": "0051-Preserve-RPMh-request-lifetime-and-stop-GPU-submission-after-failed-power-votes.patch",
+    "sha256": "5ecb5bbd90168d0766701d8ebf08733385a596bae3f93b4f7bb19a5283cab653",
+    "result": "2ca0985d5f1c0ed428625a0576294a74d73cf551",
+    "already_present": false
+  },
+  {
+    "patch": "0052-Align-bounded-TCS-wait-continuation.patch",
+    "sha256": "ecfe1156567f4886af72a7fd7c806f968a342a765414daa269e9af4ddced657a",
+    "result": "56e81a99bd66a153873480b03cff160ee8c80550",
+    "already_present": false
+  },
+  {
+    "patch": "0053-Stop-GMU-resume-before-MMIO-when-runtime-power-fails.patch",
+    "sha256": "8998f045da7b0fb4a3b9457888b71b835a8c3ea0eb7f601c741264620b46189d",
+    "result": "2c8f3ed2d5f5458ade20d7c123d6937854a224d0",
+    "already_present": false
+  },
+  {
+    "patch": "0054-Add-opt-in-BIOS-312-EC-fan-profile-selection-for-A16.patch",
+    "sha256": "177ab08b96757b71f3836a836aae6995ef6ab02c405bb06b9331d5f0455b32d8",
+    "result": "55e993ccf672362bc9d9c56cabc553ce14486f5e",
+    "already_present": false
+  },
+  {
+    "patch": "0055-Repair-GMU-lifetime-SoundWire-PM-I2C-DMA-accounting-and-failed-vote-propagation.patch",
+    "sha256": "01819f4d71898a61dcfc86b3971bf96b51d975147e7670c40229d550c61b7e81",
+    "result": "482f382e502115485a8b201c2d4bd3e9f567236a",
+    "disposition": "adapted",
+    "resolution": "Preserve 7.2 three-argument msm_gem_new while retaining ownership/error cleanup. Retain native qcom_geni_i2c_conf clock setup; no unrelated SA8255p clock callback API needed."
+  },
+  {
+    "patch": "0056-Reset-successful-DP-configuration-byte-count-before-repeater-training.patch",
+    "sha256": "c6ff4e23a19a52f55d1423dbfeb61f94dbb0bdf1372775b63ac5f7d00d8eae41",
+    "result": "2a7818e5e527ac80d970d43c673e2d082f237d9c",
+    "already_present": false
+  },
+  {
+    "patch": "0057-Keep-pending-I2C-mappings-owned-until-completion-or-termination.patch",
+    "sha256": "282a720f77195bac4094f23b4a05ab926dc40d2f833190169a58ecb85e009e5e",
+    "result": "095329b7255cc5605a36ae164509feb93f1dc550",
+    "already_present": false
+  },
+  {
+    "patch": "0058-dmaengine-qcom-gpi-retire-linked-I2C-command-descriptors.patch",
+    "sha256": "cb3b1166a78cf9a15775e2d7db8d61a0f70fa9cc19f7ada9ac10caca6e624da1",
+    "result": "2dbc7fbd95f6bbfe8abae7ea213e1954965f931e",
+    "already_present": false
+  },
+  {
+    "patch": "0059-LOCAL-keep-A16-speaker-controllers-runtime-active-for-audio-prevention-baseline.patch",
+    "sha256": "b533cecbc0844e967ad3dc81aa93ef708a418e6b1e461a73d482fc248af9a405",
+    "result": "43fc4ff421738df649c9bac18e77794e9285ea68",
+    "already_present": false
+  },
+  {
+    "patch": "0060-Integrate-16-private-A16-review-source-fixes.patch",
+    "sha256": "3d9bf372b9eeda04613e73c09c77dd4d29938eeb75101cad9fa017a39e4f8cd8",
+    "result": "da19c80a48a7f81980e722b4a08065b201895507",
+    "already_present": false
+  },
+  {
+    "patch": "0061-Add-approved-A16-hibernation-configuration-fragment.patch",
+    "sha256": "f386d9f711086519060f9ce036bd5a792fd23bd939260a623e41fcc95fa89f5d",
+    "result": "6ae85c0f8837d8e15e28563a025f70db6cbca9b7",
+    "already_present": false
+  },
+  {
+    "patch": "0062-Integrate-tested-A16-Bluetooth-DMA-SoundWire-and-DP-.patch",
+    "sha256": "28a974253c415d1fe88965fadef8bb888827ff6a092d1177ddb2140e944772df",
+    "result": "018df42c3e0cae03fabbcf494aec2cf439db186d",
+    "disposition": "adapted",
+    "resolution": "Backport DP PHY ownership to 7.2 ctrl-owned panel API. Put link/PHY failure unwind in atomic_enable, where 7.2 performs preparation. Keep combined off_link_stream ownership flag consistent and propagate stream-enable failure."
+  },
+  {
+    "patch": "0063-Preserve-QMP-Type-C-ownership-and-contain-board-tran.patch",
+    "sha256": "0d7875c4a84b345c8f38c7b204f9a74893da4694bf3cb5603eb692114976e001",
+    "result": "80c3d2e1f38acbb6033ab483401c73739bb1263a",
+    "disposition": "adapted",
+    "resolution": "Retain 7.2 PCS AON register accessor; import per-regulator ownership and cleanup accounting. PHY probe runtime-PM prerequisite added separately."
+  },
+  {
+    "patch": "0064-Release-GPI-caller-ring-only-on-failures-before-hard.patch",
+    "sha256": "c222ae2004ded4e0e1d74d9067764a5d71cffa88fc9145178cc98dfeaf90f95c",
+    "result": "a0cfc8e35aa4a10a9d6aa907fa661468d86ba38c",
+    "already_present": false
+  }
+]

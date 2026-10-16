@@ -1,0 +1,90 @@
+From 79539931b903796ac13cba225ce29dfb43bef636 Mon Sep 17 00:00:00 2001
+From: Sibi Sankar <sibi.sankar@oss.qualcomm.com>
+Date: Thu, 9 Jul 2026 23:39:45 -0700
+Subject: [PATCH 024/127] arm64: dts: qcom: glymur: add SoCCP DT node
+
+The SoC Control Processor (SoCCP) is a small RISC-V MCU that controls
+USB Type-C, battery charging, and various other functions on Qualcomm SoCs.
+
+Add the nodes required to enable SoCCP on Glymur/Mahua SoCs.
+
+Signed-off-by: Sibi Sankar <sibi.sankar@oss.qualcomm.com>
+Co-developed-by: Ananthu C V <ananthu.cv@oss.qualcomm.com>
+Signed-off-by: Ananthu C V <ananthu.cv@oss.qualcomm.com>
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260709-glymur-soccp-v6-4-16f70227547d@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit fe76d6b32eb2d3193c65c834693fa4f58b558080)
+---
+ arch/arm64/boot/dts/qcom/glymur-crd.dtsi |  5 +++
+ arch/arm64/boot/dts/qcom/glymur.dtsi     | 44 ++++++++++++++++++++++++
+ 2 files changed, 49 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur-crd.dtsi b/arch/arm64/boot/dts/qcom/glymur-crd.dtsi
+index 55f4f64b350970b7169de5fa3906728928045fc7..ae85674c2c121253ebdd0dd487f21852996b77c3 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-crd.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur-crd.dtsi
+@@ -1139,3 +1139,8 @@ &usb_mp_qmpphy1 {
+ 
+ 	status = "okay";
+ };
++
++&remoteproc_soccp {
++	firmware-name = "qcom/glymur/soccp.mbn",
++			"qcom/glymur/soccp_dtb.mbn";
++};
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index 489c2f93bba7835b66458a9a5f7329182df99cb9..dd62f2b29aff6a0d4b649589c4e799330e990760 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -2330,6 +2330,50 @@ &config_noc SLAVE_QUP_0 QCOM_ICC_TAG_ALWAYS>,
+ 			};
+ 		};
+ 
++		remoteproc_soccp: remoteproc@d00000 {
++			compatible = "qcom,glymur-soccp-pas";
++			reg = <0x0 0x00d00000 0x0 0x200000>;
++
++			interrupts-extended = <&intc GIC_SPI 167 IRQ_TYPE_EDGE_RISING>,
++					      <&soccp_smp2p_in 0 IRQ_TYPE_EDGE_RISING>,
++					      <&soccp_smp2p_in 1 IRQ_TYPE_EDGE_RISING>,
++					      <&soccp_smp2p_in 2 IRQ_TYPE_EDGE_RISING>,
++					      <&soccp_smp2p_in 3 IRQ_TYPE_EDGE_RISING>,
++					      <&soccp_smp2p_in 9 IRQ_TYPE_EDGE_RISING>;
++			interrupt-names = "wdog",
++					  "fatal",
++					  "ready",
++					  "handover",
++					  "stop-ack",
++					  "pong";
++
++			clocks = <&rpmhcc RPMH_CXO_CLK>;
++			clock-names = "xo";
++
++			power-domains = <&rpmhpd RPMHPD_CX>,
++					<&rpmhpd RPMHPD_MX>;
++			power-domain-names = "cx",
++					     "mx";
++
++			memory-region = <&soccp_mem>,
++					<&soccpdtb_mem>;
++
++			qcom,smem-states = <&soccp_smp2p_out 0>,
++					   <&soccp_smp2p_out 8>;
++			qcom,smem-state-names = "stop",
++						"ping";
++
++			glink-edge {
++				interrupts-extended = <&ipcc IPCC_MPROC_SOCCP
++							     IPCC_MPROC_SIGNAL_GLINK_QMP
++							     IRQ_TYPE_EDGE_RISING>;
++				mboxes = <&ipcc IPCC_MPROC_SOCCP
++						IPCC_MPROC_SIGNAL_GLINK_QMP>;
++				qcom,remote-pid = <19>;
++				label = "soccp";
++			};
++		};
++
+ 		usb_hs_phy: phy@fa0000 {
+ 			compatible = "qcom,glymur-m31-eusb2-phy",
+ 				     "qcom,sm8750-m31-eusb2-phy";

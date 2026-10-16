@@ -1,0 +1,60 @@
+From c90e21013583045f294c41ba1bcea5c4fc2feae7 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Fri, 18 Sep 2026 08:51:19 -0400
+Subject: [PATCH 060/127] wifi: carry proven A16 QCC2072 baseline into audio
+ test
+
+(cherry picked from commit f96bbd4488b16f94cd0c52e0b999175abc208ba1)
+---
+ drivers/net/wireless/ath/ath12k/pci.c    | 7 ++++---
+ drivers/pci/pwrctrl/Kconfig              | 2 +-
+ drivers/pci/pwrctrl/pci-pwrctrl-pwrseq.c | 5 +++++
+ 3 files changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/pci.c b/drivers/net/wireless/ath/ath12k/pci.c
+index fee4129ea4055b4d84f4a9d812627a736669a045..26df50b5ae66bfc64a0d9870724f02bc96268be0 100644
+--- a/drivers/net/wireless/ath/ath12k/pci.c
++++ b/drivers/net/wireless/ath/ath12k/pci.c
+@@ -502,9 +502,10 @@ static int ath12k_pci_ext_grp_napi_poll(struct napi_struct *napi, int budget)
+ 
+ 	work_done = ath12k_dp_service_srng(dp, irq_grp, budget);
+ 	if (work_done < budget) {
+-		napi_complete_done(napi, work_done);
+-		for (i = 0; i < irq_grp->num_irq; i++)
+-			enable_irq(irq_grp->ab->irq_num[irq_grp->irqs[i]]);
++		if (napi_complete_done(napi, work_done)) {
++			for (i = 0; i < irq_grp->num_irq; i++)
++				enable_irq(irq_grp->ab->irq_num[irq_grp->irqs[i]]);
++		}
+ 	}
+ 
+ 	if (work_done > budget)
+diff --git a/drivers/pci/pwrctrl/Kconfig b/drivers/pci/pwrctrl/Kconfig
+index 9eec767cda86e229dea042ba765b03386f44ba98..b24b60d3c48203925870c5099925c2a2bce69573 100644
+--- a/drivers/pci/pwrctrl/Kconfig
++++ b/drivers/pci/pwrctrl/Kconfig
+@@ -7,7 +7,7 @@ config PCI_PWRCTRL
+ 	tristate
+ 
+ config PCI_PWRCTRL_PWRSEQ
+-	tristate
++	tristate "PCI Power Control driver for power sequenced devices"
+ 	select POWER_SEQUENCING
+ 	select PCI_PWRCTRL
+ 
+diff --git a/drivers/pci/pwrctrl/pci-pwrctrl-pwrseq.c b/drivers/pci/pwrctrl/pci-pwrctrl-pwrseq.c
+index a308bf4b5fc01d23b75db4cd396201c3ba3fe695..90bca55ec00095436d34af35a19749dcca58528c 100644
+--- a/drivers/pci/pwrctrl/pci-pwrctrl-pwrseq.c
++++ b/drivers/pci/pwrctrl/pci-pwrctrl-pwrseq.c
+@@ -122,6 +122,11 @@ static const struct of_device_id pwrseq_pwrctrl_of_match[] = {
+ 		.compatible = "pci17cb,1107",
+ 		.data = &pwrseq_pwrctrl_qcom_wcn_pdata,
+ 	},
++	{
++		/* ATH12K in QCC2072 package. */
++		.compatible = "pci17cb,1112",
++		.data = &pwrseq_pwrctrl_qcom_wcn_pdata,
++	},
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(of, pwrseq_pwrctrl_of_match);

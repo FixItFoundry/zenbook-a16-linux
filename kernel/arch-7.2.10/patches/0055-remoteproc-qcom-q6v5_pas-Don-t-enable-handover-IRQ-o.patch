@@ -1,0 +1,73 @@
+From 410d00a99b103b7465157a3972571f0ba3d022e2 Mon Sep 17 00:00:00 2001
+From: Shawn Guo <shengchao.guo@oss.qualcomm.com>
+Date: Sat, 1 Aug 2026 09:17:31 +0800
+Subject: [PATCH 055/127] remoteproc: qcom: q6v5_pas: Don't enable handover IRQ
+ on attach
+
+qcom_pas_attach() unmasks the handover IRQ and marks handover_issued
+even though this driver instance never runs qcom_q6v5_prepare() for
+the boot it is attaching to. This was believed necessary to flush a
+stale interrupt latched at the interrupt controller while masked, but
+the handover IRQ is a Qualcomm SMP2P soft IRQ, not a real edge-latched
+hardware interrupt. The Linux SMP2P driver updates its cached value
+unconditionally on every notification and only delivers the nested IRQ
+for bits currently enabled in its own software bitmap, so a transition
+that happens while masked is simply dropped, never replayed on a later
+unmask.
+
+Since there is nothing to flush, and this driver instance never takes
+the proxy power-domain/clock/regulator votes that the handover
+callback would tear down, there is no need to unmask the IRQ in
+attach() at all. Drop the enable_irq()/disable_irq() pair; setting
+handover_issued = true is sufficient to keep the flag consistent for
+the eventual qcom_q6v5_unprepare()/qcom_q6v5_prepare() cycle.
+
+It fixes the following unbalanced runtime PM usage and IRQ enable
+warnings seen on Nord ADSP (probed as attached), after commit bb7c5d6f5b41
+("remoteproc: qcom: q6v5: Make handover IRQ one-shot") comes in place.
+
+root@iq10-rrd:~# cat /sys/class/remoteproc/remoteproc0/state
+attached
+root@iq10-rrd:~# echo stop > /sys/class/remoteproc/remoteproc0/state
+[   40.004874] genpd genpd:0:4c00000.remoteproc: Runtime PM usage count underflow!
+[   40.012409] genpd genpd:1:4c00000.remoteproc: Runtime PM usage count underflow!
+[   40.050074] remoteproc remoteproc0: stopped remote processor adsp
+root@iq10-rrd:~# echo start > /sys/class/remoteproc/remoteproc0/state
+[   44.350298] remoteproc remoteproc0: powering up adsp
+[   44.375769] remoteproc remoteproc0: Booting fw image qcom/nord/adsp.mbn, size 8241816
+[   44.389850] PDM: no support for the platform, userspace daemon might be required.
+[   44.397864] ------------[ cut here ]------------
+[   44.402633] Unbalanced enable for IRQ 363
+[   44.406779] WARNING: kernel/irq/manage.c:775 at __enable_irq+0x4c/0x7c, CPU#9: sh/791
+...
+
+Suggested-by: Stephan Gerhold <stephan.gerhold@linaro.org>
+Signed-off-by: Shawn Guo <shengchao.guo@oss.qualcomm.com>
+Reviewed-by: Abel Vesa <abel.vesa@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260801011731.1084591-1-shengchao.guo@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit 34b8b2d78b6276dc2dc4ebc06625a39956f266e4)
+---
+ drivers/remoteproc/qcom_q6v5_pas.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/remoteproc/qcom_q6v5_pas.c b/drivers/remoteproc/qcom_q6v5_pas.c
+index b12fcb09eb865bb980cb75b685160d2ad831f58a..8a0bb62ec311c5ad1cf288039dc849abbe6e71af 100644
+--- a/drivers/remoteproc/qcom_q6v5_pas.c
++++ b/drivers/remoteproc/qcom_q6v5_pas.c
+@@ -515,7 +515,6 @@ static int qcom_pas_attach(struct rproc *rproc)
+ 	int ret;
+ 
+ 	pas->q6v5.handover_issued = true;
+-	enable_irq(pas->q6v5.handover_irq);
+ 
+ 	pas->q6v5.running = true;
+ 	ret = irq_get_irqchip_state(pas->q6v5.fatal_irq,
+@@ -561,7 +560,6 @@ static int qcom_pas_attach(struct rproc *rproc)
+ 	pas->rproc->state = RPROC_OFFLINE;
+ 	ret = -EINVAL;
+ disable_running:
+-	disable_irq(pas->q6v5.handover_irq);
+ 	pas->q6v5.running = false;
+ 
+ 	return ret;

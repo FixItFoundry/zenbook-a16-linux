@@ -1,0 +1,85 @@
+From a5a1f431072a29ad345d0b4e3197897fc4f5276d Mon Sep 17 00:00:00 2001
+From: Ananthu C V <ananthu.cv@oss.qualcomm.com>
+Date: Tue, 7 Jul 2026 03:12:44 -0700
+Subject: [PATCH 042/127] remoteproc: qcom: pas: add needs_tzmem flag to
+ trigger shmbridge creation
+
+SHM bridge creation is required to enable memory protection for both
+remoteproc metadata and its memory region on Qualcomm SoCs running
+non-Gunyah based Hypervisors. We currently rely on the iommu property
+being present in the remoteproc nodes to detect this.
+
+However, this doesn't cover for cases where the remoteproc does a late
+attach, like SoCCP, and for remoteprocs like OOBM SS (Out of Band
+Management Sub-system) that doesn't have an iommu in front of it. In the
+former case, any attempt to create new mappings would fail with EEXIST
+as they are already setup by the bootloader when the SoCCP is brought
+out of reset, and unmapping them to create fresh mappings leads to faults
+since SoCCP could have active transactions on the bus. In the latter case,
+absence of iommu will be caught by the has_iommu flag, and SHM bridge
+creation will be skipped.
+
+Fix this by introducing a needs_tzmem flag which would cover for the
+above edge cases by serving as an alternate trigger to the PAS helpers
+to ensure that SHM bridge is established.
+
+Signed-off-by: Ananthu C V <ananthu.cv@oss.qualcomm.com>
+Reviewed-by: Mukesh Ojha <mukesh.ojha@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260707-glymur-soccp-v5-1-053993f0c6fe@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit c2200063763645d3c23a9428d3f636ed67b2df7a)
+---
+ drivers/remoteproc/qcom_q6v5_pas.c | 24 ++++++++++++++++++++++--
+ 1 file changed, 22 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/remoteproc/qcom_q6v5_pas.c b/drivers/remoteproc/qcom_q6v5_pas.c
+index dcdfc976d51e8829361a13359acb2834282e3dd1..b12fcb09eb865bb980cb75b685160d2ad831f58a 100644
+--- a/drivers/remoteproc/qcom_q6v5_pas.c
++++ b/drivers/remoteproc/qcom_q6v5_pas.c
+@@ -61,6 +61,7 @@ struct qcom_pas_data {
+ 	bool region_assign_shared;
+ 	int region_assign_vmid;
+ 	bool early_boot;
++	bool needs_tzmem;
+ };
+ 
+ struct qcom_pas {
+@@ -911,8 +912,8 @@ static int qcom_pas_probe(struct platform_device *pdev)
+ 		goto remove_ssr_sysmon;
+ 	}
+ 
+-	pas->pas_ctx->use_tzmem = rproc->has_iommu;
+-	pas->dtb_pas_ctx->use_tzmem = rproc->has_iommu;
++	pas->pas_ctx->use_tzmem = desc->needs_tzmem || rproc->has_iommu;
++	pas->dtb_pas_ctx->use_tzmem = desc->needs_tzmem || rproc->has_iommu;
+ 
+ 	if (desc->early_boot)
+ 		pas->rproc->state = RPROC_DETACHED;
+@@ -1654,8 +1655,27 @@ static const struct qcom_pas_data kaanapali_soccp_resource = {
+ 	.early_boot = true,
+ };
+ 
++static const struct qcom_pas_data glymur_soccp_resource = {
++	.crash_reason_smem = 656,
++	.firmware_name = "soccp.mbn",
++	.dtb_firmware_name = "soccp_dtb.mbn",
++	.pas_id = 51,
++	.dtb_pas_id = 0x41,
++	.proxy_pd_names = (char*[]){
++		"cx",
++		"mx",
++		NULL
++	},
++	.ssr_name = "soccp",
++	.sysmon_name = "soccp",
++	.auto_boot = true,
++	.early_boot = true,
++	.needs_tzmem = true,
++};
++
+ static const struct of_device_id qcom_pas_of_match[] = {
+ 	{ .compatible = "qcom,eliza-adsp-pas", .data = &sm8550_adsp_resource },
++	{ .compatible = "qcom,glymur-soccp-pas", .data = &glymur_soccp_resource },
+ 	{ .compatible = "qcom,kaanapali-soccp-pas", .data = &kaanapali_soccp_resource },
+ 	{ .compatible = "qcom,milos-adsp-pas", .data = &sm8550_adsp_resource },
+ 	{ .compatible = "qcom,milos-cdsp-pas", .data = &milos_cdsp_resource },

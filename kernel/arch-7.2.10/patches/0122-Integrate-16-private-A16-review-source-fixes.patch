@@ -1,0 +1,940 @@
+From da19c80a48a7f81980e722b4a08065b201895507 Mon Sep 17 00:00:00 2001
+From: Local Build <local-build@localhost>
+Date: Mon, 12 Oct 2026 19:44:05 -0400
+Subject: [PATCH 122/127] Integrate 16 private A16 review source fixes
+
+---
+ drivers/firmware/efi/vars.c               |   4 +-
+ drivers/gpu/drm/msm/adreno/a6xx_gmu.c     |  65 ++++++--
+ drivers/gpu/drm/msm/dp/dp_aux.c           |  26 ++-
+ drivers/net/wireless/ath/ath12k/mhi.c     |   1 +
+ drivers/pci/controller/dwc/pcie-qcom.c    |  16 +-
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c |   4 +-
+ drivers/power/supply/qcom_battmgr.c       |   6 +-
+ drivers/remoteproc/qcom_q6v5.c            |   4 +-
+ drivers/remoteproc/qcom_sysmon.c          |   2 +-
+ drivers/rtc/rtc-pm8xxx.c                  |   1 +
+ drivers/soc/qcom/rpmh-rsc.c               |  19 ++-
+ drivers/soundwire/amd_manager.c           |  13 +-
+ drivers/soundwire/bus.c                   |  23 ++-
+ drivers/soundwire/qcom.c                  | 194 ++++++++++++++++------
+ drivers/usb/core/message.c                |   3 +-
+ 15 files changed, 275 insertions(+), 106 deletions(-)
+
+diff --git a/drivers/firmware/efi/vars.c b/drivers/firmware/efi/vars.c
+index 3700e98697676d8e6f04f061f447391503f9abba..f9c28fbdb26dfbe1f2f534338c98cfafd1597cd8 100644
+--- a/drivers/firmware/efi/vars.c
++++ b/drivers/firmware/efi/vars.c
+@@ -143,7 +143,7 @@ int efivar_lock(void)
+ {
+ 	if (down_interruptible(&efivars_lock))
+ 		return -EINTR;
+-	if (!__efivars->ops) {
++	if (!__efivars || !__efivars->ops) {
+ 		up(&efivars_lock);
+ 		return -ENODEV;
+ 	}
+@@ -159,7 +159,7 @@ int efivar_trylock(void)
+ {
+ 	if (down_trylock(&efivars_lock))
+ 		 return -EBUSY;
+-	if (!__efivars->ops) {
++	if (!__efivars || !__efivars->ops) {
+ 		up(&efivars_lock);
+ 		return -ENODEV;
+ 	}
+diff --git a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+index 23b942806a7e530b29e3503e102f96845b15c2ba..1922543c6bf4228e4115cfacfb00db70f78432b4 100644
+--- a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
++++ b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+@@ -1637,12 +1637,17 @@ static int a6xx_gmu_rpmh_bw_votes_init(struct adreno_gpu *adreno_gpu,
+ 		if (IS_ERR(bcm_data[bcm_index]))
+ 			return PTR_ERR(bcm_data[bcm_index]);
+ 
+-		if (!count) {
++		if (count < sizeof(*bcm_data[bcm_index])) {
+ 			dev_err(gmu->dev, "invalid BCM '%s' aux data size\n",
+ 				bcm->name);
+ 			return -EINVAL;
+ 		}
+ 
++		if (!bcm->fixed && !le32_to_cpu(bcm_data[bcm_index]->unit)) {
++			dev_err(gmu->dev, "invalid BCM '%s' unit\n", bcm->name);
++			return -EINVAL;
++		}
++
+ 		bcm_count++;
+ 	}
+ 
+@@ -1942,13 +1947,18 @@ static int a6xx_gmu_build_freq_table(struct device *dev, unsigned long *freqs,
+ 	int i, index = 0;
+ 	unsigned long freq = 1;
+ 
++	if (count < 0)
++		return count;
++	if (!count)
++		return -EINVAL;
++
+ 	/*
+ 	 * The OPP table doesn't contain the "off" frequency level so we need to
+ 	 * add 1 to the table size to account for it
+ 	 */
+ 
+-	if (WARN(count + 1 > size,
+-		"The GMU frequency table is being truncated\n"))
++	if (WARN(count >= size,
++		 "The GMU frequency table is being truncated\n"))
+ 		count = size - 1;
+ 
+ 	/* Set the "off" frequency */
+@@ -1956,14 +1966,17 @@ static int a6xx_gmu_build_freq_table(struct device *dev, unsigned long *freqs,
+ 
+ 	for (i = 0; i < count; i++) {
+ 		opp = dev_pm_opp_find_freq_ceil(dev, &freq);
+-		if (IS_ERR(opp))
+-			break;
++		if (IS_ERR(opp)) {
++			if (PTR_ERR(opp) == -ERANGE)
++				break;
++			return PTR_ERR(opp);
++		}
+ 
+ 		dev_pm_opp_put(opp);
+ 		freqs[index++] = freq++;
+ 	}
+ 
+-	return index;
++	return index > 1 ? index : -EINVAL;
+ }
+ 
+ static int a6xx_gmu_build_bw_table(struct device *dev, unsigned long *bandwidths,
+@@ -1974,13 +1987,18 @@ static int a6xx_gmu_build_bw_table(struct device *dev, unsigned long *bandwidths
+ 	int i, index = 0;
+ 	unsigned int bandwidth = 1;
+ 
++	if (count < 0)
++		return count;
++	if (!count)
++		return -EINVAL;
++
+ 	/*
+ 	 * The OPP table doesn't contain the "off" bandwidth level so we need to
+ 	 * add 1 to the table size to account for it
+ 	 */
+ 
+-	if (WARN(count + 1 > size,
+-		"The GMU bandwidth table is being truncated\n"))
++	if (WARN(count >= size,
++		 "The GMU bandwidth table is being truncated\n"))
+ 		count = size - 1;
+ 
+ 	/* Set the "off" bandwidth */
+@@ -1988,8 +2006,11 @@ static int a6xx_gmu_build_bw_table(struct device *dev, unsigned long *bandwidths
+ 
+ 	for (i = 0; i < count; i++) {
+ 		opp = dev_pm_opp_find_bw_ceil(dev, &bandwidth, 0);
+-		if (IS_ERR(opp))
+-			break;
++		if (IS_ERR(opp)) {
++			if (PTR_ERR(opp) == -ERANGE)
++				break;
++			return PTR_ERR(opp);
++		}
+ 
+ 		dev_pm_opp_put(opp);
+ 		bandwidths[index++] = bandwidth++;
+@@ -2017,15 +2038,21 @@ static int a6xx_gmu_pwrlevels_probe(struct a6xx_gmu *gmu)
+ 		return ret;
+ 	}
+ 
+-	gmu->nr_gmu_freqs = a6xx_gmu_build_freq_table(gmu->dev,
+-		gmu->gmu_freqs, ARRAY_SIZE(gmu->gmu_freqs));
++	ret = a6xx_gmu_build_freq_table(gmu->dev,
++					gmu->gmu_freqs, ARRAY_SIZE(gmu->gmu_freqs));
++	if (ret < 0)
++		return ret;
++	gmu->nr_gmu_freqs = ret;
+ 
+ 	/*
+ 	 * The GMU also handles GPU frequency switching so build a list
+ 	 * from the GPU OPP table
+ 	 */
+-	gmu->nr_gpu_freqs = a6xx_gmu_build_freq_table(&gpu->pdev->dev,
+-		gmu->gpu_freqs, ARRAY_SIZE(gmu->gpu_freqs));
++	ret = a6xx_gmu_build_freq_table(&gpu->pdev->dev,
++					gmu->gpu_freqs, ARRAY_SIZE(gmu->gpu_freqs));
++	if (ret < 0)
++		return ret;
++	gmu->nr_gpu_freqs = ret;
+ 
+ 	gmu->current_perf_index = gmu->nr_gpu_freqs - 1;
+ 
+@@ -2033,9 +2060,13 @@ static int a6xx_gmu_pwrlevels_probe(struct a6xx_gmu *gmu)
+ 	 * The GMU also handles GPU Interconnect Votes so build a list
+ 	 * of DDR bandwidths from the GPU OPP table
+ 	 */
+-	if (info->bcms)
+-		gmu->nr_gpu_bws = a6xx_gmu_build_bw_table(&gpu->pdev->dev,
+-			gmu->gpu_bw_table, ARRAY_SIZE(gmu->gpu_bw_table));
++	if (info->bcms) {
++		ret = a6xx_gmu_build_bw_table(&gpu->pdev->dev,
++					      gmu->gpu_bw_table, ARRAY_SIZE(gmu->gpu_bw_table));
++		if (ret < 0)
++			return ret;
++		gmu->nr_gpu_bws = ret;
++	}
+ 
+ 	/* Build the list of RPMh votes that we'll send to the GMU */
+ 	return a6xx_gmu_rpmh_votes_init(gmu);
+diff --git a/drivers/gpu/drm/msm/dp/dp_aux.c b/drivers/gpu/drm/msm/dp/dp_aux.c
+index 3825a2fb48e213862f5755a8e53269e09053dc29..57b7b27f221ddfdcf5dc069fee0bde8506016ddf 100644
+--- a/drivers/gpu/drm/msm/dp/dp_aux.c
++++ b/drivers/gpu/drm/msm/dp/dp_aux.c
+@@ -268,16 +268,17 @@ static void msm_dp_aux_update_offset_and_segment(struct msm_dp_aux_private *aux,
+  * @input_msg: input message from DRM upstream APIs
+  * @send_seg: send the segment to sink
+  *
+- * return: void
++ * Return: 0 on success or a negative error code.
+  *
+  * This helper function is used to fix EDID reads for non-compliant
+  * sinks that do not handle the i2c middle-of-transaction flag correctly.
+  */
+-static void msm_dp_aux_transfer_helper(struct msm_dp_aux_private *aux,
+-				   struct drm_dp_aux_msg *input_msg,
+-				   bool send_seg)
++static int msm_dp_aux_transfer_helper(struct msm_dp_aux_private *aux,
++				      struct drm_dp_aux_msg *input_msg,
++				      bool send_seg)
+ {
+ 	struct drm_dp_aux_msg helper_msg;
++	ssize_t ret;
+ 	u32 message_size = 0x10;
+ 	u32 segment_address = 0x30;
+ 	u32 const edid_block_length = 0x80;
+@@ -286,7 +287,7 @@ static void msm_dp_aux_transfer_helper(struct msm_dp_aux_private *aux,
+ 		(DP_AUX_I2C_READ & DP_AUX_NATIVE_READ);
+ 
+ 	if (!i2c_mot || !i2c_read || (input_msg->size == 0))
+-		return;
++		return 0;
+ 
+ 	/*
+ 	 * Sending the segment value and EDID offset will be performed
+@@ -315,7 +316,9 @@ static void msm_dp_aux_transfer_helper(struct msm_dp_aux_private *aux,
+ 		helper_msg.address = segment_address;
+ 		helper_msg.buffer = &aux->segment;
+ 		helper_msg.size = 1;
+-		msm_dp_aux_cmd_fifo_tx(aux, &helper_msg);
++		ret = msm_dp_aux_cmd_fifo_tx(aux, &helper_msg);
++		if (ret < 0)
++			return ret;
+ 	}
+ 
+ 	/*
+@@ -329,12 +332,16 @@ static void msm_dp_aux_transfer_helper(struct msm_dp_aux_private *aux,
+ 	helper_msg.address = input_msg->address;
+ 	helper_msg.buffer = &aux->offset;
+ 	helper_msg.size = 1;
+-	msm_dp_aux_cmd_fifo_tx(aux, &helper_msg);
++	ret = msm_dp_aux_cmd_fifo_tx(aux, &helper_msg);
++	if (ret < 0)
++		return ret;
+ 
+ end:
+ 	aux->offset += message_size;
+ 	if (aux->offset == 0x80 || aux->offset == 0x100)
+ 		aux->segment = 0x0; /* reset segment at end of block */
++
++	return 0;
+ }
+ 
+ /*
+@@ -391,7 +398,9 @@ static ssize_t msm_dp_aux_transfer(struct drm_dp_aux *msm_dp_aux,
+ 	}
+ 
+ 	msm_dp_aux_update_offset_and_segment(aux, msg);
+-	msm_dp_aux_transfer_helper(aux, msg, true);
++	ret = msm_dp_aux_transfer_helper(aux, msg, true);
++	if (ret < 0)
++		goto transfer_done;
+ 
+ 	aux->read = msg->request & (DP_AUX_I2C_READ & DP_AUX_NATIVE_READ);
+ 	aux->cmd_busy = true;
+@@ -405,6 +414,7 @@ static ssize_t msm_dp_aux_transfer(struct drm_dp_aux *msm_dp_aux,
+ 	}
+ 
+ 	ret = msm_dp_aux_cmd_fifo_tx(aux, msg);
++transfer_done:
+ 	if (ret < 0) {
+ 		if (aux->native) {
+ 			aux->retry_cnt++;
+diff --git a/drivers/net/wireless/ath/ath12k/mhi.c b/drivers/net/wireless/ath/ath12k/mhi.c
+index ee87f00bc5de9617019870e90258caf2bf3b19b9..bb5e77a8042f4d3fbcca76349fa31367111ccb0e 100644
+--- a/drivers/net/wireless/ath/ath12k/mhi.c
++++ b/drivers/net/wireless/ath/ath12k/mhi.c
+@@ -271,6 +271,7 @@ int ath12k_mhi_register(struct ath12k_pci *ab_pci)
+ 	return 0;
+ 
+ free_controller:
++	kfree(mhi_ctrl->irq);
+ 	mhi_free_controller(mhi_ctrl);
+ 	ab_pci->mhi_ctrl = NULL;
+ 	return ret;
+diff --git a/drivers/pci/controller/dwc/pcie-qcom.c b/drivers/pci/controller/dwc/pcie-qcom.c
+index d956f4541b43b672ed7d23e4ba721837a484a129..be7f9651f729e8933282c9e6cc22ebbd86c41fc1 100644
+--- a/drivers/pci/controller/dwc/pcie-qcom.c
++++ b/drivers/pci/controller/dwc/pcie-qcom.c
+@@ -2405,7 +2405,7 @@ static int qcom_pcie_probe(struct platform_device *pdev)
+ static int qcom_pcie_suspend_noirq(struct device *dev)
+ {
+ 	struct qcom_pcie *pcie;
+-	int ret = 0;
++	int ret = 0, err;
+ 	const struct qcom_pcie_cfg *pcie_cfg = of_device_get_match_data(dev);
+ 
+ 	if (pcie_cfg && pcie_cfg->firmware_managed)
+@@ -2428,8 +2428,11 @@ static int qcom_pcie_suspend_noirq(struct device *dev)
+ 		if (ret)
+ 			dev_err(dev, "Failed to disable CPU-PCIe interconnect path: %d\n", ret);
+ 
+-		if (pcie->use_pm_opp)
+-			dev_pm_opp_set_opp(pcie->pci->dev, NULL);
++		if (pcie->use_pm_opp) {
++			err = dev_pm_opp_set_opp(pcie->pci->dev, NULL);
++			if (err)
++				dev_err(dev, "Failed to release PCIe OPP: %d\n", err);
++		}
+ 	} else {
+ 		/*
+ 		 * Set minimum bandwidth required to keep data path
+@@ -2457,8 +2460,11 @@ static int qcom_pcie_suspend_noirq(struct device *dev)
+ 				dev_err(dev, "Failed to disable CPU-PCIe interconnect path: %d\n",
+ 					ret);
+ 
+-			if (pcie->use_pm_opp)
+-				dev_pm_opp_set_opp(pcie->pci->dev, NULL);
++			if (pcie->use_pm_opp) {
++				err = dev_pm_opp_set_opp(pcie->pci->dev, NULL);
++				if (err)
++					dev_err(dev, "Failed to release PCIe OPP: %d\n", err);
++			}
+ 		}
+ 	}
+ 	return ret;
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index 634288d7f47bc6361aa88341846fb74247b032ef..6fcd73d986fc6982137991db36a663dd8544a3f2 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -4392,10 +4392,11 @@ static int qmp_combo_typec_switch_set(struct typec_switch_dev *sw,
+ 	struct qmp_combo *qmp = typec_switch_get_drvdata(sw);
+ 	const struct qmp_phy_cfg *cfg = qmp->cfg;
+ 
++	guard(mutex)(&qmp->phy_mutex);
++
+ 	if (orientation == qmp->orientation || orientation == TYPEC_ORIENTATION_NONE)
+ 		return 0;
+ 
+-	mutex_lock(&qmp->phy_mutex);
+ 	qmp->orientation = orientation;
+ 
+ 	if (qmp->init_count) {
+@@ -4409,7 +4410,6 @@ static int qmp_combo_typec_switch_set(struct typec_switch_dev *sw,
+ 		if (qmp->dp_init_count)
+ 			cfg->dp_aux_init(qmp);
+ 	}
+-	mutex_unlock(&qmp->phy_mutex);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/power/supply/qcom_battmgr.c b/drivers/power/supply/qcom_battmgr.c
+index 91cf39b0083a327d81ba01532a124fdd8224c4e6..59b8ebacc9dec5fd71043b919cc59ad7e48c8aa3 100644
+--- a/drivers/power/supply/qcom_battmgr.c
++++ b/drivers/power/supply/qcom_battmgr.c
+@@ -704,7 +704,7 @@ static int qcom_battmgr_set_charge_start_threshold(struct qcom_battmgr *battmgr,
+ 		battmgr->info.charge_ctrl_end = target_soc;
+ 	}
+ 
+-	return 0;
++	return ret;
+ }
+ 
+ static int qcom_battmgr_set_charge_end_threshold(struct qcom_battmgr *battmgr, int end_soc)
+@@ -725,7 +725,7 @@ static int qcom_battmgr_set_charge_end_threshold(struct qcom_battmgr *battmgr, i
+ 		battmgr->info.charge_ctrl_end = end_soc;
+ 	}
+ 
+-	return 0;
++	return ret;
+ }
+ 
+ static int qcom_battmgr_charge_control_thresholds_init(struct qcom_battmgr *battmgr)
+@@ -1594,7 +1594,9 @@ static void qcom_battmgr_enable_worker(struct work_struct *work)
+ 	};
+ 	int ret;
+ 
++	mutex_lock(&battmgr->lock);
+ 	ret = qcom_battmgr_request(battmgr, &req, sizeof(req));
++	mutex_unlock(&battmgr->lock);
+ 	if (ret)
+ 		dev_err(battmgr->dev, "failed to request power notifications\n");
+ }
+diff --git a/drivers/remoteproc/qcom_q6v5.c b/drivers/remoteproc/qcom_q6v5.c
+index bb27388735214656fae0e7584bc15c9386cecaf3..9ef67c0bd9d792a61c7f586c1bef4bf6de7ca390 100644
+--- a/drivers/remoteproc/qcom_q6v5.c
++++ b/drivers/remoteproc/qcom_q6v5.c
+@@ -382,9 +382,11 @@ int qcom_q6v5_init(struct qcom_q6v5 *q6v5, struct platform_device *pdev,
+ 	}
+ 
+ 	q6v5->path = devm_of_icc_get(&pdev->dev, NULL);
+-	if (IS_ERR(q6v5->path))
++	if (IS_ERR(q6v5->path)) {
++		qmp_put(q6v5->qmp);
+ 		return dev_err_probe(&pdev->dev, PTR_ERR(q6v5->path),
+ 				     "failed to acquire interconnect path\n");
++	}
+ 
+ 	return 0;
+ }
+diff --git a/drivers/remoteproc/qcom_sysmon.c b/drivers/remoteproc/qcom_sysmon.c
+index a0830a48b1f40f096df559374622c89b616dd4ae..928020fc461f33c366f863f4219f797995c560c5 100644
+--- a/drivers/remoteproc/qcom_sysmon.c
++++ b/drivers/remoteproc/qcom_sysmon.c
+@@ -741,7 +741,7 @@ bool qcom_sysmon_shutdown_irq_state(struct qcom_sysmon *sysmon)
+ 	bool shutdown_state;
+ 	int ret;
+ 
+-	if (!sysmon)
++	if (!sysmon || sysmon->shutdown_irq < 0)
+ 		return false;
+ 
+ 	ret = irq_get_irqchip_state(sysmon->shutdown_irq,
+diff --git a/drivers/rtc/rtc-pm8xxx.c b/drivers/rtc/rtc-pm8xxx.c
+index e624f848c22b5799d23107518bbfd01b2e93d150..3d2f644957c13cd8ab6e1e1b2fdcefc8c5a204a8 100644
+--- a/drivers/rtc/rtc-pm8xxx.c
++++ b/drivers/rtc/rtc-pm8xxx.c
+@@ -587,6 +587,7 @@ static int pm8xxx_rtc_probe_offset(struct pm8xxx_rtc *rtc_dd)
+ 
+ 		dev_warn(rtc_dd->dev, "efivars not available\n");
+ 		rtc_dd->use_uefi = false;
++		return 0;
+ 	}
+ 
+ 	return pm8xxx_rtc_read_uefi_offset(rtc_dd);
+diff --git a/drivers/soc/qcom/rpmh-rsc.c b/drivers/soc/qcom/rpmh-rsc.c
+index d5489458546a2e1f5cd278f05be9bd2c835d468e..bc9b965cb033358777263d0e69d44d940f87f960 100644
+--- a/drivers/soc/qcom/rpmh-rsc.c
++++ b/drivers/soc/qcom/rpmh-rsc.c
+@@ -333,14 +333,15 @@ static struct tcs_group *get_tcs_for_msg(struct rsc_drv *drv,
+ }
+ 
+ /**
+- * get_req_from_tcs() - Get a stashed request that was xfering on the given TCS.
++ * take_req_from_tcs() - Take the request that was xfering on the given TCS.
+  * @drv:    The RSC controller.
+  * @tcs_id: The global ID of this TCS.
+  *
+  * For ACTIVE_ONLY transfers we want to call back into the client when the
+  * transfer finishes. To do this we need the "request" that the client
+  * originally provided us. This function grabs the request that we stashed
+- * when we started the transfer.
++ * when we started the transfer and clears the slot before the completion
++ * callback can free the request.
+  *
+  * This only makes sense for ACTIVE_ONLY transfers since those are the only
+  * ones we track sending (the only ones we enable interrupts for and the only
+@@ -348,16 +349,20 @@ static struct tcs_group *get_tcs_for_msg(struct rsc_drv *drv,
+  *
+  * Return: The stashed request.
+  */
+-static const struct tcs_request *get_req_from_tcs(struct rsc_drv *drv,
+-						  int tcs_id)
++static const struct tcs_request *take_req_from_tcs(struct rsc_drv *drv,
++						   int tcs_id)
+ {
++	const struct tcs_request *req;
+ 	struct tcs_group *tcs;
+ 	int i;
+ 
+ 	for (i = 0; i < TCS_TYPE_NR; i++) {
+ 		tcs = &drv->tcs[i];
+-		if (tcs->mask & BIT(tcs_id))
+-			return tcs->req[tcs_id - tcs->offset];
++		if (tcs->mask & BIT(tcs_id)) {
++			req = tcs->req[tcs_id - tcs->offset];
++			tcs->req[tcs_id - tcs->offset] = NULL;
++			return req;
++		}
+ 	}
+ 
+ 	return NULL;
+@@ -448,7 +453,7 @@ static irqreturn_t tcs_tx_done(int irq, void *p)
+ 	irq_status = readl_relaxed(drv->tcs_base + drv->regs[RSC_DRV_IRQ_STATUS]);
+ 
+ 	for_each_set_bit(i, &irq_status, BITS_PER_TYPE(u32)) {
+-		req = get_req_from_tcs(drv, i);
++		req = take_req_from_tcs(drv, i);
+ 		if (WARN_ON(!req))
+ 			goto skip;
+ 
+diff --git a/drivers/soundwire/amd_manager.c b/drivers/soundwire/amd_manager.c
+index a3316efdf8ac27d5f25f39c2738a3fea351e3516..980ad8aa8ee9ddaf185add31c6d9f24f96943a87 100644
+--- a/drivers/soundwire/amd_manager.c
++++ b/drivers/soundwire/amd_manager.c
+@@ -1196,7 +1196,7 @@ static int amd_sdw_clock_stop(struct amd_sdw_manager *amd_manager)
+ 
+ static int amd_sdw_clock_stop_exit(struct amd_sdw_manager *amd_manager)
+ {
+-	int ret;
++	int ret = 0;
+ 	u32 val;
+ 
+ 	if (amd_manager->clk_stopped) {
+@@ -1206,6 +1206,11 @@ static int amd_sdw_clock_stop_exit(struct amd_sdw_manager *amd_manager)
+ 		ret = readl_poll_timeout(amd_manager->mmio + ACP_SW_CLK_RESUME_CTRL, val,
+ 					 (val & AMD_SDW_CLK_RESUME_DONE), ACP_DELAY_US,
+ 					 AMD_SDW_TIMEOUT);
++		if (ret) {
++			dev_err(amd_manager->dev, "SDW%x clock stop exit failed: %d\n",
++				amd_manager->instance, ret);
++			return ret;
++		}
+ 		if (val & AMD_SDW_CLK_RESUME_DONE) {
+ 			writel(0, amd_manager->mmio + ACP_SW_CLK_RESUME_CTRL);
+ 			ret = sdw_bus_exit_clk_stop(&amd_manager->bus);
+@@ -1215,10 +1220,8 @@ static int amd_sdw_clock_stop_exit(struct amd_sdw_manager *amd_manager)
+ 			amd_manager->clk_stopped = false;
+ 		}
+ 	}
+-	if (amd_manager->clk_stopped) {
+-		dev_err(amd_manager->dev, "SDW%x clock stop exit failed\n", amd_manager->instance);
+-		return 0;
+-	}
++	if (ret < 0)
++		return ret;
+ 	dev_dbg(amd_manager->dev, "SDW%x clock stop exit successful\n", amd_manager->instance);
+ 	return 0;
+ }
+diff --git a/drivers/soundwire/bus.c b/drivers/soundwire/bus.c
+index a1e8f87a93993bd2727dcc59eeb12bbe41275a62..63fcd87f4bb4640c54c339046c0a359fe9a5deb2 100644
+--- a/drivers/soundwire/bus.c
++++ b/drivers/soundwire/bus.c
+@@ -1185,6 +1185,7 @@ int sdw_bus_exit_clk_stop(struct sdw_bus *bus)
+ 	bool simple_clk_stop = true;
+ 	struct sdw_slave *slave;
+ 	bool is_slave = false;
++	int first_error = 0;
+ 	int ret;
+ 
+ 	/*
+@@ -1205,8 +1206,11 @@ int sdw_bus_exit_clk_stop(struct sdw_bus *bus)
+ 
+ 		ret = sdw_slave_clk_stop_callback(slave, SDW_CLK_STOP_MODE0,
+ 						  SDW_CLK_PRE_DEPREPARE);
+-		if (ret < 0)
++		if (ret < 0) {
+ 			dev_warn(&slave->dev, "clock stop pre-deprepare cb failed:%d\n", ret);
++			if (!first_error)
++				first_error = ret;
++		}
+ 
+ 		/* Only de-prepare a Slave device if needed */
+ 		if (!slave->prop.simple_clk_stop_capable) {
+@@ -1215,8 +1219,11 @@ int sdw_bus_exit_clk_stop(struct sdw_bus *bus)
+ 			ret = sdw_slave_clk_stop_prepare(slave, SDW_CLK_STOP_MODE0,
+ 							 false);
+ 
+-			if (ret < 0)
++			if (ret < 0) {
+ 				dev_warn(&slave->dev, "clock stop deprepare failed:%d\n", ret);
++				if (!first_error)
++					first_error = ret;
++			}
+ 		}
+ 	}
+ 
+@@ -1230,8 +1237,11 @@ int sdw_bus_exit_clk_stop(struct sdw_bus *bus)
+ 	 */
+ 	if (!simple_clk_stop) {
+ 		ret = sdw_bus_wait_for_clk_prep_deprep(bus, SDW_BROADCAST_DEV_NUM, false);
+-		if (ret < 0)
++		if (ret < 0) {
+ 			dev_warn(bus->dev, "clock stop deprepare wait failed:%d\n", ret);
++			if (!first_error)
++				first_error = ret;
++		}
+ 	}
+ 
+ 	list_for_each_entry(slave, &bus->slaves, node) {
+@@ -1244,11 +1254,14 @@ int sdw_bus_exit_clk_stop(struct sdw_bus *bus)
+ 
+ 		ret = sdw_slave_clk_stop_callback(slave, SDW_CLK_STOP_MODE0,
+ 						  SDW_CLK_POST_DEPREPARE);
+-		if (ret < 0)
++		if (ret < 0) {
+ 			dev_warn(&slave->dev, "clock stop post-deprepare cb failed:%d\n", ret);
++			if (!first_error)
++				first_error = ret;
++		}
+ 	}
+ 
+-	return 0;
++	return first_error;
+ }
+ EXPORT_SYMBOL(sdw_bus_exit_clk_stop);
+ 
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index 4c747bf3bca5b2d2291a084173e9fefd0c89ce73..ff84fb8e2ee6637b758241f08aba5e5aee3a3f0a 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -795,9 +795,13 @@ static void qcom_swrm_recover_work(struct work_struct *work)
+ 
+ 	/* A reset during an open stream drops its port routing. */
+ 	reinit_completion(&ctrl->enumeration);
+-	ctrl->reg_write(ctrl, SWRM_COMP_SW_RESET, 0x01);
++	ret = ctrl->reg_write(ctrl, SWRM_COMP_SW_RESET, 0x01);
++	if (ret)
++		goto recovery_failed;
+ 	usleep_range(2000, 2050);
+-	qcom_swrm_init(ctrl);
++	ret = qcom_swrm_init(ctrl);
++	if (ret)
++		goto recovery_failed;
+ 	time_left = wait_for_completion_timeout(&ctrl->enumeration,
+ 					     msecs_to_jiffies(TIMEOUT_MS));
+ 	if (!time_left)
+@@ -816,6 +820,11 @@ static void qcom_swrm_recover_work(struct work_struct *work)
+ 					      msecs_to_jiffies(TIMEOUT_MS)) > 0;
+ 	}
+ 
++recovery_failed:
++	if (ret) {
++		dev_err(ctrl->dev, "deferred clash recovery: initialization failed: %d\n", ret);
++		attached = false;
++	}
+ 	if (atomic_cmpxchg(&ctrl->recovery_pending, generation, 0) == generation)
+ 		ctrl->recovery_failed = !attached;
+ 
+@@ -989,16 +998,19 @@ static irqreturn_t qcom_swrm_irq_handler(int irq, void *dev_id)
+ 	return ret;
+ }
+ 
+-static bool swrm_wait_for_frame_gen_enabled(struct qcom_swrm_ctrl *ctrl)
++static int swrm_wait_for_frame_gen_enabled(struct qcom_swrm_ctrl *ctrl)
+ {
+ 	int retry = SWRM_LINK_STATUS_RETRY_CNT;
+-	int comp_sts;
++	u32 comp_sts;
++	int ret;
+ 
+ 	do {
+-		ctrl->reg_read(ctrl, ctrl->reg_layout[SWRM_REG_FRAME_GEN_ENABLED],
+-			       &comp_sts);
++		ret = ctrl->reg_read(ctrl, ctrl->reg_layout[SWRM_REG_FRAME_GEN_ENABLED],
++				     &comp_sts);
++		if (ret)
++			return ret;
+ 		if (comp_sts & SWRM_FRM_GEN_ENABLED)
+-			return true;
++			return 0;
+ 
+ 		usleep_range(500, 510);
+ 	} while (retry--);
+@@ -1006,81 +1018,123 @@ static bool swrm_wait_for_frame_gen_enabled(struct qcom_swrm_ctrl *ctrl)
+ 	dev_err(ctrl->dev, "%s: link status not %s\n", __func__,
+ 		comp_sts & SWRM_FRM_GEN_ENABLED ? "connected" : "disconnected");
+ 
+-	return false;
++	return -ETIMEDOUT;
+ }
+ 
+ static int qcom_swrm_init(struct qcom_swrm_ctrl *ctrl)
+ {
+ 	u32 val;
++	int ret;
+ 
+ 	/* Clear Rows and Cols */
+ 	val = FIELD_PREP(SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_BMSK, ctrl->rows_index);
+ 	val |= FIELD_PREP(SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_BMSK, ctrl->cols_index);
+ 
+-	reset_control_reset(ctrl->audio_cgcr);
++	ret = reset_control_reset(ctrl->audio_cgcr);
++	if (ret)
++		return ret;
+ 
+-	ctrl->reg_write(ctrl, SWRM_MCP_FRAME_CTRL_BANK_ADDR(0), val);
++	ret = ctrl->reg_write(ctrl, SWRM_MCP_FRAME_CTRL_BANK_ADDR(0), val);
++	if (ret)
++		return ret;
+ 
+ 	/* Enable Auto enumeration */
+-	ctrl->reg_write(ctrl, SWRM_ENUMERATOR_CFG_ADDR, 1);
++	ret = ctrl->reg_write(ctrl, SWRM_ENUMERATOR_CFG_ADDR, 1);
++	if (ret)
++		return ret;
+ 
+ 	ctrl->intr_mask = SWRM_INTERRUPT_STATUS_RMSK;
+ 	/* Mask soundwire interrupts */
+-	if (ctrl->version < SWRM_VERSION_2_0_0)
+-		ctrl->reg_write(ctrl, ctrl->reg_layout[SWRM_REG_INTERRUPT_MASK_ADDR],
++	if (ctrl->version < SWRM_VERSION_2_0_0) {
++		ret = ctrl->reg_write(ctrl, ctrl->reg_layout[SWRM_REG_INTERRUPT_MASK_ADDR],
+ 				SWRM_INTERRUPT_STATUS_RMSK);
++		if (ret)
++			return ret;
++	}
+ 
+ 	/* Configure No pings */
+-	ctrl->reg_read(ctrl, SWRM_MCP_CFG_ADDR, &val);
++	ret = ctrl->reg_read(ctrl, SWRM_MCP_CFG_ADDR, &val);
++	if (ret)
++		return ret;
+ 	u32p_replace_bits(&val, SWRM_DEF_CMD_NO_PINGS, SWRM_MCP_CFG_MAX_NUM_OF_CMD_NO_PINGS_BMSK);
+-	ctrl->reg_write(ctrl, SWRM_MCP_CFG_ADDR, val);
++	ret = ctrl->reg_write(ctrl, SWRM_MCP_CFG_ADDR, val);
++	if (ret)
++		return ret;
+ 
+ 	if (ctrl->version == SWRM_VERSION_1_7_0) {
+-		ctrl->reg_write(ctrl, SWRM_LINK_MANAGER_EE, SWRM_EE_CPU);
+-		ctrl->reg_write(ctrl, SWRM_MCP_BUS_CTRL,
++		ret = ctrl->reg_write(ctrl, SWRM_LINK_MANAGER_EE, SWRM_EE_CPU);
++		if (ret)
++			return ret;
++		ret = ctrl->reg_write(ctrl, SWRM_MCP_BUS_CTRL,
+ 				SWRM_MCP_BUS_CLK_START << SWRM_EE_CPU);
++		if (ret)
++			return ret;
+ 	} else if (ctrl->version >= SWRM_VERSION_2_0_0) {
+-		ctrl->reg_write(ctrl, SWRM_LINK_MANAGER_EE, SWRM_EE_CPU);
+-		ctrl->reg_write(ctrl, SWRM_V2_0_CLK_CTRL,
++		ret = ctrl->reg_write(ctrl, SWRM_LINK_MANAGER_EE, SWRM_EE_CPU);
++		if (ret)
++			return ret;
++		ret = ctrl->reg_write(ctrl, SWRM_V2_0_CLK_CTRL,
+ 				SWRM_V2_0_CLK_CTRL_CLK_START);
++		if (ret)
++			return ret;
+ 	} else {
+-		ctrl->reg_write(ctrl, SWRM_MCP_BUS_CTRL, SWRM_MCP_BUS_CLK_START);
++		ret = ctrl->reg_write(ctrl, SWRM_MCP_BUS_CTRL, SWRM_MCP_BUS_CLK_START);
++		if (ret)
++			return ret;
+ 	}
+ 
+ 	/* Configure number of retries of a read/write cmd */
+ 	if (ctrl->version >= SWRM_VERSION_1_5_1) {
+-		ctrl->reg_write(ctrl, SWRM_CMD_FIFO_CFG_ADDR,
++		ret = ctrl->reg_write(ctrl, SWRM_CMD_FIFO_CFG_ADDR,
+ 				SWRM_RD_WR_CMD_RETRIES |
+ 				SWRM_CONTINUE_EXEC_ON_CMD_IGNORE);
++		if (ret)
++			return ret;
+ 	} else {
+-		ctrl->reg_write(ctrl, SWRM_CMD_FIFO_CFG_ADDR,
++		ret = ctrl->reg_write(ctrl, SWRM_CMD_FIFO_CFG_ADDR,
+ 				SWRM_RD_WR_CMD_RETRIES);
++		if (ret)
++			return ret;
+ 	}
+ 
+ 	/* COMP Enable */
+-	ctrl->reg_write(ctrl, SWRM_COMP_CFG_ADDR, SWRM_COMP_CFG_ENABLE_MSK);
++	ret = ctrl->reg_write(ctrl, SWRM_COMP_CFG_ADDR, SWRM_COMP_CFG_ENABLE_MSK);
++	if (ret)
++		return ret;
+ 
+ 	/* Set IRQ to PULSE */
+-	ctrl->reg_write(ctrl, SWRM_COMP_CFG_ADDR,
++	ret = ctrl->reg_write(ctrl, SWRM_COMP_CFG_ADDR,
+ 			SWRM_COMP_CFG_IRQ_LEVEL_OR_PULSE_MSK);
++	if (ret)
++		return ret;
+ 
+-	ctrl->reg_write(ctrl, ctrl->reg_layout[SWRM_REG_INTERRUPT_CLEAR],
++	ret = ctrl->reg_write(ctrl, ctrl->reg_layout[SWRM_REG_INTERRUPT_CLEAR],
+ 			0xFFFFFFFF);
++	if (ret)
++		return ret;
+ 
+ 	/* enable CPU IRQs */
+ 	if (ctrl->mmio) {
+-		ctrl->reg_write(ctrl, ctrl->reg_layout[SWRM_REG_INTERRUPT_CPU_EN],
++		ret = ctrl->reg_write(ctrl, ctrl->reg_layout[SWRM_REG_INTERRUPT_CPU_EN],
+ 				SWRM_INTERRUPT_STATUS_RMSK);
++		if (ret)
++			return ret;
+ 	}
+ 
+ 	/* Set IRQ to PULSE */
+-	ctrl->reg_write(ctrl, SWRM_COMP_CFG_ADDR,
++	ret = ctrl->reg_write(ctrl, SWRM_COMP_CFG_ADDR,
+ 			SWRM_COMP_CFG_IRQ_LEVEL_OR_PULSE_MSK |
+ 			SWRM_COMP_CFG_ENABLE_MSK);
++	if (ret)
++		return ret;
+ 
+-	swrm_wait_for_frame_gen_enabled(ctrl);
++	ret = swrm_wait_for_frame_gen_enabled(ctrl);
++	if (ret)
++		return ret;
+ 	ctrl->slave_status = 0;
+-	ctrl->reg_read(ctrl, SWRM_COMP_PARAMS, &val);
++	ret = ctrl->reg_read(ctrl, SWRM_COMP_PARAMS, &val);
++	if (ret)
++		return ret;
+ 
+ 	if (ctrl->version >= SWRM_VERSION_3_1_0)
+ 		ctrl->wr_fifo_depth = FIELD_GET(SWRM_V3_COMP_PARAMS_WR_FIFO_DEPTH, val);
+@@ -1921,7 +1975,9 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 		goto err_clk;
+ 	}
+ 
+-	qcom_swrm_init(ctrl);
++	ret = qcom_swrm_init(ctrl);
++	if (ret)
++		goto err_master_add;
+ 	if (!wait_event_timeout(ctrl->slaves_wait,
+ 				qcom_swrm_all_slaves_online(ctrl),
+ 				msecs_to_jiffies(TIMEOUT_MS))) {
+@@ -2004,6 +2060,7 @@ static void qcom_swrm_remove(struct platform_device *pdev)
+ static int __maybe_unused swrm_runtime_resume(struct device *dev)
+ {
+ 	struct qcom_swrm_ctrl *ctrl = dev_get_drvdata(dev);
++	bool wake_irq_disabled = false;
+ 	int ret;
+ 
+ 	ret = clk_prepare_enable(ctrl->hclk);
+@@ -2011,61 +2068,98 @@ static int __maybe_unused swrm_runtime_resume(struct device *dev)
+ 		return ret;
+ 
+ 	if (ctrl->wake_irq > 0) {
+-		if (!irqd_irq_disabled(irq_get_irq_data(ctrl->wake_irq)))
++		if (!irqd_irq_disabled(irq_get_irq_data(ctrl->wake_irq))) {
+ 			disable_irq_nosync(ctrl->wake_irq);
++			wake_irq_disabled = true;
++		}
+ 	}
+ 
+ 	if (ctrl->clock_stop_not_supported) {
+ 		reinit_completion(&ctrl->enumeration);
+-		ctrl->reg_write(ctrl, SWRM_COMP_SW_RESET, 0x01);
++		ret = ctrl->reg_write(ctrl, SWRM_COMP_SW_RESET, 0x01);
++		if (ret)
++			goto err_clk;
+ 		usleep_range(100, 105);
+ 
+-		qcom_swrm_init(ctrl);
++		ret = qcom_swrm_init(ctrl);
++		if (ret)
++			goto err_clk;
+ 
+ 		usleep_range(100, 105);
+-		if (!swrm_wait_for_frame_gen_enabled(ctrl))
+-			dev_err(ctrl->dev, "link failed to connect\n");
++		ret = swrm_wait_for_frame_gen_enabled(ctrl);
++		if (ret)
++			goto err_clk;
+ 
+ 		/* wait for hw enumeration to complete */
+-		wait_for_completion_timeout(&ctrl->enumeration,
+-					    msecs_to_jiffies(TIMEOUT_MS));
++		if (!wait_for_completion_timeout(&ctrl->enumeration,
++						 msecs_to_jiffies(TIMEOUT_MS))) {
++			ret = -ETIMEDOUT;
++			goto err_clk;
++		}
+ 		qcom_swrm_get_device_status(ctrl);
+ 		sdw_handle_slave_status(&ctrl->bus, ctrl->status);
+ 	} else {
+-		reset_control_reset(ctrl->audio_cgcr);
++		ret = reset_control_reset(ctrl->audio_cgcr);
++		if (ret)
++			goto err_clk;
+ 
+ 		if (ctrl->version == SWRM_VERSION_1_7_0) {
+-			ctrl->reg_write(ctrl, SWRM_LINK_MANAGER_EE, SWRM_EE_CPU);
+-			ctrl->reg_write(ctrl, SWRM_MCP_BUS_CTRL,
++			ret = ctrl->reg_write(ctrl, SWRM_LINK_MANAGER_EE, SWRM_EE_CPU);
++			if (ret)
++				goto err_clk;
++			ret = ctrl->reg_write(ctrl, SWRM_MCP_BUS_CTRL,
+ 					SWRM_MCP_BUS_CLK_START << SWRM_EE_CPU);
++			if (ret)
++				goto err_clk;
+ 		} else if (ctrl->version >= SWRM_VERSION_2_0_0) {
+-			ctrl->reg_write(ctrl, SWRM_LINK_MANAGER_EE, SWRM_EE_CPU);
+-			ctrl->reg_write(ctrl, SWRM_V2_0_CLK_CTRL,
++			ret = ctrl->reg_write(ctrl, SWRM_LINK_MANAGER_EE, SWRM_EE_CPU);
++			if (ret)
++				goto err_clk;
++			ret = ctrl->reg_write(ctrl, SWRM_V2_0_CLK_CTRL,
+ 					SWRM_V2_0_CLK_CTRL_CLK_START);
++			if (ret)
++				goto err_clk;
+ 		} else {
+-			ctrl->reg_write(ctrl, SWRM_MCP_BUS_CTRL, SWRM_MCP_BUS_CLK_START);
++			ret = ctrl->reg_write(ctrl, SWRM_MCP_BUS_CTRL, SWRM_MCP_BUS_CLK_START);
++			if (ret)
++				goto err_clk;
+ 		}
+-		ctrl->reg_write(ctrl, ctrl->reg_layout[SWRM_REG_INTERRUPT_CLEAR],
++		ret = ctrl->reg_write(ctrl, ctrl->reg_layout[SWRM_REG_INTERRUPT_CLEAR],
+ 			SWRM_INTERRUPT_STATUS_MASTER_CLASH_DET);
++		if (ret)
++			goto err_clk;
+ 
+ 		ctrl->intr_mask |= SWRM_INTERRUPT_STATUS_MASTER_CLASH_DET;
+-		if (ctrl->version < SWRM_VERSION_2_0_0)
+-			ctrl->reg_write(ctrl,
++		if (ctrl->version < SWRM_VERSION_2_0_0) {
++			ret = ctrl->reg_write(ctrl,
+ 					ctrl->reg_layout[SWRM_REG_INTERRUPT_MASK_ADDR],
+ 					ctrl->intr_mask);
+-		ctrl->reg_write(ctrl, ctrl->reg_layout[SWRM_REG_INTERRUPT_CPU_EN],
++			if (ret)
++				goto err_clk;
++		}
++		ret = ctrl->reg_write(ctrl, ctrl->reg_layout[SWRM_REG_INTERRUPT_CPU_EN],
+ 				ctrl->intr_mask);
++		if (ret)
++			goto err_clk;
+ 
+ 		usleep_range(100, 105);
+-		if (!swrm_wait_for_frame_gen_enabled(ctrl))
+-			dev_err(ctrl->dev, "link failed to connect\n");
++		ret = swrm_wait_for_frame_gen_enabled(ctrl);
++		if (ret)
++			goto err_clk;
+ 
+ 		ret = sdw_bus_exit_clk_stop(&ctrl->bus);
+ 		if (ret < 0)
+-			dev_err(ctrl->dev, "bus failed to exit clock stop %d\n", ret);
++			goto err_clk;
+ 	}
+ 
+ 	return 0;
++
++err_clk:
++	dev_err(dev, "runtime resume failed: %d\n", ret);
++	clk_disable_unprepare(ctrl->hclk);
++	if (wake_irq_disabled)
++		enable_irq(ctrl->wake_irq);
++	return ret;
+ }
+ 
+ static int __maybe_unused swrm_runtime_suspend(struct device *dev)
+diff --git a/drivers/usb/core/message.c b/drivers/usb/core/message.c
+index 0cd6dd2b6334bc6025d89f6ed199639393cf229c..0787951bc977a8218b5c884e8e164cc419dfd715 100644
+--- a/drivers/usb/core/message.c
++++ b/drivers/usb/core/message.c
+@@ -1230,7 +1230,8 @@ int usb_get_status(struct usb_device *dev, int recip, int type, int target,
+ 		ret = 0;
+ 		break;
+ 	default:
+-		ret = -EIO;
++		if (ret >= 0)
++			ret = -EIO;
+ 	}
+ 
+ 	kfree(status);

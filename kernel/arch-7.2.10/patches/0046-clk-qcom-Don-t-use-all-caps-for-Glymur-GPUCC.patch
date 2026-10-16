@@ -1,0 +1,35 @@
+From 579f76d0ccb6459544ce1597b5d09d0867874674 Mon Sep 17 00:00:00 2001
+From: Luca Weiss <luca.weiss@fairphone.com>
+Date: Wed, 1 Jul 2026 08:19:30 +0200
+Subject: [PATCH 046/127] clk: qcom: Don't use all caps for Glymur GPUCC
+
+All other Glymur driver use "Glymur" and not all caps "GLYMUR". Align
+the prompt and help text.
+
+Signed-off-by: Luca Weiss <luca.weiss@fairphone.com>
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260701-glymur-uncaps-v1-1-5f7065348eb2@fairphone.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit 027dc284d5b36733c0868045ff58b6b25b786bb5)
+---
+ drivers/clk/qcom/Kconfig | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/clk/qcom/Kconfig b/drivers/clk/qcom/Kconfig
+index 7d84c2f1d911a35430bba7670409f59972dcca0f..4169ecd95ef3b79192a2ed5b4aaf4a68c7bbd538 100644
+--- a/drivers/clk/qcom/Kconfig
++++ b/drivers/clk/qcom/Kconfig
+@@ -65,11 +65,11 @@ config CLK_GLYMUR_GCC
+ 	  I2C, USB, UFS, SDCC, etc.
+ 
+ config CLK_GLYMUR_GPUCC
+-	tristate "GLYMUR Graphics Clock Controller"
++	tristate "Glymur Graphics Clock Controller"
+ 	depends on ARM64 || COMPILE_TEST
+ 	select CLK_GLYMUR_GCC
+ 	help
+-	  Support for the graphics clock controller on GLYMUR devices.
++	  Support for the graphics clock controller on Glymur devices.
+ 	  Say Y if you want to support graphics controller devices and
+ 	  functionality such as 3D graphics.
+ 

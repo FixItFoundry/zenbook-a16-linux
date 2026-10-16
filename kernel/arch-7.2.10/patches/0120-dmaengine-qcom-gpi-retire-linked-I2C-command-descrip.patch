@@ -1,0 +1,44 @@
+From 2dbc7fbd95f6bbfe8abae7ea213e1954965f931e Mon Sep 17 00:00:00 2001
+From: Codex <codex@local>
+Date: Wed, 7 Oct 2026 17:21:19 -0400
+Subject: [PATCH 120/127] dmaengine: qcom: gpi: retire linked I2C command
+ descriptors
+
+Apply the September 9 upstream fix by Vsevolod Nevorotov, reviewed by Dmitry Baryshkov: https://lists.openwall.net/linux-kernel/2026/09/09/2321. A linked GO command must emit EOB and release its TX ring entry without a client completion; RX EOT supplies the read completion.
+---
+ drivers/dma/qcom/gpi.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/dma/qcom/gpi.c b/drivers/dma/qcom/gpi.c
+index a5055a6273af62543532c41620556503dab35ea0..a1ab63bf9f667706b347bfed9e88e30b64e6645c 100644
+--- a/drivers/dma/qcom/gpi.c
++++ b/drivers/dma/qcom/gpi.c
+@@ -1050,6 +1050,13 @@ static void gpi_process_xfer_compl_event(struct gchan *gchan,
+ 			return;
+ 	}
+ 
++	if (compl_event->code == MSM_GPI_TCE_EOB &&
++	    gchan->protocol == QCOM_GPI_I2C &&
++	    (gpi_desc->tre[gpi_desc->num_tre - 1].dword[3] & TRE_FLAGS_LINK)) {
++		dma_cookie_complete(&vd->tx);
++		goto gpi_free_desc;
++	}
++
+ 	if (compl_event->code == MSM_GPI_TCE_UNEXP_ERR) {
+ 		dev_err(gpii->gpi_dev->dev, "Error in Transaction\n");
+ 		result.result = DMA_TRANS_ABORTED;
+@@ -1668,10 +1675,12 @@ static int gpi_create_i2c_tre(struct gchan *chan, struct gpi_desc *desc,
+ 
+ 		tre->dword[3] = u32_encode_bits(TRE_TYPE_GO, TRE_FLAGS_TYPE);
+ 
+-		if (i2c->multi_msg)
++		if (i2c->multi_msg) {
++			tre->dword[3] |= u32_encode_bits(1, TRE_FLAGS_IEOB);
+ 			tre->dword[3] |= u32_encode_bits(1, TRE_FLAGS_LINK);
+-		else
++		} else {
+ 			tre->dword[3] |= u32_encode_bits(1, TRE_FLAGS_CHAIN);
++		}
+ 	}
+ 
+ 	if (i2c->op == I2C_READ || i2c->multi_msg == false) {

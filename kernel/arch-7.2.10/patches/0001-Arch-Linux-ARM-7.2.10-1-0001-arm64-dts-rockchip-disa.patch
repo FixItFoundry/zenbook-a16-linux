@@ -1,0 +1,23 @@
+From 8a16285b60a22a74dab19e154facd76a516373b8 Mon Sep 17 00:00:00 2001
+From: A16 build preparation <a16-build@localhost>
+Date: Wed, 14 Oct 2026 20:40:21 -0400
+Subject: [PATCH 001/127] Arch Linux ARM 7.2.10-1:
+ 0001-arm64-dts-rockchip-disable-pwm0-on-rk3399-firefly.patch
+
+---
+ arch/arm64/boot/dts/rockchip/rk3399-firefly.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3399-firefly.dts b/arch/arm64/boot/dts/rockchip/rk3399-firefly.dts
+index 0568dfa140b32923e6022160d1a9a86497560302..ca2f4b82be354a1fb32b587e234b7678f01cad49 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3399-firefly.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3399-firefly.dts
+@@ -751,7 +751,7 @@ wifi_host_wake_l: wifi-host-wake-l {
+ };
+ 
+ &pwm0 {
+-	status = "okay";
++	status = "disabled";
+ };
+ 
+ &pwm2 {

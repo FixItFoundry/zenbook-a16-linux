@@ -1,0 +1,42 @@
+pkgname=omarchy-a16-support
+pkgver=20261014
+pkgrel=10
+pkgdesc='Experimental ASUS Zenbook A16 audio and early DSP support'
+arch=(aarch64)
+url='https://github.com/FixItFoundry/zenbook-a16-linux'
+license=(BSD-3-Clause GPL-2.0-only)
+# The shared kernel keeps this capability only while it carries the audited
+# early-DSP interface. Stable updates retain support without a version pin.
+depends=(alsa-ucm-conf mkinitcpio wireplumber python util-linux
+         'omarchy-a16-dsp-abi=1' linux-omarchy-headers asus-zenbook-a16-firmware)
+source=(support.tar.xz)
+sha256sums=('@SUPPORT_SHA256@')
+
+check() {
+  cd "$srcdir/support"
+  python test_verify_boot.py
+  bash test.sh
+}
+
+package() {
+  cd "$srcdir/support"
+  install -Dm755 initcpio-install "$pkgdir/usr/lib/initcpio/install/omarchy-a16-dsp"
+  install -Dm755 initcpio-hook "$pkgdir/usr/lib/initcpio/hooks/omarchy-a16-dsp"
+  install -Dm644 remoteproc-blacklist.conf "$pkgdir/usr/share/omarchy-a16/remoteproc-blacklist.conf"
+  install -Dm644 mkinitcpio.conf "$pkgdir/usr/share/omarchy-a16/mkinitcpio.conf"
+  install -Dm644 GLYMUR-A16.tplg \
+    "$pkgdir/usr/lib/firmware/qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin"
+  install -Dm644 HiFi.conf "$pkgdir/usr/share/alsa/ucm2/Qualcomm/omarchy-a16/HiFi.conf"
+  install -Dm644 ucm.conf \
+    "$pkgdir/usr/share/alsa/ucm2/conf.d/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA.conf"
+  ln -s GLYMUR-ASUS-Zenbook-A16-UX3607OA.conf \
+    "$pkgdir/usr/share/alsa/ucm2/conf.d/glymur/ASUSTeKCOMPUTERINC.-ZenbookA16UX3607OA-1.0-UX3607OA.conf"
+  install -Dm644 51-glymur-ucm.conf \
+    "$pkgdir/usr/share/omarchy-a16/51-glymur-ucm.conf"
+  install -Dm644 LICENSE.BSD-3-Clause "$pkgdir/usr/share/licenses/$pkgname/LICENSE.BSD-3-Clause"
+  install -Dm644 GLYMUR-A16.build.txt "$pkgdir/usr/share/doc/$pkgname/topology-build.txt"
+  install -Dm644 SHA256SUMS "$pkgdir/usr/share/doc/$pkgname/source-SHA256SUMS"
+  install -Dm755 verify-boot.py "$pkgdir/usr/lib/omarchy-a16/verify-boot"
+  install -Dm644 60-omarchy-a16-boot-check.hook zz-omarchy-a16-boot-check.hook \
+    -t "$pkgdir/usr/share/libalpm/hooks"
+}

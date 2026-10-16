@@ -1,0 +1,29 @@
+From 329209e201168ed3e9d557879618186c9e1d00e5 Mon Sep 17 00:00:00 2001
+From: Ananthu C V <ananthu.cv@oss.qualcomm.com>
+Date: Fri, 24 Apr 2026 03:36:13 -0700
+Subject: [PATCH 009/127] dt-bindings: sram: document glymur as compatible
+
+Add compatible for Qualcomm's glymur IMEM, a block of sram which
+can fall back to mmio-sram.
+
+Acked-by: Rob Herring (Arm) <robh@kernel.org>
+Signed-off-by: Ananthu C V <ananthu.cv@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260424-glymur-imem-v5-1-18ede63cf063@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit fdb2f446c4e6758802d678858b5811d46709d0e6)
+---
+ Documentation/devicetree/bindings/sram/sram.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/sram/sram.yaml b/Documentation/devicetree/bindings/sram/sram.yaml
+index eb695698a03e44d8e817a1f3ab26a7b58ca7268f..5bf27c5f63e2c1935253b61fc408861634bebdf2 100644
+--- a/Documentation/devicetree/bindings/sram/sram.yaml
++++ b/Documentation/devicetree/bindings/sram/sram.yaml
+@@ -35,6 +35,7 @@ properties:
+         - nvidia,tegra194-sysram
+         - nvidia,tegra234-sysram
+         - qcom,eliza-imem
++        - qcom,glymur-imem
+         - qcom,hawi-imem
+         - qcom,kaanapali-imem
+         - qcom,milos-imem

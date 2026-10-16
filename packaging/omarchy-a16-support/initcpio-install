@@ -1,0 +1,65 @@
+#!/bin/bash
+# mkinitcpio build hook: only activated by the installed A16 profile.
+build() {
+  # mkinitcpio's BusyBox omits tr; the runtime model check requires it.
+  add_binary tr || die 'Could not include tr for A16 model detection'
+  local a16_abi=legacy
+  case "$KERNELVERSION" in
+    7.2.10-omarchy-a16-*) ;;
+    *)
+      read -r a16_abi < "/usr/lib/modules/$KERNELVERSION/omarchy-a16-dsp-abi" ||
+        die 'The A16 early-DSP profile requires its audited kernel capability'
+      [[ $a16_abi == 1 ]] || die 'Unsupported A16 early-DSP kernel ABI'
+      ;;
+  esac
+  local firmware directory suffix found module
+  for firmware in \
+    qcom/glymur/ASUSTeK/UX3607OA/qcadsp8480.mbn \
+    qcom/glymur/ASUSTeK/UX3607OA/adsp_dtbs.elf \
+    qcom/glymur/ASUSTeK/UX3607OA/qccdsp8480.mbn \
+    qcom/glymur/ASUSTeK/UX3607OA/cdsp_dtbs.elf \
+    qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin; do
+    found=0
+    for suffix in '' .zst .xz; do
+      for directory in /usr/lib/firmware/updates /usr/lib/firmware; do
+        if [[ -s $directory/$firmware$suffix ]]; then
+          add_file "$directory/$firmware$suffix" || die "Could not include A16 firmware: $firmware"
+          found=1
+          break 2
+        fi
+      done
+    done
+    if (( ! found )); then
+      # mkinitcpio deliberately ignores build()'s return status. Abort through
+      # its fatal-error API so an incomplete image cannot look successful.
+      die "Missing required A16 early firmware: $firmware"
+    fi
+  done
+  # The kernel's Glymur PD mapper supplies the service map; no untracked JSON
+  # copied from another laptop is needed. add_module includes dependencies.
+  # QRTR's RPMSG transport is not a direct dependency of the PD mapper.
+  for module in qrtr qrtr_smd qcom_q6v5_pas qcom_pd_mapper qcom_battmgr \
+    snd_soc_x1e80100 snd_soc_wsa884x soundwire_qcom \
+    pinctrl_sm8550_lpass_lpi snd_soc_lpass_wsa_macro snd_soc_lpass_va_macro; do
+    add_module "$module" || die "Missing required A16 DSP module: $module"
+  done
+  if [[ $a16_abi == 1 ]]; then
+    # Include the shared kernel's modular USB, PHY and display drivers.
+    # PHY dependencies are described by DT phandles, so modinfo's dependency
+    # closure alone cannot include the drivers needed to find USB/NVMe root.
+    for module in dwc3_qcom phy_qcom_qmp_combo phy_qcom_qmp_usb \
+      phy_qcom_m31_eusb2 phy_qcom_eusb2_repeater phy_qcom_qmp_pcie_multiphy \
+      qcom_glink_smem dispcc_glymur gpucc_glymur; do
+      add_module "$module" || die "Missing required A16 platform module: $module"
+    done
+  fi
+  # Block udev's automatic load until run_hook has checked the machine and
+  # rescue flag. Explicit modprobe in that hook does not use --use-blacklist.
+  add_file /usr/share/omarchy-a16/remoteproc-blacklist.conf \
+    /etc/modprobe.d/omarchy-a16-remoteproc.conf || die 'Could not include A16 DSP autoload guard'
+  add_runscript || die 'Could not include A16 DSP startup hook'
+}
+
+help() {
+  echo 'Load the audited A16 DSP stack before mounting the root filesystem.'
+}

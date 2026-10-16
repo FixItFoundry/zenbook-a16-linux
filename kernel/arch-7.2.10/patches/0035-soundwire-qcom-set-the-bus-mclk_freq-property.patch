@@ -1,0 +1,41 @@
+From 0b2342ca482ae69001e536c54b53460983a6ed21 Mon Sep 17 00:00:00 2001
+From: Jorijn van der Graaf <jorijnvdgraaf@catcrafts.net>
+Date: Tue, 28 Jul 2026 19:35:41 +0200
+Subject: [PATCH 035/127] soundwire: qcom: set the bus mclk_freq property
+
+sdw_slave_get_scale_index() needs bus->prop.mclk_freq to compute the
+SCP bus-clock base and scale register values, and fails with "no bus
+MCLK" when it is unset. The qcom controller never set it, so slave
+initialization cannot program the clock registers on this bus: it
+would fail outright for an SDCA-class slave, and a slave driver
+declaring clock_reg_supported hits the same error. The pending WCD9378
+codec driver hand-rolls these writes as a workaround, following its
+downstream counterpart.
+
+Report the controller clock, letting the core derive the same values
+the hand-rolled writes program: 19.2 MHz base and the scale matching
+the bus clock (half the double rate).
+
+Assisted-by: Claude:claude-fable-5
+Signed-off-by: Jorijn van der Graaf <jorijnvdgraaf@catcrafts.net>
+Tested-by: Srinivas Kandagatla <srinivas.kandagatla@oss.qualcomm.com>
+Reviewed-by: Srinivas Kandagatla <srinivas.kandagatla@oss.qualcomm.com>
+Link: https://patch.msgid.link/20260728173542.61146-1-jorijnvdgraaf@catcrafts.net
+Signed-off-by: Vinod Koul <vkoul@kernel.org>
+(cherry picked from commit f64c5d5ff8f9d25272562560ba1bc994f53a6def)
+---
+ drivers/soundwire/qcom.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index 3562802f42045fcdbd64ca6c5aefce0339b84201..55678a30cd4a1eeea7439ee403d236f0f74eb109 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -1633,6 +1633,7 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 
+ 	prop = &ctrl->bus.prop;
+ 	prop->max_clk_freq = DEFAULT_CLK_FREQ;
++	prop->mclk_freq = DEFAULT_CLK_FREQ;
+ 	prop->num_clk_gears = 0;
+ 	prop->num_clk_freq = MAX_FREQ_NUM;
+ 	prop->clk_freq = &qcom_swrm_freq_tbl[0];

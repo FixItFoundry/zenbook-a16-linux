@@ -1,0 +1,50 @@
+From f13349e440cccfffe557393221d621e2fd814d1b Mon Sep 17 00:00:00 2001
+From: Prasad Kumpatla <prasad.kumpatla@oss.qualcomm.com>
+Date: Tue, 18 Aug 2026 14:16:53 +0530
+Subject: [PATCH 054/127] ASoC: qcom: qdsp6: Zero-initialize AudioReach module
+ config
+
+q6apm_dai_prepare() and q6apm_dai_compr_set_params() build an
+AudioReach module config on the stack and populate only the fields
+needed for the stream type.
+
+Audio IF media-format setup treats zero slot_mask, nslots_per_frame and
+slot_width as a request to use the topology defaults. Leave those fields
+uninitialized and random stack data can override the topology values sent
+to the DSP.
+
+Initialize the whole config structure so omitted fields reliably retain
+their zero/default meaning.
+
+Reported-by: Sashiko <sashiko-bot@kernel.org>
+Link: https://sashiko.dev/#/patchset/20260804070307.117119-1-prasad.kumpatla@oss.qualcomm.com
+Signed-off-by: Prasad Kumpatla <prasad.kumpatla@oss.qualcomm.com>
+Link: https://patch.msgid.link/20260818084655.3240284-3-prasad.kumpatla@oss.qualcomm.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+(cherry picked from commit 9c9fb79f9769ba9042086817ee57aa4eef8b8a97)
+---
+ sound/soc/qcom/qdsp6/q6apm-dai.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/sound/soc/qcom/qdsp6/q6apm-dai.c b/sound/soc/qcom/qdsp6/q6apm-dai.c
+index bf1f872a09f45af43cbbe009cd80352d9e1f4e2c..033197bdd8705eaf1eafa7bd73264d5bca4a5952 100644
+--- a/sound/soc/qcom/qdsp6/q6apm-dai.c
++++ b/sound/soc/qcom/qdsp6/q6apm-dai.c
+@@ -216,7 +216,7 @@ static int q6apm_dai_prepare(struct snd_soc_component *component,
+ {
+ 	struct snd_pcm_runtime *runtime = substream->runtime;
+ 	struct q6apm_dai_rtd *prtd = runtime->private_data;
+-	struct audioreach_module_config cfg;
++	struct audioreach_module_config cfg = {};
+ 	struct device *dev = component->dev;
+ 	struct q6apm_dai_data *pdata;
+ 	int ret;
+@@ -814,7 +814,7 @@ static int q6apm_dai_compr_set_params(struct snd_soc_component *component,
+ 	struct snd_compr_runtime *runtime = stream->runtime;
+ 	struct q6apm_dai_rtd *prtd = runtime->private_data;
+ 	struct q6apm_dai_data *pdata;
+-	struct audioreach_module_config cfg;
++	struct audioreach_module_config cfg = {};
+ 	struct snd_codec *codec = &params->codec;
+ 	int dir = stream->direction;
+ 	int ret;

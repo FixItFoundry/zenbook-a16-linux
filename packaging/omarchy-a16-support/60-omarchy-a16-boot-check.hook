@@ -1,0 +1,18 @@
+[Trigger]
+Operation = Upgrade
+Type = Package
+Target = linux-omarchy-a16
+Target = linux-omarchy-a16-headers
+Target = linux-omarchy
+Target = linux-omarchy-headers
+Target = omarchy-a16-support
+Target = mkinitcpio
+Target = systemd
+Target = linux-firmware*
+Target = qcom-firmware-extract
+
+[Action]
+Description = Checking the A16 EFI system partition before updating...
+When = PreTransaction
+Exec = /usr/lib/omarchy-a16/verify-boot pre
+AbortOnFail

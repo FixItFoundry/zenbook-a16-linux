@@ -1,0 +1,84 @@
+From b9134de70503f444118cf5b765667e0d2a3e009a Mon Sep 17 00:00:00 2001
+From: Manivannan Sadhasivam <manivannan.sadhasivam@oss.qualcomm.com>
+Date: Wed, 29 Jul 2026 10:22:28 +0530
+Subject: [PATCH 104/127] PCI/ERR: Add support for resetting the Root Ports in
+ a platform-specific way
+
+Some host bridge devices require resetting the Root Ports in a platform
+specific way to recover them from error conditions such as Fatal AER
+errors, Link Down, etc. Introduce pci_host_bridge::reset_root_port()
+callback and call it from pcibios_reset_secondary_bus() if available. Also,
+save the Root Port config space before reset and restore it afterwards.
+
+The .reset_root_port() callback is responsible for resetting the given Root
+Port referenced by the 'pci_dev' pointer in a platform-specific way and
+bring it back to the working state if possible. If any error occurs during
+the reset operation, relevant errno should be returned.
+
+Signed-off-by: Manivannan Sadhasivam <manivannan.sadhasivam@linaro.org>
+Signed-off-by: Manivannan Sadhasivam <manivannan.sadhasivam@oss.qualcomm.com>
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+Tested-by: Brian Norris <briannorris@chromium.org>
+Tested-by: Krishna Chaitanya Chundru <krishna.chundru@oss.qualcomm.com>
+Tested-by: Richard Zhu <hongxing.zhu@nxp.com>
+Reviewed-by: Frank Li <Frank.Li@nxp.com>
+Link: https://patch.msgid.link/20260729-pci-port-reset-v9-2-53570b92064d@oss.qualcomm.com
+(cherry picked from commit 3fc686d550f6dba3f4fd53aec173b6dee15e7f98)
+---
+ drivers/pci/pci.c      | 13 +++++++++++++
+ drivers/pci/pcie/err.c |  5 -----
+ include/linux/pci.h    |  1 +
+ 3 files changed, 14 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
+index 80d2338b2a0a86c22b50d423093665d98679d6f2..c686c860e50271816c634d098f5cba649a24f387 100644
+--- a/drivers/pci/pci.c
++++ b/drivers/pci/pci.c
+@@ -4854,6 +4854,19 @@ void pci_reset_secondary_bus(struct pci_dev *dev)
+ 
+ void __weak pcibios_reset_secondary_bus(struct pci_dev *dev)
+ {
++	struct pci_host_bridge *host = pci_find_host_bridge(dev->bus);
++	int ret;
++
++	if (pci_is_root_bus(dev->bus) && host->reset_root_port) {
++		ret = host->reset_root_port(host, dev);
++		if (ret)
++			pci_err(dev, "Failed to reset Root Port: %d\n", ret);
++		else
++			pci_restore_state(dev);
++
++		return;
++	}
++
+ 	pci_reset_secondary_bus(dev);
+ }
+ 
+diff --git a/drivers/pci/pcie/err.c b/drivers/pci/pcie/err.c
+index bebe4bc111d756ded0ad8fabbef54ffde12156f5..13b9d9eb714fc648f051e49319da5f4071cc4385 100644
+--- a/drivers/pci/pcie/err.c
++++ b/drivers/pci/pcie/err.c
+@@ -256,11 +256,6 @@ pci_ers_result_t pcie_do_recovery(struct pci_dev *dev,
+ 	}
+ 
+ 	if (status == PCI_ERS_RESULT_NEED_RESET) {
+-		/*
+-		 * TODO: Should call platform-specific
+-		 * functions to reset slot before calling
+-		 * drivers' slot_reset callbacks?
+-		 */
+ 		status = PCI_ERS_RESULT_RECOVERED;
+ 		pci_dbg(bridge, "broadcast slot_reset message\n");
+ 		pci_walk_bridge(bridge, report_slot_reset, &status);
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 66a4fda05793de91ad2038a2c43521984e956e29..a70b4eb1987bade80b433fc3e09cdd1a41a6e198 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -650,6 +650,7 @@ struct pci_host_bridge {
+ 	void (*release_fn)(struct pci_host_bridge *);
+ 	int (*enable_device)(struct pci_host_bridge *bridge, struct pci_dev *dev);
+ 	void (*disable_device)(struct pci_host_bridge *bridge, struct pci_dev *dev);
++	int (*reset_root_port)(struct pci_host_bridge *bridge, struct pci_dev *dev);
+ 	void		*release_data;
+ 	unsigned int	ignore_reset_delay:1;	/* For entire hierarchy */
+ 	unsigned int	no_ext_tags:1;		/* No Extended Tags */

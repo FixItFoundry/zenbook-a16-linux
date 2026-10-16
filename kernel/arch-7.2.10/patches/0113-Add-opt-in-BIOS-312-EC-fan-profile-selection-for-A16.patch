@@ -1,0 +1,105 @@
+From 55e993ccf672362bc9d9c56cabc553ce14486f5e Mon Sep 17 00:00:00 2001
+From: Codex <codex@localhost>
+Date: Tue, 6 Oct 2026 16:05:11 -0400
+Subject: [PATCH 113/127] Add opt-in BIOS 312 EC fan profile selection for A16
+
+---
+ drivers/platform/arm64/asus-glymur-ec.c | 50 ++++++++++++++++++++++++-
+ 1 file changed, 48 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/platform/arm64/asus-glymur-ec.c b/drivers/platform/arm64/asus-glymur-ec.c
+index e345826cb632a70301323563a2052f119f638c35..889752f71c221f117b49e1673df13c96539ef066 100644
+--- a/drivers/platform/arm64/asus-glymur-ec.c
++++ b/drivers/platform/arm64/asus-glymur-ec.c
+@@ -22,6 +22,7 @@
+ #include <linux/lockdep.h>
+ #include <linux/module.h>
+ #include <linux/mutex.h>
++#include <linux/of.h>
+ #include <linux/pm.h>
+ #include <linux/types.h>
+ #include <linux/unaligned.h>
+@@ -47,6 +48,8 @@
+ #define ASUS_QCOM_EC_MODERN_STANDBY_ENTER	0x07
+ #define ASUS_QCOM_EC_MODERN_STANDBY_EXIT	0x08
+ 
++#define ASUS_QCOM_EC_FAN_PROFILE_CMD		0x24
++
+ /* ASUS-specific registers (secondary device @ 0x5b) */
+ #define ASUS_EC_SUBDEV_ADDR		0x5b
+ 
+@@ -77,6 +80,11 @@ enum asus_ec_event {
+ 	ASUS_EC_EVT_CHARGE_COMMIT = 0xe4,
+ };
+ 
++/* Opt-in firmware profile IDs from UX3607OA BIOS 312 IC10._DSM. */
++static int fan_profile = -1;
++module_param(fan_profile, int, 0444);
++MODULE_PARM_DESC(fan_profile, "A16 EC fan profile ID 0..3; -1 leaves firmware policy unchanged");
++
+ struct asus_ec {
+ 	struct i2c_client *client;
+ 	struct i2c_client *subdev_client;
+@@ -239,6 +247,30 @@ static int asus_ec_enable_writes(struct asus_ec *ec)
+ 				   ASUS_EC_MBOX_SUBCMD_MISC_ENABLE, 1);
+ }
+ 
++static int asus_ec_apply_fan_profile(struct asus_ec *ec)
++{
++	struct device *dev = &ec->client->dev;
++	int ret;
++
++	if (fan_profile == -1)
++		return 0;
++	if (fan_profile < 0 || fan_profile > 3)
++		return -EINVAL;
++	if (!of_device_is_compatible(dev->of_node, "asus,zenbook-a16-ux3607oa-ec"))
++		return -EOPNOTSUPP;
++
++	guard(mutex)(&ec->lock);
++
++	/* BIOS 312 uses AttribByte at offset 0x24, not a block/PWM command. */
++	ret = i2c_smbus_write_byte_data(ec->client,
++					ASUS_QCOM_EC_FAN_PROFILE_CMD, fan_profile);
++	if (ret < 0)
++		return ret;
++
++	dev_info(dev, "Requested EC fan profile %d\n", fan_profile);
++	return 0;
++}
++
+ static int asus_ec_read_version(struct asus_ec *ec, u8 *major, u8 *minor, u8 *patch)
+ {
+ 	u8 resp[ASUS_QCOM_EC_FULL_VER_LEN + 1];
+@@ -484,6 +516,10 @@ static int asus_glymur_ec_probe(struct i2c_client *client)
+ 
+ 	dev_dbg(dev, "ASUS Zenbook EC version %u.%u.%u\n", major, minor, patch);
+ 
++	ret = asus_ec_apply_fan_profile(ec);
++	if (ret < 0)
++		dev_warn(dev, "EC fan profile request failed: %d\n", ret);
++
+ 	ret = devm_request_threaded_irq(dev, client->irq, NULL, asus_ec_irq,
+ 					IRQF_ONESHOT, dev_name(dev), ec);
+ 	if (ret)
+@@ -518,8 +554,18 @@ static int asus_glymur_ec_suspend(struct device *dev)
+ 
+ static int asus_glymur_ec_resume(struct device *dev)
+ {
+-	return asus_glymur_ec_modern_standby(dev_get_drvdata(dev),
+-					     ASUS_QCOM_EC_MODERN_STANDBY_EXIT);
++	struct asus_ec *ec = dev_get_drvdata(dev);
++	int ret;
++
++	ret = asus_glymur_ec_modern_standby(ec, ASUS_QCOM_EC_MODERN_STANDBY_EXIT);
++	if (ret < 0)
++		return ret;
++
++	ret = asus_ec_apply_fan_profile(ec);
++	if (ret < 0)
++		dev_warn(dev, "EC fan profile request failed after resume: %d\n", ret);
++
++	return 0;
+ }
+ 
+ static DEFINE_SIMPLE_DEV_PM_OPS(asus_glymur_ec_pm_ops,

@@ -1,0 +1,71 @@
+From 43fc4ff421738df649c9bac18e77794e9285ea68 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Mon, 12 Oct 2026 09:14:36 -0400
+Subject: [PATCH 121/127] LOCAL: keep A16 speaker controllers runtime active
+ for audio prevention baseline
+
+---
+ .../devicetree/bindings/soundwire/qcom,soundwire.yaml      | 7 +++++++
+ .../boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts     | 6 ++++++
+ drivers/soundwire/qcom.c                                   | 6 ++++++
+ 3 files changed, 19 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/soundwire/qcom,soundwire.yaml b/Documentation/devicetree/bindings/soundwire/qcom,soundwire.yaml
+index 9447a2f371b56fb57a553da1a4d7bf83fef3fa4c..63211a0165cda60693eee2506cf2b7a30dee0b8f 100644
+--- a/Documentation/devicetree/bindings/soundwire/qcom,soundwire.yaml
++++ b/Documentation/devicetree/bindings/soundwire/qcom,soundwire.yaml
+@@ -72,6 +72,13 @@ properties:
+ 
+   wakeup-source: true
+ 
++  qcom,keep-runtime-active:
++    type: boolean
++    description:
++      Local Zenbook A16 test-only workaround that prevents controller runtime
++      autosuspend after probe. Does not repair detached slaves or establish
++      the detach cause. Userspace power/control can restore the auto policy.
++
+   qcom,din-ports:
+     $ref: /schemas/types.yaml#/definitions/uint32
+     description: count of data in ports
+diff --git a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+index 7fe60627bec703246efa5309fedab1ce66e2532d..254d95adedf19eaef112b08b64229c7061db72f3 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+@@ -1017,6 +1017,9 @@ &smb2370_k_e2_eusb2_repeater {
+ &swr0 {
+ 	status = "okay";
+ 
++	/* Prevention trial only: keep the speaker bus out of runtime suspend. */
++	qcom,keep-runtime-active;
++
+ 	/* WSA8845, left woofer */
+ 	left_woofer: speaker@0,0 {
+ 		compatible = "sdw20217020400";
+@@ -1045,6 +1048,9 @@ left_tweeter: speaker@0,1 {
+ &swr3 {
+ 	status = "okay";
+ 
++	/* Prevention trial only: keep the speaker bus out of runtime suspend. */
++	qcom,keep-runtime-active;
++
+ 	/* WSA8845, right woofer */
+ 	right_woofer: speaker@0,0 {
+ 		compatible = "sdw20217020400";
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index c375df38392bc8684567a2f132348da601f40288..4c747bf3bca5b2d2291a084173e9fefd0c89ce73 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -1960,6 +1960,12 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 	pm_runtime_mark_last_busy(dev);
+ 	pm_runtime_set_active(dev);
+ 	pm_runtime_enable(dev);
++	/* Test-only prevention workaround; userspace can restore power/control. */
++	if (of_machine_is_compatible("asus,zenbook-a16-ux3607oa") &&
++	    of_property_read_bool(dev->of_node, "qcom,keep-runtime-active")) {
++		pm_runtime_forbid(dev);
++		dev_info(dev, "runtime autosuspend disabled for audio prevention trial\n");
++	}
+ 	WRITE_ONCE(ctrl->recovery_ready, true);
+ 	if (atomic_read(&ctrl->recovery_pending))
+ 		schedule_work(&ctrl->recovery_work);

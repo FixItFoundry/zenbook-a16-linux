@@ -1,0 +1,38 @@
+From 1397204e0eb6a32dee055d5783b7b959592c145c Mon Sep 17 00:00:00 2001
+From: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Date: Tue, 21 Jul 2026 19:11:26 +0200
+Subject: [PATCH 026/127] dt-bindings: arm: qcom: Add Asus Zenbook A16
+ (UX3607OA)
+
+UX3607OA is a variant of the Asus Zenbook A16 built on the Qualcomm
+Glymur platform. It comes with an 18-core X2 Elite Extreme SoC, 48GiB
+of RAM, NVMe storage, a 2880 x 1800 OLED screen, and the other typical
+Glymur platform capabilities.
+
+The hardware wiring is very different versus the 14" SKU.
+
+Add a compatible for this machine.
+
+[1] https://www.asus.com/us/laptops/for-home/zenbook/asus-zenbook-a16-ux3607/techspec/
+
+Signed-off-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Acked-by: Krzysztof Kozlowski <krzysztof.kozlowski@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260721-topic-a16_submission-v1-1-8ea213130d05@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit 8ed8ee7499f2de55e3f63457936aaeb0ccbe0d72)
+---
+ Documentation/devicetree/bindings/arm/qcom.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/arm/qcom.yaml b/Documentation/devicetree/bindings/arm/qcom.yaml
+index 50cc18a6ec5eddaf48542b85387c2d430cd4721a..a256d762dbe67624b218009b068cc6feaa4457e9 100644
+--- a/Documentation/devicetree/bindings/arm/qcom.yaml
++++ b/Documentation/devicetree/bindings/arm/qcom.yaml
+@@ -68,6 +68,7 @@ properties:
+ 
+       - items:
+           - enum:
++              - asus,zenbook-a16-ux3607oa
+               - qcom,glymur-crd
+           - const: qcom,glymur
+ 

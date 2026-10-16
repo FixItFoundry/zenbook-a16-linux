@@ -1,0 +1,248 @@
+From aad36c452d16500ea55b39dbeeea975ca6236961 Mon Sep 17 00:00:00 2001
+From: Jie Gan <jie.gan@oss.qualcomm.com>
+Date: Wed, 24 Jun 2026 20:38:12 +0800
+Subject: [PATCH 016/127] arm64: dts: qcom: glymur: Add label properties to
+ CoreSight devices
+
+Add label properties to TPDM and CTI nodes in the glymur device tree to
+provide human-readable identifiers for each CoreSight device. These
+labels allow userspace tools and the CoreSight framework to identify
+devices by name rather than by base address.
+
+Signed-off-by: Jie Gan <jie.gan@oss.qualcomm.com>
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260624-add-label-node-for-glymur-v2-1-e8420fd7025f@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+(cherry picked from commit c4f26a1987f84a904880dc25598d26b178b829ec)
+---
+ arch/arm64/boot/dts/qcom/glymur.dtsi | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index 9cf16622ee6b46af79c0c227ceff6fa70feb4aa9..c37e8c6595c3c4310be2cce4b246afe47ba99c2d 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -6308,6 +6308,7 @@ tpdm@1000f000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_spdm";
+ 
+ 			qcom,cmb-element-bits = <32>;
+ 			qcom,cmb-msrs-num = <32>;
+@@ -6372,6 +6373,7 @@ tpdm@1102c000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_gcc";
+ 
+ 			qcom,dsb-msrs-num = <32>;
+ 
+@@ -6390,6 +6392,7 @@ tpdm@11180000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_cdsp";
+ 
+ 			qcom,dsb-element-bits = <32>;
+ 			qcom,dsb-msrs-num = <32>;
+@@ -6409,6 +6412,7 @@ tpdm@11185000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_cdsp_dpm_1";
+ 
+ 			qcom,cmb-element-bits = <64>;
+ 			qcom,cmb-msrs-num = <32>;
+@@ -6428,6 +6432,7 @@ tpdm@11186000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_cdsp_dpm_2";
+ 
+ 			qcom,cmb-element-bits = <64>;
+ 			qcom,cmb-msrs-num = <32>;
+@@ -6548,6 +6553,7 @@ cti@11193000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "cti_cdsp";
+ 		};
+ 
+ 		cti_wpss: cti@111ab000 {
+@@ -6556,6 +6562,7 @@ cti_wpss: cti@111ab000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "cti_wpss";
+ 		};
+ 
+ 		tpdm@111d0000 {
+@@ -6564,6 +6571,7 @@ tpdm@111d0000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_qm";
+ 
+ 			qcom,dsb-msrs-num = <32>;
+ 
+@@ -6739,6 +6747,7 @@ tpdm@11207000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_mm_dsb";
+ 
+ 			qcom,dsb-msrs-num = <32>;
+ 
+@@ -6757,6 +6766,7 @@ tpdm@1120b000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_east_dsb";
+ 
+ 			qcom,dsb-msrs-num = <32>;
+ 
+@@ -6775,6 +6785,7 @@ tpdm@11213000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_west_dsb";
+ 
+ 			qcom,dsb-msrs-num = <32>;
+ 
+@@ -6793,6 +6804,7 @@ tpdm@11219000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_center_dsb";
+ 
+ 			qcom,dsb-msrs-num = <32>;
+ 
+@@ -6811,6 +6823,7 @@ tpdm@1121a000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_ipcc";
+ 
+ 			qcom,cmb-msrs-num = <32>;
+ 
+@@ -6829,6 +6842,7 @@ tpdm@1121b000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_qrng";
+ 
+ 			qcom,cmb-msrs-num = <32>;
+ 
+@@ -6847,6 +6861,7 @@ tpdm@1121c000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_pmu";
+ 
+ 			qcom,dsb-msrs-num = <32>;
+ 
+@@ -6865,6 +6880,7 @@ tpdm@1121d000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_rdpm_cx";
+ 
+ 			qcom,cmb-msrs-num = <32>;
+ 
+@@ -6883,6 +6899,7 @@ tpdm@1121e000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_rdpm_mxc";
+ 
+ 			qcom,cmb-msrs-num = <32>;
+ 
+@@ -6901,6 +6918,7 @@ tpdm@1121f000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_rdpm_mxa";
+ 
+ 			qcom,cmb-msrs-num = <32>;
+ 
+@@ -6919,6 +6937,7 @@ tpdm@11220000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_center_dsb_1";
+ 
+ 			qcom,dsb-msrs-num = <32>;
+ 
+@@ -6937,6 +6956,7 @@ tpdm@11224000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_south2_dsb";
+ 
+ 			qcom,dsb-msrs-num = <32>;
+ 
+@@ -6955,6 +6975,7 @@ tpdm@11228000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_south_dsb";
+ 
+ 			qcom,dsb-msrs-num = <32>;
+ 
+@@ -6973,6 +6994,7 @@ tpdm@11470000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_pcie_rscc";
+ 
+ 			qcom,cmb-element-bits = <32>;
+ 			qcom,cmb-msrs-num = <32>;
+@@ -7016,6 +7038,7 @@ tpdm@11c03000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_swao_prio_4";
+ 
+ 			qcom,cmb-element-bits = <64>;
+ 			qcom,cmb-msrs-num = <32>;
+@@ -7194,6 +7217,7 @@ tpdm@11c09000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_swao_prio_0";
+ 
+ 			qcom,cmb-element-bits = <64>;
+ 			qcom,cmb-msrs-num = <32>;
+@@ -7213,6 +7237,7 @@ tpdm@11c0a000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_swao_prio_1";
+ 
+ 			qcom,cmb-element-bits = <64>;
+ 			qcom,cmb-msrs-num = <32>;
+@@ -7232,6 +7257,7 @@ tpdm@11c0b000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_swao_prio_2";
+ 
+ 			qcom,cmb-element-bits = <64>;
+ 			qcom,cmb-msrs-num = <32>;
+@@ -7251,6 +7277,7 @@ tpdm@11c0c000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_swao_prio_3";
+ 
+ 			qcom,cmb-element-bits = <64>;
+ 			qcom,cmb-msrs-num = <32>;
+@@ -7270,6 +7297,7 @@ tpdm@11c0d000 {
+ 
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
++			label = "tpdm_swao";
+ 
+ 			qcom,dsb-element-bits = <32>;
+ 			qcom,dsb-msrs-num = <32>;
