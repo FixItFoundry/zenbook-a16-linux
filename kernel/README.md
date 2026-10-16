@@ -10,7 +10,10 @@ JOBS=4 ./kernel/rc5-20261013/build.sh /path/to/linux /path/to/new-output
 ```
 
 The helper verifies the source, applies patches in a separate worktree, and builds
-Image, modules, DTB and RPMs. It does not install files or change boot selection.
+Image, modules, DTB, matching headers and RPMs. New releases add `-a16pkgN+` so
+they cannot overwrite the installed baseline. It does not install files or change
+boot selection. See the [Fedora/Ubuntu package contract](../packaging/zenbook-a16-kernel/README.md)
+for Ubuntu builds, rollback behavior and validation still required.
 
 | Package | Status |
 |---|---|

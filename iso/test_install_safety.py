@@ -115,14 +115,152 @@ class InstallSafety(unittest.TestCase):
                 ''', self.root, mount, fsroot)
                 self.assertEqual(result.returncode == 0, allowed, result.stderr)
 
-    def test_package_failures_abort(self):
-        for package, variable in [('rpm', 'rpm_dir'), ('dpkg', 'deb_dir')]:
-            with self.subTest(package=package):
+    def package_fixture(self, distro):
+        directory = self.root / ('rpms' if distro == 'fedora' else 'debs')
+        directory.mkdir()
+        extension = 'rpm' if distro == 'fedora' else 'deb'
+        payload = 'kernel-zenbook-a16-k' if distro == 'fedora' else 'linux-image-k'
+        for name in ('zenbook-a16-support', payload, 'zenbook-a16-kernel'):
+            (directory / f'{name}.{extension}').write_text('package fixture')
+        return directory
+
+    def test_package_discovery_includes_support_payload_and_meta(self):
+        for distro in ('fedora', 'ubuntu'):
+            with self.subTest(distro=distro):
+                directory = self.package_fixture(distro)
+                result = self.shell('zenbook-install-to-disk.sh', '''
+                    BUNDLE="$1"; DISTRO="$2"; KREL=k; target="$1/target"
+                    rpm() { basename "$4" .rpm; }
+                    dpkg-deb() { basename "$2" .deb; }; dpkg() { :; }
+                    discover_kernel_packages
+                    printf '%s\n' "${package_files[@]}"
+                ''', self.root, distro)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                files = result.stdout.splitlines()
+                self.assertEqual(len(files), 3)
+                self.assertIn('zenbook-a16-support', files[0])
+                self.assertIn('zenbook-a16-kernel', files[2])
+                shutil.rmtree(directory)
+
+    def test_unexpected_and_accumulated_package_sets_are_rejected(self):
+        directory = self.package_fixture('fedora')
+        (directory / 'unrelated.rpm').write_text('unexpected package')
+        result = self.shell('zenbook-install-to-disk.sh',
+                            'BUNDLE="$1"; DISTRO=fedora; KREL=k; discover_kernel_packages', self.root)
+        self.assertNotEqual(result.returncode, 0)
+        (directory / 'unrelated.rpm').unlink()
+        result = self.shell('zenbook-install-to-disk.sh', '''
+            BUNDLE="$1"; DISTRO=fedora; KREL=another-release
+            rpm() { basename "$4" .rpm; }
+            discover_kernel_packages
+        ''', self.root)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('unexpected package', result.stderr)
+
+    def test_existing_release_is_rejected_and_old_release_preserved(self):
+        paths = ('boot/vmlinuz-k', 'boot/config-k', 'boot/dtb-k', 'boot/glymur/k.dtb', 'boot/dtbs/k',
+                 'boot/initramfs-k.img', 'boot/initrd.img-k', 'lib/modules/k', 'usr/lib/modules/k')
+        for index, path in enumerate(paths):
+            with self.subTest(path=path):
+                target = self.root / str(index)
+                existing = target / path
+                existing.parent.mkdir(parents=True)
+                existing.write_text('working artifact')
                 result = self.shell('zenbook-install-to-disk.sh',
-                                    f'target="$1"; {variable}="$1"; {package}() {{ return 23; }}; '
+                                    'target="$1"; KREL=k; check_release_destinations', target)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(existing.read_text(), 'working artifact')
+        target = self.root / 'new-target'
+        old = target / 'boot/vmlinuz-old-release'
+        old.parent.mkdir(parents=True)
+        old.write_text('old kernel')
+        result = self.shell('zenbook-install-to-disk.sh',
+                            'target="$1"; KREL=k; check_release_destinations', target)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(old.read_text(), 'old kernel')
+
+    def test_package_failures_abort(self):
+        for distro, command in [('fedora', 'rpm'), ('ubuntu', 'chroot')]:
+            with self.subTest(distro=distro):
+                result = self.shell('zenbook-install-to-disk.sh',
+                                    f'target="$1"; DISTRO={distro}; package_files=(support payload meta); target_package_files=(/mnt/support /mnt/payload /mnt/meta); '
+                                    f'{command}() {{ return 23; }}; '
                                     'install_kernel_packages; echo SUCCESS', self.root)
                 self.assertEqual(result.returncode, 23)
                 self.assertNotIn('SUCCESS', result.stdout)
+
+    def test_package_dry_run_fails_before_any_target_writes(self):
+        for distro in ('fedora', 'ubuntu'):
+            with self.subTest(distro=distro):
+                stage = self.root / distro
+                stage.mkdir()
+                directory = self.package_fixture(distro)
+                bundle = stage / 'bundle'
+                bundle.mkdir()
+                directory.rename(bundle / directory.name)
+                scripts = stage / 'iso'
+                scripts.mkdir()
+                shutil.copy(ISO / 'zenbook-install-to-disk.sh', scripts)
+                (bundle / 'lib/modules/k').mkdir(parents=True)
+                for filename in ('vmlinuz-k', 'glymur-asus-zenbook-a16-ux3607oa.dtb'):
+                    (bundle / filename).write_text('build artifact')
+                hooks = bundle / 'packaging/zenbook-a16-hooks/install-hooks.sh'
+                hooks.parent.mkdir(parents=True)
+                hooks.write_text('#!/bin/bash\nexit 0\n')
+                hooks.chmod(0o755)
+                verifier = bundle / 'packaging/omarchy-a16-support/verify-boot.py'
+                verifier.parent.mkdir(parents=True)
+                verifier.write_text('pass\n')
+                (bundle / 'firmware/qcom').mkdir(parents=True)
+                (bundle / 'glymur-fetch-firmware.sh').write_text('#!/bin/bash\nexit 0\n')
+                target = stage / 'target'
+                (target / 'etc/kernel').mkdir(parents=True)
+                (target / 'mnt').mkdir()
+                (target / 'etc/os-release').write_text(f'ID={distro}\n')
+                (target / 'etc/kernel/cmdline').write_text('root=UUID=original ro\n')
+                before = sorted(str(path.relative_to(target)) for path in target.rglob('*'))
+                trace = stage / 'trace'
+                result = subprocess.run(['bash', '-c', '''
+                    source "$1"
+                    trace="$3"
+                    id() { echo 0; }; uname() { echo aarch64; }
+                    mountpoint() { [[ "$2" != "$target/mnt" ]]; }
+                    chroot() { if [[ "$2" == apt-get && "$3" == --simulate ]]; then return 37; fi; }
+                    dtc() { :; }; fdtget() { :; }
+                    findmnt() { if [[ "$*" == *FSROOT* ]]; then echo /; else echo "$target"; fi; }
+                    mount() { printf 'mount %s\n' "$*" >> "$trace"; }
+                    umount() { printf 'umount %s\n' "$*" >> "$trace"; }
+                    rpm() { if [[ "$1" == -qp ]]; then basename "$4" .rpm; else return 37; fi; }
+                    dpkg-deb() { basename "$2" .deb; }
+                    KREL=k
+                    main "$2"
+                ''', 'test', str(scripts / 'zenbook-install-to-disk.sh'), str(target), str(trace)],
+                                        text=True, capture_output=True)
+                self.assertEqual(result.returncode, 37, result.stderr)
+                if distro == 'ubuntu':
+                    operations = trace.read_text().splitlines()
+                    self.assertEqual(len(operations), 3)
+                    self.assertIn('remount,bind,ro', operations[1])
+                    self.assertTrue(operations[2].startswith('umount '))
+                    self.assertTrue(all(str(target / 'mnt') in operation for operation in operations))
+                else:
+                    self.assertFalse(trace.exists())
+                self.assertEqual(sorted(str(path.relative_to(target)) for path in target.rglob('*')), before)
+                self.assertEqual((target / 'etc/kernel/cmdline').read_text(), 'root=UUID=original ro\n')
+
+    def test_ubuntu_package_staging_refuses_a_busy_mnt(self):
+        target = self.root / 'target'
+        (target / 'mnt').mkdir(parents=True)
+        (target / 'mnt/existing-data').write_text('preserve')
+        result = self.shell('zenbook-install-to-disk.sh', '''
+            target="$1"; BUNDLE="$1/bundle"; package_files=(support payload meta)
+            mountpoint() { return 1; }
+            mount() { echo UNEXPECTED_MOUNT; return 99; }
+            bind_package_directory
+        ''', target)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn('UNEXPECTED_MOUNT', result.stdout)
+        self.assertEqual((target / 'mnt/existing-data').read_text(), 'preserve')
 
     def test_initramfs_and_boot_failures_abort_before_success(self):
         for distro, failing in [('fedora', 'dracut'), ('fedora', 'kernel-install'),

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Reproduce the RC5 soc2 baseline kernel and build a Fedora-installable RPM.
+# Build the pinned soc2 source as a separately versioned A16 kernel package.
 set -Eeuo pipefail
 
 usage() {
@@ -15,6 +15,7 @@ Environment:
   BUILD_RPM=1     Build Fedora-installable RPMs (default: 1).
   BUILD_DEB=0     Build Ubuntu/Debian-installable DEBs (default: 0).
   STAGE_BUNDLE=1  Stage portable distro-agnostic bundle (default: 1).
+  PACKAGE_REVISION=1  Positive revision; changes uname and package version.
   ARCH=arm64      Kernel architecture.
   CROSS_COMPILE=  Optional cross-compiler prefix.
 EOF
@@ -39,6 +40,8 @@ jobs=${JOBS:-4}
 build_rpm=${BUILD_RPM:-1}
 build_deb=${BUILD_DEB:-0}
 stage_bundle=${STAGE_BUNDLE:-1}
+revision=${PACKAGE_REVISION:-1}
+local_version="-a16pkg${revision}+"
 export ARCH=${ARCH:-arm64}
 export CROSS_COMPILE=${CROSS_COMPILE:-}
 
@@ -58,7 +61,9 @@ fi
 [[ "$build_deb" == 0 || "$build_deb" == 1 ]] || { echo "error: BUILD_DEB must be 0 or 1" >&2; exit 1; }
 [[ "$stage_bundle" == 0 || "$stage_bundle" == 1 ]] || { echo "error: STAGE_BUNDLE must be 0 or 1" >&2; exit 1; }
 
-for command in git make python3 sha256sum; do
+[[ "$revision" =~ ^[1-9][0-9]*$ ]] || { echo "error: PACKAGE_REVISION must be a positive integer" >&2; exit 1; }
+
+for command in git make python3 sha256sum dtc fdtget; do
     command -v "$command" >/dev/null || { echo "error: missing command: $command" >&2; exit 1; }
 done
 if [[ "$build_rpm" == 1 ]]; then
@@ -70,17 +75,13 @@ if [[ "$build_rpm" == 1 ]]; then
     done
 fi
 if [[ "$build_deb" == 1 ]]; then
-    for command in dpkg-buildpackage dpkg-deb; do
-        command -v "$command" >/dev/null || {
-            echo "error: $command is required (Debian/Ubuntu: sudo apt-get install dpkg-dev)" >&2
-            exit 1
-        }
-    done
+    command -v dpkg-deb >/dev/null || { echo 'error: dpkg-deb is required' >&2; exit 1; }
 fi
 
 base=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["base"])' "$meta")
 expected_tree=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source_tree"])' "$meta")
-expected_release=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["release"])' "$meta")
+baseline_release=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["release"])' "$meta")
+expected_release="${baseline_release%+}${local_version}"
 
 git -C "$linux_git" cat-file -e "$base^{commit}" 2>/dev/null || {
     echo "error: the Linux repository does not contain base commit $base" >&2
@@ -93,6 +94,8 @@ output=$(realpath "$output")
 source_tree="$output/source"
 object_dir="$output/build"
 bundle="$output/bundle"
+payload="$bundle"
+[[ "$stage_bundle" == 1 ]] || payload="$output/package-input"
 
 echo "Creating an isolated source worktree..."
 git -C "$linux_git" worktree add --detach "$source_tree" "$base"
@@ -109,15 +112,15 @@ actual_tree=$(git -C "$source_tree" rev-parse 'HEAD^{tree}')
 
 mkdir -p "$object_dir"
 cp "$project/kernel/rc5-20261013/config" "$object_dir/.config"
-make -C "$source_tree" O="$object_dir" LOCALVERSION=+ olddefconfig
-release=$(make -s -C "$source_tree" O="$object_dir" LOCALVERSION=+ kernelrelease)
+make -C "$source_tree" O="$object_dir" LOCALVERSION="$local_version" olddefconfig
+release=$(make -s -C "$source_tree" O="$object_dir" LOCALVERSION="$local_version" kernelrelease)
 [[ "$release" == "$expected_release" ]] || {
     echo "error: kernel release is $release; expected $expected_release" >&2
     exit 1
 }
 
 echo "Building $release with $jobs jobs..."
-make -C "$source_tree" O="$object_dir" LOCALVERSION=+ -j"$jobs" Image modules dtbs
+make -C "$source_tree" O="$object_dir" LOCALVERSION="$local_version" -j"$jobs" Image modules dtbs
 
 echo "Verifying built device tree..."
 dtb_file="$object_dir/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dtb"
@@ -139,97 +142,35 @@ grep -q 'qcom,keep-runtime-active;' <<< "$dt_source" || {
 }
 echo "Verified: DTB contains qcom,keep-runtime-active;"
 
-if [[ "$stage_bundle" == 1 ]]; then
-    echo "Staging portable distro-agnostic bundle at $bundle..."
-    mkdir -p "$bundle"
-    make -C "$source_tree" O="$object_dir" LOCALVERSION=+ \
-        INSTALL_MOD_PATH="$bundle" modules_install
-
-    install -Dm644 "$object_dir/arch/arm64/boot/Image" "$bundle/vmlinuz-$release"
-    install -Dm644 "$dtb_file" "$bundle/glymur-asus-zenbook-a16-ux3607oa.dtb"
-    ln -sf "glymur-asus-zenbook-a16-ux3607oa.dtb" "$bundle/$release.dtb"
-    install -Dm644 "$object_dir/.config" "$bundle/config-$release"
-
-    rm -f "$bundle/lib/modules/$release/build" "$bundle/lib/modules/$release/source"
-
-    # Bind boot policy to this verified source build, not an arbitrary installed kernel.
-    python3 - "$bundle/lib/modules/$release/zenbook-a16-boot.json" \
-        "$release" "$expected_tree" "$bundle/vmlinuz-$release" \
-        "$bundle/glymur-asus-zenbook-a16-ux3607oa.dtb" <<'PY'
-import hashlib
-import json
-from pathlib import Path
-import sys
-
-destination, release, tree, image, dtb = sys.argv[1:]
-metadata = {
-    'schema': 1,
-    'kernel_release': release,
-    'source_tree': tree,
-    'kernel_sha256': hashlib.sha256(Path(image).read_bytes()).hexdigest(),
-    'dtb_sha256': hashlib.sha256(Path(dtb).read_bytes()).hexdigest(),
-    'dsp_policy': 'pre-root-v1',
-    'cmdline': [
-        'clk_ignore_unused', 'pd_ignore_unused', 'cma=128M', 'glymur_pci_skip=5',
-        'selinux=0', 'asus_glymur_ec.fan_profile=2',
-        'modprobe.blacklist=i2c_qcom_cci,qcom_camss,ov02c10',
-    ],
-}
-Path(destination).write_text(json.dumps(metadata, indent=2) + '\n')
-PY
-    install -d "$bundle/usr/share/doc/linux-zenbook-a16"
-    printf '%s\n' "$release" > "$bundle/usr/share/doc/linux-zenbook-a16/kernel-release"
-    install -Dm755 "$project/iso/glymur-fetch-firmware.sh" "$bundle/glymur-fetch-firmware.sh"
-    cp -a "$project/packaging" "$project/tweaks" "$bundle/"
-
-    # Compatibility symlink for tools expecting $bundle/modules/$release
-    mkdir -p "$bundle/modules"
-    ln -sfn "../lib/modules/$release" "$bundle/modules/$release"
+if [[ "$stage_bundle" == 1 || "$build_rpm" == 1 || "$build_deb" == 1 ]]; then
+    echo "Staging versioned build at $payload..."
+    mkdir -p "$payload"
+    make -C "$source_tree" O="$object_dir" LOCALVERSION="$local_version" \
+        INSTALL_MOD_PATH="$payload" modules_install
+    install -Dm644 "$object_dir/arch/arm64/boot/Image" "$payload/vmlinuz-$release"
+    install -Dm644 "$dtb_file" "$payload/glymur-asus-zenbook-a16-ux3607oa.dtb"
+    ln -sf "glymur-asus-zenbook-a16-ux3607oa.dtb" "$payload/$release.dtb"
+    install -Dm644 "$object_dir/.config" "$payload/config-$release"
+    rm -f "$payload/lib/modules/$release/build" "$payload/lib/modules/$release/source"
+    # Reuse the kernel's external-module header packager, as the Arch recipe does.
+    headers_arg=$(python3 -c 'import shlex,sys; print(shlex.quote(sys.argv[1]))' "$payload/lib/modules/$release/build")
+    make -C "$source_tree" O="$object_dir" LOCALVERSION="$local_version" run-command \
+        KBUILD_RUN_COMMAND="\$(srctree)/scripts/package/install-extmod-build $headers_arg"
+    install -m644 "$object_dir/.config" "$object_dir/System.map" "$payload/lib/modules/$release/build/"
+    python3 "$project/packaging/zenbook-a16-kernel/package.py" metadata "$payload" "$meta" "$revision"
+    install -d "$payload/usr/share/doc/linux-zenbook-a16"
+    printf '%s\n' "$release" > "$payload/usr/share/doc/linux-zenbook-a16/kernel-release"
+    install -Dm755 "$project/iso/glymur-fetch-firmware.sh" "$payload/glymur-fetch-firmware.sh"
+    cp -a "$project/packaging" "$project/tweaks" "$payload/"
+    mkdir -p "$payload/modules"
+    ln -sfn "../lib/modules/$release" "$payload/modules/$release"
 fi
 
 if [[ "$build_rpm" == 1 ]]; then
-    echo "Building the installed-system RPM..."
-    make -C "$source_tree" O="$object_dir" LOCALVERSION=+ -j"$jobs" binrpm-pkg
-    mkdir -p "$bundle/rpms"
-    find "$object_dir/rpmbuild/RPMS" -type f -name '*.rpm' -exec cp -t "$bundle/rpms" {} +
-    kernel_rpm=
-    while IFS= read -r candidate; do
-        [[ $(rpm -qp --queryformat '%{NAME}' "$candidate") == kernel ]] || continue
-        kernel_rpm=$candidate
-        break
-    done < <(find "$bundle/rpms" -type f -name '*.rpm' -print | sort)
-    [[ -n "$kernel_rpm" ]] || {
-        echo "error: kernel RPM was not produced" >&2
-        exit 1
-    }
-    rpm_contents=$(rpm -qlp "$kernel_rpm")
-    grep -Fxq "/lib/modules/$release/vmlinuz" <<<"$rpm_contents" || {
-        echo "error: kernel RPM does not contain its Image" >&2
-        exit 1
-    }
-    grep -Fxq "/lib/modules/$release/dtb/qcom/glymur-asus-zenbook-a16-ux3607oa.dtb" \
-        <<<"$rpm_contents" || {
-        echo "error: kernel RPM does not contain the A16 DTB" >&2
-        exit 1
-    }
+    python3 "$project/packaging/zenbook-a16-kernel/package.py" build fedora "$payload" "$bundle/rpms"
 fi
-
 if [[ "$build_deb" == 1 ]]; then
-    echo "Building Debian/Ubuntu packages (bindeb-pkg)..."
-    make -C "$source_tree" O="$object_dir" LOCALVERSION=+ -j"$jobs" bindeb-pkg
-    mkdir -p "$bundle/debs"
-    find "$output" -maxdepth 1 -type f -name '*.deb' -exec cp -t "$bundle/debs" {} + 2>/dev/null || \
-    find "$output" -type f -name '*.deb' ! -path "$bundle/*" -exec cp -t "$bundle/debs" {} + 2>/dev/null || true
-    kernel_deb=
-    while IFS= read -r candidate; do
-        [[ $(dpkg-deb -f "$candidate" Package 2>/dev/null) =~ ^linux-image ]] || continue
-        kernel_deb=$candidate
-        break
-    done < <(find "$bundle/debs" -type f -name '*.deb' -print | sort)
-    [[ -n "$kernel_deb" ]] || {
-        echo "error: kernel DEB was not produced" >&2
-        exit 1
-    }
+    python3 "$project/packaging/zenbook-a16-kernel/package.py" build ubuntu "$payload" "$bundle/debs"
 fi
 
 if [[ -d "$bundle" ]]; then
@@ -252,7 +193,6 @@ Build complete: $release
   Fedora RPMs:        $rpm_summary
   Ubuntu/Debian DEBs: $deb_summary
 
-The live initramfs is intentionally not built here. Build it from the matching
-modules as described in iso/README.md. Install the kernel packages on the target
-system; loose files on a live USB are not copied by Anaconda/Subiquity.
+Nothing was installed or selected for boot. Review packaging/zenbook-a16-kernel/README.md
+before installing all three packages together. Live initramfs generation is separate.
 EOF

@@ -135,13 +135,9 @@ stage_bundle_rootfs(){
 
 add_installer(){
   local rd="$1"
-  mkdir -p "$rd/usr/local/bin" "$rd/opt/zenbook-kernel" "$rd/usr/share/applications"
+  mkdir -p "$rd/usr/local/bin" "$rd/usr/share/applications"
   cp -a "$REPO/iso/zenbook-install-to-disk.sh" "$rd/usr/local/bin/zenbook-install-to-disk"
   chmod 755 "$rd/usr/local/bin/zenbook-install-to-disk"
-
-  if [ -d "$STAGE/rpms" ]; then
-    cp -a "$STAGE/rpms/"*.rpm "$rd/opt/zenbook-kernel/"
-  fi
 
   cat > "$rd/usr/share/applications/zenbook-install.desktop" <<'EOF'
 [Desktop Entry]

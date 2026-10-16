@@ -113,6 +113,63 @@ class BootVerification(unittest.TestCase):
         with self.assertRaises(ValueError):
             boot.verify(self.root)
 
+    def install_versioned_kernel(self, revision):
+        release = f"7.2.10-omarchy-a16-{revision}"
+        package = f"linux-omarchy-a16-7.2.10-{revision}"
+        kernel = bytearray(128)
+        struct.pack_into("<Q", kernel, 16, 4096)
+        kernel[56:60] = b"ARM\x64"
+        kernel[-1] = revision
+        config = f"CONFIG_A16_REVISION_{revision}=y\n".encode()
+        dtb = f"a16 dtb revision {revision}".encode()
+        modules = self.root / "usr/lib/modules" / release
+        headers = modules / "build/include/config/kernel.release"
+        headers.parent.mkdir(parents=True, exist_ok=True)
+        headers.write_text(release)
+        (modules / "vmlinuz").write_bytes(kernel)
+        (modules / "pkgbase").write_text(package + "\n")
+        staged_dtb = self.root / f"boot/dtbs/{package}/qcom/glymur-asus-zenbook-a16-ux3607oa.dtb"
+        staged_dtb.parent.mkdir(parents=True)
+        staged_dtb.write_bytes(dtb)
+        documentation = self.root / "usr/share/doc" / package
+        documentation.mkdir(parents=True)
+        (documentation / "config").write_bytes(config)
+        (modules / "zenbook-a16-boot.json").write_text(json.dumps({
+            "schema": 1, "kernel_release": release, "kernel_package": package,
+            "kernel_sha256": hashlib.sha256(kernel).hexdigest(),
+            "dtb_sha256": hashlib.sha256(dtb).hexdigest(),
+            "config_sha256": hashlib.sha256(config).hexdigest(),
+            "source_tree": "4d6a5f56ffa9571ec5b5f053ecbe4861c158b2b2",
+            "source_status": "source replay verified; hardware acceptance pending",
+            "dsp_policy": "omarchy-a16-legacy-v1", "cmdline": [],
+        }))
+        uki = self.root / f"boot/EFI/Linux/machine_{package}.efi"
+        uki.write_bytes(image([(".linux", bytes(kernel)), (".uname", release.encode()),
+                               (".initrd", b"initramfs"), (".dtbauto", dtb)]))
+        return release, modules, uki
+
+    def test_explicit_versioned_standalone_verification_preserves_older_uki(self):
+        old_release, _, old_uki = self.install_versioned_kernel(3)
+        old_bytes = old_uki.read_bytes()
+        new_release, _, new_uki = self.install_versioned_kernel(4)
+        self.assertEqual(boot.verify(self.root, old_release)["uki"], str(old_uki))
+        self.assertEqual(boot.verify(self.root, new_release)["uki"], str(new_uki))
+        self.assertEqual(old_uki.read_bytes(), old_bytes)
+        self.assertEqual(boot.verify(self.root)["kernel_release"], self.release)
+
+    def test_versioned_metadata_cannot_claim_shared_abi_or_stale_artifacts(self):
+        release, modules, _ = self.install_versioned_kernel(3)
+        metadata = modules / "zenbook-a16-boot.json"
+        original = json.loads(metadata.read_text())
+        for key, value in (("dsp_policy", "pre-root-v1"), ("kernel_package", "linux-omarchy"),
+                           ("kernel_sha256", "0" * 64), ("dtb_sha256", "0" * 64),
+                           ("config_sha256", "0" * 64), ("source_tree", [])):
+            with self.subTest(key=key):
+                metadata.write_text(json.dumps(dict(original, **{key: value})))
+                with self.assertRaises(ValueError):
+                    boot.verify(self.root, release)
+        self.assertFalse((modules / "omarchy-a16-dsp-abi").exists())
+
     def test_rejects_truncated_pe(self):
         with self.assertRaises((ValueError, struct.error)):
             boot.sections(b"MZ")

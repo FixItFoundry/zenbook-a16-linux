@@ -15,8 +15,18 @@ prereqs)
     ;;
 esac
 
+if python3 /usr/lib/zenbook-a16/boot-artifacts.py managed "$version"; then
+    :
+else
+    status=$?
+    [ "$status" != 4 ] || exit 0
+    exit "$status"
+fi
+
 . /usr/share/initramfs-tools/hook-functions
 
+mkdir -p "$DESTDIR/scripts/init-premount"
+cp /usr/share/zenbook-a16/init-premount "$DESTDIR/scripts/init-premount/zenbook-a16"
 copy_exec /usr/bin/tr
 copy_exec /usr/bin/udevadm
 mkdir -p "$DESTDIR/usr/lib/zenbook-a16" "$DESTDIR/etc/modprobe.d"

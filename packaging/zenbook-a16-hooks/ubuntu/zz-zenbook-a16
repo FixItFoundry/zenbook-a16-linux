@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 KVER=${1:?zenbook-a16: kernel release required}
+if python3 /usr/lib/zenbook-a16/boot-artifacts.py managed "$KVER"; then
+    :
+else
+    status=$?
+    [[ $status != 4 ]] || exit 0
+    exit "$status"
+fi
 [[ -x /usr/lib/zenbook-a16/verify-boot.py ]] || { echo 'zenbook-a16: required boot verifier missing' >&2; exit 1; }
 python3 /usr/lib/zenbook-a16/boot-artifacts.py stage "$KVER"
 if command -v update-grub >/dev/null; then
@@ -8,4 +15,5 @@ if command -v update-grub >/dev/null; then
 else
     grub-mkconfig -o /boot/grub/grub.cfg
 fi
+python3 /usr/lib/zenbook-a16/boot-artifacts.py restore-default
 python3 /usr/lib/zenbook-a16/verify-boot.py --bootloader grub-ubuntu --kernel-release "$KVER"

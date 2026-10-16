@@ -3,8 +3,20 @@
 # Installs ASUS-signed ADSP/CDSP firmware, early DSP/QRTR/regulator/PHY/USB/NVMe modules,
 # and the pre-root-mount readiness hook.
 
+a16_managed_kernel() {
+    local status
+    if python3 /usr/lib/zenbook-a16/boot-artifacts.py managed "$kernel" "${srcmods:-/usr/lib/modules/$kernel}"; then
+        return 0
+    else
+        status=$?
+        [[ $status != 4 ]] || return 1
+        dfatal 'Invalid managed A16 kernel metadata'
+        exit "$status"
+    fi
+}
+
 check() {
-    return 0
+    a16_managed_kernel
 }
 
 depends() {
@@ -12,6 +24,7 @@ depends() {
 }
 
 install() {
+    a16_managed_kernel || return 0
     inst_multiple tr grep udevadm modprobe sleep || return 1
     inst_simple /usr/lib/zenbook-a16/dsp-policy.sh /usr/lib/zenbook-a16/dsp-policy.sh || return 1
     inst_simple /usr/share/omarchy-a16/remoteproc-blacklist.conf /etc/modprobe.d/zenbook-a16-remoteproc.conf || return 1
@@ -47,6 +60,7 @@ install() {
 }
 
 installkernel() {
+    a16_managed_kernel || return 0
     # Bypass host autodetection: an installer may build for another machine.
     local hostonly=
     # Required DSP dependencies; instmods -c fails on missing modules, not built-ins.

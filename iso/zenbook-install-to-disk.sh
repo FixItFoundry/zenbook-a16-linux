@@ -5,6 +5,7 @@
 # kernel-update hooks onto target disk across Fedora and Ubuntu.
 # ============================================================================
 set -Eeuo pipefail
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 usage() {
     cat <<'EOF'
@@ -75,11 +76,90 @@ verify_boot() {
         --bootloader "$bootloader_check" --kernel-release "$KREL" || die "Zenbook A16 boot verification failed"
 }
 
+check_release_destinations() {
+    local path
+    for path in \
+        "boot/vmlinuz-$KREL" "boot/config-$KREL" "boot/dtb-$KREL" "boot/glymur/$KREL.dtb" \
+        "boot/dtbs/$KREL" "boot/initramfs-$KREL.img" "boot/initrd.img-$KREL" \
+        "lib/modules/$KREL" "usr/lib/modules/$KREL"; do
+        [[ ! -e "$target/$path" && ! -L "$target/$path" ]] || die "release $KREL already exists at $path; build a new package revision to preserve rollback"
+    done
+}
+
+discover_kernel_packages() {
+    package_files=()
+    support_package=""; payload_package=""; meta_package=""
+    local directory extension payload_name file name normalized_release
+    normalized_release=$(printf '%s' "$KREL" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9+.-]/-/g')
+    case "$DISTRO" in
+        fedora)
+            directory="$BUNDLE/rpms"; extension=rpm
+            payload_name="kernel-zenbook-a16-$normalized_release"
+            ;;
+        ubuntu)
+            directory="$BUNDLE/debs"; extension=deb
+            payload_name="linux-image-$normalized_release"
+            ;;
+    esac
+    [[ -d "$directory" ]] || return 0
+    shopt -s nullglob
+    package_files=("$directory"/*."$extension")
+    shopt -u nullglob
+    [[ ${#package_files[@]} -eq 3 ]] || die "bundle $directory must contain exactly the current kernel, support and meta packages"
+    if [[ "$DISTRO" == fedora ]]; then
+        command -v rpm >/dev/null || die "live environment requires rpm for bundled packages"
+    else
+        command -v dpkg-deb >/dev/null || die "live environment requires dpkg-deb for bundled packages"
+    fi
+    for file in "${package_files[@]}"; do
+        if [[ "$DISTRO" == fedora ]]; then
+            name=$(rpm -qp --queryformat '%{NAME}\n' "$file")
+        else
+            name=$(dpkg-deb --field "$file" Package)
+        fi
+        case "$name" in
+            zenbook-a16-support) [[ -z "$support_package" ]] || die "duplicate support package"; support_package="$file" ;;
+            zenbook-a16-kernel) [[ -z "$meta_package" ]] || die "duplicate kernel meta package"; meta_package="$file" ;;
+            "$payload_name") [[ -z "$payload_package" ]] || die "duplicate kernel payload package"; payload_package="$file" ;;
+            *) die "unexpected package $name in $directory" ;;
+        esac
+    done
+    [[ -n "$support_package" && -n "$payload_package" && -n "$meta_package" ]] || die "incomplete kernel package set"
+    package_files=("$support_package" "$payload_package" "$meta_package")
+}
+
+bind_package_directory() {
+    [[ -d "$target/mnt" && ! -L "$target/mnt" ]] || die "target needs an empty /mnt directory for package staging"
+    if mountpoint -q "$target/mnt"; then
+        die "target /mnt is already mounted; unmount it before installing"
+    fi
+    [[ -z "$(find "$target/mnt" -mindepth 1 -maxdepth 1 -print -quit)" ]] || die "target /mnt must be empty for package staging"
+    mount --bind "$BUNDLE/debs" "$target/mnt"
+    mounted_binds+=("$target/mnt")
+    mount -o remount,bind,ro "$target/mnt"
+    target_package_files=()
+    local file
+    for file in "${package_files[@]}"; do
+        target_package_files+=("/mnt/$(basename "$file")")
+    done
+}
+
+check_package_transaction() {
+    [[ ${#package_files[@]} -gt 0 ]] || return 0
+    if [[ "$DISTRO" == fedora ]]; then
+        rpm --root "$target" -Uvh --test "${package_files[@]}"
+    else
+        bind_package_directory
+        chroot "$target" apt-get --simulate --no-download --no-remove install "${target_package_files[@]}"
+    fi
+}
+
 install_kernel_packages() {
-    if [[ -n "${rpm_dir:-}" ]]; then
-        rpm --root "$target" -ivh --replacepkgs "$rpm_dir"/kernel-*.rpm
-    elif [[ -n "${deb_dir:-}" ]]; then
-        dpkg --root="$target" -i "$deb_dir"/linux-*.deb
+    [[ ${#package_files[@]} -gt 0 ]] || return 0
+    if [[ "$DISTRO" == fedora ]]; then
+        rpm --root "$target" -Uvh "${package_files[@]}"
+    else
+        chroot "$target" apt-get -y --no-download --no-remove install "${target_package_files[@]}"
     fi
 }
 
@@ -183,7 +263,6 @@ fi
 mountpoint -q "$target" || die "target must be a mounted root filesystem"
 echo "Detected target distribution: $DISTRO"
 
-SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd "$SCRIPT_DIR/.." 2>/dev/null && pwd || true)
 
 # 2. Discover bundle and kernel release
@@ -314,7 +393,7 @@ TARGET_CMDLINE=$(read_target_cmdline)
 required_tools=(sh bash python3 dtc fdtget findmnt depmod udevadm modprobe tr grep sleep)
 case "$DISTRO" in
     fedora) required_tools+=(dracut lsinitrd kernel-install grub2-mkconfig) ;;
-    ubuntu) required_tools+=(update-initramfs unmkinitramfs update-grub grub-probe) ;;
+    ubuntu) required_tools+=(update-initramfs unmkinitramfs update-grub grub-probe apt-get) ;;
 esac
 for tool in "${required_tools[@]}"; do
     chroot "$target" /bin/sh -c 'command -v "$1" >/dev/null' sh "$tool" || die "target requires native tool: $tool"
@@ -334,31 +413,12 @@ done
 [[ -s "$BUNDLE/glymur-fetch-firmware.sh" ]] || die "bundle firmware checker is required; rebuild the bundle"
 DEST="$FW_SRC" bash "$BUNDLE/glymur-fetch-firmware.sh" --check
 
-# 4. Install Kernel Packages / Binaries into target
-if [[ "$DISTRO" == "fedora" ]]; then
-    rpm_dir=""
-    for cand in ${BUNDLE:+"$BUNDLE/rpms"} "/opt/zenbook-kernel" "$SCRIPT_DIR/../bundle/rpms"; do
-        if compgen -G "$cand/kernel-*.rpm" >/dev/null 2>&1; then
-            rpm_dir="$cand"
-            break
-        fi
-    done
-    if [[ -n "$rpm_dir" ]]; then
-        command -v rpm >/dev/null || die "live environment requires rpm for bundled packages"
-    fi
-elif [[ "$DISTRO" == "ubuntu" ]]; then
-    deb_dir=""
-    for cand in ${BUNDLE:+"$BUNDLE/debs"} "/opt/zenbook-kernel" "$SCRIPT_DIR/../bundle/debs"; do
-        if compgen -G "$cand/linux-image-*.deb" >/dev/null 2>&1; then
-            deb_dir="$cand"
-            break
-        fi
-    done
-    if [[ -n "$deb_dir" ]]; then
-        command -v dpkg >/dev/null || die "live environment requires dpkg for bundled packages"
-    fi
-fi
+# Native package headers and dependency checks must pass before any target writes.
+check_release_destinations
+discover_kernel_packages
+check_package_transaction
 
+if [[ ${#package_files[@]} -eq 0 ]]; then
 # Ensure /boot artifacts exist
 mkdir -p "$target/boot/glymur" "$target/boot/dtbs/$KREL/qcom"
 install -Dm644 "$KERNEL_SRC" "$target/boot/vmlinuz-$KREL"
@@ -370,6 +430,8 @@ echo "Installing kernel modules from $MODULES_SRC..."
 copy_modules "$MODULES_SRC" "$target/lib/modules/$KREL"
 mkdir -p "$target/usr/share/doc/linux-zenbook-a16"
 printf '%s\n' "$KREL" > "$target/usr/share/doc/linux-zenbook-a16/kernel-release"
+
+fi
 
 # 5. Install Firmware
 echo "Updating firmware in $target/lib/firmware..."
@@ -420,7 +482,9 @@ ln -sf /dev/null "$target/etc/systemd/system/dev-tpmrm0.device"
 
 # 7. Install Persistent Kernel-Update Hooks
 echo "Installing persistent kernel-update hooks..."
-bash "$HOOKS_INSTALLER" --root "$target" --distro "$DISTRO"
+if [[ ${#package_files[@]} -eq 0 ]]; then
+    bash "$HOOKS_INSTALLER" --root "$target" --distro "$DISTRO"
+fi
 
 # 8. Bind-mount system filesystems into target for chroot execution
 echo "Bind-mounting system hierarchies for chroot operations..."
@@ -441,8 +505,10 @@ mkdir -p "$target/etc/kernel"
 printf '%s\n' "$TARGET_CMDLINE" > "$target/etc/kernel/cmdline"
 install_kernel_packages
 
-# 9. Configure Initramfs & Bootloader in Chroot
-configure_boot
+# Native package scripts own boot generation for their payload.
+if [[ ${#package_files[@]} -eq 0 ]]; then
+    configure_boot
+fi
 
 # 11. Run Boot Verification
 echo "Running post-install boot verification..."

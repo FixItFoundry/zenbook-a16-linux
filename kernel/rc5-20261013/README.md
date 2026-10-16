@@ -15,7 +15,7 @@ the base commit. The output directory must not exist.
 
 ```sh
 python3 kernel/rc5-20261013/verify.py /path/to/linux
-sudo dnf install bc bison dwarves elfutils-libelf-devel flex gcc git make \
+sudo dnf install bc bison dtc dwarves elfutils-libelf-devel flex gcc git make \
   openssl-devel perl python3 rpm-build rsync
 JOBS=4 ./kernel/rc5-20261013/build.sh /path/to/linux /path/to/new-output
 ```
@@ -24,8 +24,15 @@ The verifier checks hashes and replays patches in a temporary index; it leaves
 HEAD, the normal index and working files intact. It may add Git objects.
 
 The build helper uses a separate worktree, applies the series with `git am`, checks
-the tree and release, then builds Image, modules, DTB and RPMs. `BUILD_RPM=0`
-skips RPMs; the helper has no thermal guard.
+the tree and release, then builds Image, modules, DTB, matching headers and three
+RPMs. `BUILD_RPM=0 BUILD_DEB=1` builds Ubuntu packages instead. The helper has no
+thermal guard.
+
+`PACKAGE_REVISION=1` adds `-a16pkg1+` to the recorded release in place of its final
+`+`. Source patches and the checked-in configuration are unchanged; the separate
+release protects the installed kernel's files. Increase the revision for later
+rebuilds. See the [package contract](../../packaging/zenbook-a16-kernel/README.md)
+for scoped hooks, boot metadata and rollback handling.
 
 The tested soc2 binaries were already built and booted. Publication verifies
 source replay and configuration; it does not repeat the full build or RPM installation.

@@ -89,6 +89,7 @@ case "$DISTRO" in
 esac
 
 required=(
+    "$SCRIPT_DIR/migrate-hooks.sh"
     "$SCRIPT_DIR/boot-artifacts.py"
     "$REPO_ROOT/packaging/omarchy-a16-support/verify-boot.py"
     "$REPO_ROOT/packaging/omarchy-a16-support/initcpio-hook"
@@ -105,6 +106,7 @@ fi
 for source in "${required[@]}"; do
     [[ -s $source ]] || { echo "error: missing hook source: $source" >&2; exit 1; }
 done
+bash "$SCRIPT_DIR/migrate-hooks.sh" --root "$TARGET" --check
 [[ $CHECK == 0 ]] || exit 0
 
 echo "Installing Zenbook A16 persistent kernel-update hooks for distro: $DISTRO into $TARGET"
@@ -113,10 +115,10 @@ echo "Installing Zenbook A16 persistent kernel-update hooks for distro: $DISTRO 
 mkdir -p "$TARGET/usr/lib/zenbook-a16"
 install -Dm755 "$REPO_ROOT/packaging/omarchy-a16-support/verify-boot.py" \
     "$TARGET/usr/lib/zenbook-a16/verify-boot.py"
+install -Dm755 "$SCRIPT_DIR/migrate-hooks.sh" "$TARGET/usr/lib/zenbook-a16/migrate-hooks"
 install -Dm755 "$SCRIPT_DIR/boot-artifacts.py" "$TARGET/usr/lib/zenbook-a16/boot-artifacts.py"
 install -Dm644 "$REPO_ROOT/packaging/omarchy-a16-support/initcpio-hook" "$TARGET/usr/lib/zenbook-a16/dsp-policy.sh"
 install -Dm644 "$REPO_ROOT/packaging/omarchy-a16-support/remoteproc-blacklist.conf" "$TARGET/usr/share/omarchy-a16/remoteproc-blacklist.conf"
-install -Dm644 "$REPO_ROOT/packaging/omarchy-a16-support/remoteproc-blacklist.conf" "$TARGET/etc/modprobe.d/zenbook-a16-remoteproc.conf"
 
 # 3. Distribution-specific hooks
 case "$DISTRO" in
@@ -142,16 +144,16 @@ case "$DISTRO" in
     ubuntu)
         # initramfs-tools hook & premount script
         mkdir -p "$TARGET/etc/initramfs-tools/hooks" \
-                 "$TARGET/etc/initramfs-tools/scripts/init-premount"
+                 "$TARGET/usr/share/zenbook-a16"
         install -Dm755 "$SCRIPT_DIR/ubuntu/initramfs-hook-zenbook-a16" \
             "$TARGET/etc/initramfs-tools/hooks/zenbook-a16"
         install -Dm755 "$SCRIPT_DIR/ubuntu/init-premount-zenbook-a16" \
-            "$TARGET/etc/initramfs-tools/scripts/init-premount/zenbook-a16"
+            "$TARGET/usr/share/zenbook-a16/init-premount"
 
         # GRUB hook
         mkdir -p "$TARGET/etc/grub.d"
         install -Dm755 "$SCRIPT_DIR/ubuntu/09_zenbook_a16" \
-            "$TARGET/etc/grub.d/09_zenbook_a16"
+            "$TARGET/etc/grub.d/41_zenbook_a16"
 
         # kernel postinst hook
         mkdir -p "$TARGET/etc/kernel/postinst.d"
@@ -162,4 +164,5 @@ case "$DISTRO" in
 
 esac
 
+bash "$SCRIPT_DIR/migrate-hooks.sh" --root "$TARGET"
 echo "Zenbook A16 persistent kernel-update hooks installed successfully."

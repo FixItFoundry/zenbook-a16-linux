@@ -36,14 +36,22 @@ def sections(data):
     return result
 
 
-def verify(root):
-    package = "linux-omarchy"
-    metadata = root / f"usr/share/doc/{package}/kernel-release"
-    if not metadata.exists():
-        # Compatibility for the original independently named test kernel.
-        package = "linux-omarchy-a16"
+def verify(root, release=None):
+    versioned = release is not None
+    if versioned:
+        if not re.fullmatch(r"7\.2\.10-omarchy-a16-[1-9][0-9]*", release):
+            raise ValueError(f"unsupported standalone A16 kernel release: {release}")
+        package = (root / "usr/lib/modules" / release / "pkgbase").read_text().strip()
+        if package != "linux-omarchy-a16-7.2.10-" + release.rsplit("-", 1)[1]:
+            raise ValueError("standalone kernel pkgbase does not identify its versioned payload")
+    else:
+        package = "linux-omarchy"
         metadata = root / f"usr/share/doc/{package}/kernel-release"
-    release = metadata.read_text().strip()
+        if not metadata.exists():
+            # Compatibility for the original independently named test kernel.
+            package = "linux-omarchy-a16"
+            metadata = root / f"usr/share/doc/{package}/kernel-release"
+        release = metadata.read_text().strip()
     modules = root / "usr/lib/modules" / release
     if package == "linux-omarchy":
         if (modules / "omarchy-a16-dsp-abi").read_text().strip() != "1":
@@ -55,6 +63,20 @@ def verify(root):
         raise ValueError("installed headers do not match the A16 kernel")
     kernel = (modules / "vmlinuz").read_bytes()
     dtb = (root / f"boot/dtbs/{package}/qcom/glymur-asus-zenbook-a16-ux3607oa.dtb").read_bytes()
+    if versioned:
+        metadata = json.loads((modules / "zenbook-a16-boot.json").read_text())
+        config = root / f"usr/share/doc/{package}/config"
+        if (not isinstance(metadata, dict) or type(metadata.get("schema")) is not int
+                or metadata.get("schema") != 1 or metadata.get("kernel_release") != release
+                or metadata.get("kernel_package") != package
+                or metadata.get("dsp_policy") != "omarchy-a16-legacy-v1"
+                or not isinstance(metadata.get("source_tree"), str)
+                or not re.fullmatch(r"[0-9a-f]{40}", metadata["source_tree"])):
+            raise ValueError("standalone kernel lacks its build-bound legacy DSP metadata")
+        verify_image(modules / "vmlinuz")
+        for name, content in (("kernel", kernel), ("dtb", dtb), ("config", config.read_bytes())):
+            if metadata.get(f"{name}_sha256") != hashlib.sha256(content).hexdigest():
+                raise ValueError(f"standalone kernel metadata does not match the installed {name}")
     machine = (root / "etc/machine-id").read_text().strip()
     # Follow Limine's config order and prefix validation, without executing config.
     configs = [*sorted((root / "usr/share/limine-entry-tool.d").glob("*.conf")),
@@ -488,7 +510,7 @@ def main():
 
     try:
         if bootloader == "limine":
-            report = verify(root)
+            report = verify(root, args.release)
         elif bootloader == "grub-bls":
             report = verify_grub_bls(root, args.release)
         elif bootloader == "grub-ubuntu":

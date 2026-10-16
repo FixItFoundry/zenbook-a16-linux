@@ -27,7 +27,7 @@ Linux; the local regression tests do not establish hardware boot acceptance.
 Build the matching kernel bundle first, then stage the firmware and live initramfs:
 
 ```sh
-export KREL='7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+'
+export KREL="$(cat /path/to/new-output/bundle/usr/share/doc/linux-zenbook-a16/kernel-release)"
 export STAGE="$HOME/glymur-images"
 mkdir -p "$STAGE"
 cp -a /path/to/new-output/bundle/. "$STAGE/"
@@ -63,6 +63,21 @@ installer bundle inside the live root filesystem, independent of the mounted ESP
    failed package installation, initramfs generation or verification stop the
    script. Existing kernel entries remain available for recovery.
 
+For a bundle containing native packages, keep exactly the current payload,
+`zenbook-a16-support` and `zenbook-a16-kernel` packages in `rpms/` or `debs/`.
+The installer verifies their package identities and checks the transaction before
+writing target artifacts. Fedora uses RPM; Ubuntu uses target APT with downloads
+and package removals disabled. Ubuntu needs an existing empty, unmounted `/mnt`
+in the target for a temporary read-only package bind. Install missing distro
+dependencies before running the installer.
+
+Native packages own the kernel, matching build headers and boot support hooks;
+their maintainer scripts generate boot artifacts. Firmware and the installer's
+existing platform preferences remain separate. A loose bundle uses the direct-copy
+path and does not install external-module build headers. Both paths
+refuse any existing artifact for the same kernel release: build a new package
+revision instead of overwriting a working release.
+
 The target needs Python, `dtc`, `fdtget`, `findmnt` and its native kernel tools.
 Fedora verification uses `lsinitrd`; Ubuntu uses `unmkinitramfs` and `grub-probe`.
 The installer lists missing prerequisites before writing target artifacts.
@@ -76,8 +91,8 @@ policy: exact board match, rescue flag, remoteproc readiness, root-mount guard
 and device settling. Fedora runs it at pre-mount; Ubuntu at init-premount.
 Neither phase is described as running before udev.
 
-New kernel packages must supply matching build metadata. Hooks refuse unknown
-kernels; they cannot apply source patches to installed binary kernels. They
+New kernel packages must supply matching build metadata. Hooks act on identified
+A16 kernels; they cannot apply source patches to installed binary kernels. They
 preserve the distro's root options and apply the exact build's additional boot
 settings. The current development policy retains `selinux=0` and other recorded
 workarounds; that is not a production security or power-management endorsement.

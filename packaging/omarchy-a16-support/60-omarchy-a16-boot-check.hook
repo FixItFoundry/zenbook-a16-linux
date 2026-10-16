@@ -1,8 +1,9 @@
 [Trigger]
+Operation = Install
 Operation = Upgrade
 Type = Package
 Target = linux-omarchy-a16
-Target = linux-omarchy-a16-headers
+Target = linux-omarchy-a16-*
 Target = linux-omarchy
 Target = linux-omarchy-headers
 Target = omarchy-a16-support

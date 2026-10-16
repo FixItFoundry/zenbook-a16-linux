@@ -42,7 +42,7 @@ All cross-compatible kernel tracks, multi-distro installer scripts, and persiste
 
 ## Build and test
 
-Build the tested kernel baseline and generate distro packages or a portable bundle:
+Rebuild the tested kernel source/configuration as a separately versioned package:
 
 ```sh
 python3 kernel/rc5-20261013/verify.py /path/to/linux
@@ -50,11 +50,15 @@ JOBS=4 ./kernel/rc5-20261013/build.sh /path/to/linux /path/to/new-output
 ```
 
 Build options are configured via environment variables:
-- `BUILD_RPM=1`: Build Fedora-installable RPMs via `binrpm-pkg` (default: 1).
-- `BUILD_DEB=1`: Build Ubuntu/Debian-installable DEBs via `bindeb-pkg` (default: 0).
+
+- `BUILD_RPM=1`: Build Fedora kernel, support and tracking RPMs (default: 1).
+- `BUILD_DEB=1`: Build Ubuntu kernel, support and tracking DEBs (default: 0).
+- `PACKAGE_REVISION=1`: Give each rebuild a distinct release and package version.
 - `STAGE_BUNDLE=1`: Stage portable distro-agnostic bundle at `$OUTPUT_DIR/bundle/` containing `vmlinuz-$KREL`, `glymur-asus-zenbook-a16-ux3607oa.dtb`, `lib/modules/$KREL/`, per-kernel boot hashes/policy, and release metadata (default: 1).
 
 The build script automatically validates the compiled DTB against the required `qcom,keep-runtime-active;` safety property via `dtc`, aborting the build if missing.
+See the [package contract and build commands](packaging/zenbook-a16-kernel/README.md).
+Native package transactions and physical boot/rollback still need acceptance.
 
 ## Installation & Persistent Kernel Hooks
 
@@ -69,7 +73,7 @@ sudo iso/zenbook-install-to-disk.sh /mnt
 ```
 
 The persistent hooks support build-identified Fedora and Ubuntu kernels. They
-reject unknown kernels and stop on artifact or boot-entry errors; they cannot
+skip stock kernels and stop on invalid A16 metadata or boot-entry errors; they cannot
 reapply source patches to binary distro kernels. Experimental suspend is not
 enabled by installation. Btrfs subvolume roots need a separate `/boot`.
 

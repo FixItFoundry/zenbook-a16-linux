@@ -1,6 +1,6 @@
 pkgname=omarchy-a16-support
 pkgver=20261014
-pkgrel=10
+pkgrel=11
 pkgdesc='Experimental ASUS Zenbook A16 audio and early DSP support'
 arch=(aarch64)
 url='https://github.com/FixItFoundry/zenbook-a16-linux'

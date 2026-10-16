@@ -1,56 +1,74 @@
-Arch Linux ARM 7.2.10 A16 development kernel
+Arch Linux ARM 7.2.10 A16 development packages
 
-This is an Arch Linux ARM source/config baseline with A16 backports, packaged
-under linux-omarchy-a16 and linux-omarchy-a16-headers. It is not the unmodified
-stock kernel and does not satisfy a stock-kernel hardware acceptance request.
-The source identity and upstream recipe revision are pinned in build.json.
-The 127-patch series includes five Arch patches, upstream prerequisites and
-the 64-patch A16 soc2 series adapted to 7.2.10. Replay verifies the final Git
-tree, rather than treating a patch applying without an error as sufficient.
+The checked-in source/config replay builds an independent development kernel.
+It does not replace the shared linux-omarchy package or establish hardware
+acceptance. Source identity, upstream recipe revision and the 127-patch queue
+remain pinned in build.json; packaging changes do not change that source tree.
 
-Build on an Arch Linux ARM aarch64 host/container, including an ARM Linux VM
-on an Apple Silicon Mac. Run prepare-package.py with a new output directory,
-then run makepkg there. Source archives and the deterministic backport bundle
-have mandatory SHA-256 checks. The package build validates its release,
-configuration, A16 DTB and both SoundWire keep-runtime-active properties.
-The compiler and dependencies are captured by makepkg's .BUILDINFO. A pinned
-build timestamp avoids embedding the time of each invocation in the kernel.
+Build on an Arch Linux ARM aarch64 host/container:
 
-The support package under packaging/omarchy-a16-support contains a separately
-compiled public topology, matching UCM and the retained WirePlumber keep-awake
-policy. Its early DSP hook requires this audited kernel series and signed A16
-ADSP/CDSP firmware before generating an initramfs. It loads the processors
-before root mount and stops in an emergency shell if readiness fails. The
-fallback entry disables DSP loading. That entry is a recovery profile of the
-same kernel, not a previous-version rollback. USB-root safety, four-speaker
-playback, microphone, audio after idle, battery/charging and Wi-Fi still require
-physical acceptance. Package and virtual-machine checks do not establish these.
+  python3 prepare-package.py /new/package-output --pkgrel 3
+  cd /new/package-output
+  makepkg
 
-For subsequent audited releases, rebuild and upgrade both kernel and headers
-together with pacman. Their distinct package names do not replace or provide
-linux-omarchy, so a normal stock-kernel update cannot overwrite this kernel's
-files. Limine's existing pacman hooks regenerate the UKI from the versioned
-module tree and installed DTBs; the A16 hardware profile selects this package.
-Retain the previous kernel/headers/support package archives, the matching UKI
-and an independent bootable installer before upgrading. Verify the new UKI
-and its embedded release/DTB before rebooting. Keep /boot mounted throughout.
+The default rebuild revision is 3. Use a new positive --pkgrel for a new build;
+never publish different kernel contents under an already installed revision.
+Revision 2 belonged to the legacy fixed-name package, so the new default starts
+at revision 3 to avoid colliding with that installed module tree.
+Source archives and the reproducible backport bundle have mandatory SHA-256
+checks. The build validates its release, required configuration and A16 DTB.
+makepkg captures compiler/dependency information in .BUILDINFO.
 
-To roll back, boot the retained installer or working recovery system, mount
-the installed root and its ESP, and reinstall the retained kernel and headers
-together using pacman -U inside the target chroot. Restore the matching support
-package when its interfaces changed, then rebuild the UKI using limine-update.
-Reinstalling old package archives restores their matching DTBs and module tree.
-Do not point an old kernel at a newly selected DTB or assume a saved UKI alone
-preserves all its on-disk modules. Preserve Fedora/Windows boot entries.
+Each build emits four packages, for example:
 
-A newer Arch kernel is a new backport exercise: update the pinned Arch recipe,
-base/stable archives and configuration, drop patches merged upstream, resolve
-remaining conflicts, verify a new final source tree, and repeat build, package,
-boot and physical tests. Update the early-DSP hook's allowed kernel series only
-after that audit. This does not blindly apply binary patches during pacman -Syu.
+  linux-omarchy-a16-7.2.10-3
+  linux-omarchy-a16-7.2.10-3-headers
+  linux-omarchy-a16-tracking
+  linux-omarchy-a16-tracking-headers
 
-Vendor-signed firmware and the card-specific Wi-Fi calibration are not supplied
-by the kernel recipe. The installer stages firmware from this laptop's readable
-Windows driver store or an explicit local import, before changing disk contents.
-Locked BitLocker volumes require a local unlock/export; another model's signed
-firmware or radio calibration is not a substitute.
+The tracking packages depend on that exact payload/header revision. Upgrading
+them leaves prior versioned payloads installed: module trees, headers, DTBs,
+metadata, presets and UKI names differ for each revision. Keep the old payloads
+installed until the new kernel passes physical acceptance. Explicit package
+removal or orphan cleanup can still remove an old rollback kernel. Existing
+legacy linux-omarchy-a16 packages are neither replaced nor removed.
+
+The payload contains /usr/lib/modules/RELEASE/zenbook-a16-boot.json with actual
+kernel/DTB/config hashes and the verified source tree. Its policy name is
+omarchy-a16-legacy-v1: this identifies the existing standalone startup profile,
+not shared Omarchy DSP ABI 1 and not successful hardware testing. No ABI marker
+or ABI-providing dependency is fabricated. The current omarchy-a16-support
+package depends on the shared linux-omarchy ABI/header contract; standalone
+packages do not satisfy those dependencies. Reuse the shared Omarchy package
+and its existing support setup for the production Arch path.
+
+Standalone UKI builds are explicit and require mkinitcpio plus systemd-ukify.
+Each payload installs its own mkinitcpio preset and /usr/lib/modules/RELEASE/uki.conf pointing at its matching DTB:
+
+  sudo mkinitcpio -p linux-omarchy-a16-7.2.10-3
+  sudo /usr/lib/omarchy-a16/verify-boot --bootloader limine \
+    --kernel-release 7.2.10-omarchy-a16-3
+
+The preset follows Limine's machine-ID/custom-name prefix and writes a distinct
+UKI. It does not change the configured boot default. Check root/cmdline and
+signed ASUS DSP firmware, and arrange the existing standalone startup profile
+before building. The private uki.conf does not inherit global signing or PCR
+settings: configure signing explicitly there before use on a secured system.
+The explicit verifier requires matching headers and validates metadata plus
+the UKI's release/kernel/DTB/initramfs; its default shared-kernel selection is
+unchanged. Install the updated support verifier or run the checked-in verifier
+with Python when checking this development package.
+
+Automatic standalone Limine updates remain unsupported. The current external
+Limine hook bypasses mkinitcpio presets and reads one global uki.conf; Omarchy's
+hardware setup chooses a global DTB directory. It cannot reliably select a
+different versioned DTB for each installed kernel. Do not reboot after a generic
+UKI regeneration without rebuilding and checking the intended standalone UKI.
+This repository does not silently patch the shared kernel's boot integration.
+
+Keep the working kernel, its headers/modules/DTB/UKI and an independent bootable
+installer. The a16_dsp=off recovery profile is the same kernel with DSP startup
+disabled; it does not replace a previous-version rollback. USB-root safety,
+four-speaker playback, microphone, audio after idle, battery/charging and Wi-Fi
+need physical acceptance. Package-generation tests do not establish these.
+Vendor-signed firmware and card-specific Wi-Fi calibration remain separate.
