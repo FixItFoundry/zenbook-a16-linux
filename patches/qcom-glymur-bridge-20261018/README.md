@@ -1,6 +1,6 @@
 # Mainline + `qcom-next` / `qcom-topics` Bridge Series (`2026-10-18`)
 
-This directory contains the 41-patch sequential bridge series (`0001`–`0041`) layered on top of the mainline `v7.3-rc5` release base (`patches/rc5-20261013`, 64 patches; 105 patches total), verified to apply cleanly (`git apply --cached` / `git am`) and managed on target systems via scoped post-install hooks.
+This directory contains the 40-patch sequential bridge series (`0001`–`0040`) layered on top of the mainline `v7.3-rc5` release base (`patches/rc5-20261013`, 64 patches; 104 patches total), verified to apply cleanly (`git apply --cached` / `git am`) and managed on target systems via scoped post-install hooks.
 
 ## Architecture: Mainline Release + `qcom-next` / `qcom-topics` Bridge + Post-Install Hooks
 

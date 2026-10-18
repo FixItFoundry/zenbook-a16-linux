@@ -9,7 +9,7 @@ Qualcomm Snapdragon X2 Elite Extreme (`glymur`).
 
 **`7.3.0-rc5-ZenbookA16-20261018-rc5-qcom1+` bridges the mainline `v7.3-rc5` release base with Qualcomm's `qcom-next` and `qcom-topics` repositories, managed and updated via post-install hooks.**
 
-Rather than tracking daily `linux-next` churn or attempting source builds inside end-user package hooks, the repository pulls from the pinned mainline release (`v7.3-rc5`), layers the [64-patch local A16 baseline](patches/rc5-20261013/README.md) plus the [41-patch `qcom-next` / `qcom-topics` bridge series](patches/qcom-glymur-bridge-20261018/README.md) (105 patches total, reproducing tree `e9fa73cd5291272d4aef6ea409bcc13b7c5b6d5c`), and applies all initramfs, DTB, audio UCM2/WirePlumber, and hardware activation updates through scoped post-install hooks (`packaging/zenbook-a16-hooks/`).
+Rather than tracking daily `linux-next` churn or attempting source builds inside end-user package hooks, the repository pulls from the pinned mainline release (`v7.3-rc5`), layers the [64-patch local A16 baseline](patches/rc5-20261013/README.md) plus the [40-patch `qcom-next` / `qcom-topics` bridge series](patches/qcom-glymur-bridge-20261018/README.md) (104 patches total, reproducing tree `65fd4b07749a5d6b48f5b2dbbfc3e78681f04bf1`), and applies all initramfs, DTB, audio UCM2/WirePlumber, and hardware activation updates through scoped post-install hooks (`packaging/zenbook-a16-hooks/`).
 
 See the [bridge build package](kernel/rc5-qcom-bridge-20261018/README.md) and [bridge Kconfig fragment](kernel/qcom-glymur-bridge.config). Hardware boot and runtime acceptance of the bridged stack remain separate from source and package verification.
 
@@ -52,7 +52,7 @@ All cross-compatible kernel tracks, multi-distro installer scripts, and persiste
 Verify and build the mainline release + `qcom-next`/`qcom-topics` bridge package (or the `rc5-20261013` baseline) as a separately versioned package:
 
 ```sh
-# Mainline release + qcom-next / qcom-topics bridge (105 patches):
+# Mainline release + qcom-next / qcom-topics bridge (104 patches):
 python3 kernel/rc5-qcom-bridge-20261018/verify.py /path/to/linux
 JOBS=4 ./kernel/rc5-qcom-bridge-20261018/build.sh /path/to/linux /path/to/new-output
 
