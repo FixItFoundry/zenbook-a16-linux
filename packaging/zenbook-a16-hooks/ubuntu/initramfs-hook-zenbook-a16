@@ -66,11 +66,16 @@ for mod in qrtr qrtr_smd qcom_q6v5_pas qcom_pd_mapper qcom_battmgr \
     manual_add_modules "$mod"
 done
 
-# 3. Add early regulator, PMIC, PHY, USB, and NVMe modules
+# 3. Add early regulator, PMIC, PHY, USB, NVMe, and Qualcomm Glymur bridge modules
 for mod in qcom_rpmh_regulator fixed qcom_spmi_pmic llcc_qcom qcom_aoss \
     phy_qcom_edp phy_qcom_qmp_pcie pmic_glink xhci_plat_hcd nvme nvme_core \
     dwc3_qcom phy_qcom_qmp_combo phy_qcom_qmp_usb \
     phy_qcom_m31_eusb2 phy_qcom_eusb2_repeater phy_qcom_qmp_pcie_multiphy \
-    qcom_glink_smem dispcc_glymur gpucc_glymur; do
+    qcom_glink_smem dispcc_glymur gpucc_glymur \
+    lpasscc_glymur clk_glymur_lpasscc snd_soc_lpass_rx_macro \
+    snd_soc_lpass_tx_macro snd_soc_lpass_macro_common \
+    snd_soc_wcd9378_sdw snd_soc_wcd937x_sdw snd_soc_sdca \
+    rtc_qcom_glink pwrseq_pcie_m2 pwrseq_qcom_wcn \
+    qcom_tee qcom_tee_uefisecapp tpm_qcom; do
     manual_add_modules "$mod" 2>/dev/null || true
 done

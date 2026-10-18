@@ -1,0 +1,39 @@
+From 4ebff2527a401ec7812a22996033affd586a5a63 Mon Sep 17 00:00:00 2001
+From: Saurabh Anand <saurabh.anand@oss.qualcomm.com>
+Date: Wed, 19 Aug 2026 14:14:57 +0530
+Subject: [PATCH] FROMLIST: drm/msm/dp: skip LTTPR init when no LTTPRs are
+ present
+
+drm_dp_lttpr_count() returns 0 when no LTTPRs are detected and a
+negative value on error. The previous code passed the result directly
+to drm_dp_lttpr_init() without checking, which would call into the
+LTTPR transparency-mode setup with a zero or negative repeater count.
+
+Add an early return for lttpr_count <= 0 to skip the init entirely
+when there are no repeaters in the link, matching the expected usage
+of drm_dp_lttpr_init().
+Link: https://lore.kernel.org/all/20260824-qcom-dp-typec-reconnect-fixes-v1-3-2825e5bf8a96@oss.qualcomm.com/
+
+Signed-off-by: Saurabh Anand <saurabh.anand@oss.qualcomm.com>
+---
+ drivers/gpu/drm/msm/dp/dp_display.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/dp/dp_display.c b/drivers/gpu/drm/msm/dp/dp_display.c
+index 1d4315d06b..545579a851 100644
+--- a/drivers/gpu/drm/msm/dp/dp_display.c
++++ b/drivers/gpu/drm/msm/dp/dp_display.c
+@@ -253,6 +253,10 @@ static int msm_dp_display_lttpr_init(struct msm_dp_display_private *dp, u8 *dpcd
+ 		return 0;
+ 
+ 	lttpr_count = drm_dp_lttpr_count(dp->link->lttpr_common_caps);
++
++	if (lttpr_count <= 0)
++		return 0;
++
+ 	rc = drm_dp_lttpr_init(dp->aux, lttpr_count);
+ 	if (rc) {
+ 		DRM_ERROR("failed to set LTTPRs transparency mode, rc=%d\n", rc);
+-- 
+2.56.0
+

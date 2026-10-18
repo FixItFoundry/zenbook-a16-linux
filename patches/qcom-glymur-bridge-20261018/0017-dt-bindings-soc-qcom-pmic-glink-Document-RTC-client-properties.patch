@@ -1,0 +1,39 @@
+From a79fffd0f318e9ade46f89edea96416d8bc942f3 Mon Sep 17 00:00:00 2001
+From: Kamal Wadhwa <kamal.wadhwa@oss.qualcomm.com>
+Date: Fri, 7 Aug 2026 02:26:30 +0530
+Subject: [PATCH] FROMLIST: dt-bindings: soc: qcom: qcom,pmic-glink: Document
+ RTC client properties
+
+The pmic_glink driver can now register an RTC auxiliary device on
+glymur, whose PMIC exposes an RTC over GLINK (see rtc-glink driver).
+Document the allow-set-time flag it consumes from the parent
+pmic-glink node.
+
+Link: https://lore.kernel.org/all/20260807-rtc-glink-cleanup-v1-1-7801e4d69c4f@oss.qualcomm.com/
+
+Assisted-by: Claude:claude-sonnet-5
+Signed-off-by: Raj Aryan <raryan@qti.qualcomm.com>
+Signed-off-by: Kamal Wadhwa <kamal.wadhwa@oss.qualcomm.com>
+---
+ .../devicetree/bindings/soc/qcom/qcom,pmic-glink.yaml        | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/soc/qcom/qcom,pmic-glink.yaml b/Documentation/devicetree/bindings/soc/qcom/qcom,pmic-glink.yaml
+index 16ad4f5698..38db1ff473 100644
+--- a/Documentation/devicetree/bindings/soc/qcom/qcom,pmic-glink.yaml
++++ b/Documentation/devicetree/bindings/soc/qcom/qcom,pmic-glink.yaml
+@@ -79,6 +79,11 @@ properties:
+       - const: charge_limit_end
+       - const: charge_limit_delta
+ 
++  allow-set-time:
++    $ref: /schemas/types.yaml#/definitions/flag
++    description:
++      Indicates that the setting of RTC time is allowed by the host CPU.
++
+ patternProperties:
+   '^connector@\d$':
+     $ref: /schemas/connector/usb-connector.yaml#
+-- 
+2.56.0
+

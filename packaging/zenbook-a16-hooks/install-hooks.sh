@@ -90,10 +90,12 @@ esac
 
 required=(
     "$SCRIPT_DIR/migrate-hooks.sh"
+    "$SCRIPT_DIR/activate-hardware.sh"
     "$SCRIPT_DIR/boot-artifacts.py"
     "$REPO_ROOT/packaging/omarchy-a16-support/verify-boot.py"
     "$REPO_ROOT/packaging/omarchy-a16-support/initcpio-hook"
     "$REPO_ROOT/packaging/omarchy-a16-support/remoteproc-blacklist.conf"
+    "$REPO_ROOT/packaging/omarchy-a16-support/ucm.conf"
 )
 if [[ $DISTRO == fedora ]]; then
     required+=("$SCRIPT_DIR/fedora/90zenbook-a16/module-setup.sh"
@@ -111,14 +113,49 @@ bash "$SCRIPT_DIR/migrate-hooks.sh" --root "$TARGET" --check
 
 echo "Installing Zenbook A16 persistent kernel-update hooks for distro: $DISTRO into $TARGET"
 
-# 2. Always install verify-boot.py into /usr/lib/zenbook-a16/
-mkdir -p "$TARGET/usr/lib/zenbook-a16"
+# 2. Always install verify-boot.py, hardware activation, and staged support configs
+mkdir -p "$TARGET/usr/lib/zenbook-a16" \
+         "$TARGET/usr/share/omarchy-a16" \
+         "$TARGET/usr/share/zenbook-a16" \
+         "$TARGET/usr/share/alsa/ucm2/conf.d/glymur"
 install -Dm755 "$REPO_ROOT/packaging/omarchy-a16-support/verify-boot.py" \
     "$TARGET/usr/lib/zenbook-a16/verify-boot.py"
 install -Dm755 "$SCRIPT_DIR/migrate-hooks.sh" "$TARGET/usr/lib/zenbook-a16/migrate-hooks"
+install -Dm755 "$SCRIPT_DIR/activate-hardware.sh" "$TARGET/usr/lib/zenbook-a16/activate-hardware"
 install -Dm755 "$SCRIPT_DIR/boot-artifacts.py" "$TARGET/usr/lib/zenbook-a16/boot-artifacts.py"
 install -Dm644 "$REPO_ROOT/packaging/omarchy-a16-support/initcpio-hook" "$TARGET/usr/lib/zenbook-a16/dsp-policy.sh"
 install -Dm644 "$REPO_ROOT/packaging/omarchy-a16-support/remoteproc-blacklist.conf" "$TARGET/usr/share/omarchy-a16/remoteproc-blacklist.conf"
+install -Dm644 "$REPO_ROOT/packaging/omarchy-a16-support/ucm.conf" \
+    "$TARGET/usr/share/alsa/ucm2/conf.d/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA.conf"
+ln -sfn GLYMUR-ASUS-Zenbook-A16-UX3607OA.conf \
+    "$TARGET/usr/share/alsa/ucm2/conf.d/glymur/ASUSTeKCOMPUTERINC.-ZenbookA16UX3607OA-1.0-UX3607OA.conf"
+
+if [[ -s "$REPO_ROOT/tweaks/usr/share/alsa/ucm2/Qualcomm/glymur/HiFi.conf" ]]; then
+    install -Dm644 "$REPO_ROOT/tweaks/usr/share/alsa/ucm2/Qualcomm/glymur/HiFi.conf" \
+        "$TARGET/usr/share/alsa/ucm2/Qualcomm/omarchy-a16/HiFi.conf"
+    install -Dm644 "$REPO_ROOT/tweaks/usr/share/alsa/ucm2/Qualcomm/glymur/HiFi.conf" \
+        "$TARGET/usr/share/alsa/ucm2/Qualcomm/glymur/HiFi.conf"
+fi
+if [[ -s "$REPO_ROOT/tweaks/usr/share/alsa/ucm2/Qualcomm/glymur/glymur.conf" ]]; then
+    install -Dm644 "$REPO_ROOT/tweaks/usr/share/alsa/ucm2/Qualcomm/glymur/glymur.conf" \
+        "$TARGET/usr/share/alsa/ucm2/Qualcomm/glymur/glymur.conf"
+fi
+if [[ -s "$REPO_ROOT/tweaks/etc/wireplumber/wireplumber.conf.d/51-glymur-ucm.conf" ]]; then
+    install -Dm644 "$REPO_ROOT/tweaks/etc/wireplumber/wireplumber.conf.d/51-glymur-ucm.conf" \
+        "$TARGET/usr/share/omarchy-a16/51-glymur-ucm.conf"
+fi
+if [[ -s "$REPO_ROOT/tweaks/etc/modules-load.d/battery-baseline.conf" ]]; then
+    install -Dm644 "$REPO_ROOT/tweaks/etc/modules-load.d/battery-baseline.conf" \
+        "$TARGET/usr/share/zenbook-a16/battery-baseline.conf"
+fi
+if [[ -s "$REPO_ROOT/tweaks/etc/tmpfiles.d/glymur-s2idle.conf" ]]; then
+    install -Dm644 "$REPO_ROOT/tweaks/etc/tmpfiles.d/glymur-s2idle.conf" \
+        "$TARGET/usr/share/zenbook-a16/glymur-s2idle.conf"
+fi
+if [[ -s "$REPO_ROOT/tweaks/usr/local/bin/glymur-cpu-profile.sh" ]]; then
+    install -Dm755 "$REPO_ROOT/tweaks/usr/local/bin/glymur-cpu-profile.sh" \
+        "$TARGET/usr/lib/zenbook-a16/glymur-cpu-profile"
+fi
 
 # 3. Distribution-specific hooks
 case "$DISTRO" in

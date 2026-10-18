@@ -1,0 +1,13 @@
+{
+  "base": "72d3fcf802c45d00b300f25b848a93c3a2bd7c7e",
+  "source_commit": "fb02245265b3bea01c4d3aeee0dcae0c7098ecec",
+  "source_tree": "e9fa73cd5291272d4aef6ea409bcc13b7c5b6d5c",
+  "release": "7.3.0-rc5-ZenbookA16-20261018-rc5-qcom1+",
+  "patch_count": 105,
+  "base_patch_count": 64,
+  "bridge_patch_count": 41,
+  "prior_release": "7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+",
+  "prior_source_tree": "e3af70b5403334c7d762fdb00b0a7cdfbb5a362c",
+  "promotion_date": "2026-10-18",
+  "validation_scope": "Mainline v7.3-rc5 release base bridged with 41 qcom-next and qcom-topics commits; managed and updated via post-install hooks."
+}

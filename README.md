@@ -5,10 +5,17 @@ Qualcomm Snapdragon X2 Elite Extreme (`glymur`).
 
 ![Zenbook A16 running Linux](img/screenshot_20260816_080455.png)
 
+## Mainline + `qcom-next` / `qcom-topics` Bridge — 2026-10-18
+
+**`7.3.0-rc5-ZenbookA16-20261018-rc5-qcom1+` bridges the mainline `v7.3-rc5` release base with Qualcomm's `qcom-next` and `qcom-topics` repositories, managed and updated via post-install hooks.**
+
+Rather than tracking daily `linux-next` churn or attempting source builds inside end-user package hooks, the repository pulls from the pinned mainline release (`v7.3-rc5`), layers the [64-patch local A16 baseline](patches/rc5-20261013/README.md) plus the [41-patch `qcom-next` / `qcom-topics` bridge series](patches/qcom-glymur-bridge-20261018/README.md) (105 patches total, reproducing tree `e9fa73cd5291272d4aef6ea409bcc13b7c5b6d5c`), and applies all initramfs, DTB, audio UCM2/WirePlumber, and hardware activation updates through scoped post-install hooks (`packaging/zenbook-a16-hooks/`).
+
+See the [bridge build package](kernel/rc5-qcom-bridge-20261018/README.md) and [bridge Kconfig fragment](kernel/qcom-glymur-bridge.config). Hardware boot and runtime acceptance of the bridged stack remain separate from source and package verification.
+
 ## Baseline — 2026-10-14
 
-**`7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+` is the repository and future-testing
-baseline.** This is a development baseline with limited hardware acceptance.
+**`7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+` remains the boot-validated baseline.** This is a development baseline with limited hardware acceptance.
 
 The [build package](kernel/rc5-20261013/README.md) contains the exact tested
 config and [64 ordered patches](patches/rc5-20261013/README.md). The previous
@@ -29,24 +36,29 @@ Bluetooth, DP, QMP/Type-C ownership and a hibernation config fragment.
 
 The [current build record](docs/current-build.md) separates current-boot checks
 from retained tests. Historical resets and RPMh timeouts remain unresolved.
-The saved GRUB fallback remains `zenbook-a16-rc5-audiopm1-fan2-20261008`;
+The saved GRUB fallback remains `zenbook-a16-rc5-audiopm1-20261008`;
 previous kernels and the Windows route are retained.
 
 ## Branches & Distro Tracks
 
-All cross-compatible kernel tracks, multi-distro installer scripts, and persistent kernel-update hooks are synced to `main`, with dedicated working branches for concurrent development:
+All cross-compatible kernel tracks, multi-distro installer scripts, and persistent post-install kernel hooks are synced to `main`, with dedicated working branches for concurrent development:
 
-- **`main`**: Unified baseline carrying the mainline `7.3-rc5` (`rc5-20261013`) and Arch `7.2.10` (`arch-7.2.10`) kernel packages, cross-distro installer (`iso/`), and persistent kernel-update hooks (`packaging/`).
-- **`feature/multi-distro-installer`**: Working branch for the cross-distro installer, kernel builder (`RPM`/`DEB`/bundle), and persistent kernel-update hooks across Fedora (`aarch64`), Ubuntu (`arm64`), and Arch Linux (`aarch64`).
-- **`feature/arch-7.2.10-a16`**: Working branch for the Arch Linux / Omarchy `7.2.10` kernel & support package port (contributing to the Omarchy `dragon` / `quattro` / `feature/asus-zenbook-a16` branches).
+- **`main`**: Unified baseline carrying the mainline release + `qcom-next`/`qcom-topics` bridge (`rc5-qcom-bridge-20261018`), the validated `7.3-rc5` (`rc5-20261013`) baseline, the Arch `7.2.10` (`arch-7.2.10`) backport, cross-distro installer (`iso/`), and post-install kernel hooks (`packaging/`).
+- **`feature/multi-distro-installer`**: Working branch for the mainline + `qcom-next`/`qcom-topics` bridge, kernel package builder (`RPM`/`DEB`/bundle), and persistent post-install hooks across Fedora (`aarch64`) and Ubuntu (`arm64`).
+- **`feature/arch-7.2.10-a16`**: Working branch for the Arch Linux `7.2.10` kernel & support package port.
 
 ## Build and test
 
-Rebuild the tested kernel source/configuration as a separately versioned package:
+Verify and build the mainline release + `qcom-next`/`qcom-topics` bridge package (or the `rc5-20261013` baseline) as a separately versioned package:
 
 ```sh
+# Mainline release + qcom-next / qcom-topics bridge (105 patches):
+python3 kernel/rc5-qcom-bridge-20261018/verify.py /path/to/linux
+JOBS=4 ./kernel/rc5-qcom-bridge-20261018/build.sh /path/to/linux /path/to/new-output
+
+# Validated soc2 baseline (64 patches):
 python3 kernel/rc5-20261013/verify.py /path/to/linux
-JOBS=4 ./kernel/rc5-20261013/build.sh /path/to/linux /path/to/new-output
+JOBS=4 ./kernel/rc5-20261013/build.sh /path/to/linux /path/to/new-output-soc2
 ```
 
 Build options are configured via environment variables:
@@ -60,27 +72,33 @@ The build script automatically validates the compiled DTB against the required `
 See the [package contract and build commands](packaging/zenbook-a16-kernel/README.md).
 Native package transactions and physical boot/rollback still need acceptance.
 
-## Installation & Persistent Kernel Hooks
+## Installation & Persistent Post-Install Hooks
 
-To install the kernel, DTB, firmware, platform tweaks, and persistent update hooks onto a target system:
+To install the kernel, DTB, firmware, platform tweaks, and persistent post-install hooks onto a target system:
 
 ```sh
-# Install persistent hooks into a mounted target or running root:
+# Install persistent hooks and staged support configs into a mounted target or running root:
 sudo packaging/zenbook-a16-hooks/install-hooks.sh --root / --distro auto
+
+# Activate model-gated UX3607OA hardware configs and conditional fTPM rules:
+sudo /usr/lib/zenbook-a16/activate-hardware
 
 # Or run the end-to-end disk installer from live media:
 sudo iso/zenbook-install-to-disk.sh /mnt
 ```
 
-The persistent hooks support build-identified Fedora and Ubuntu kernels. They
-skip stock kernels and stop on invalid A16 metadata or boot-entry errors; they cannot
-reapply source patches to binary distro kernels. Experimental suspend is not
+The post-install hooks support build-identified Fedora and Ubuntu kernels bridged
+from the mainline release and `qcom-next`/`qcom-topics`. They skip stock distro
+kernels and stop on invalid A16 metadata or boot-entry errors; they do not
+compile C/DTS patches against binary distro kernels. Experimental suspend is not
 enabled by installation. Btrfs subvolume roots need a separate `/boot`.
 
 Fedora uses a dracut pre-mount readiness barrier and versioned BLS entries.
 Ubuntu uses an init-premount barrier and explicit A16 GRUB entries. Both reuse
-the same DSP policy and preserve rescue entries. Generic Arch/Manjaro hooks are
-rejected; Omarchy retains its separate packaged kernel/UKI workflow.
+the same DSP policy, include the `qcom-next`/`qcom-topics` bridge modules when
+present, run `activate-hardware` during post-install to link UX3607OA audio/platform
+configs and unmask `/dev/tpm0` when `CONFIG_TCG_QCOM` is enabled, and preserve
+rescue and rollback entries.
 
 See [installation requirements and limitations](iso/README.md) before building
 or installing. Hardware boot, update/rollback and sleep acceptance remain separate

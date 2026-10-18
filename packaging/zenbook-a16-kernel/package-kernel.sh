@@ -35,6 +35,9 @@ case "$action" in
         # A later failure must not leave a newly selected kernel as the default.
         trap restore_boot_default EXIT
         python3 "$helper" managed "$release"
+        if [[ -x /usr/lib/zenbook-a16/activate-hardware ]]; then
+            /usr/lib/zenbook-a16/activate-hardware --kernel-release "$release"
+        fi
         depmod -a "$release"
         if [[ "$distro" == fedora ]]; then
             dracut --force --no-hostonly --kver "$release" "/boot/initramfs-$release.img"

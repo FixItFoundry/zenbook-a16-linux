@@ -1,0 +1,173 @@
+From 3076abe016a93cdfac751057b8e5c377d168284e Mon Sep 17 00:00:00 2001
+From: Mohammad Rafi Shaik <mohammad.rafi.shaik@oss.qualcomm.com>
+Date: Tue, 22 Sep 2026 22:16:23 +0530
+Subject: [PATCH] PENDING: clk: qcom: add Glymur LPASS clock controller with
+ reset lines
+
+Add a thin LPASS clock controller driver for Glymur that exposes the
+reset lines required by the LPASS audio macro codecs and the SoundWire
+masters. The driver provides no clocks of its own and acts purely as a
+reset provider over two register regions.
+
+The driver registers two device tree compatibles, each with its own
+regmap and reset map:
+
+- qcom,glymur-lpassaudiocc covers the LPASS audio CSR region and
+exposes the receive path reset line together with the four WSA
+SoundWire reset lines.
+- qcom,glymur-lpasscc covers the LPASS TCSR region and exposes the
+transmit path SoundWire reset line.
+
+Probe resolves the per compatible controller description from the match
+data and hands it to the common Qualcomm clock controller probe helper,
+which builds the regmap and registers the reset controller. Reset
+identifiers come from the Glymur LPASS clock controller device tree
+binding header.
+
+A new SC_LPASSCC_GLYMUR Kconfig symbol builds the driver as a module by
+default on Qualcomm platforms, matching the other LPASS clock controller
+entries. These reset lines are required for the LPASS audio macros and
+the SoundWire compute mode controller to come out of reset on Glymur.
+
+Signed-off-by: Mohammad Rafi Shaik <mohammad.rafi.shaik@oss.qualcomm.com>
+---
+ drivers/clk/qcom/Kconfig          | 11 ++++
+ drivers/clk/qcom/Makefile         |  1 +
+ drivers/clk/qcom/lpasscc-glymur.c | 91 +++++++++++++++++++++++++++++++
+ 3 files changed, 103 insertions(+)
+ create mode 100644 drivers/clk/qcom/lpasscc-glymur.c
+
+diff --git a/drivers/clk/qcom/Kconfig b/drivers/clk/qcom/Kconfig
+index d1fc9bf871..8a6c15ab9d 100644
+--- a/drivers/clk/qcom/Kconfig
++++ b/drivers/clk/qcom/Kconfig
+@@ -1177,6 +1177,17 @@ config SC_LPASSCC_8280XP
+ 	  Say Y if you want to use the LPASS branch clocks of the LPASS clock
+ 	  controller to reset the LPASS subsystem.
+ 
++config SC_LPASSCC_GLYMUR
++	tristate "GLYMUR Low Power Audio Subsystem (LPASS) Clock Controller"
++	depends on ARM64 || COMPILE_TEST
++	default m if ARCH_QCOM
++	help
++	  Support for the LPASS clock controller on Glymur devices.
++	  Say Y if you want to use the LPASS branch clocks of the LPASS clock
++	  controller to reset the LPASS subsystem.  Required for the LPASS
++	  audio macros and the SoundWire compute-mode controller to leave
++	  reset on Glymur.
++
+ config SC_LPASS_CORECC_7180
+ 	tristate "SC7180 LPASS Core Clock Controller"
+ 	depends on ARM64 || COMPILE_TEST
+diff --git a/drivers/clk/qcom/Makefile b/drivers/clk/qcom/Makefile
+index daf25d583b..bd17f2ae83 100644
+--- a/drivers/clk/qcom/Makefile
++++ b/drivers/clk/qcom/Makefile
+@@ -142,6 +142,7 @@ obj-$(CONFIG_SC_LPASSCC_7280) += lpasscc-sc7280.o
+ obj-$(CONFIG_SC_LPASSCC_8280XP) += lpasscc-sc8280xp.o
+ obj-$(CONFIG_SC_LPASS_CORECC_7180) += lpasscorecc-sc7180.o
+ obj-$(CONFIG_SC_LPASS_CORECC_7280) += lpasscorecc-sc7280.o lpassaudiocc-sc7280.o
++obj-$(CONFIG_SC_LPASSCC_GLYMUR) += lpasscc-glymur.o
+ obj-$(CONFIG_SC_VIDEOCC_7180) += videocc-sc7180.o
+ obj-$(CONFIG_SC_VIDEOCC_7280) += videocc-sc7280.o
+ obj-$(CONFIG_SDM_CAMCC_845) += camcc-sdm845.o
+diff --git a/drivers/clk/qcom/lpasscc-glymur.c b/drivers/clk/qcom/lpasscc-glymur.c
+new file mode 100644
+index 0000000000..fe1b16a6f1
+--- /dev/null
++++ b/drivers/clk/qcom/lpasscc-glymur.c
+@@ -0,0 +1,91 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2025, Qualcomm Inc
++ */
++
++#include <linux/clk-provider.h>
++#include <linux/err.h>
++#include <linux/kernel.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++
++#include <dt-bindings/clock/qcom,glymur-lpasscc.h>
++
++#include "common.h"
++#include "reset.h"
++
++static const struct qcom_reset_map lpass_audiocc_glymur_resets[] = {
++	[LPASS_AUDIO_SWR_RX_CGCR] =  { 0xA0, 1 },
++	[LPASS_AUDIO_SWR_WSA1_CGCR] = { 0xB0, 1 },
++	[LPASS_AUDIO_SWR_WSA2_CGCR] = { 0xD8, 1 },
++	[LPASS_AUDIO_SWR_WSA3_CGCR] = { 0x300C, 1 },
++	[LPASS_AUDIO_SWR_WSA4_CGCR] = { 0x301C, 1 },
++};
++
++static const struct regmap_config lpass_audiocc_glymur_regmap_config = {
++	.reg_bits = 32,
++	.reg_stride = 4,
++	.val_bits = 32,
++	.name = "lpass-audio-csr",
++	.max_register = 0x1000,
++};
++
++static const struct qcom_cc_desc lpass_audiocc_glymur_reset_desc = {
++	.config = &lpass_audiocc_glymur_regmap_config,
++	.resets = lpass_audiocc_glymur_resets,
++	.num_resets = ARRAY_SIZE(lpass_audiocc_glymur_resets),
++};
++
++static const struct qcom_reset_map lpasscc_glymur_resets[] = {
++	[LPASS_AUDIO_SWR_TX_CGCR] = { 0xa028, 1 },
++};
++
++static const struct regmap_config lpasscc_glymur_regmap_config = {
++	.reg_bits = 32,
++	.reg_stride = 4,
++	.val_bits = 32,
++	.name = "lpass-tcsr",
++	.max_register = 0x12000,
++};
++
++static const struct qcom_cc_desc lpasscc_glymur_reset_desc = {
++	.config = &lpasscc_glymur_regmap_config,
++	.resets = lpasscc_glymur_resets,
++	.num_resets = ARRAY_SIZE(lpasscc_glymur_resets),
++};
++
++static const struct of_device_id lpasscc_glymur_match_table[] = {
++	{
++		.compatible = "qcom,glymur-lpassaudiocc",
++		.data = &lpass_audiocc_glymur_reset_desc,
++	}, {
++		.compatible = "qcom,glymur-lpasscc",
++		.data = &lpasscc_glymur_reset_desc,
++	},
++	{ }
++};
++MODULE_DEVICE_TABLE(of, lpasscc_glymur_match_table);
++
++static int lpasscc_glymur_probe(struct platform_device *pdev)
++{
++	const struct qcom_cc_desc *desc = of_device_get_match_data(&pdev->dev);
++
++	return qcom_cc_probe_by_index(pdev, 0, desc);
++}
++
++static struct platform_driver lpasscc_glymur_driver = {
++	.probe = lpasscc_glymur_probe,
++	.driver = {
++		.name = "lpasscc-glymur",
++		.of_match_table = lpasscc_glymur_match_table,
++	},
++};
++
++module_platform_driver(lpasscc_glymur_driver);
++
++MODULE_AUTHOR("Srinivas Kandagatla <srinivas.kandagatla@oss.qualcomm.com>");
++MODULE_DESCRIPTION("QTI LPASSCC SC8280XP Driver");
++MODULE_LICENSE("GPL");
+-- 
+2.56.0
+

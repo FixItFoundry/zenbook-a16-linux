@@ -76,6 +76,7 @@ def stage(bundle, output, distro):
         root.mkdir(parents=True, exist_ok=False)
     payload = roots['kernel']
     shutil.copytree(modules, payload / f'usr/lib/modules/{release}', symlinks=True)
+    (payload / f'usr/lib/modules/{release}/omarchy-a16-dsp-abi').write_text('1\n')
     copy(kernel, payload / f'boot/vmlinuz-{release}')
     for dest in (f'boot/dtb-{release}', f'boot/glymur/{release}.dtb',
                  f'boot/dtbs/{release}/qcom/{DTB}', f'usr/lib/modules/{release}/dtb/qcom/{DTB}'):
@@ -134,6 +135,8 @@ AutoReqProv: no
 Requires: zenbook-a16-support >= %{{version}}
 Requires(pre): zenbook-a16-support >= %{{version}}
 Provides: installonlypkg(kernel)
+Provides: zenbook-a16-dsp-abi = 1
+Provides: omarchy-a16-dsp-abi = 1
 
 %description -n {name}
 Build-identified A16 kernel. Installing it preserves existing kernel versions.
@@ -160,6 +163,7 @@ cp -a kernel/. support/. tracking/. %{{buildroot}}/
 {migration_check().replace('%', '%%')}
 %post -n zenbook-a16-support
 /usr/lib/zenbook-a16/migrate-hooks
+/usr/lib/zenbook-a16/activate-hardware
 
 %pre -n {name}
 {script('pre', 'fedora', release)}
@@ -201,7 +205,7 @@ def debian_controls(roots, name, release, version):
     for kind, pkg in (('kernel', name), ('support', 'zenbook-a16-support'), ('tracking', 'zenbook-a16-kernel')):
         control_dir = roots[kind] / 'DEBIAN'
         control_dir.mkdir()
-        relations = {'kernel': f'Pre-Depends: zenbook-a16-support (>= {version})\n',
+        relations = {'kernel': f'Pre-Depends: zenbook-a16-support (>= {version})\nProvides: zenbook-a16-dsp-abi (= 1), omarchy-a16-dsp-abi (= 1)\n',
                      'support': 'Depends: bash, coreutils, python3, kmod, util-linux, device-tree-compiler, initramfs-tools, udev, grub-common, grub2-common, xz-utils, zstd\n',
                      'tracking': f'Depends: {name} (= {version})\n'}[kind]
         (control_dir / 'control').write_text(
@@ -217,7 +221,7 @@ def debian_controls(roots, name, release, version):
         path.write_text(f'#!/bin/sh\nset -eu\ncase "$1" in\n  {cases}) {script(action, "ubuntu", release)} ;;\nesac\n')
         path.chmod(0o755)
     for filename, body in [('preinst', 'case "$1" in\ninstall|upgrade)\n' + migration_check() + ';;\nesac\n'),
-                           ('postinst', 'case "$1" in\nconfigure) /usr/lib/zenbook-a16/migrate-hooks ;;\nesac\n')]:
+                           ('postinst', 'case "$1" in\nconfigure) /usr/lib/zenbook-a16/migrate-hooks && /usr/lib/zenbook-a16/activate-hardware ;;\nesac\n')]:
         path = roots['support'] / 'DEBIAN' / filename
         path.write_text('#!/bin/sh\nset -eu\n' + body)
         path.chmod(0o755)

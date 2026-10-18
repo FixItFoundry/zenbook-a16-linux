@@ -1,24 +1,25 @@
 # Managed A16 kernel packages
 
 Fedora is the first native package target; Ubuntu uses the same verified payload
-and boot policy. Arch keeps the existing Omarchy integration. These recipes are
-development drafts: package fixtures pass, but native transactions and physical
-boot/rollback still need acceptance. They do not make the RC kernel production-ready.
+and boot policy. Arch uses the split kernel and support package workflow with
+post-install hooks. These recipes are development drafts: package fixtures pass,
+but native transactions and physical boot/rollback still need acceptance. They
+do not make the RC kernel production-ready.
 
 ## Build without installing
 
 Run from this repository on a native aarch64 Linux build machine. Supply a kernel
-Git repository containing the [pinned base](../../kernel/rc5-20261013/build.json).
+Git repository containing the pinned mainline base ([`rc5-qcom-bridge-20261018`](../../kernel/rc5-qcom-bridge-20261018/build.json) or [`rc5-20261013`](../../kernel/rc5-20261013/build.json)).
 The output directory must not exist. The helper creates a separate source worktree.
 
 ```sh
-# Fedora: requires rpmbuild/rpm plus the kernel build dependencies.
+# Fedora (mainline release + qcom-next / qcom-topics bridge):
 JOBS=4 PACKAGE_REVISION=1 BUILD_RPM=1 BUILD_DEB=0 \
-  ./kernel/rc5-20261013/build.sh /path/to/linux /path/to/fedora-build
+  ./kernel/rc5-qcom-bridge-20261018/build.sh /path/to/linux /path/to/fedora-build
 
-# Ubuntu: requires dpkg-deb plus the kernel build dependencies.
+# Ubuntu (mainline release + qcom-next / qcom-topics bridge):
 JOBS=4 PACKAGE_REVISION=1 BUILD_RPM=0 BUILD_DEB=1 \
-  ./kernel/rc5-20261013/build.sh /path/to/linux /path/to/ubuntu-build
+  ./kernel/rc5-qcom-bridge-20261018/build.sh /path/to/linux /path/to/ubuntu-build
 ```
 
 Both builds require Python, `dtc`, `fdtget`, GNU coreutils and the kernel's compiler,
@@ -27,20 +28,22 @@ Builds do not install packages, generate host boot entries or change the default
 `BUILD_RPM=0 BUILD_DEB=0` stages only the portable bundle. Packages go in
 `bundle/rpms/` or `bundle/debs/`.
 
-The patched source and checked-in configuration remain the tested soc2 baseline.
+The kernel source pulls from the mainline release base (`v7.3-rc5`), applies the
+local A16 series and the `qcom-next`/`qcom-topics` bridge patches, and merges
+[`kernel/qcom-glymur-bridge.config`](../../kernel/qcom-glymur-bridge.config).
 The new release ends in `-a16pkg1+`, replacing its original final `+`, so its modules
 cannot overwrite the installed baseline. Increase `PACKAGE_REVISION` for each
 new rebuild; never distribute different bytes with the same release identity.
 This is a source/configuration rebuild, not a promise of byte-identical binaries.
 
-## Package ownership and updates
+## Package ownership and post-install hook updates
 
 Each native build produces three packages:
 
 | Package | Owns |
 |---|---|
-| `kernel-zenbook-a16-<release>` (Fedora), `linux-image-<release>` (Ubuntu) | Versioned Image, modules, build headers, config, DTB and boot metadata |
-| `zenbook-a16-support` | Scoped initramfs, boot generation, verification and rollback helpers |
+| `kernel-zenbook-a16-<release>` (Fedora), `linux-image-<release>` (Ubuntu) | Versioned Image, modules, build headers, config, DTB, boot metadata, and `zenbook-a16-dsp-abi = 1` capability |
+| `zenbook-a16-support` | Scoped initramfs hooks, boot generation, verification, rollback helpers, staged ALSA UCM2/WirePlumber/platform configs, and `activate-hardware` post-install hook |
 | `zenbook-a16-kernel` | Dependency on the exact current payload version |
 
 Package names use the lowercase release; files retain its original spelling.
@@ -49,10 +52,12 @@ source tree, release, package family/version, Image/DTB/config hashes, command l
 and DSP policy. Packaging rejects missing/mismatched headers or artifacts.
 
 A tracking-package upgrade adds a new payload package rather than replacing the
-previous payload. It also updates shared support hooks. Fedora marks payloads as
-install-only; Ubuntu supplies an APT never-auto-remove rule for this family.
-There is no automatic kernel pruning. Manual removal refuses a running managed
-kernel or the recorded rollback kernel.
+previous payload. It also updates shared support hooks and runs `activate-hardware`
+in post-install to link UX3607OA audio/platform configs into `/etc` and conditionally
+unmask `/dev/tpm0` and `/dev/tpmrm0` when `CONFIG_TCG_QCOM` is enabled in the kernel
+config. Fedora marks payloads as install-only; Ubuntu supplies an APT never-auto-remove
+rule for this family. There is no automatic kernel pruning. Manual removal refuses a
+running managed kernel or the recorded rollback kernel.
 
 Future package-manager updates require publishing each rebuilt/tested set to a
 signed RPM/APT repository. No repository is configured or published here. A new
@@ -100,8 +105,9 @@ their distro's retention policy.
 
 ## Arch and release acceptance
 
-Reuse the shared Omarchy kernel/support ABI and Limine workflow described in
-[Omarchy support package](../omarchy-a16-support/PKGBUILD.in). The optional
+Reuse the shared Arch kernel/support ABI (`zenbook-a16-dsp-abi = 1`) and Limine
+post-install hook workflow described in the
+[Arch support package](../omarchy-a16-support/PKGBUILD.in). The optional
 [standalone Arch build](../../kernel/arch-7.2.10/BUILD-AND-UPGRADE.txt) now has
 versioned payloads, headers, metadata and UKI presets. It does not claim the shared
 DSP ABI. Automatic standalone Limine updates remain blocked by external global

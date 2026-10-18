@@ -475,15 +475,19 @@ if [[ -n "$TWEAKS_SRC" ]]; then
     fi
 fi
 
-# Mask TPM devices to avoid firmware lockups
-mkdir -p "$target/etc/systemd/system"
-ln -sf /dev/null "$target/etc/systemd/system/dev-tpm0.device"
-ln -sf /dev/null "$target/etc/systemd/system/dev-tpmrm0.device"
-
-# 7. Install Persistent Kernel-Update Hooks
+# 7. Install Persistent Kernel-Update Hooks and Activate Hardware Support
 echo "Installing persistent kernel-update hooks..."
 if [[ ${#package_files[@]} -eq 0 ]]; then
     bash "$HOOKS_INSTALLER" --root "$target" --distro "$DISTRO"
+fi
+
+if [[ -x "$target/usr/lib/zenbook-a16/activate-hardware" ]]; then
+    bash "$target/usr/lib/zenbook-a16/activate-hardware" --root "$target" --kernel-release "$KREL" --force
+elif ! grep -Eq '^CONFIG_TCG_QCOM=[ym]$' "$BUNDLE/config-$KREL" "$target/boot/config-$KREL" 2>/dev/null; then
+    # Mask TPM devices when Qualcomm's TEE-backed fTPM driver (CONFIG_TCG_QCOM) is not enabled
+    mkdir -p "$target/etc/systemd/system"
+    ln -sf /dev/null "$target/etc/systemd/system/dev-tpm0.device"
+    ln -sf /dev/null "$target/etc/systemd/system/dev-tpmrm0.device"
 fi
 
 # 8. Bind-mount system filesystems into target for chroot execution

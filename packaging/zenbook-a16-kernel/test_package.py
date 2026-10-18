@@ -83,21 +83,29 @@ class Packages(unittest.TestCase):
                 self.assertEqual(data['package_family'], 'zenbook-a16')
                 self.assertEqual(data['kernel_sha256'], hashlib.sha256((roots['kernel'] / f'boot/vmlinuz-{release}').read_bytes()).hexdigest())
                 self.assertTrue((modules / 'build/Makefile').is_file())
+                self.assertEqual((modules / 'omarchy-a16-dsp-abi').read_text(), '1\n')
                 self.assertTrue((roots['support'] / 'usr/lib/zenbook-a16/package-kernel').is_file())
+                self.assertTrue((roots['support'] / 'usr/lib/zenbook-a16/activate-hardware').is_file())
+                self.assertTrue((roots['support'] / 'usr/share/omarchy-a16/51-glymur-ucm.conf').is_file())
+                self.assertTrue((roots['support'] / 'usr/share/alsa/ucm2/conf.d/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA.conf').is_file())
+                self.assertTrue((roots['support'] / 'usr/share/alsa/ucm2/conf.d/glymur/ASUSTeKCOMPUTERINC.-ZenbookA16UX3607OA-1.0-UX3607OA.conf').is_symlink())
                 self.assertFalse((roots['support'] / 'usr/lib/firmware').exists())
                 if distro == 'fedora':
                     recipe = package.rpm_spec(roots, name, release, version)
                     self.assertIn('Requires(pre): zenbook-a16-support >= %{version}', recipe)
                     self.assertIn('Provides: installonlypkg(kernel)', recipe)
+                    self.assertIn('Provides: zenbook-a16-dsp-abi = 1', recipe)
+                    self.assertIn('Provides: omarchy-a16-dsp-abi = 1', recipe)
                     self.assertNotIn('kernel-uname-r =', recipe)
                     self.assertNotIn('Obsoletes:', recipe)
                     self.assertIn('%global __os_install_post %{nil}', recipe)
                     self.assertIn('%pre -n zenbook-a16-support\nbash -s -- --check', recipe)
-                    self.assertIn('%post -n zenbook-a16-support\n/usr/lib/zenbook-a16/migrate-hooks', recipe)
+                    self.assertIn('%post -n zenbook-a16-support\n/usr/lib/zenbook-a16/migrate-hooks\n/usr/lib/zenbook-a16/activate-hardware', recipe)
                 else:
                     package.debian_controls(roots, name, release, version)
                     control = (roots['kernel'] / 'DEBIAN/control').read_text()
                     self.assertIn('Pre-Depends: zenbook-a16-support (>= 20261014.1)', control)
+                    self.assertIn('Provides: zenbook-a16-dsp-abi (= 1), omarchy-a16-dsp-abi (= 1)', control)
                     self.assertNotIn('Replaces:', control)
                     self.assertIn('NeverAutoRemove', (roots['support'] / 'etc/apt/apt.conf.d/01zenbook-a16-keep-kernels').read_text())
                     for script in ('preinst', 'postinst', 'prerm', 'postrm'):
@@ -105,7 +113,7 @@ class Packages(unittest.TestCase):
                     for script in ('preinst', 'postinst'):
                         subprocess.run(['sh', '-n', str(roots['support'] / 'DEBIAN' / script)], check=True)
                     self.assertIn('bash -s -- --check', (roots['support'] / 'DEBIAN/preinst').read_text())
-                    self.assertIn('/usr/lib/zenbook-a16/migrate-hooks', (roots['support'] / 'DEBIAN/postinst').read_text())
+                    self.assertIn('/usr/lib/zenbook-a16/migrate-hooks && /usr/lib/zenbook-a16/activate-hardware', (roots['support'] / 'DEBIAN/postinst').read_text())
 
     def test_revisions_have_disjoint_kernel_files(self):
         self.fixture(1)

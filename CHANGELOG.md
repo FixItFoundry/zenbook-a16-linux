@@ -2,6 +2,18 @@
 
 Dated changes and corrections; [current status](docs/current-build.md) is recorded separately.
 
+## 2026-10-18 — Mainline release + `qcom-next` and `qcom-topics` bridge with post-install hooks
+
+- Refactored the kernel and packaging pipeline around a pull from the mainline release (`v7.3-rc5`), bridged with Qualcomm's `qcom-next` and `qcom-topics` repositories, and updated on target systems via scoped post-install hooks.
+- Completed a 4-way diff audit across mainline `v7.3-rc5`, `v7.3-rc7`, `linux-next` (`next-20261016`), and Qualcomm's `qcom-next` (`qcom-next-7.3-rc4-20261014`) and `qcom-topics` (`tech/*`) branches:
+  - Verified that 15 local A16 patches (`0006`–`0008`, `0014`–`0016`, `0033`–`0043`) have already landed in `v7.3-rc7` or `linux-next`.
+  - Exported the 41-patch [`patches/qcom-glymur-bridge-20261018/`](patches/qcom-glymur-bridge-20261018/README.md) bridge series: 2 local bridge fixes (`soundwire-qcom` deferred codec probing when `adsp_audio_pd` is not yet mapped, and `i2c-qcom-geni` 32 MHz source-clock selection) plus 39 clean-applying `qcom-next` / `qcom-topics` commits covering USB GDSC `PWRSTS_RET_ON`, eUSB2 repeater SMB power leakage, `ucsi_glink` wakeup guard, `dwc3-qcom` core PHY skip, ADSP SMMU SIDs, `lpasscc-glymur` clock/reset controller, LPASS v2.9 + runtime PM clock management, `qcom_battmgr` multi-port USB-C + capacity, PMIC GLINK RTC (`rtc-qcom-glink`), Adreno X2-90 GMU compatible, `drm/msm/dp` threaded HPD & LTTPR skip, CDSP `compute-cb` SIDs & `iris` video, `ath12k` QCC2072 MLO handshake & station power save, `pcie-qcom` disable halting, boost-aware `capacity_freq_ref`, EC thermal zones, `qcom_tee_uefisecapp` + `tpm_qcom` fTPM, and Glymur CAMSS/CSIPHY/CCI/MCLK DT nodes.
+- Added [`kernel/rc5-qcom-bridge-20261018/`](kernel/rc5-qcom-bridge-20261018/README.md) (`7.3.0-rc5-ZenbookA16-20261018-rc5-qcom1+`) and [`kernel/qcom-glymur-bridge.config`](kernel/qcom-glymur-bridge.config). Replaying all 105 patches (`64` base + `41` bridge) from `72d3fcf802c45d00b300f25b848a93c3a2bd7c7e` reproduces source tree `e9fa73cd5291272d4aef6ea409bcc13b7c5b6d5c`.
+- Updated `packaging/zenbook-a16-kernel/package.py`, `packaging/zenbook-a16-hooks/install-hooks.sh`, initramfs hooks (`dracut`, `initramfs-tools`, `mkinitcpio`), and `iso/zenbook-install-to-disk.sh`:
+  - Kernel packages record the audited DSP ABI marker (`zenbook-a16-dsp-abi = 1`).
+  - `zenbook-a16-support` stages ALSA UCM2 configs, WirePlumber keep-awake policy, and platform drop-ins under `/usr/share/`, and invokes [`packaging/zenbook-a16-hooks/activate-hardware.sh`](packaging/zenbook-a16-hooks/activate-hardware.sh) in post-install hooks to link UX3607OA configs and conditionally unmask `dev-tpm0.device` / `dev-tpmrm0.device` when `CONFIG_TCG_QCOM` is enabled.
+  - Initramfs hooks include the `qcom-next` / `qcom-topics` bridge modules (`lpasscc_glymur`, `snd_soc_lpass_rx_macro`, `snd_soc_lpass_tx_macro`, `snd_soc_wcd9378_sdw`, `snd_soc_sdca`, `rtc_qcom_glink`, `pwrseq_pcie_m2`, `qcom_tee_uefisecapp`, `tpm_qcom`) when present.
+
 ## 2026-10-14 — soc2 baseline
 
 - Promoted `7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+` as the repository and future-testing baseline after ordinary-boot validation.

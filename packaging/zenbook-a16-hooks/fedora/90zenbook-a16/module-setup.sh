@@ -68,10 +68,15 @@ installkernel() {
              snd_soc_x1e80100 snd_soc_wsa884x soundwire_qcom \
              pinctrl_sm8550_lpass_lpi snd_soc_lpass_wsa_macro snd_soc_lpass_va_macro || return 1
 
-    # Platform drivers are optional when built in or disabled by this kernel config.
+    # Platform and Qualcomm Glymur bridge drivers are optional when built in or disabled by this kernel config.
     instmods qcom_rpmh_regulator fixed qcom_spmi_pmic llcc_qcom qcom_aoss \
              phy_qcom_edp phy_qcom_qmp_pcie pmic_glink xhci_plat_hcd nvme nvme_core \
              dwc3_qcom phy_qcom_qmp_combo phy_qcom_qmp_usb \
              phy_qcom_m31_eusb2 phy_qcom_eusb2_repeater phy_qcom_qmp_pcie_multiphy \
-             qcom_glink_smem dispcc_glymur gpucc_glymur
+             qcom_glink_smem dispcc_glymur gpucc_glymur \
+             lpasscc_glymur clk_glymur_lpasscc snd_soc_lpass_rx_macro \
+             snd_soc_lpass_tx_macro snd_soc_lpass_macro_common \
+             snd_soc_wcd9378_sdw snd_soc_wcd937x_sdw snd_soc_sdca \
+             rtc_qcom_glink pwrseq_pcie_m2 pwrseq_qcom_wcn \
+             qcom_tee qcom_tee_uefisecapp tpm_qcom
 }

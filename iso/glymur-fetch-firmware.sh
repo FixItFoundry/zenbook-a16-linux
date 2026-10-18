@@ -97,10 +97,12 @@ copy_from_linux() {
         cp -a --no-preserve=ownership "$source/qcom/$candidate"* "$dest/qcom/" 2>/dev/null || true
     done
 
-    # Glymur / ASUS platform firmware
-    if [[ -d "$source/qcom/glymur" ]]; then
-        cp -a --no-preserve=ownership "$source/qcom/glymur" "$dest/qcom/"
-    fi
+    # Glymur / ASUS platform and optional VPU (iris) firmware
+    for subdir in glymur vpu; do
+        if [[ -d "$source/qcom/$subdir" ]]; then
+            cp -a --no-preserve=ownership "$source/qcom/$subdir" "$dest/qcom/"
+        fi
+    done
 
     check_all
 }

@@ -72,10 +72,16 @@ build() {
     add_module "$module" || die "Missing required A16 DSP module: $module"
   done
 
-  # Include early regulator, PMIC, PHY, USB and NVMe modules when built as
-  # modules (=m) while ignoring built-ins (=y) on mainline 7.3-rc5 configs.
+  # Include early regulator, PMIC, PHY, USB, NVMe and Qualcomm Glymur bridge
+  # modules when built as modules (=m) while ignoring built-ins (=y) or
+  # unpatched baselines.
   for module in qcom_rpmh_regulator fixed qcom_spmi_pmic llcc_qcom qcom_aoss \
-    phy_qcom_edp phy_qcom_qmp_pcie pmic_glink xhci_plat_hcd nvme nvme_core; do
+    phy_qcom_edp phy_qcom_qmp_pcie pmic_glink xhci_plat_hcd nvme nvme_core \
+    lpasscc_glymur clk_glymur_lpasscc snd_soc_lpass_rx_macro \
+    snd_soc_lpass_tx_macro snd_soc_lpass_macro_common \
+    snd_soc_wcd9378_sdw snd_soc_wcd937x_sdw snd_soc_sdca \
+    rtc_qcom_glink pwrseq_pcie_m2 pwrseq_qcom_wcn \
+    qcom_tee qcom_tee_uefisecapp tpm_qcom; do
     add_module_if_present "$module"
   done
 

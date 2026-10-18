@@ -226,6 +226,12 @@ instmods() {
         [[ " $* " == *' qrtr_smd '* ]] || exit 82
         [[ " $* " != *' phy_qcom_qmp_pcie_multiphy '* ]] || exit 83
         [[ ${missing_core:-0} == 0 ]] || return 1
+    else
+        [[ " $* " == *' lpasscc_glymur '* ]] || exit 87
+        [[ " $* " == *' snd_soc_wcd9378_sdw '* ]] || exit 88
+        [[ " $* " == *' rtc_qcom_glink '* ]] || exit 89
+        [[ " $* " == *' pwrseq_pcie_m2 '* ]] || exit 90
+        [[ " $* " == *' tpm_qcom '* ]] || exit 91
     fi
 }
 installkernel || exit 84
@@ -234,6 +240,44 @@ missing_core=1
 if installkernel; then exit 86; fi
 '''
         subprocess.run(['bash', '-c', script, 'test', str(source)], check=True, capture_output=True)
+
+    def test_activate_hardware_model_gate_and_qcom_tpm_bridge(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for rel in ('usr/share/omarchy-a16/51-glymur-ucm.conf',
+                        'usr/share/zenbook-a16/battery-baseline.conf',
+                        'usr/share/zenbook-a16/glymur-s2idle.conf'):
+                p = root / rel
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text('# staged config\n')
+            compat = root / 'compatible'
+            compat.write_bytes(b'qcom,glymur\0')
+            # 1. Unrelated Glymur board is untouched without --force
+            subprocess.run(['bash', str(HERE / 'activate-hardware.sh'),
+                            '--root', str(root), '--compatible-file', str(compat)], check=True)
+            self.assertFalse((root / 'etc/wireplumber/wireplumber.conf.d/51-glymur-ucm.conf').exists())
+            self.assertFalse((root / 'etc/systemd/system/dev-tpm0.device').exists())
+
+            # 2. A16 board without CONFIG_TCG_QCOM links configs and masks bare-metal TPM
+            compat.write_bytes(b'asus,zenbook-a16-ux3607oa\0qcom,glymur\0')
+            cfg = root / 'boot/config-7.3-a16pkg1+'
+            cfg.parent.mkdir(parents=True, exist_ok=True)
+            cfg.write_text('# CONFIG_TCG_QCOM is not set\n')
+            subprocess.run(['bash', str(HERE / 'activate-hardware.sh'),
+                            '--root', str(root), '--compatible-file', str(compat),
+                            '--kernel-release', '7.3-a16pkg1+'], check=True)
+            self.assertTrue((root / 'etc/wireplumber/wireplumber.conf.d/51-glymur-ucm.conf').is_symlink())
+            self.assertEqual((root / 'etc/modules-load.d/zenbook-a16.conf').read_text(), 'scmi-cpufreq\n')
+            self.assertEqual(os.readlink(root / 'etc/systemd/system/dev-tpm0.device'), '/dev/null')
+            self.assertEqual(os.readlink(root / 'etc/systemd/system/dev-tpmrm0.device'), '/dev/null')
+
+            # 3. Kernel with Qualcomm fTPM (CONFIG_TCG_QCOM=m) unmasks TPM devices
+            cfg.write_text('CONFIG_TCG_QCOM=m\n')
+            subprocess.run(['bash', str(HERE / 'activate-hardware.sh'),
+                            '--root', str(root), '--compatible-file', str(compat),
+                            '--kernel-release', '7.3-a16pkg1+'], check=True)
+            self.assertFalse((root / 'etc/systemd/system/dev-tpm0.device').exists())
+            self.assertFalse((root / 'etc/systemd/system/dev-tpmrm0.device').exists())
 
 
 class DspAdapters(unittest.TestCase):

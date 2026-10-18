@@ -1,0 +1,37 @@
+From d5f3244bb12502f449ab2c8a83c4d0d1c87c7034 Mon Sep 17 00:00:00 2001
+From: Mohammad Rafi Shaik <mohammad.rafi.shaik@oss.qualcomm.com>
+Date: Tue, 22 Sep 2026 15:12:31 +0530
+Subject: [PATCH] FROMLIST: ASoC: qcom: lpass-macro-common: Add missing v2.9
+ version string
+
+LPASS_CODEC_VERSION_2_9 is detected by lpass-va-macro.c and consumed by
+lpass-wsa-macro.c, but lpass_macro_get_codec_version_string() never
+learned about it, so the probe log reports "LPASS Codec Version NA" on
+those parts.
+
+Add the missing case.
+
+Reviewed-by: Srinivas Kandagatla <srinivas.kandagatla@oss.qualcomm.com>
+Signed-off-by: Mohammad Rafi Shaik <mohammad.rafi.shaik@oss.qualcomm.com>
+Reviewed-by: Ajay Kumar Nandam <ajay.nandam@oss.qualcomm.com>
+Link: https://patch.msgid.link/20260922-add_shikra_support-v1-2-6c6cb6444caf@oss.qualcomm.com
+---
+ sound/soc/codecs/lpass-macro-common.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/sound/soc/codecs/lpass-macro-common.h b/sound/soc/codecs/lpass-macro-common.h
+index 10ad682019..573b2145e1 100644
+--- a/sound/soc/codecs/lpass-macro-common.h
++++ b/sound/soc/codecs/lpass-macro-common.h
+@@ -68,6 +68,8 @@ static inline const char *lpass_macro_get_codec_version_string(int version)
+ 		return "v2.7";
+ 	case LPASS_CODEC_VERSION_2_8:
+ 		return "v2.8";
++	case LPASS_CODEC_VERSION_2_9:
++		return "v2.9";
+ 	default:
+ 		break;
+ 	}
+-- 
+2.56.0
+

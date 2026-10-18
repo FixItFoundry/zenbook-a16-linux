@@ -1,0 +1,76 @@
+From f6ba2e5536e91a8d36fa3a9056614d6b32e7a9a0 Mon Sep 17 00:00:00 2001
+From: Amirreza Zarrabi <amirreza.zarrabi@oss.qualcomm.com>
+Date: Tue, 6 Oct 2026 17:03:23 +0530
+Subject: [PATCH] FROMLIST: tee: Add kernel client object invoke helper
+
+Kernel clients can open a TEE context and invoke regular TA commands
+through tee_client_invoke_func(). However, there is currently no
+equivalent helper for invoking TEE objects.
+
+Add tee_client_object_invoke_func() as a kernel client API for issuing
+object invocation requests. The helper checks that the backend provides
+object_invoke_func() before forwarding the request by setting the origin
+as TEE_OBJECT_INVOKE_KERNEL. This allows TEE backends to support
+privileged object-based calls from the kernel-space.
+
+Co-developed-by: Harshal Dev <harshal.dev@oss.qualcomm.com>
+Signed-off-by: Harshal Dev <harshal.dev@oss.qualcomm.com>
+Reviewed-by: Sumit Garg <sumit.garg@oss.qualcomm.com>
+Link: https://lore.kernel.org/lkml/20261006-qcom_uefisecapp_migrate_qcomtee-v4-2-bf1c8e2a64ab@oss.qualcomm.com/
+Reviewed-by: Amirreza Zarrabi <amirreza.zarrabi@oss.qualcomm.com>
+Signed-off-by: Amirreza Zarrabi <amirreza.zarrabi@oss.qualcomm.com>
+---
+ drivers/tee/tee_core.c  | 12 ++++++++++++
+ include/linux/tee_drv.h | 13 +++++++++++++
+ 2 files changed, 25 insertions(+)
+
+diff --git a/drivers/tee/tee_core.c b/drivers/tee/tee_core.c
+index 3090139014..a03a3d645d 100644
+--- a/drivers/tee/tee_core.c
++++ b/drivers/tee/tee_core.c
+@@ -1404,6 +1404,18 @@ int tee_client_invoke_func(struct tee_context *ctx,
+ }
+ EXPORT_SYMBOL_GPL(tee_client_invoke_func);
+ 
++int tee_client_object_invoke_func(struct tee_context *ctx,
++				  struct tee_ioctl_object_invoke_arg *arg,
++				  struct tee_param *param)
++{
++	if (!ctx->teedev->desc->ops->object_invoke_func)
++		return -EINVAL;
++
++	return ctx->teedev->desc->ops->object_invoke_func(ctx, arg, param,
++							  TEE_OBJECT_INVOKE_KERNEL);
++}
++EXPORT_SYMBOL_GPL(tee_client_object_invoke_func);
++
+ int tee_client_cancel_req(struct tee_context *ctx,
+ 			  struct tee_ioctl_cancel_arg *arg)
+ {
+diff --git a/include/linux/tee_drv.h b/include/linux/tee_drv.h
+index f3c5e106d8..369c87ad02 100644
+--- a/include/linux/tee_drv.h
++++ b/include/linux/tee_drv.h
+@@ -283,6 +283,19 @@ int tee_client_invoke_func(struct tee_context *ctx,
+ 			   struct tee_ioctl_invoke_arg *arg,
+ 			   struct tee_param *param);
+ 
++/**
++ * tee_client_object_invoke_func() - Invoke a TEE object from kernel space
++ * @ctx:    TEE Context
++ * @arg:    Invoke arguments, see description of
++ *          struct tee_ioctl_object_invoke_arg
++ * @param:  Parameters for the object invocation
++ *
++ * Return: On success, returns 0; on failure, returns < 0.
++ */
++int tee_client_object_invoke_func(struct tee_context *ctx,
++				  struct tee_ioctl_object_invoke_arg *arg,
++				  struct tee_param *param);
++
+ /**
+  * tee_client_cancel_req() - Request cancellation of the previous open-session
+  * or invoke-command operations in a Trusted Application
+-- 
+2.56.0
+

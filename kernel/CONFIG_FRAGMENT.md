@@ -47,3 +47,23 @@ Notes:
   `CONFIG_QCOM_SOCCP_GLINK`. Apply that patch before configuring, then enable it as a module:
   `./scripts/config -m QCOM_SOCCP_GLINK && make olddefconfig`. The installed
   `battery-baseline.conf` autoloads it with `ps883x`.
+
+## Qualcomm Glymur Official Preview Bridge (`kernel/qcom-glymur-bridge.config`)
+
+When building with the Qualcomm `qcom-topics/*` / `linux-next` bridge stack
+(`patches/qcom-glymur-bridge-20261018/`), merge [`kernel/qcom-glymur-bridge.config`](qcom-glymur-bridge.config)
+or enable:
+
+```
+./scripts/config \
+  -m CLK_GLYMUR_LPASSCC \
+  -m SND_SOC_LPASS_RX_MACRO -m SND_SOC_LPASS_TX_MACRO \
+  -m SND_SOC_WCD9378_SDW -m SND_SOC_WCD937X_SDW -m SND_SOC_SDCA \
+  -m RTC_DRV_QCOM_GLINK \
+  -m QCOM_TEE -m QCOM_TEE_UEFISECAPP -m TCG_QCOM \
+  -e POWER_SEQUENCING -m POWER_SEQUENCING_QCOM_WCN -m POWER_SEQUENCING_PCIE_M2 \
+  -m PHY_QCOM_MIPI_CSI2 -m VIDEO_QCOM_CAMSS -m VIDEO_QCOM_IRIS \
+  -m ARM_QCOM_SCMI_MEMLAT -m QCOM_SPEL
+make olddefconfig
+```
+
