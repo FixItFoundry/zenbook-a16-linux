@@ -70,7 +70,7 @@ b7e8fc037d775e6dc08ca7e05919159606d647f24002978806ee5a2bb2a0f89d  patches/rc5-20
 e4a89a886ee76267f1078c7cb88350a5df1ec5240ef33f2b8cab0b6c2537085a  patches/qcom-glymur-bridge-20261018/0005-usb-typec-ucsi-ucsi_glink-Prevent-suspend-during-UCSI-notification.patch
 476ed3d0c0f9ccbeee532ffd04ce828b84290abf2e18426fd53eb4d9663740a4  patches/qcom-glymur-bridge-20261018/0006-usb-dwc3-qcom-Add-support-to-skip-phy-management-by-USB-core.patch
 d2c838e11bf4e8ef52fab4160026679c652cb7e1cc4946846a23831244f7a81e  patches/qcom-glymur-bridge-20261018/0007-arm64-dts-qcom-glymur-Fix-missing-SMMU-stream-IDs-for-ADSP.patch
-717880d9a6c6d5a3707ec7791703d1313c010dca9d447922e0783a70d2cd5d30  patches/qcom-glymur-bridge-20261018/0008-clk-qcom-add-Glymur-LPASS-clock-controller-with-reset-lines.patch
+c8fddcc737e8893404fa9b25318c94331be7be4deae7a07c20e7715285440539  patches/qcom-glymur-bridge-20261018/0008-clk-qcom-add-Glymur-LPASS-clock-controller-with-reset-lines.patch
 f609bed3ebb697e7320f94a0454e7362b4214b50cf0df31ba2d239ae520fc7d3  patches/qcom-glymur-bridge-20261018/0009-ASoC-codecs-lpass-macro-add-codec-version-2.9-and-fix-regcache.patch
 853b527df52f65bac33fe1244fc12ca3e82df82673e033cab1ce96c90895af31  patches/qcom-glymur-bridge-20261018/0010-ASoC-qcom-lpass-macro-common-Add-missing-v2.9-version-string.patch
 b5374bcce6f1f7a337c3fbd852c8f53f81655b094c2e894e5c79963603a9498c  patches/qcom-glymur-bridge-20261018/0011-ASoC-codecs-lpass-rx-macro-manage-clocks-in-runtime-PM.patch
@@ -106,7 +106,7 @@ f1fc670dffa2f68ba687ea598571da442e90d1725cfeaa2b50176972ddee2236  patches/qcom-g
 2f526bff1c8cea71ee12c23d42de52125eacbb26d26f2a5fcb68b972156c224d  patches/qcom-glymur-bridge-20261018/0041-arm64-dts-qcom-glymur-Add-camera-MCLK-pinctrl.patch
 25c03f68116e4c3fd54f173ce2d1c537eee652c23b5126c7da21515a34cf4e05  patches/qcom-glymur-bridge-20261018/series
 c9c721d3e5548ffdc749eead2c45d12270bdd713051c16fa2135502832f8903b  kernel/qcom-glymur-bridge.config
-3d5dedf6921f199ccad3131082c7baa0b1e8909800084eac188d751d935795ee  kernel/rc5-qcom-bridge-20261018/build.json
+05b22396e71c7955255e86fb3b782901dd8241a940292f6e87eb41017425f8b5  kernel/rc5-qcom-bridge-20261018/build.json
 034bfefd3381932697d9504ea194ad82b7abe77450dc28100682aace4ea086b7  kernel/rc5-qcom-bridge-20261018/build.sh
 7024afae1b571f6f08d9d31b83b6881e6540d65f4bf25128b5f16ef86db2fd73  kernel/rc5-qcom-bridge-20261018/config
 a6513847b18aa37d18a9906db6607a67cb8610a454ccd810b6f3f4cb7abfdec1  kernel/rc5-qcom-bridge-20261018/verify.py

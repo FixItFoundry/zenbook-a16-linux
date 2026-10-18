@@ -1,7 +1,7 @@
 {
   "base": "72d3fcf802c45d00b300f25b848a93c3a2bd7c7e",
-  "source_commit": "fb02245265b3bea01c4d3aeee0dcae0c7098ecec",
-  "source_tree": "e9fa73cd5291272d4aef6ea409bcc13b7c5b6d5c",
+  "source_commit": "e216783203b238c4fdec834d9f4f349efd5421b8",
+  "source_tree": "5fba1fbabf95244927d5fd553be3bb7b0401e1de",
   "release": "7.3.0-rc5-ZenbookA16-20261018-rc5-qcom1+",
   "patch_count": 105,
   "base_patch_count": 64,

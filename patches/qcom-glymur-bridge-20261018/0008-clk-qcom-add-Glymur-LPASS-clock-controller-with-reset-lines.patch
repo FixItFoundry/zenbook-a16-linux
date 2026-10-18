@@ -1,8 +1,8 @@
-From 3076abe016a93cdfac751057b8e5c377d168284e Mon Sep 17 00:00:00 2001
+From a37a738ecfc2d9794de3593d9399cfc618816b1e Mon Sep 17 00:00:00 2001
 From: Mohammad Rafi Shaik <mohammad.rafi.shaik@oss.qualcomm.com>
 Date: Tue, 22 Sep 2026 22:16:23 +0530
-Subject: [PATCH] PENDING: clk: qcom: add Glymur LPASS clock controller with
- reset lines
+Subject: [PATCH] [PATCH] PENDING: clk: qcom: add Glymur LPASS clock controller
+ with reset lines
 
 Add a thin LPASS clock controller driver for Glymur that exposes the
 reset lines required by the LPASS audio macro codecs and the SoundWire
@@ -31,11 +31,13 @@ the SoundWire compute mode controller to come out of reset on Glymur.
 
 Signed-off-by: Mohammad Rafi Shaik <mohammad.rafi.shaik@oss.qualcomm.com>
 ---
- drivers/clk/qcom/Kconfig          | 11 ++++
- drivers/clk/qcom/Makefile         |  1 +
- drivers/clk/qcom/lpasscc-glymur.c | 91 +++++++++++++++++++++++++++++++
- 3 files changed, 103 insertions(+)
+ drivers/clk/qcom/Kconfig                      | 11 +++
+ drivers/clk/qcom/Makefile                     |  1 +
+ drivers/clk/qcom/lpasscc-glymur.c             | 91 +++++++++++++++++++
+ .../dt-bindings/clock/qcom,glymur-lpasscc.h   | 19 ++++
+ 4 files changed, 122 insertions(+)
  create mode 100644 drivers/clk/qcom/lpasscc-glymur.c
+ create mode 100644 include/dt-bindings/clock/qcom,glymur-lpasscc.h
 
 diff --git a/drivers/clk/qcom/Kconfig b/drivers/clk/qcom/Kconfig
 index d1fc9bf871..8a6c15ab9d 100644
@@ -168,6 +170,28 @@ index 0000000000..fe1b16a6f1
 +MODULE_AUTHOR("Srinivas Kandagatla <srinivas.kandagatla@oss.qualcomm.com>");
 +MODULE_DESCRIPTION("QTI LPASSCC SC8280XP Driver");
 +MODULE_LICENSE("GPL");
--- 
-2.56.0
-
+diff --git a/include/dt-bindings/clock/qcom,glymur-lpasscc.h b/include/dt-bindings/clock/qcom,glymur-lpasscc.h
+new file mode 100644
+index 0000000000..2eefbec77c
+--- /dev/null
++++ b/include/dt-bindings/clock/qcom,glymur-lpasscc.h
+@@ -0,0 +1,19 @@
++/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
++/*
++ * Copyright (c) 2025, Qualcomm Inc.
++ * Linaro Ltd.
++ */
++
++#ifndef _DT_BINDINGS_CLK_QCOM_LPASSCC_GLYMUR_H
++#define _DT_BINDINGS_CLK_QCOM_LPASSCC_GLYMUR_H
++
++/* LPASS AUDIO CC CSR */
++#define LPASS_AUDIO_SWR_RX_CGCR				0
++//FIXME
++#define LPASS_AUDIO_SWR_TX_CGCR				1
++#define LPASS_AUDIO_SWR_WSA1_CGCR			2
++#define LPASS_AUDIO_SWR_WSA2_CGCR			3
++#define LPASS_AUDIO_SWR_WSA3_CGCR			4
++#define LPASS_AUDIO_SWR_WSA4_CGCR			5
++
++#endif
