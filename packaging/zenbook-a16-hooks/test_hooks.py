@@ -224,6 +224,9 @@ instmods() {
     [[ -z $hostonly ]] || exit 81
     if [[ $1 == -c ]]; then
         [[ " $* " == *' qrtr_smd '* ]] || exit 82
+        for module in pinctrl_sm8650_lpass_lpi q6prm_clocks q6apm_dai q6apm_lpass_dais; do
+            [[ " $* " == *" $module "* ]] || exit 92
+        done
         [[ " $* " != *' phy_qcom_qmp_pcie_multiphy '* ]] || exit 83
         [[ ${missing_core:-0} == 0 ]] || return 1
     else
@@ -240,6 +243,23 @@ missing_core=1
 if installkernel; then exit 86; fi
 '''
         subprocess.run(['bash', '-c', script, 'test', str(source)], check=True, capture_output=True)
+
+    def test_ubuntu_audio_closure_and_missing_service_failure(self):
+        text = (HERE / 'ubuntu/initramfs-hook-zenbook-a16').read_text()
+        modules = text[text.index('# 2. Add early Qualcomm DSP'):]
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / 'modules'
+            script = ("set -e\nversion=fixture\n"
+                      'modinfo() { [[ $3 != "${missing:-}" ]]; }\n'
+                      'manual_add_modules() { echo "$1" >> "$log"; }\n' + modules)
+            env = dict(os.environ, log=str(log))
+            subprocess.run(['bash', '-c', script], check=True, capture_output=True, env=env)
+            installed = log.read_text().splitlines()
+            for module in ('pinctrl_sm8650_lpass_lpi', 'q6prm_clocks', 'q6apm_dai', 'q6apm_lpass_dais'):
+                self.assertIn(module, installed)
+                result = subprocess.run(['bash', '-c', script], capture_output=True,
+                                        env=dict(env, missing=module))
+                self.assertNotEqual(result.returncode, 0, module)
 
     def test_activate_hardware_model_gate_and_qcom_tpm_bridge(self):
         with tempfile.TemporaryDirectory() as directory:

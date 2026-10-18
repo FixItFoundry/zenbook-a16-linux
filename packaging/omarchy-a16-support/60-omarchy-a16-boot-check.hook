@@ -11,6 +11,7 @@ Target = mkinitcpio
 Target = systemd
 Target = linux-firmware*
 Target = qcom-firmware-extract
+Target = asus-zenbook-a16-firmware
 
 [Action]
 Description = Checking the A16 EFI system partition before updating...

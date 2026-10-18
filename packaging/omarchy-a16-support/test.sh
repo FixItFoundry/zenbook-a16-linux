@@ -29,7 +29,7 @@ sed -e "s|/sys/firmware/devicetree/base/compatible|$scratch/compatible|g" \
 source "$scratch/hook"
 msg() { :; }
 getarg() { printf '%s' "${dsp_mode:-}"; }
-modprobe() { echo "$*" >> "$scratch/modprobes"; return "${module_status:-0}"; }
+modprobe() { echo "$*" >> "$scratch/modprobes"; [[ $* != "${failed_module:-}" ]]; }
 udevadm() { echo "$*" > "$scratch/settle"; }
 a16_emergency() { echo "$*" > "$scratch/emergency"; }
 printf 'asus,zenbook-a16-ux3607oa\0qcom,glymur\0' > "$scratch/compatible"
@@ -45,13 +45,14 @@ for mountpoint in /sysroot /new_root /root; do
   rm "$scratch/emergency"
 done
 : > "$scratch/mounts"
-module_status=1
-if run_hook; then fail 'module failure accepted'; fi
-[[ -s $scratch/emergency && ! -e $scratch/settle ]] || fail 'module failure did not stop boot'
-rm "$scratch/emergency" "$scratch/modprobes"
-module_status=0
+for failed_module in snd_soc_wsa884x qcom_pd_mapper qcom_q6v5_pas; do
+  if run_hook; then fail "module failure accepted: $failed_module"; fi
+  [[ -s $scratch/emergency && ! -e $scratch/settle ]] || fail 'module failure did not stop boot'
+  rm "$scratch/emergency" "$scratch/modprobes"
+done
+failed_module=
 run_hook
-[[ $(wc -l < "$scratch/modprobes") -eq 2 && -s $scratch/settle ]] || fail 'ready boot did not settle devices'
+[[ $(cat "$scratch/modprobes") == $'snd_soc_wsa884x\nqcom_pd_mapper\nqcom_q6v5_pas' && -s $scratch/settle ]] || fail 'codec was not registered before DSP startup'
 [[ ! -e $scratch/emergency ]] || fail 'ready boot entered emergency'
 rm "$scratch/modprobes" "$scratch/settle"
 
@@ -71,6 +72,9 @@ add_binary() { ln -s "$(command -v "$1")" "$scratch/initramfs-bin/$1"; }
 KERNELVERSION=7.2.10-omarchy-a16-1 build
 grep -Fxq qrtr "$scratch/build-modules" || fail 'QRTR core missing from early DSP image'
 grep -Fxq qrtr_smd "$scratch/build-modules" || fail 'QRTR transport depends on host autodetection'
+for module in pinctrl_sm8650_lpass_lpi q6prm_clocks q6apm_dai q6apm_lpass_dais; do
+  grep -Fxq "$module" "$scratch/build-modules" || fail "early audio dependency missing: $module"
+done
 if (
   add_binary() { :; }
   add_module() { [[ $1 != qrtr_smd ]]; }
@@ -79,6 +83,19 @@ if (
 ); then
   fail 'missing required QRTR transport did not abort the build'
 fi
+# An available bridge module must not be silently omitted after an install error.
+mkdir -p "$scratch/modules/fixture/kernel"
+: > "$scratch/modules/fixture/kernel/bridge.ko"
+sed "s|/usr/lib/modules|$scratch/modules|g; s|/lib/modules|$scratch/modules|g" \
+  "$here/initcpio-install" > "$scratch/bridge-install"
+(
+  source "$scratch/bridge-install"
+  add_module() { return 1; }
+  die() { exit 1; }
+  KERNELVERSION=fixture
+  add_module_if_present absent
+  if (add_module_if_present bridge); then fail 'installed bridge module failure was ignored'; fi
+)
 PATH="$scratch/initramfs-bin" run_hook
 [[ -s $scratch/modprobes && -s $scratch/settle ]] || fail 'minimal initramfs silently skipped A16 DSP startup'
 rm "$scratch/modprobes" "$scratch/settle"

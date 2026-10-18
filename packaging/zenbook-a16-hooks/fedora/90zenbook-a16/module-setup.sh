@@ -66,7 +66,8 @@ installkernel() {
     # Required DSP dependencies; instmods -c fails on missing modules, not built-ins.
     instmods -c qrtr qrtr_smd qcom_q6v5_pas qcom_pd_mapper qcom_battmgr \
              snd_soc_x1e80100 snd_soc_wsa884x soundwire_qcom \
-             pinctrl_sm8550_lpass_lpi snd_soc_lpass_wsa_macro snd_soc_lpass_va_macro || return 1
+             pinctrl_sm8650_lpass_lpi snd_soc_lpass_wsa_macro snd_soc_lpass_va_macro \
+             q6prm_clocks q6apm_dai q6apm_lpass_dais || return 1
 
     # Platform and Qualcomm Glymur bridge drivers are optional when built in or disabled by this kernel config.
     instmods qcom_rpmh_regulator fixed qcom_spmi_pmic llcc_qcom qcom_aoss \

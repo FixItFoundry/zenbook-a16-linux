@@ -51,7 +51,7 @@ Rather than tracking daily `linux-next` churn or attempting source builds inside
 ## Patch Series Contents (`series`)
 
 - **Local A16 Bridge Fixes (`0001`–`0002`)**:
-  - `0001-soundwire-qcom-allow-deferred-codec-probes.patch`: Allows `qcom_swrm_probe()` to succeed when `adsp_audio_pd` is not yet mapped in `qcom_pdm_domains` (`-ENOENT`), deferring only child SoundWire codecs via `qcom_swrm_PDR_notify()`.
+  - `0001-soundwire-qcom-allow-deferred-codec-probes.patch`: Keeps an initialized SoundWire bus registered when boot enumeration times out while codec reset suppliers are still deferred. Completion is logged only when all slaves are online; hardware initialization and DAI registration failures retain their cleanup paths.
   - `0002-i2c-qcom-geni-restore-source-clock-selection.patch`: Restores source-clock frequency table selection in `i2c-qcom-geni.c` on Glymur (`32 MHz` SE clock).
 - **Qualcomm `qcom-next` / `qcom-topics` Bridge Patches (`0003`–`0041`)**:
   - `0003`–`0006`: USB GDSC `PWRSTS_RET_ON` (`cbb26e5d6c`), eUSB2 repeater SMB power leakage fix (`92757057bb`), `ucsi_glink` suspend wakeup guard (`a3b3cb17ae`), `dwc3-qcom` skip core PHY management (`6f2460005b`).

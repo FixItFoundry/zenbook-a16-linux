@@ -61,7 +61,8 @@ done
 # 2. Add early Qualcomm DSP, QRTR and RPMSG modules
 for mod in qrtr qrtr_smd qcom_q6v5_pas qcom_pd_mapper qcom_battmgr \
     snd_soc_x1e80100 snd_soc_wsa884x soundwire_qcom \
-    pinctrl_sm8550_lpass_lpi snd_soc_lpass_wsa_macro snd_soc_lpass_va_macro; do
+    pinctrl_sm8650_lpass_lpi snd_soc_lpass_wsa_macro snd_soc_lpass_va_macro \
+    q6prm_clocks q6apm_dai q6apm_lpass_dais; do
     modinfo -k "$version" "$mod" >/dev/null || { echo "Missing required A16 module: $mod" >&2; exit 1; }
     manual_add_modules "$mod"
 done

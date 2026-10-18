@@ -44,6 +44,11 @@ run_hook() {
     a16_emergency 'Refusing to start A16 DSPs after root has been mounted'
     return 1
   fi
+  # Register the codec before DSP startup lets SoundWire begin enumeration.
+  if ! modprobe snd_soc_wsa884x; then
+    a16_emergency 'Could not load the A16 speaker codec driver'
+    return 1
+  fi
   if ! modprobe qcom_pd_mapper || ! modprobe qcom_q6v5_pas; then
     a16_emergency 'Could not load the A16 remote-processor drivers'
     return 1

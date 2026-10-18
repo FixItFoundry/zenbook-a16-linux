@@ -14,7 +14,7 @@ add_module_if_present() {
       return 0
     fi
     if find "$base" -regex ".*/${mod_pat}\.ko.*" -print -quit 2>/dev/null | grep -q .; then
-      add_module "$mod" || true
+      add_module "$mod" || die "Could not include installed A16 bridge module: $mod"
       return 0
     fi
     return 0
@@ -68,7 +68,8 @@ build() {
   # QRTR's RPMSG transport is not a direct dependency of the PD mapper.
   for module in qrtr qrtr_smd qcom_q6v5_pas qcom_pd_mapper qcom_battmgr \
     snd_soc_x1e80100 snd_soc_wsa884x soundwire_qcom \
-    pinctrl_sm8550_lpass_lpi snd_soc_lpass_wsa_macro snd_soc_lpass_va_macro; do
+    pinctrl_sm8650_lpass_lpi snd_soc_lpass_wsa_macro snd_soc_lpass_va_macro \
+    q6prm_clocks q6apm_dai q6apm_lpass_dais; do
     add_module "$module" || die "Missing required A16 DSP module: $module"
   done
 
