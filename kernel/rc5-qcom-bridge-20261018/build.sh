@@ -99,6 +99,8 @@ payload="$bundle"
 
 echo "Creating an isolated source worktree..."
 git -C "$linux_git" worktree add --detach "$source_tree" "$base"
+git -C "$source_tree" config user.name "${GIT_COMMITTER_NAME:-Zenbook A16 Builder}"
+git -C "$source_tree" config user.email "${GIT_COMMITTER_EMAIL:-builder@localhost}"
 while IFS= read -r patch; do
     [[ -n "$patch" ]] || continue
     git -C "$source_tree" am "$base_patch_dir/$patch"
