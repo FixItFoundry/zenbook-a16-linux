@@ -122,7 +122,7 @@ Summary: Track the tested Zenbook A16 kernel
 License: GPL-2.0-only
 URL: https://github.com/FixItFoundry/zenbook-a16-linux
 Source0: payload.tar
-BuildArch: aarch64
+ExclusiveArch: aarch64
 AutoReqProv: no
 Requires: {name} = %{{version}}-%{{release}}
 

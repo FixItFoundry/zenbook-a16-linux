@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import shutil
 import struct
 import subprocess
 import sys
@@ -123,6 +124,26 @@ class Packages(unittest.TestCase):
         self.assertNotEqual(first[1], second[1])
         files = lambda root: {str(p.relative_to(root)) for p in root.rglob('*') if p.is_file() or p.is_symlink()}
         self.assertFalse(files(first[0]['kernel']) & files(second[0]['kernel']))
+
+    @unittest.skipUnless(shutil.which('rpmbuild') and shutil.which('rpm'), 'RPM build tools required')
+    def test_native_rpm_tools_build_arm_packages_and_reject_x86_target(self):
+        self.fixture(1)
+        output = self.root / 'rpms'
+        with patch.dict(os.environ, self.env), patch.object(package.subprocess, 'check_output', side_effect=self.dt_tools):
+            package.build_packages(self.bundle, output, 'fedora')
+        packages = list(output.glob('*.rpm'))
+        self.assertEqual(len(packages), 3)
+        for path in packages:
+            self.assertEqual(subprocess.check_output(
+                ['rpm', '-qp', '--qf', '%{ARCH}', str(path)], text=True), 'aarch64')
+        roots, name, release, version = self.stage('fedora', 'wrong-target')
+        spec = self.root / 'wrong-target.spec'
+        spec.write_text(package.rpm_spec(roots, name, release, version))
+        result = subprocess.run(['rpmbuild', '-bb', '--target', 'x86_64',
+                                 '--define', f'_topdir {self.root}', str(spec)],
+                                capture_output=True, text=True, env={**os.environ, 'LC_ALL': 'C'})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Architecture is not included: x86_64', result.stderr)
 
     def test_tampered_image_config_and_headers_fail_before_staging(self):
         release = self.fixture(1)
