@@ -12,19 +12,20 @@ REPO = Path(__file__).resolve().parents[1]
 
 class BuildManifestChecks(unittest.TestCase):
     def test_current_build_inputs_match_recorded_checksums(self):
-        manifest = REPO / "kernel/rc5-20261013/SHA256SUMS"
-        for line in manifest.read_text().splitlines():
-            expected, name = line.split("  ", 1)
-            with self.subTest(file=name):
-                self.assertEqual(hashlib.sha256((REPO / name).read_bytes()).hexdigest(), expected)
+        for build in ("rc5-20261013", "rc5-qcom-bridge-20261018"):
+            manifest = REPO / "kernel" / build / "SHA256SUMS"
+            for line in manifest.read_text().splitlines():
+                expected, name = line.split("  ", 1)
+                with self.subTest(build=build, file=name):
+                    self.assertEqual(hashlib.sha256((REPO / name).read_bytes()).hexdigest(), expected)
 
 
 class FirmwareChecks(unittest.TestCase):
-    def test_current_board_files_and_missing_rampatch(self):
+    def test_current_board_files_copy_and_missing_rampatch(self):
         required = [
             "ath12k/QCC2072/hw1.0/board-2.bin",
             "ath12k/QCC2072/hw1.0/firmware-2.bin", "qca/clnbtfw10.tlv",
-            "qcom/gen80500_sqe.fw", "qcom/gen80500_gmu.bin",
+            "qcom/gen80100_sqe.fw.xz", "qcom/gen80100_gmu.bin.zst",
             "qcom/glymur/ASUSTeK/UX3607OA/qcadsp8480.mbn",
             "qcom/glymur/ASUSTeK/UX3607OA/adsp_dtbs.elf",
             "qcom/glymur/ASUSTeK/UX3607OA/qccdsp8480.mbn",
@@ -42,6 +43,30 @@ class FirmwareChecks(unittest.TestCase):
                     ["bash", str(REPO / "iso/glymur-fetch-firmware.sh"), "--check"],
                     env={**os.environ, "DEST": directory}, capture_output=True, text=True)
             self.assertEqual(check().returncode, 0)
+            # Use the host cp for fixture bytes; ownership is irrelevant to this check.
+            stubs = root / "copy-stubs.sh"
+            stubs.write_text('''cp() {
+                local arg args=()
+                for arg; do
+                    [[ "$arg" == --no-preserve=ownership ]] || args+=("$arg")
+                done
+                command cp "${args[@]}"
+            }
+''')
+            with tempfile.TemporaryDirectory() as destination:
+                result = subprocess.run(
+                    ["bash", str(REPO / "iso/glymur-fetch-firmware.sh"), "--from-linux", directory],
+                    env={**os.environ, "DEST": destination, "BASH_ENV": str(stubs)},
+                    capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                for name in required:
+                    self.assertEqual((Path(destination) / name).read_bytes(), (root / name).read_bytes())
+            sqe = root / "qcom/gen80100_sqe.fw.xz"
+            wrong_sqe = root / "qcom/gen80500_sqe.fw.xz"
+            sqe.rename(wrong_sqe)
+            self.assertIn("MISSING  qcom/gen80100_sqe.fw", check().stdout)
+            self.assertNotEqual(check().returncode, 0)
+            wrong_sqe.rename(sqe)
             rampatch = root / "qca/clnbtfw10.tlv"
             rampatch.rename(root / "qca/hmtbtfw20.tlv")
             result = check()

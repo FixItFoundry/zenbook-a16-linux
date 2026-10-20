@@ -494,6 +494,40 @@ class GrubVerification(unittest.TestCase):
                 with self.assertRaises((ValueError, OSError)):
                     boot.verify_grub_ubuntu(self.root, self.release)
 
+    def test_ubuntu_inline_control_blocks_and_quoted_keywords(self):
+        for prelude in (
+                "if [ x = x ]; then set timeout=5; fi;",
+                "if true; then if false; then :; fi; else :; fi",
+                "for item in a b; do echo item; done;",
+                "while false; do :; done; until true; do :; done",
+                "case x in x) echo x;; esac;",
+                "echo if for while until case fi done esac",
+                "set label='if; fi'; echo \";\" 'if' # if; fi;",
+                r"echo \; fi",
+                "if true; then \\\n :; fi"):
+            with self.subTest(prelude=prelude):
+                self.grub.write_text(prelude + "\n" + self.grub_text())
+                self.assertEqual(boot.verify_grub_ubuntu(self.root, self.release)["status"], "pass")
+        self.grub.write_text(self.grub_text().replace("insmod fdt\n", "insmod fdt; "))
+        self.assertEqual(boot.verify_grub_ubuntu(self.root, self.release)["status"], "pass")
+        self.grub.write_text(self.grub_text() + " \t # trailing comment")
+        self.assertEqual(boot.verify_grub_ubuntu(self.root, self.release)["status"], "pass")
+
+    def test_ubuntu_inline_conditionals_do_not_bypass_artifact_checks(self):
+        valid = self.grub_text()
+        for text in (
+                valid.replace("insmod fdt", "if false; then insmod fdt; fi"),
+                valid.replace(" linux ", " if false; then linux ").replace(" initrd ", " fi; initrd "),
+                valid.replace(" search ", " if false; then search ").replace(" linux ", " fi; linux "),
+                valid.replace(" devicetree ", " if false; then devicetree ").replace("\n}", "; fi\n}"),
+                "if true; then\n" + valid,
+                "fi;\n" + valid,
+                "echo 'unterminated\n" + valid):
+            with self.subTest(text=text):
+                self.grub.write_text(text)
+                with self.assertRaises(ValueError):
+                    boot.verify_grub_ubuntu(self.root, self.release)
+
     def test_invalid_or_truncated_image_fails_even_with_matching_hash(self):
         valid = self.kernel.read_bytes()
         for content in (b"vmlinuz", valid[:64], valid[:-1], valid.replace(b"ARM\x64", b"nope")):

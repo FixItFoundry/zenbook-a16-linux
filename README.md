@@ -61,6 +61,9 @@ python3 kernel/rc5-20261013/verify.py /path/to/linux
 JOBS=4 ./kernel/rc5-20261013/build.sh /path/to/linux /path/to/new-output-soc2
 ```
 
+After a build failure, repeat the same command with `--resume` before the Linux
+repository path to reuse its clean, fully patched source and compiled objects.
+
 Build options are configured via environment variables:
 
 - `BUILD_RPM=1`: Build Fedora kernel, support and tracking RPMs (default: 1).

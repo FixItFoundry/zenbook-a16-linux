@@ -4,11 +4,13 @@ set -Eeuo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: build.sh LINUX_GIT OUTPUT_DIR
+Usage: build.sh [--resume] LINUX_GIT OUTPUT_DIR
 
 LINUX_GIT must be a Linux kernel Git repository containing the recorded base
-commit. OUTPUT_DIR must not already exist. The script uses a separate Git
-worktree, so it never changes your current kernel checkout.
+commit. OUTPUT_DIR must not already exist unless --resume is given. Resume
+reuses a clean, fully patched worktree and its build objects after a build or
+packaging failure. Use the same environment settings as the original build.
+The script never changes your current kernel checkout.
 
 Environment:
   JOBS=4          Parallel build jobs. Keep this moderate on the A16.
@@ -24,6 +26,11 @@ EOF
 if [[ ${1:-} == -h || ${1:-} == --help ]]; then
     usage
     exit 0
+fi
+resume=0
+if [[ ${1:-} == --resume ]]; then
+    resume=1
+    shift
 fi
 [[ $# -eq 2 ]] || { usage >&2; exit 2; }
 
@@ -52,10 +59,17 @@ if [[ "$(git -C "$linux_git" rev-parse --is-inside-work-tree 2>/dev/null)" != tr
     echo "error: not a Git checkout or bare repository: $linux_git" >&2
     exit 1
 fi
-[[ ! -e "$output" ]] || {
-    echo "error: output directory already exists: $output" >&2
-    exit 1
-}
+if [[ "$resume" == 1 ]]; then
+    [[ -f "$output/source/.git" ]] || {
+        echo "error: --resume requires an existing source worktree in $output/source" >&2
+        exit 1
+    }
+else
+    [[ ! -e "$output" ]] || {
+        echo "error: output directory already exists: $output (use --resume to retry)" >&2
+        exit 1
+    }
+fi
 [[ "$jobs" =~ ^[1-9][0-9]*$ ]] || { echo "error: JOBS must be a positive integer" >&2; exit 1; }
 [[ "$build_rpm" == 0 || "$build_rpm" == 1 ]] || { echo "error: BUILD_RPM must be 0 or 1" >&2; exit 1; }
 [[ "$build_deb" == 0 || "$build_deb" == 1 ]] || { echo "error: BUILD_DEB must be 0 or 1" >&2; exit 1; }
@@ -97,21 +111,38 @@ bundle="$output/bundle"
 payload="$bundle"
 [[ "$stage_bundle" == 1 ]] || payload="$output/package-input"
 
-echo "Creating an isolated source worktree..."
-git -C "$linux_git" worktree add --detach "$source_tree" "$base"
-while IFS= read -r patch; do
-    [[ -n "$patch" ]] || continue
-    git -C "$source_tree" am "$patch_dir/$patch"
-done < "$patch_dir/series"
+if [[ "$resume" == 1 ]]; then
+    [[ "$(git -C "$source_tree" rev-parse --path-format=absolute --git-common-dir)" == \
+       "$(git -C "$linux_git" rev-parse --path-format=absolute --git-common-dir)" ]] || {
+        echo "error: source worktree belongs to a different Linux repository" >&2
+        exit 1
+    }
+    source_status=$(git -C "$source_tree" status --porcelain --untracked-files=all)
+    [[ -z "$source_status" && \
+       ! -d "$(git -C "$source_tree" rev-parse --git-path rebase-apply)" ]] || {
+        echo "error: cannot resume a modified worktree or an unfinished git am" >&2
+        exit 1
+    }
+    echo "Resuming with existing source and build objects..."
+else
+    echo "Creating an isolated source worktree..."
+    git -C "$linux_git" worktree add --detach "$source_tree" "$base"
+    while IFS= read -r patch; do
+        [[ -n "$patch" ]] || continue
+        git -C "$source_tree" am "$patch_dir/$patch"
+    done < "$patch_dir/series"
+fi
 
 actual_tree=$(git -C "$source_tree" rev-parse 'HEAD^{tree}')
 [[ "$actual_tree" == "$expected_tree" ]] || {
-    echo "error: patched source tree is $actual_tree; expected $expected_tree" >&2
+    echo "error: patched source tree is $actual_tree; expected $expected_tree (resume requires completed patch application)" >&2
     exit 1
 }
 
 mkdir -p "$object_dir"
-cp "$project/kernel/rc5-20261013/config" "$object_dir/.config"
+if [[ "$resume" == 0 || ! -s "$object_dir/.config" ]]; then
+    cp "$project/kernel/rc5-20261013/config" "$object_dir/.config"
+fi
 make -C "$source_tree" O="$object_dir" LOCALVERSION="$local_version" olddefconfig
 release=$(make -s -C "$source_tree" O="$object_dir" LOCALVERSION="$local_version" kernelrelease)
 [[ "$release" == "$expected_release" ]] || {

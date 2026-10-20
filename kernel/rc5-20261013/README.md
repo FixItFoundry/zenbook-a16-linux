@@ -11,7 +11,7 @@ The [64-patch series](../../patches/rc5-20261013/README.md) reproduces source tr
 ## Verify and build
 
 From the project root, supply a Linux Git checkout or bare repository containing
-the base commit. The output directory must not exist.
+the base commit. The output directory must not exist for a fresh build.
 
 ```sh
 python3 kernel/rc5-20261013/verify.py /path/to/linux
@@ -19,6 +19,16 @@ sudo dnf install bc bison dtc dwarves elfutils-libelf-devel flex gcc git make \
   openssl-devel perl python3 rpm-build rsync
 JOBS=4 ./kernel/rc5-20261013/build.sh /path/to/linux /path/to/new-output
 ```
+
+After fixing a build or packaging error, reuse the same directory and environment:
+
+```sh
+JOBS=4 ./kernel/rc5-20261013/build.sh --resume /path/to/linux /path/to/new-output
+```
+
+Resume preserves `.config` and compiled objects, and verifies the source tree and
+kernel release again. It refuses modified worktrees, another repository's worktree,
+or incomplete patch application; those require correction or a fresh output directory.
 
 The verifier checks hashes and replays patches in a temporary index; it leaves
 HEAD, the normal index and working files intact. It may add Git objects.

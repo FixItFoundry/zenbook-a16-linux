@@ -299,7 +299,7 @@ class InstallSafety(unittest.TestCase):
         for name in ('qcadsp8480.mbn', 'adsp_dtbs.elf', 'qccdsp8480.mbn', 'cdsp_dtbs.elf'):
             (firmware / name).write_text('firmware')
         for name in ('ath12k/QCC2072/hw1.0/board-2.bin', 'ath12k/QCC2072/hw1.0/firmware-2.bin',
-                     'qca/clnbtfw10.tlv', 'qcom/gen80500_sqe.fw', 'qcom/gen80500_gmu.bin',
+                     'qca/clnbtfw10.tlv', 'qcom/gen80100_sqe.fw', 'qcom/gen80100_gmu.bin',
                      'qcom/glymur/ASUSTeK/UX3607OA-tplg.bin'):
             path = stage / 'firmware' / name
             path.parent.mkdir(parents=True, exist_ok=True)

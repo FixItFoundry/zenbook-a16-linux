@@ -23,8 +23,8 @@ required=(
     ath12k/QCC2072/hw1.0/board-2.bin
     ath12k/QCC2072/hw1.0/firmware-2.bin
     qca/clnbtfw10.tlv
-    qcom/gen80500_sqe.fw
-    qcom/gen80500_gmu.bin
+    qcom/gen80100_sqe.fw
+    qcom/gen80100_gmu.bin
     qcom/glymur/ASUSTeK/UX3607OA/qcadsp8480.mbn
     qcom/glymur/ASUSTeK/UX3607OA/adsp_dtbs.elf
     qcom/glymur/ASUSTeK/UX3607OA/qccdsp8480.mbn
@@ -93,7 +93,7 @@ copy_from_linux() {
     fi
 
     # GPU
-    for candidate in gen80500_sqe.fw gen80500_gmu.bin gen80100_zap.mbn; do
+    for candidate in gen80100_sqe.fw gen80100_gmu.bin gen80100_zap.mbn; do
         cp -a --no-preserve=ownership "$source/qcom/$candidate"* "$dest/qcom/" 2>/dev/null || true
     done
 

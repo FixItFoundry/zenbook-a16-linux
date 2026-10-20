@@ -346,6 +346,44 @@ def verify_grub_bls(root, release=None):
             "vmlinuz": str(kernel), "initramfs": str(initrd), "dtb": str(dtb)}
 
 
+def grub_commands(config):
+    """Split GRUB commands without treating quoted or escaped separators as syntax."""
+    command = ""
+    quote = None
+    escaped = comment = False
+    for character in config:
+        if comment:
+            if character != "\n":
+                continue
+            comment = False
+        if escaped:
+            escaped = False
+            if character == "\n":
+                command = command[:-1]
+                continue
+        elif character == "\\" and quote != "'":
+            escaped = True
+        elif quote:
+            if character == quote:
+                quote = None
+        elif character in ("'", '"'):
+            quote = character
+        elif character == "#":
+            comment = True
+            continue
+        elif character in (";", "\n"):
+            words = shlex.split(command)
+            if words:
+                yield words
+            command = ""
+            continue
+        command += character
+    # shlex reports unmatched quotes or a trailing escape.
+    words = shlex.split(command)
+    if words:
+        yield words
+
+
 def verify_grub_ubuntu(root, release=None):
     release = kernel_release(root, release)
     config = root / "boot/grub/grub.cfg"
@@ -358,10 +396,11 @@ def verify_grub_ubuntu(root, release=None):
     fdt_loaded = False
     directives = None
     depth = conditional_depth = outer_braces = 0
-    for line in config.read_text().splitlines():
-        words = shlex.split(line, comments=True)
-        if not words:
-            continue
+    for words in grub_commands(config.read_text()):
+        if words[0] in ("then", "else", "do"):
+            words = words[1:]
+            if not words:
+                continue
         if directives is None and conditional_depth == 0 and outer_braces == 0 and words == ["insmod", "fdt"]:
             fdt_loaded = True
         if words[0] == "menuentry" and words[-1] == "{":
@@ -378,10 +417,14 @@ def verify_grub_ubuntu(root, release=None):
             conditional_depth += 1
         elif words[0] in ("fi", "done", "esac"):
             conditional_depth -= 1
+            if conditional_depth < 0:
+                raise ValueError("unmatched GRUB control block terminator")
         if directives is None:
             outer_braces += words.count("{") - words.count("}")
             continue
         if words[0] == "search":
+            if conditional_depth:
+                directives["unsupported"] = True
             directives["search"].append(words[1:])
         elif words[0] in ("linux", "linuxefi", "initrd", "initrdefi", "devicetree"):
             if conditional_depth:

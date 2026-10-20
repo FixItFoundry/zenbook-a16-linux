@@ -10,7 +10,11 @@ do not make the RC kernel production-ready.
 
 Run from this repository on a native aarch64 Linux build machine. Supply a kernel
 Git repository containing the pinned mainline base ([`rc5-qcom-bridge-20261018`](../../kernel/rc5-qcom-bridge-20261018/build.json) or [`rc5-20261013`](../../kernel/rc5-20261013/build.json)).
-The output directory must not exist. The helper creates a separate source worktree.
+The output directory must not exist for a fresh build. The helper creates a separate
+source worktree. After fixing a build or packaging error, repeat the command with
+`--resume` before `/path/to/linux`, keeping the same environment and output path.
+Resume reuses the clean, fully patched source, saved configuration and build objects;
+it refuses source changes, unrelated worktrees and incomplete patch application.
 
 ```sh
 # Fedora (mainline release + qcom-next / qcom-topics bridge):
