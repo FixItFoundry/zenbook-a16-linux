@@ -2,6 +2,11 @@
 
 Dated changes and corrections; [current status](docs/current-build.md) is recorded separately.
 
+## 2026-10-21 — Omarchy revision 24 validation and publication status
+
+- Recorded the locally built and booted shared `linux-omarchy 7.2.8-24` candidate, its source identity, automated checks and user-confirmed audio, keyboard, touchscreen, charger transitions and Bluetooth calls/audio.
+- Recorded revision 24 as the current tested and running Omarchy build, alongside the retained Fedora rc5 tracks. Camera/suspend remain unvalidated; package submission and publication still precede runtime/ISO merge.
+
 ## 2026-10-18 — Mainline release + `qcom-next` and `qcom-topics` bridge with post-install hooks
 
 - Refactored the kernel and packaging pipeline around a pull from the mainline release (`v7.3-rc5`), bridged with Qualcomm's `qcom-next` and `qcom-topics` repositories, and updated on target systems via scoped post-install hooks.

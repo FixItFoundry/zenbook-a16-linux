@@ -1,8 +1,6 @@
 # Contributing
 
-Target the [soc2 baseline](docs/current-build.md): Linux v7.3-rc5 plus the
-[64-patch series](patches/rc5-20261013/README.md). Use the
-[recorded config and verifier](kernel/rc5-20261013/README.md).
+Choose the track named in [current status](docs/current-build.md). Omarchy work targets the shared package recipe and coordinated runtime/ISO PRs described in [Omarchy status](docs/omarchy-status.md). For a Fedora soc2 experiment, use Linux v7.3-rc5 plus the [64-patch series](patches/rc5-20261013/README.md) and its [recorded config and verifier](kernel/rc5-20261013/README.md).
 
 - Make each hardware experiment a separate change with a distinct kernel release. Preserve a tested fallback and the Windows boot route.
 - Build the board DTB from the replayed kernel source; historical files under `dts/` and `prebuilt/` do not define this baseline.

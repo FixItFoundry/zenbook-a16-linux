@@ -5,6 +5,12 @@ Qualcomm Snapdragon X2 Elite Extreme (`glymur`).
 
 ![Zenbook A16 running Linux](img/screenshot_20260816_080455.png)
 
+## Current Omarchy status — 2026-10-21
+
+**Shared `linux-omarchy 7.2.8-24` is the latest locally validated Omarchy candidate.** The clean native build, all 8,487 module checks, packaged-header compilation, source replay, installation, boot and hardware validation passed. Revision 24 remains running after testing. Audio, keyboard, touchscreen, charger transitions and Bluetooth calls/audio were physically confirmed. Camera and sleep remain disabled and unvalidated.
+
+The package recipes are still local proposals; [runtime PR #13820](https://github.com/omacom/omarchy/pull/13820) and [ISO PR #208](https://github.com/omacom/omarchy-iso/pull/208) still need their coordinated updates. See [Omarchy status, remaining warnings and submission order](docs/omarchy-status.md).
+
 ## Mainline + `qcom-next` / `qcom-topics` Bridge — 2026-10-18
 
 **`7.3.0-rc5-ZenbookA16-20261018-rc5-qcom1+` bridges the mainline `v7.3-rc5` release base with Qualcomm's `qcom-next` and `qcom-topics` repositories, managed and updated via post-install hooks.**
@@ -13,9 +19,9 @@ Rather than tracking daily `linux-next` churn or attempting source builds inside
 
 See the [bridge build package](kernel/rc5-qcom-bridge-20261018/README.md) and [bridge Kconfig fragment](kernel/qcom-glymur-bridge.config). Hardware boot and runtime acceptance of the bridged stack remain separate from source and package verification.
 
-## Baseline — 2026-10-14
+## Retained Fedora baseline — 2026-10-14
 
-**`7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+` remains the boot-validated baseline.** This is a development baseline with limited hardware acceptance.
+**`7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+` remains the retained Fedora baseline.** The following observations are from October 14 and do not describe the newer Omarchy candidate.
 
 The [build package](kernel/rc5-20261013/README.md) contains the exact tested
 config and [64 ordered patches](patches/rc5-20261013/README.md). The previous
@@ -41,11 +47,12 @@ previous kernels and the Windows route are retained.
 
 ## Branches & Distro Tracks
 
-All cross-compatible kernel tracks, multi-distro installer scripts, and persistent post-install kernel hooks are synced to `main`, with dedicated working branches for concurrent development:
+`main` contains the rc5 baseline/bridge, the earlier Arch 7.2.10 backport, multi-distro installer scripts and post-install hooks. The current shared Omarchy 7.2.8-24 proposal lives in the coordinated Omarchy package review, not in `kernel/arch-7.2.10/`:
 
 - **`main`**: Unified baseline carrying the mainline release + `qcom-next`/`qcom-topics` bridge (`rc5-qcom-bridge-20261018`), the validated `7.3-rc5` (`rc5-20261013`) baseline, the Arch `7.2.10` (`arch-7.2.10`) backport, cross-distro installer (`iso/`), and post-install kernel hooks (`packaging/`).
-- **`feature/multi-distro-installer`**: Working branch for the mainline + `qcom-next`/`qcom-topics` bridge, kernel package builder (`RPM`/`DEB`/bundle), and persistent post-install hooks across Fedora (`aarch64`) and Ubuntu (`arm64`).
-- **`feature/arch-7.2.10-a16`**: Working branch for the Arch Linux `7.2.10` kernel & support package port.
+- **`feature/arch-7.2.10-a16`**: Earlier Arch Linux `7.2.10` kernel/support work; this branch is not the current Omarchy submission target.
+
+Omarchy’s `edge`, `rc` and `stable` are package release channels. They do not imply separate A16 PRs for a Linux rc kernel and a stable kernel. Package changes target `omacom/omarchy-pkgs:master`; the existing runtime and ISO PRs target `quattro`.
 
 ## Build and test
 

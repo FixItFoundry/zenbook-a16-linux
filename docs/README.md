@@ -5,7 +5,8 @@ limits. Component notes retain historical measurements.
 
 | Document | Contents |
 |---|---|
-| [Current build](current-build.md) | Source identity, validation and boot fallback. |
+| [Current build](current-build.md) | Current Omarchy candidate and retained Fedora baseline. |
+| [Omarchy status](omarchy-status.md) | Validated hardware, open PRs, package prerequisites and channel promotion. |
 | [Hardware](hardware.md) | Components, interfaces and historical observations. |
 | [Modifications](modifications.md) | Earlier device-tree and kernel changes. |
 | [Changelog](../CHANGELOG.md) | Dated changes and corrections. |
