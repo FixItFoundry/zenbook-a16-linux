@@ -1,5 +1,7 @@
 # Kernel packages
 
+For the current shared Omarchy `7.2.8-24` candidate, see [Omarchy status](../docs/omarchy-status.md). The packages below are this repository’s rc5 development/validation tracks and retained Arch backport; their build commands do not produce that Omarchy candidate.
+
 The repository pulls from the mainline Linux v7.3-rc5 release (`72d3fcf802c45d00b300f25b848a93c3a2bd7c7e`), with both the boot-validated **`7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+`** baseline and the **`7.3.0-rc5-ZenbookA16-20261018-rc5-qcom1+`** bridge package incorporating Qualcomm's `qcom-next` and `qcom-topics` series. Installed systems are updated via scoped post-install hooks.
 
 See the [bridge build package](rc5-qcom-bridge-20261018/README.md), [soc2 baseline package](rc5-20261013/README.md), and [validation record](../docs/current-build.md).
