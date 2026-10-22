@@ -31,6 +31,20 @@ class InstallSafety(unittest.TestCase):
         link.symlink_to(source, target_is_directory=True)
         return link
 
+    def test_live_target_selection(self):
+        for args, expected in (((), ('ubuntu',)), (('fedora',), ('fedora',)),
+                               (('ubuntu',), ('ubuntu',)), (('--all',), ('fedora', 'ubuntu'))):
+            with self.subTest(args=args):
+                result = self.shell('build-live-images.sh',
+                                    'STAGE="$1"; OUT="$1/out-live"; ST="$1/status.txt"; shift; '
+                                    'preflight() { printf "selected=%s\\n" "${targets[*]}"; return 1; }; main "$@"',
+                                    self.root, *args)
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn('selected=' + ' '.join(expected) + '\n', result.stdout)
+        result = self.shell('build-live-images.sh', 'main invalid-target')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('unknown target', result.stderr)
+
     def test_module_symlink_and_existing_destination(self):
         source = self.modules()
         destination = self.root / 'target/lib/modules/k'

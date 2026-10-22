@@ -1,6 +1,6 @@
-58b527aa9a377ec678c184abe2c08bd43a4a80390426e8c9b1087b7f6d2b9428  kernel/rc5-qcom-bridge-20261018/README.md
+50691409c5156d780f41a9d71cd94839c76012ce317dd1899dc14f6419704e9e  kernel/rc5-qcom-bridge-20261018/README.md
 3ab612ca8cbd2345f8ccaae8fc465f40d9a897ce82f3365e879f9eb3209913bb  kernel/rc5-qcom-bridge-20261018/build.json
-89430fb87351a52f070ab918640964487bc25ac161281ddb3b7081521989f079  kernel/rc5-qcom-bridge-20261018/build.sh
+f3ae3e4dced5739f3c671c8dcb465fe5b5ef41dc459ad4904ef54cf3eae79ef3  kernel/rc5-qcom-bridge-20261018/build.sh
 7024afae1b571f6f08d9d31b83b6881e6540d65f4bf25128b5f16ef86db2fd73  kernel/rc5-qcom-bridge-20261018/config
 a6513847b18aa37d18a9906db6607a67cb8610a454ccd810b6f3f4cb7abfdec1  kernel/rc5-qcom-bridge-20261018/verify.py
 c9c721d3e5548ffdc749eead2c45d12270bdd713051c16fa2135502832f8903b  kernel/qcom-glymur-bridge.config

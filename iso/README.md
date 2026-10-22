@@ -44,8 +44,8 @@ Place a Fedora KDE Live aarch64 ISO or Ubuntu Desktop arm64 ISO under `$STAGE`;
 the target functions specify the filename patterns. Then run:
 
 ```sh
-sudo -E bash iso/build-live-images.sh fedora
-# or: sudo -E bash iso/build-live-images.sh ubuntu
+sudo -E bash iso/build-live-images.sh
+# This branch defaults to ubuntu; explicit fedora, ubuntu and --all still work.
 ```
 
 Output is a compressed partitioned live disk image under `$STAGE/out-live/`.

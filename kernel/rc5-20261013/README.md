@@ -35,7 +35,7 @@ HEAD, the normal index and working files intact. It may add Git objects.
 
 The build helper uses a separate worktree, applies the series with `git am`, checks
 the tree and release, then builds Image, modules, DTB, matching headers and three
-RPMs. `BUILD_RPM=0 BUILD_DEB=1` builds Ubuntu packages instead. The helper has no
+Ubuntu DEBs. `BUILD_RPM=1 BUILD_DEB=0` builds Fedora packages instead. The helper has no
 thermal guard.
 
 `PACKAGE_REVISION=1` adds `-a16pkg1+` to the recorded release in place of its final

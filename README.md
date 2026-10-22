@@ -1,7 +1,17 @@
-# Linux on the ASUS Zenbook A16
+# Ubuntu on the ASUS Zenbook A16
 
 Mainline-based Linux bring-up for the **ASUS Zenbook A16 UX3607OA**, powered by
 Qualcomm Snapdragon X2 Elite Extreme (`glymur`).
+
+This branch prepares Ubuntu arm64 packages and live media. Ubuntu boot and
+installation still need hardware validation; the Fedora results below do not
+establish Ubuntu acceptance. Shared kernel patches and safety checks are retained.
+
+The [camera/microphone overlay](patches/camera-microphone-20261022/README.md)
+is included from `main` at `2f22e1d`. It remains a separate experimental series:
+the standard build helpers do not apply it, and generic package metadata still
+blacklists the camera drivers. Follow the overlay's build and packaging notes
+for camera testing; Ubuntu packaging, boot and capture remain unvalidated.
 
 ![Zenbook A16 running Linux](img/screenshot_20260816_080455.png)
 
@@ -41,11 +51,11 @@ previous kernels and the Windows route are retained.
 
 ## Branches & Distro Tracks
 
-All cross-compatible kernel tracks, multi-distro installer scripts, and persistent post-install kernel hooks are synced to `main`, with dedicated working branches for concurrent development:
+Distro branches select their own package and live-image defaults while retaining shared kernel patches, boot verification and installer safety checks:
 
-- **`main`**: Unified baseline carrying the mainline release + `qcom-next`/`qcom-topics` bridge (`rc5-qcom-bridge-20261018`), the validated `7.3-rc5` (`rc5-20261013`) baseline, the Arch `7.2.10` (`arch-7.2.10`) backport, cross-distro installer (`iso/`), and post-install kernel hooks (`packaging/`).
-- **`feature/multi-distro-installer`**: Working branch for the mainline + `qcom-next`/`qcom-topics` bridge, kernel package builder (`RPM`/`DEB`/bundle), and persistent post-install hooks across Fedora (`aarch64`) and Ubuntu (`arm64`).
-- **`feature/arch-7.2.10-a16`**: Working branch for the Arch Linux `7.2.10` kernel & support package port.
+- **`main`**: Fedora development and installation. Kernel builds default to RPMs; the live-image builder defaults to Fedora.
+- **`feature/ubuntu-a16`**: Ubuntu development and installation, based on `main` at `2f22e1d`. Kernel builds default to DEBs; the live-image builder defaults to Ubuntu.
+- **`feature/arch-7.2.10-a16`**: Earlier Arch Linux `7.2.10` kernel/support work; this branch is not the current Omarchy submission target.
 
 ## Build and test
 
@@ -66,8 +76,8 @@ repository path to reuse its clean, fully patched source and compiled objects.
 
 Build options are configured via environment variables:
 
-- `BUILD_RPM=1`: Build Fedora kernel, support and tracking RPMs (default: 1).
-- `BUILD_DEB=1`: Build Ubuntu kernel, support and tracking DEBs (default: 0).
+- `BUILD_RPM=1`: Build Fedora kernel, support and tracking RPMs (default: 0).
+- `BUILD_DEB=1`: Build Ubuntu kernel, support and tracking DEBs (default: 1).
 - `PACKAGE_REVISION=1`: Give each rebuild a distinct release and package version.
 - `STAGE_BUNDLE=1`: Stage portable distro-agnostic bundle at `$OUTPUT_DIR/bundle/` containing `vmlinuz-$KREL`, `glymur-asus-zenbook-a16-ux3607oa.dtb`, `lib/modules/$KREL/`, per-kernel boot hashes/policy, and release metadata (default: 1).
 

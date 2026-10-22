@@ -27,6 +27,6 @@ or incomplete patch application; those require correction or a fresh output dire
 
 The verifier checks SHA256 hashes and replays all 104 patches in a temporary Git index, leaving `HEAD`, the normal index, and working files untouched.
 
-The build helper uses a separate worktree, applies both patch queues with `git am`, merges [`config`](config) with [`kernel/qcom-glymur-bridge.config`](../qcom-glymur-bridge.config), checks the source tree and release, and builds `Image`, modules, DTB, matching headers, and three RPMs (`BUILD_RPM=0 BUILD_DEB=1` builds Ubuntu/Debian packages instead).
+The build helper uses a separate worktree, applies both patch queues with `git am`, merges [`config`](config) with [`kernel/qcom-glymur-bridge.config`](../qcom-glymur-bridge.config), checks the source tree and release, and builds `Image`, modules, DTB, matching headers, and Ubuntu/Debian DEBs (`BUILD_RPM=1 BUILD_DEB=0` builds Fedora RPMs instead).
 
 `PACKAGE_REVISION=1` appends `-a16pkg1+` to the recorded release in place of its final `+` so packaged installations never overwrite existing baseline files. See the [package contract](../../packaging/zenbook-a16-kernel/README.md) for post-install hook behavior, boot metadata, and rollback handling.

@@ -15,8 +15,8 @@ The script never changes your current kernel checkout.
 
 Environment:
   JOBS=4          Parallel build jobs. Keep this moderate on the A16.
-  BUILD_RPM=1     Build Fedora-installable RPMs (default: 1).
-  BUILD_DEB=0     Build Ubuntu/Debian-installable DEBs (default: 0).
+  BUILD_RPM=0     Build Fedora-installable RPMs (default: 0).
+  BUILD_DEB=1     Build Ubuntu/Debian-installable DEBs (default: 1).
   STAGE_BUNDLE=1  Stage portable distro-agnostic bundle (default: 1).
   PACKAGE_REVISION=1  Positive revision; changes uname and package version.
   ARCH=arm64      Kernel architecture.
@@ -46,8 +46,8 @@ meta="$project/kernel/rc5-qcom-bridge-20261018/build.json"
 base_patch_dir="$project/patches/rc5-20261013"
 bridge_patch_dir="$project/patches/qcom-glymur-bridge-20261018"
 jobs=${JOBS:-4}
-build_rpm=${BUILD_RPM:-1}
-build_deb=${BUILD_DEB:-0}
+build_rpm=${BUILD_RPM:-0}
+build_deb=${BUILD_DEB:-1}
 stage_bundle=${STAGE_BUNDLE:-1}
 revision=${PACKAGE_REVISION:-1}
 local_version="-a16pkg${revision}+"

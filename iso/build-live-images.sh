@@ -3,7 +3,7 @@
 # p1: FAT ESP with boot artifacts; p2: ext4 GLYMURLIVE with LiveOS/squashfs.img.
 # ext4 permits squashfs images larger than FAT32's 4 GiB limit.
 # Supply a non-host-only dracut initramfs with dmsquash-live and the A16 DSP hook.
-# Run as root: sudo -E bash build-live-images.sh [fedora|ubuntu|--all]
+# Run as root: sudo -E bash build-live-images.sh [fedora|ubuntu|--all] (default: ubuntu)
 set -Eeuo pipefail
 
 KREL="${KREL:-7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+}"
@@ -343,7 +343,7 @@ for arg in "$@"; do
   esac
 done
 if [ ${#targets[@]} -eq 0 ]; then
-  targets=(fedora ubuntu)
+  targets=(ubuntu)
 fi
 
 mkdir -p "$STAGE" "$OUT"
