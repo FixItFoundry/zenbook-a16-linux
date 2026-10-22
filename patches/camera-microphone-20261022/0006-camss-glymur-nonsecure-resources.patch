@@ -1,0 +1,38 @@
+Subject: media: camss: limit Glymur to the validated nonsecure capture path
+
+diff --git a/drivers/media/platform/qcom/camss/camss.c b/drivers/media/platform/qcom/camss/camss.c
+--- a/drivers/media/platform/qcom/camss/camss.c
++++ b/drivers/media/platform/qcom/camss/camss.c
+@@ -5823,6 +5823,23 @@
+ 	.vfe_num = ARRAY_SIZE(vfe_res_x1e80100),
+ };
+ 
++/* shortcut: expose only CSID0/VFE0 until secure resource ownership is resolved. */
++static const struct camss_resources glymur_resources = {
++	.version = CAMSS_X1E80100,
++	.pd_name = "top",
++	.csiphy_res = csiphy_res_x1e80100,
++	.tpg_res = tpg_res_x1e80100,
++	.csid_res = csid_res_x1e80100,
++	.vfe_res = vfe_res_x1e80100,
++	.csid_wrapper_res = &csid_wrapper_res_x1e80100,
++	.icc_res = icc_res_x1e80100,
++	.icc_path_num = ARRAY_SIZE(icc_res_x1e80100),
++	.csiphy_num = ARRAY_SIZE(csiphy_res_x1e80100),
++	.tpg_num = 0,
++	.csid_num = 1,
++	.vfe_num = 1,
++};
++
+ static const struct of_device_id camss_dt_match[] = {
+ 	{ .compatible = "qcom,msm8916-camss", .data = &msm8916_resources },
+ 	{ .compatible = "qcom,msm8939-camss", .data = &msm8939_resources },
+@@ -5842,7 +5859,7 @@
+ 	{ .compatible = "qcom,sm8550-camss", .data = &sm8550_resources },
+ 	{ .compatible = "qcom,sm8650-camss", .data = &sm8650_resources },
+ 	{ .compatible = "qcom,x1e80100-camss", .data = &x1e80100_resources },
+-	{ .compatible = "qcom,glymur-camss", .data = &x1e80100_resources },
++	{ .compatible = "qcom,glymur-camss", .data = &glymur_resources },
+ 	{ }
+ };
+ 

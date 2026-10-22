@@ -1,0 +1,10 @@
+0001-i2c-cci-require-exact-clock-rates.patch
+0002-mfd-pm8010-i2c.patch
+0003-regulator-pm8010.patch
+0004-media-hm1092.patch
+0006-camss-glymur-nonsecure-resources.patch
+0007-arm64-dts-a16-rgb-ir.patch
+0008-i2c-cci-clock-stretching.patch
+0009-i2c-cci-halt-reset.patch
+0010-audioreach-clear-reused-default-channel-map.patch
+0011-glymur-a16-windows-dmic-pin-settings.patch

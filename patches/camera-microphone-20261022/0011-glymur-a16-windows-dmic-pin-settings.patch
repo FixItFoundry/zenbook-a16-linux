@@ -1,0 +1,98 @@
+Subject: [EXPERIMENTAL] pinctrl: qcom: match A16 Windows DMIC pin settings
+
+The installed Windows calibration selects GPIO6/7 with pull-downs and slew
+code 1. Its raw drive value 3 is scaled and quantized by the shipped DSP to
+the 4 mA hardware setting. The GPIO setter places slew in CFG bits 12:11.
+
+Use separate Glymur group data to enable slew on these two pins without
+changing SM8650 groups. Apply drive 4 mA, pull-downs and slew 1 on the A16.
+The previous 2 mA experiment worsened camera bands; it is not included here.
+
+Built and installed for testing, but cold-boot and camera/microphone validation
+remain pending. This is a reversible experiment, not a confirmed banding fix.
+No Windows driver or firmware bytes are included.
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+index 064601875..a9ad2794b 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+@@ -975,6 +975,20 @@
+ 	};
+ };
+ 
++&dmic01_default {
++	clk-pins {
++		drive-strength = <4>;
++		bias-pull-down;
++		slew-rate = <1>;
++	};
++
++	data-pins {
++		drive-strength = <4>;
++		bias-pull-down;
++		slew-rate = <1>;
++	};
++};
++
+ &lpass_vamacro {
+ 	vdd-micb-supply = <&vreg_l1b_e0>;
+ 
+diff --git a/drivers/pinctrl/qcom/pinctrl-sm8650-lpass-lpi.c b/drivers/pinctrl/qcom/pinctrl-sm8650-lpass-lpi.c
+index bc7889c99..78124bc6d 100644
+--- a/drivers/pinctrl/qcom/pinctrl-sm8650-lpass-lpi.c
++++ b/drivers/pinctrl/qcom/pinctrl-sm8650-lpass-lpi.c
+@@ -156,6 +156,32 @@ static const struct lpi_pingroup sm8650_groups[] = {
+ 	LPI_PINGROUP(22, LPI_NO_SLEW, i2s4_data, ext_mclk1_e, _, _),
+ };
+ 
++static const struct lpi_pingroup glymur_groups[] = {
++	LPI_PINGROUP(0, 11, swr_tx_clk, i2s0_clk, _, _),
++	LPI_PINGROUP(1, 11, swr_tx_data, i2s0_ws, _, _),
++	LPI_PINGROUP(2, 11, swr_tx_data, i2s0_data, _, _),
++	LPI_PINGROUP(3, 11, swr_rx_clk, i2s0_data, _, _),
++	LPI_PINGROUP(4, 11, swr_rx_data, i2s0_data, _, _),
++	LPI_PINGROUP(5, 11, swr_rx_data, ext_mclk1_c, i2s0_data, _),
++	LPI_PINGROUP(6, 11, dmic1_clk, i2s1_clk, _,  _),
++	LPI_PINGROUP(7, 11, dmic1_data, i2s1_ws, _, _),
++	LPI_PINGROUP(8, LPI_NO_SLEW, dmic2_clk, i2s1_data, _, _),
++	LPI_PINGROUP(9, LPI_NO_SLEW, dmic2_data, i2s1_data, ext_mclk1_b, _),
++	LPI_PINGROUP(10, 11, i2s2_clk, wsa_swr_clk, _, _),
++	LPI_PINGROUP(11, 11, i2s2_ws, wsa_swr_data, _, _),
++	LPI_PINGROUP(12, LPI_NO_SLEW, dmic3_clk, i2s3_clk, _, _),
++	LPI_PINGROUP(13, LPI_NO_SLEW, dmic3_data, i2s3_ws, ext_mclk1_a, _),
++	LPI_PINGROUP(14, 11, swr_tx_data, ext_mclk1_d, _, _),
++	LPI_PINGROUP(15, 11, i2s2_data, wsa2_swr_clk, _, _),
++	LPI_PINGROUP(16, 11, i2s2_data, wsa2_swr_data, _, _),
++	LPI_PINGROUP(17, LPI_NO_SLEW, dmic4_clk, i2s3_data, _, _),
++	LPI_PINGROUP(18, LPI_NO_SLEW, dmic4_data, i2s3_data, _, _),
++	LPI_PINGROUP(19, 11, i2s4_clk, slimbus_clk, qca_swr_clk, _),
++	LPI_PINGROUP(20, 11, i2s4_ws, slimbus_data, qca_swr_data, _),
++	LPI_PINGROUP(21, LPI_NO_SLEW, i2s4_data, _, _, _),
++	LPI_PINGROUP(22, LPI_NO_SLEW, i2s4_data, ext_mclk1_e, _, _),
++};
++
+ static const struct lpi_function sm8650_functions[] = {
+ 	LPI_FUNCTION(gpio),
+ 	LPI_FUNCTION(dmic1_clk),
+@@ -210,7 +236,21 @@ static const struct lpi_pinctrl_variant_data sm8650_lpi_data = {
+ 	.flags = LPI_FLAG_SLEW_RATE_SAME_REG,
+ };
+ 
++static const struct lpi_pinctrl_variant_data glymur_lpi_data = {
++	.pins = sm8650_lpi_pins,
++	.npins = ARRAY_SIZE(sm8650_lpi_pins),
++	.groups = glymur_groups,
++	.ngroups = ARRAY_SIZE(glymur_groups),
++	.functions = sm8650_functions,
++	.nfunctions = ARRAY_SIZE(sm8650_functions),
++	.flags = LPI_FLAG_SLEW_RATE_SAME_REG,
++};
++
+ static const struct of_device_id lpi_pinctrl_of_match[] = {
++	{
++		.compatible = "qcom,glymur-lpass-lpi-pinctrl",
++		.data = &glymur_lpi_data,
++	},
+ 	{
+ 		.compatible = "qcom,sm8650-lpass-lpi-pinctrl",
+ 		.data = &sm8650_lpi_data,

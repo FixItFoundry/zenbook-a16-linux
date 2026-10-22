@@ -1,0 +1,104 @@
+From 0265dfc5d2a8de303561ced996c46b38f95cb4ef Mon Sep 17 00:00:00 2001
+From: Hitesh Patel <hitesh@ebytelogic.com>
+Date: Wed, 07 Oct 2026 05:01:46 GMT
+Subject: [PATCH] i2c: qcom-cci: always enable SCL clock stretching
+
+The CCI timing tables leave SCL clock stretching disabled. A slave that
+holds SCL low is then not waited for: the master keeps its own clock
+timing and the transfer fails with a NACK or returns corrupt data.
+
+This is hit with a camera reached through a GMSL serializer/deserializer
+I2C tunnel (MAX9296A/MAX96717 on the RB3 Gen2 vision mezzanine). The
+deserializer acknowledges the address locally, but forwards the
+transaction over the coax link and stretches SCL until the remote side
+has completed it, which takes well over one clock period at 100 kHz.
+Without stretching the register reads of the sensor behind the link
+intermittently return garbage and writes are dropped, which shows up as
+random sensor init failures.
+
+Clock stretching is part of the I2C specification for every speed mode
+and a device that does not stretch is unaffected by enabling it, so set
+the bit unconditionally in cci_init() and drop the per-table
+scl_stretch_en field, which is zero in every table.
+
+Signed-off-by: Hitesh Patel <hitesh@ebytelogic.com>
+Reviewed-by: Loic Poulain <loic.poulain@oss.qualcomm.com>
+Tested-by: Hangxiang Ma <hangxiang.ma@oss.qualcomm.com> # S5KJN5 on Kaanapali
+Signed-off-by: Andi Shyti <andi.shyti@kernel.org>
+Link: https://patch.msgid.link/20261007050147.274096-1-hitesh@ebytelogic.com
+---
+LOCAL BACKPORT DRAFT, NOT A NEW UPSTREAM SUBMISSION.
+Source: https://github.com/linux-msm/laptops-kernel/commit/0265dfc5d2a8de303561ced996c46b38f95cb4ef
+Target: a16-rc5-qcom-bridge-20261018 (8e3099a6152991ba10f638748f16ecc52975b141).
+Original authorship and trailers retained. No Jesse sign-off or hardware
+Tested-by has been added. Apply the three local backports in series order.
+
+diff --git a/drivers/i2c/busses/i2c-qcom-cci.c b/drivers/i2c/busses/i2c-qcom-cci.c
+--- a/drivers/i2c/busses/i2c-qcom-cci.c
++++ b/drivers/i2c/busses/i2c-qcom-cci.c
+@@ -28,6 +28,7 @@
+ #define CCI_I2C_Mm_SDA_CTL_1(m)			(0x108 + 0x100 * (m))
+ #define CCI_I2C_Mm_SDA_CTL_2(m)			(0x10c + 0x100 * (m))
+ #define CCI_I2C_Mm_MISC_CTL(m)			(0x110 + 0x100 * (m))
++#define CCI_I2C_MISC_CTL_SCL_STRETCH_EN	BIT(8)
+ 
+ #define CCI_I2C_Mm_READ_DATA(m)			(0x118 + 0x100 * (m))
+ #define CCI_I2C_Mm_READ_BUF_LEVEL(m)		(0x11c + 0x100 * (m))
+@@ -105,7 +106,6 @@ struct hw_params {
+ 	u16 thd_dat; /* data hold time */
+ 	u16 thd_sta; /* hold time (repeated) START condition */
+ 	u16 tbuf; /* bus free time between a STOP and START condition */
+-	u8 scl_stretch_en;
+ 	u16 trdhld;
+ 	u16 tsp; /* pulse width of spikes suppressed by the input filter */
+ };
+@@ -260,7 +260,6 @@ static const struct hw_params cci_hw_params[NUM_CCI_CLK_RATES][NUM_I2C_MODES] =
+ 		.thd_dat = 10,
+ 		.thd_sta = 77,
+ 		.tbuf = 118,
+-		.scl_stretch_en = 0,
+ 		.trdhld = 6,
+ 		.tsp = 1
+ 	},
+@@ -272,7 +271,6 @@ static const struct hw_params cci_hw_params[NUM_CCI_CLK_RATES][NUM_I2C_MODES] =
+ 		.thd_dat = 13,
+ 		.thd_sta = 18,
+ 		.tbuf = 32,
+-		.scl_stretch_en = 0,
+ 		.trdhld = 6,
+ 		.tsp = 3
+ 	},
+@@ -284,7 +282,6 @@ static const struct hw_params cci_hw_params[NUM_CCI_CLK_RATES][NUM_I2C_MODES] =
+ 		.thd_dat = 22,
+ 		.thd_sta = 162,
+ 		.tbuf = 227,
+-		.scl_stretch_en = 0,
+ 		.trdhld = 6,
+ 		.tsp = 3
+ 	},
+@@ -296,7 +293,6 @@ static const struct hw_params cci_hw_params[NUM_CCI_CLK_RATES][NUM_I2C_MODES] =
+ 		.thd_dat = 22,
+ 		.thd_sta = 35,
+ 		.tbuf = 62,
+-		.scl_stretch_en = 0,
+ 		.trdhld = 6,
+ 		.tsp = 3
+ 	},
+@@ -308,7 +304,6 @@ static const struct hw_params cci_hw_params[NUM_CCI_CLK_RATES][NUM_I2C_MODES] =
+ 		.thd_dat = 16,
+ 		.thd_sta = 15,
+ 		.tbuf = 24,
+-		.scl_stretch_en = 0,
+ 		.trdhld = 3,
+ 		.tsp = 3
+ 	},
+@@ -368,7 +363,7 @@ static int cci_init(struct cci *cci)
+ 		val = hw->tbuf;
+ 		writel(val, cci->base + CCI_I2C_Mm_SDA_CTL_2(i));
+ 
+-		val = hw->scl_stretch_en << 8 | hw->trdhld << 4 | hw->tsp;
++		val = CCI_I2C_MISC_CTL_SCL_STRETCH_EN | hw->trdhld << 4 | hw->tsp;
+ 		writel(val, cci->base + CCI_I2C_Mm_MISC_CTL(i));
+ 	}
+ 
+
