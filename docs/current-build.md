@@ -1,7 +1,14 @@
-# Current build — 2026-10-14
+# Current build — 2026-10-30
 
-**`7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+` is the repository and future-testing
-baseline.** Acceptance is limited to the checks below; full hardware acceptance remains open.
+Current upstream Omarchy publishes **`linux-omarchy 7.3-7` on edge**, with A16 board support and separate published firmware/audio packages. Runtime and live-image integration remain open; this record does not establish physical acceptance of that package. See [Omarchy upstream status](omarchy-status.md) for merged changes, pending work and retired proposals.
+
+The historical **`7.2.8-24-omarchy`** candidate, source tree `d05c4879b3789c74e2a73684683b15deb0be258b`, completed the build, boot and hardware checks recorded on October 21. That dated evidence is retained in [the revision 24 record](omarchy-status.md#revision-24-evidence--2026-10-21); it is not a statement of the laptop’s current boot selection or validation of the upstream `7.3-7` build.
+
+The Fedora soc2 baseline below, [rc5 Qualcomm bridge](../kernel/rc5-qcom-bridge-20261018/README.md) and retained `kernel/arch-7.2.10/` backport are separate tracks. Their build commands and acceptance results do not describe the current shared Omarchy recipe.
+
+## Fedora soc2 baseline — 2026-10-14
+
+**`7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+` is the retained Fedora baseline.** The dated observations below describe that build and boot; they do not describe the current upstream Omarchy package or the laptop’s current boot selection.
 
 ## Identity
 

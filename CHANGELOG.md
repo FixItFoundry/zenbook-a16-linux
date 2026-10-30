@@ -2,6 +2,16 @@
 
 Dated changes and corrections; [current status](docs/current-build.md) is recorded separately.
 
+## 2026-10-30 — Upstream Omarchy A16 support and retired proposals
+
+- Recorded the merged and edge-published `linux-omarchy 7.3-7`, ASUS firmware and A16 audio packages, with runtime/live-image work still open. The earlier runtime, ISO, extractor and Dislocker proposals are closed; the generic mkinitcpio failure fix remains open.
+- Retained the October 21 `7.2.8-24` results as historical evidence and removed present-tense claims that it is still running. No new kernel build, installation or hardware acceptance is claimed.
+
+## 2026-10-21 — Omarchy revision 24 validation and publication status
+
+- Recorded the locally built and booted shared `linux-omarchy 7.2.8-24` candidate, its source identity, automated checks and user-confirmed audio, keyboard, touchscreen, charger transitions and Bluetooth calls/audio.
+- At that check, revision 24 was the tested and running Omarchy build, alongside the retained Fedora rc5 tracks. Camera/suspend were unvalidated, and package publication was a prerequisite of the then-proposed runtime/ISO changes.
+
 ## 2026-10-18 — Mainline release + `qcom-next` and `qcom-topics` bridge with post-install hooks
 
 - Refactored the kernel and packaging pipeline around a pull from the mainline release (`v7.3-rc5`), bridged with Qualcomm's `qcom-next` and `qcom-topics` repositories, and updated on target systems via scoped post-install hooks.
