@@ -5,8 +5,8 @@ limits. Component notes retain historical measurements.
 
 | Document | Contents |
 |---|---|
-| [Current build](current-build.md) | Current Omarchy candidate and retained Fedora baseline. |
-| [Omarchy status](omarchy-status.md) | Validated hardware, open PRs, package prerequisites and channel promotion. |
+| [Current build](current-build.md) | Current upstream Omarchy package and dated local/Fedora acceptance records. |
+| [Omarchy status](omarchy-status.md) | Merged and published support, remaining PRs, retired proposals and historical hardware evidence. |
 | [Hardware](hardware.md) | Components, interfaces and historical observations. |
 | [Modifications](modifications.md) | Earlier device-tree and kernel changes. |
 | [Changelog](../CHANGELOG.md) | Dated changes and corrections. |

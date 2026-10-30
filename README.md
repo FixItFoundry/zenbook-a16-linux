@@ -5,11 +5,13 @@ Qualcomm Snapdragon X2 Elite Extreme (`glymur`).
 
 ![Zenbook A16 running Linux](img/screenshot_20260816_080455.png)
 
-## Current Omarchy status — 2026-10-21
+## Current Omarchy status — 2026-10-30
 
-**Shared `linux-omarchy 7.2.8-24` is the latest locally validated Omarchy candidate.** The clean native build, all 8,487 module checks, packaged-header compilation, source replay, installation, boot and hardware validation passed. Revision 24 remains running after testing. Audio, keyboard, touchscreen, charger transitions and Bluetooth calls/audio were physically confirmed. Camera and sleep remain disabled and unvalidated.
+**A16 board support is merged into shared `linux-omarchy 7.3-7` and published on edge**, alongside `asus-zenbook-a16-firmware` `1.312.4500.0-1` and `asus-zenbook-a16-audio` `1-1`. The firmware package supplies the board’s DSP images and Wi-Fi data from ASUS’s public BSP.
 
-The package recipes are still local proposals; [runtime PR #13820](https://github.com/omacom/omarchy/pull/13820) and [ISO PR #208](https://github.com/omacom/omarchy-iso/pull/208) still need their coordinated updates. See [Omarchy status, remaining warnings and submission order](docs/omarchy-status.md).
+[Runtime #17083](https://github.com/omacom/omarchy/pull/17083), generic Glymur initramfs [#16940](https://github.com/omacom/omarchy/pull/16940) and live-image [#358](https://github.com/omacom/omarchy-iso/pull/358) remain open. The older kernel/runtime/ISO and A16 extractor/Dislocker proposals are closed. See [merged work, remaining PRs and historical evidence](docs/omarchy-status.md).
+
+The locally validated `7.2.8-24` build remains a dated October 21 result. It does not establish physical boot, LUKS unlock or feature acceptance for the published `7.3-7` package; those checks remain separate.
 
 ## Mainline + `qcom-next` / `qcom-topics` Bridge — 2026-10-18
 
@@ -21,7 +23,7 @@ See the [bridge build package](kernel/rc5-qcom-bridge-20261018/README.md) and [b
 
 ## Retained Fedora baseline — 2026-10-14
 
-**`7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+` remains the retained Fedora baseline.** The following observations are from October 14 and do not describe the newer Omarchy candidate.
+**`7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+` remains the retained Fedora baseline.** The following observations are from October 14 and do not describe the current upstream Omarchy package.
 
 The [build package](kernel/rc5-20261013/README.md) contains the exact tested
 config and [64 ordered patches](patches/rc5-20261013/README.md). The previous
@@ -47,7 +49,7 @@ previous kernels and the Windows route are retained.
 
 ## Branches & Distro Tracks
 
-`main` contains the rc5 baseline/bridge, the earlier Arch 7.2.10 backport, multi-distro installer scripts and post-install hooks. The current shared Omarchy 7.2.8-24 proposal lives in the coordinated Omarchy package review, not in `kernel/arch-7.2.10/`:
+`main` contains the rc5 baseline/bridge, the earlier Arch 7.2.10 backport, multi-distro installer scripts and post-install hooks. The current shared Omarchy recipe lives in [omacom/omarchy-pkgs](https://github.com/omacom/omarchy-pkgs/tree/master/pkgbuilds/linux-omarchy-aarch64), not in `kernel/arch-7.2.10/`:
 
 - **`main`**: Unified baseline carrying the mainline release + `qcom-next`/`qcom-topics` bridge (`rc5-qcom-bridge-20261018`), the validated `7.3-rc5` (`rc5-20261013`) baseline, the Arch `7.2.10` (`arch-7.2.10`) backport, cross-distro installer (`iso/`), and post-install kernel hooks (`packaging/`).
 - **`feature/arch-7.2.10-a16`**: Earlier Arch Linux `7.2.10` kernel/support work; this branch is not the current Omarchy submission target.

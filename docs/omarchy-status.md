@@ -1,19 +1,55 @@
-# Omarchy A16 status — 2026-10-21
+# Omarchy A16 status — 2026-10-30
 
-**`linux-omarchy 7.2.8-24` completed native build, package, boot and hardware validation and is still running on the A16.** This records the diagnosis session’s results and Jesse’s physical confirmations. The coordinated Omarchy package and PR updates are awaiting publication.
+**A16 board support is merged into the shared `linux-omarchy 7.3-7`, and the kernel and matching headers are published on edge.** The A16 firmware and audio packages are also published. Installed-boot setup and live-image integration remain separate open PRs; package publication alone does not establish a working encrypted install.
+
+The `7.2.8-24` results below are a historical record from October 21. They do not validate the new `7.3-7` kernel or identify what is currently running on the laptop. No physical boot or LUKS-unlock acceptance of the published `7.3-7` package was established by this documentation update.
+
+## Merged and published upstream
+
+| Component | Verified state on October 30 |
+|---|---|
+| Shared ARM kernel | [omarchy-pkgs #1875](https://github.com/omacom/omarchy-pkgs/pull/1875) merged as `3659b4671149c0cc458f4bd2d9d9b021c0539d13`; `linux-omarchy` and `linux-omarchy-headers` `7.3-7` are published on edge. It includes EC/board support and A16 power, cooling, RTC and microphone-rate changes. |
+| Board firmware | [omarchy-pkgs #1874](https://github.com/omacom/omarchy-pkgs/pull/1874) merged; `asus-zenbook-a16-firmware` `1.312.4500.0-1` is published on edge. It extracts A16 ADSP/CDSP firmware and QCC2072 Wi-Fi board data from ASUS’s public BSP. |
+| Audio | [omarchy-pkgs #1841](https://github.com/omacom/omarchy-pkgs/pull/1841) supplies `asus-zenbook-a16-audio` `1-1`, published on edge. [#1842](https://github.com/omacom/omarchy-pkgs/pull/1842) added kernel speaker fixes, and [omarchy #17039](https://github.com/omacom/omarchy/pull/17039) added board-matched installation and speaker tuning. All three are merged. |
+
+Publication was checked against the [edge aarch64 package index](https://pkgs.omarchy.org/edge/aarch64/omarchy.db). The shared recipe is [`pkgbuilds/linux-omarchy-aarch64`](https://github.com/omacom/omarchy-pkgs/tree/master/pkgbuilds/linux-omarchy-aarch64). `edge`, `rc` and `stable` are package channels; `rc` does not mean a separate Linux release-candidate kernel. These edge results do not establish promotion to the other channels.
+
+The packaged firmware replaces Windows/BitLocker extraction as the proposed default A16 firmware source. Its Wi-Fi `board.bin` fallback is specific to UX3607OA and must not be installed on unrelated QCC2072 machines. The pending runtime change installs this package before the shared DSP firmware guard runs and includes it on the offline package list.
+
+## Remaining upstream work
+
+| PR | Current state and scope |
+|---|---|
+| [omarchy #17083](https://github.com/omacom/omarchy/pull/17083) | Open: A16 firmware installation, text-console unlock, early input/USB modules, disabled sleep and an existing-install migration. Review and hardware validation remain pending. |
+| [omarchy #16940](https://github.com/omacom/omarchy/pull/16940) | Open: generic Glymur pin-control and interconnect modules before disk unlock. Coordinate this prerequisite with board setup. |
+| [omarchy-iso #358](https://github.com/omacom/omarchy-iso/pull/358) | Open: Glymur live-image drivers and console settings. Check its module list against the current kernel and the A16’s dependencies. |
+| [omarchy-pkgs #1428](https://github.com/omacom/omarchy-pkgs/pull/1428) | Open: preserve mkinitcpio wrapper failures. This is independent of the A16 kernel; outstanding package/architecture validation remains separate. |
+
+Do not submit another broad kernel or runtime bringup over these changes. Start from current upstream and isolate any remaining omission or regression. The published kernel differs from the historical local series, including Wi-Fi/USB and shared-driver changes; earlier local build or hardware results do not validate that different code. Confirm the actual kernel, DTB, firmware, initramfs and command line before making new boot or feature claims.
+
+## Retired proposals
+
+| PR | Disposition |
+|---|---|
+| [omarchy-pkgs #1426](https://github.com/omacom/omarchy-pkgs/pull/1426) | Closed unmerged; the broad kernel proposal is superseded by the current shared kernel. |
+| [omarchy #13820](https://github.com/omacom/omarchy/pull/13820) | Closed: the older `7.2.8-24` support-package/DSP-ABI setup is superseded by the current runtime direction. |
+| [omarchy-iso #208](https://github.com/omacom/omarchy-iso/pull/208) | Closed: the broad Windows-extraction preflight no longer matches the packaged-firmware path. Remaining live-boot work belongs in a focused change coordinated with #358. |
+| [omarchy-pkgs #1427](https://github.com/omacom/omarchy-pkgs/pull/1427) | Closed from the A16 series. Generic read-only BitLocker extraction would need its own consumer and coordination with [#1795](https://github.com/omacom/omarchy-pkgs/pull/1795). |
+| [omarchy-pkgs #1429](https://github.com/omacom/omarchy-pkgs/pull/1429) | Closed alongside #1427. Dislocker is no longer a prerequisite of the proposed A16 installation path. |
+
+The private `omarchy-a16-support`/`omarchy-a16-dsp-abi=1` package sequence describes the retired proposal, not prerequisites of the new upstream packages. Migrating a machine that still carries those private boot settings requires separate review; this page does not prescribe an upgrade or change the running machine.
 
 ## Kernel tracks
 
 | Track | Identity and role |
 |---|---|
-| Shared Omarchy candidate | `7.2.8-24-omarchy`, source tree `d05c4879b3789c74e2a73684683b15deb0be258b`; native build, package, boot and hardware validation complete; still running on the A16. |
-| Retained Fedora soc2 baseline | `7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+`; its dated acceptance record remains in [current build](current-build.md#fedora-soc2-baseline--2026-10-14). |
+| Current upstream Omarchy | Shared `linux-omarchy 7.3-7` on edge; source/package availability confirmed, physical acceptance not established here. |
+| Historical Omarchy candidate | `7.2.8-24-omarchy`, source tree `d05c4879b3789c74e2a73684683b15deb0be258b`; the October 21 build and hardware evidence is retained below. |
+| Retained Fedora soc2 baseline | `7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+`; see the dated [Fedora acceptance record](current-build.md#fedora-soc2-baseline--2026-10-14). |
 | Mainline/Qualcomm bridge | [rc5-qcom-bridge-20261018](../kernel/rc5-qcom-bridge-20261018/README.md); separate development track. Omarchy acceptance does not transfer to this build. |
-| Earlier Arch port | [arch-7.2.10](../kernel/arch-7.2.10/BUILD-AND-UPGRADE.txt), also represented by `feature/arch-7.2.10-a16`; retained reference, not the current shared Omarchy candidate. |
+| Earlier Arch port | [arch-7.2.10](../kernel/arch-7.2.10/BUILD-AND-UPGRADE.txt); retained reference, not the current shared Omarchy recipe. |
 
-The shared Omarchy recipe is [`pkgbuilds/linux-omarchy-aarch64`](https://github.com/omacom/omarchy-pkgs/tree/master/pkgbuilds/linux-omarchy-aarch64). At this check, `master` carries `7.2.8-23` and the package repository’s `rc` branch carries `7.2.8-20`. `rc` is a package release channel, not a second Linux release-candidate kernel. Submit the A16 package changes to `master`, then promote the prerequisites with their consumers through `edge`, `rc` and `stable`.
-
-## Revision 24 evidence
+## Revision 24 evidence — 2026-10-21
 
 - Clean native A16 build; all 8,487 packaged modules checked; an external module compiled against the packaged headers. The distributed source package replayed to the tree above.
 - Kernel and headers `7.2.8-24`, support `20261014-1` and firmware extractor `1-6` installed. Both generated normal/rescue UKIs matched the kernel and A16 DTB and passed 26 targeted module dry runs each.
@@ -22,26 +58,12 @@ The shared Omarchy recipe is [`pkgbuilds/linux-omarchy-aarch64`](https://github.
 - The compiled battery before/after regression, runtime board/DSP shell checks, all 25 support verifier tests and support initramfs checks passed.
 - Jesse physically confirmed audio playback, keyboard, touchscreen, charger transitions and Bluetooth phone calls/audio. Built-in microphone capture was not separately confirmed.
 
-The physical test used an enclosure-specific UAS fallback for an external root SSD after transport failures. This is a local test condition, not an A16 board default or an established fix for internal NVMe installations. The candidate patches contain no such quirk. Four PMIC supplier-link warnings and the previously observed codec workqueue deprecation warning remain; no clean-log or long-term stability claim is made. Long-term stability is outside this submission’s current acceptance checklist.
+The physical test used an enclosure-specific UAS fallback for an external root SSD after transport failures. This is a local test condition, not an A16 board default or an established fix for internal NVMe installations. That candidate contained no such quirk. Four PMIC supplier-link warnings and a codec workqueue deprecation warning remained in the recorded tests; no clean-log or long-term stability claim was made.
 
-## Installation evidence and feature limits
+## Historical installation evidence and feature limits
 
 Revision 21 was the initial installation test kernel, covering ARM UEFI live boot, generic/N1x-mode VM install/reboot checks and physical A16 installation. After debugging, the A16 moved to revision 24 and completed the build, package, boot and hardware validation recorded above.
 
 Read-only firmware extraction was exercised with the physical Windows volume using its clear-key protector. Encrypted NTFS fixtures separately covered recovery-key entry, both unlock backends, wrong keys, cancellation and cleanup. A disposable free-space install/rollback test preserved its existing encrypted partition. These are distinct tests; they do not establish a physical encrypted factory-reset recovery test.
 
-Camera capture and suspend remain disabled and unvalidated in the Omarchy candidate. The camera drivers are packaged, but revision 24 blacklists them and its active device tree lacks CAMSS, CCI and sensor nodes. Loading modules alone cannot enable that camera. A potential camera path is being investigated separately; capture is not part of this submission’s validated scope. Other supported ARM boards still need regression coverage before promotion; Dislocker’s x86 build also needs CI coverage.
-
-## Open PRs and submission order
-
-| Repository | Current state and next action |
-|---|---|
-| [omarchy #13820](https://github.com/omacom/omarchy/pull/13820) | Open against `quattro`; published head `937b15e7eb770748b60effb8baf4356618ced7c1`. Prepared update validates the shared root command line before writes, refreshes normal/rescue command lines before each build, and removes the private firmware-package dependency. |
-| [omarchy-iso #208](https://github.com/omacom/omarchy-iso/pull/208) | Open against `quattro`; published head `cc37956268c4cc75a7bbace6346c6330bed21043`. Prepared update uses the unified ARM image and stages verified owner firmware before disk writes, including read-only BitLocker access. |
-| [omarchy-pkgs](https://github.com/omacom/omarchy-pkgs) | Five separate local proposals: shared ARM kernel, firmware extractor, Limine failure propagation, Dislocker, and A16 support. No A16 package PR from this maintainer was open at this check. |
-
-Publish the kernel capability `omarchy-a16-dsp-abi=1` to edge before building the support package: package CI jobs resolve dependencies from the published repository, not another PR’s artifacts. Complete all five package prerequisites before merging their runtime and ISO consumers. Each release channel must receive those prerequisites before its consumers. Preserve the matching kernel, headers and corresponding-source package together.
-
-The three unresolved runtime review threads concern early DSP activation, downgrade safety and package prerequisites. The prepared package dependency and capability checks address those paths; the old late-start fallback is removed. Invalid prerequisites stop setup without altering existing board configuration. This does not support forcing package dependency removal.
-
-The factory-reset command-line inheritance finding is marked resolved on GitHub, but its code correction is still part of the local update. Do not equate that thread state or existing public CI with validation of unpublished changes. Public PR descriptions also need replacement: they still describe superseded late-DSP/platform-profile work.
+Camera capture and suspend were disabled and unvalidated in revision 24. The camera drivers were packaged, but revision 24 blacklisted them and its active device tree lacked CAMSS, CCI and sensor nodes. Loading modules alone cannot enable that camera. These results do not establish camera, suspend or other-board support in the new upstream package. Dislocker’s x86 build was not validated in this record.

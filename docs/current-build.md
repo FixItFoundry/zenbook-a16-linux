@@ -1,12 +1,14 @@
-# Current build — 2026-10-21
+# Current build — 2026-10-30
 
-The latest validated **Omarchy candidate is `7.2.8-24-omarchy`**, with source tree `d05c4879b3789c74e2a73684683b15deb0be258b`. It completed native build, package, boot and hardware validation and is still running on the A16; the package recipes and runtime/ISO follow-ups are still awaiting submission and publication. See [Omarchy status and submission order](omarchy-status.md) for the exact scope and limits.
+Current upstream Omarchy publishes **`linux-omarchy 7.3-7` on edge**, with A16 board support and separate published firmware/audio packages. Runtime and live-image integration remain open; this record does not establish physical acceptance of that package. See [Omarchy upstream status](omarchy-status.md) for merged changes, pending work and retired proposals.
 
-The Fedora soc2 baseline below and the [rc5 Qualcomm bridge](../kernel/rc5-qcom-bridge-20261018/README.md) are separate kernel tracks. Omarchy results do not establish acceptance of the bridge. The retained `kernel/arch-7.2.10/` package is an earlier backport, not the current shared Omarchy recipe.
+The historical **`7.2.8-24-omarchy`** candidate, source tree `d05c4879b3789c74e2a73684683b15deb0be258b`, completed the build, boot and hardware checks recorded on October 21. That dated evidence is retained in [the revision 24 record](omarchy-status.md#revision-24-evidence--2026-10-21); it is not a statement of the laptop’s current boot selection or validation of the upstream `7.3-7` build.
+
+The Fedora soc2 baseline below, [rc5 Qualcomm bridge](../kernel/rc5-qcom-bridge-20261018/README.md) and retained `kernel/arch-7.2.10/` backport are separate tracks. Their build commands and acceptance results do not describe the current shared Omarchy recipe.
 
 ## Fedora soc2 baseline — 2026-10-14
 
-**`7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+` is the retained Fedora baseline.** The dated observations below describe that build and boot; they do not describe the newer Omarchy candidate or the laptop’s current boot selection.
+**`7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+` is the retained Fedora baseline.** The dated observations below describe that build and boot; they do not describe the current upstream Omarchy package or the laptop’s current boot selection.
 
 ## Identity
 
