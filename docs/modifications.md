@@ -202,7 +202,7 @@ run the machine is not published — only the patches needed to build and run th
 | [`glymur-soccp-glink-7.2-hooks.patch`](../patches/glymur-soccp-glink-7.2-hooks.patch) | Hooks for the custom `soccp_glink` battery driver on 7.2 | ✅ in daily use |
 | [`glymur-edp-rate-set-UPSTREAM.patch`](../patches/glymur-edp-rate-set-UPSTREAM.patch) | eDP `LINK_RATE_SET` handling | 🔼 upstream candidate |
 | [`glymur-edp1-net.patch`](../patches/glymur-edp1-net.patch) | Per eDP 1.4b, `LINK_BW_SET` must be cleared before `LINK_RATE_SET` is written | 🔼 upstream candidate |
-| [`glymur-gdsc-genpd-teardown-UPSTREAM.patch`](../patches/glymur-gdsc-genpd-teardown-UPSTREAM.patch) | GDSC/genpd teardown ordering | 🔼 upstream candidate |
+| [`glymur-gdsc-genpd-teardown-UPSTREAM.patch`](../patches/glymur-gdsc-genpd-teardown-UPSTREAM.patch) | GDSC registration failure cleanup; successful teardown is already upstream | Local draft; fault-injection and ARM64 object compile passed, full kernel and hardware test pending |
 
 ### ⛔ The DIAGNOSTIC label on the suspend patch is a trap
 

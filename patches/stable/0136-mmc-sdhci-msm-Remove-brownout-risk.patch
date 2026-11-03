@@ -1,0 +1,48 @@
+From b0a3511a02bc352a99630e1f09cd8ae3ddf848de Mon Sep 17 00:00:00 2001
+From: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Date: Wed, 19 Aug 2026 17:35:07 +0200
+Subject: [PATCH] mmc: sdhci-msm: Remove brownout risk
+
+dev_pm_opp_set_rate(0) removes the power votes without quiescing the
+clock. Avoid using that API and do dev_pm_set_opp(NULL) explicitly
+*after* the clock has been disabled.
+
+This now checks the return value of the OPP call without unwinding
+anything, as host->runtime_suspended is already set before anything
+happens to the hw state.
+
+(cherry picked from commit b0a3511a02bc352a99630e1f09cd8ae3ddf848de)
+Signed-off-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+---
+ drivers/mmc/host/sdhci-msm.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/mmc/host/sdhci-msm.c b/drivers/mmc/host/sdhci-msm.c
+index aecd425bf09..31e17952246 100644
+--- a/drivers/mmc/host/sdhci-msm.c
++++ b/drivers/mmc/host/sdhci-msm.c
+@@ -2946,16 +2946,19 @@ static int sdhci_msm_runtime_suspend(struct device *dev)
+ 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+ 	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+ 	unsigned long flags;
++	int ret;
+ 
+ 	spin_lock_irqsave(&host->lock, flags);
+ 	host->runtime_suspended = true;
+ 	spin_unlock_irqrestore(&host->lock, flags);
+ 
+-	/* Drop the performance vote */
+-	dev_pm_opp_set_rate(dev, 0);
+ 	clk_bulk_disable_unprepare(ARRAY_SIZE(msm_host->bulk_clks),
+ 				   msm_host->bulk_clks);
+ 
++	ret = dev_pm_opp_set_opp(dev, NULL);
++	if (ret)
++		return ret;
++
+ 	return sdhci_msm_ice_suspend(msm_host);
+ }
+ 
+-- 
+2.56.0
+

@@ -1,0 +1,12 @@
+{
+  "base": "c03c1a14507dfaf8b856c2608f9ac216021fc222",
+  "source_tree": "11f818cf609ff60e6f826f47e757f939b5442adc",
+  "release": "7.3.0-ZenbookA16-20261022-final1+",
+  "patch_count": 143,
+  "prior_release": "7.3.0-rc5-ZenbookA16-20261022-a16pkg3+",
+  "prior_source_tree": "72c419a5da448413d349a75d0219de8050eadbc7",
+  "promotion_date": "2026-10-22",
+  "camera_enabled": true,
+  "validation_scope": "Local source port: 7.3 final + full A16/Qualcomm/camera/microphone stack. Source replay verified; config is the pkg3 input with a new release, to be resolved by olddefconfig. Kernel compilation, native package transactions, boot and hardware acceptance remain pending. DMIC pin settings remain experimental.",
+  "pre_usb3_source_tree": "004cf498d432dba102ea3d4c9f9389446d40c1bd"
+}

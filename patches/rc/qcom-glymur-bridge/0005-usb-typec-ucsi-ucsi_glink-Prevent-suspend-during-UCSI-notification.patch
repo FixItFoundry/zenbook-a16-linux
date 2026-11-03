@@ -1,0 +1,78 @@
+From 55d57ad2f3dda33a2947181be6b870ae6d4cfd2b Mon Sep 17 00:00:00 2001
+From: Jishnu Prakash <jishnu.prakash@oss.qualcomm.com>
+Date: Mon, 25 May 2026 14:32:02 +0530
+Subject: [PATCH] FROMLIST: usb: typec: ucsi: ucsi_glink: Prevent suspend
+ during UCSI notification handling
+
+When the system is suspended and a UCSI event arrives (such as USB plug-in),
+the GLINK interrupt (with IRQF_NO_SUSPEND flag) fires and it eventually calls
+the pmic_glink_ucsi_callback(), which schedules notify_work to handle the
+connector change. However, since no wakeup source is held, the system can
+re-enter suspend soon after the interrupt handler returns, before notify_work
+has completed running, and the USB plug-in event would not be handled.
+
+There was an earlier attempt to address this at the GLINK driver level, by
+making the GLINK interrupt wakeup-capable, ("rpmsg: glink: Make glink smem
+interrupt wakeup capable") [1], but upstream reviewers suggested a
+different approach, preferring wakeup logic to be handled in the client driver.
+
+To avoid losing UCSI notifications in this way, register ucsi_glink
+as a wakeup-capable device in the probe, and call pm_wakeup_ws_event()
+with hard=true before scheduling notify_work. The hard wakeup aborts any
+in-progress suspend, and the timed wakeup source keeps the system
+awake long enough for the notify_work call to run.
+
+[1] https://lore.kernel.org/all/20240603073648.3475123-1-quic_deesin@quicinc.com/
+
+Link: https://lore.kernel.org/all/20260710-ucsi_glink_wakeup-v1-1-7d97ea628d92@oss.qualcomm.com/
+Signed-off-by: Jishnu Prakash <jishnu.prakash@oss.qualcomm.com>
+---
+ drivers/usb/typec/ucsi/ucsi_glink.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/usb/typec/ucsi/ucsi_glink.c b/drivers/usb/typec/ucsi/ucsi_glink.c
+index 12e07b9fe6..7fa039f0a2 100644
+--- a/drivers/usb/typec/ucsi/ucsi_glink.c
++++ b/drivers/usb/typec/ucsi/ucsi_glink.c
+@@ -7,6 +7,7 @@
+ #include <linux/module.h>
+ #include <linux/mutex.h>
+ #include <linux/of_device.h>
++#include <linux/pm_wakeup.h>
+ #include <linux/property.h>
+ #include <linux/soc/qcom/pdr.h>
+ #include <linux/usb/typec_mux.h>
+@@ -26,6 +27,12 @@
+ #define UC_UCSI_WRITE_BUF_REQ           0x12
+ #define UC_UCSI_USBC_NOTIFY_IND         0x13
+ 
++/*
++ * Wakeup timeout to allow USB event notification processing to
++ * complete before device suspends.
++ */
++#define UCSI_GLINK_WAKEUP_TIMEOUT_MS	50
++
+ struct ucsi_read_buf_req_msg {
+ 	struct pmic_glink_hdr   hdr;
+ };
+@@ -342,6 +349,8 @@ static void pmic_glink_ucsi_callback(const void *data, size_t len, void *priv)
+ 		pmic_glink_ucsi_write_ack(ucsi, data, len);
+ 		break;
+ 	case UC_UCSI_USBC_NOTIFY_IND:
++		pm_wakeup_ws_event(ucsi->dev->power.wakeup,
++				   UCSI_GLINK_WAKEUP_TIMEOUT_MS, true);
+ 		schedule_work(&ucsi->notify_work);
+ 		break;
+ 	}
+@@ -401,6 +410,8 @@ static int pmic_glink_ucsi_probe(struct auxiliary_device *adev,
+ 	ucsi->dev = dev;
+ 	dev_set_drvdata(dev, ucsi);
+ 
++	device_init_wakeup(dev, true);
++
+ 	INIT_WORK(&ucsi->notify_work, pmic_glink_ucsi_notify);
+ 	INIT_WORK(&ucsi->register_work, pmic_glink_ucsi_register);
+ 	init_completion(&ucsi->read_ack);
+-- 
+2.56.0
+

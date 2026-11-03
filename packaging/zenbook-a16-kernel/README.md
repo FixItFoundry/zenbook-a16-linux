@@ -8,6 +8,12 @@ do not make the RC kernel production-ready.
 
 ## Build without installing
 
+The [7.3 final candidate](../../kernel/7.3-final-20261022/README.md) carries the
+full A16/Qualcomm/camera stack. Its source replay passes; compilation and native
+package/boot acceptance are pending. Its builder applies patches to a staged
+index without making commits, preserving HEAD at the pinned upstream base.
+Use its dated build helper for that source; the rc5 commands below remain intact.
+
 Run from this repository on a native aarch64 Linux build machine. Supply a kernel
 Git repository containing the pinned mainline base ([`rc5-qcom-bridge-20261018`](../../kernel/rc5-qcom-bridge-20261018/build.json) or [`rc5-20261013`](../../kernel/rc5-20261013/build.json)).
 The output directory must not exist for a fresh build. The helper creates a separate
@@ -54,6 +60,12 @@ Package names use the lowercase release; files retain its original spelling.
 Headers live at `/usr/lib/modules/<release>/build`. Metadata there records the
 source tree, release, package family/version, Image/DTB/config hashes, command line
 and DSP policy. Packaging rejects missing/mismatched headers or artifacts.
+
+The optional boolean build field `camera_enabled` defaults to false. When true,
+metadata omits the legacy camera blacklist and records the flag so boot hooks
+remove camera modules from inherited `modprobe.blacklist`/`module_blacklist`
+lists while preserving other blocked modules. Recipes without the field keep
+their existing metadata and boot policy.
 
 A tracking-package upgrade adds a new payload package rather than replacing the
 previous payload. It also updates shared support hooks and runs `activate-hardware`

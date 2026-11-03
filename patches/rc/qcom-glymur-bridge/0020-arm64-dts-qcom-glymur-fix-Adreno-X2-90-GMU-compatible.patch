@@ -1,0 +1,34 @@
+From e1e27eaec3e4fa8b4fa6cfe6de25e4319b4b501f Mon Sep 17 00:00:00 2001
+From: Jie Zhang <jie.zhang@oss.qualcomm.com>
+Date: Fri, 25 Sep 2026 02:44:33 +0530
+Subject: [PATCH] FROMLIST: arm64: dts: qcom: glymur: fix Adreno X2-90 GMU
+ compatible
+
+The Glymur's GMU compatible was set to the wrong string
+qcom,adreno-gmu-x285.1. Correct it to qcom,adreno-gmu-x290.1.
+
+Fixes: b6ff8cec8aaa ("arm64: dts: qcom: Add GPU support for Glymur")
+Signed-off-by: Jie Zhang <jie.zhang@oss.qualcomm.com>
+Signed-off-by: Akhil P Oommen <akhilpo@oss.qualcomm.com>
+Signed-off-by: Kavisha Shah <kavishah@qti.qualcomm.com>
+Link: https://lore.kernel.org/lkml/20260925-mahua-gpu-v1-2-0fa0bfd8d315@oss.qualcomm.com/
+---
+ arch/arm64/boot/dts/qcom/glymur.dtsi | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index ba72ae75a3..f891a3e8d3 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -3955,7 +3955,7 @@ gxclkctl: clock-controller@3d64000 {
+ 		};
+ 
+ 		gmu: gmu@3d6c000 {
+-			compatible = "qcom,adreno-gmu-x285.1", "qcom,adreno-gmu";
++			compatible = "qcom,adreno-gmu-x290.1", "qcom,adreno-gmu";
+ 
+ 			reg = <0x0 0x03d6c000 0x0 0x32000>;
+ 			reg-names = "gmu";
+-- 
+2.56.0
+

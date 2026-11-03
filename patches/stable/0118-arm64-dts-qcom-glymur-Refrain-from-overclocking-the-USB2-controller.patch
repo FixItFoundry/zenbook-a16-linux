@@ -1,0 +1,42 @@
+From 29a70f3d2325e8ac84a33e93d906aecd639f4552 Mon Sep 17 00:00:00 2001
+From: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Date: Tue, 28 Jul 2026 13:02:11 +0200
+Subject: [PATCH] arm64: dts: qcom: glymur: Refrain from overclocking the USB2
+ controller
+
+The USB2 controller's master clock has two defined operating points:
+60 MHz at LOW_SVS and 120 MHz at SVS_L1. The lower one is good enough
+for sustaining a High-Speed link, so use that instead.
+
+(cherry picked from commit 29a70f3d2325e8ac84a33e93d906aecd639f4552)
+Signed-off-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+---
+ arch/arm64/boot/dts/qcom/glymur.dtsi | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index 24debee8797..ec060ed6e2f 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -5751,7 +5751,8 @@
+ 
+ 			assigned-clocks = <&gcc GCC_USB20_MOCK_UTMI_CLK>,
+ 					  <&gcc GCC_USB20_MASTER_CLK>;
+-			assigned-clock-rates = <19200000>, <200000000>;
++			assigned-clock-rates = <19200000>,
++					       <60000000>;
+ 
+ 			interrupts-extended = <&intc GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+ 					      <&intc GIC_SPI 246 IRQ_TYPE_LEVEL_HIGH>,
+@@ -5767,7 +5768,7 @@
+ 			resets = <&gcc GCC_USB20_PRIM_BCR>;
+ 
+ 			power-domains = <&gcc GCC_USB20_PRIM_GDSC>;
+-			required-opps = <&rpmhpd_opp_nom>;
++			required-opps = <&rpmhpd_opp_low_svs>;
+ 
+ 			iommus = <&apps_smmu 0x0ce0 0x0>;
+ 
+-- 
+2.56.0
+

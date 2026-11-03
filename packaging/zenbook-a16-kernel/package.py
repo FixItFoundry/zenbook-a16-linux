@@ -21,6 +21,12 @@ CMDLINE = ['clk_ignore_unused', 'pd_ignore_unused', 'cma=128M', 'glymur_pci_skip
 
 def write_metadata(bundle, build_file, revision):
     build = json.loads(build_file.read_text())
+    camera_enabled = build.get('camera_enabled', False)
+    if not isinstance(camera_enabled, bool):
+        raise ValueError('camera_enabled must be a boolean')
+    cmdline = CMDLINE.copy()
+    if camera_enabled:
+        cmdline.remove('modprobe.blacklist=i2c_qcom_cci,qcom_camss,ov02c10')
     if revision < 1 or not build['release'].endswith('+'):
         raise ValueError('positive package revision and recorded + release required')
     release = build['release'][:-1] + f'-a16pkg{revision}+'
@@ -31,7 +37,9 @@ def write_metadata(bundle, build_file, revision):
              'dtb_sha256': bundle / DTB, 'config_sha256': bundle / f'config-{release}'}
     data = {'schema': 1, 'package_family': 'zenbook-a16', 'package_version': version,
             'kernel_release': release, 'source_tree': build['source_tree'],
-            'dsp_policy': 'pre-root-v1', 'cmdline': CMDLINE}
+            'dsp_policy': 'pre-root-v1', 'cmdline': cmdline}
+    if camera_enabled:
+        data['camera_enabled'] = True
     data.update({key: hashlib.sha256(path.read_bytes()).hexdigest() for key, path in paths.items()})
     (bundle / f'lib/modules/{release}/zenbook-a16-boot.json').write_text(json.dumps(data, indent=2) + '\n')
     return data

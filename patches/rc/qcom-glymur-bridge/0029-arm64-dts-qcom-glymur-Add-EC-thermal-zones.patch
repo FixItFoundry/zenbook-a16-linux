@@ -1,0 +1,84 @@
+From 1e521cc42a359497107c48d13aa4a05c31cae716 Mon Sep 17 00:00:00 2001
+From: Anvesh Jain P <anvesh.p@oss.qualcomm.com>
+Date: Mon, 28 Sep 2026 12:06:39 +0530
+Subject: [PATCH] FROMLIST: arm64: dts: qcom: glymur: Add EC thermal zones
+
+Add support for back cover, keyboard, and SoC thermal zones through
+temperature sensors hosted on the EC for Glymur and Mahua CRDs.
+
+Link: https://lore.kernel.org/all/20260928-ec_thermistor_support-v1-3-d9c1bae4cd0d@oss.qualcomm.com/
+Signed-off-by: Anvesh Jain P <anvesh.p@oss.qualcomm.com>
+Signed-off-by: Sibi Sankar <sibi.sankar@oss.qualcomm.com>
+---
+ arch/arm64/boot/dts/qcom/glymur-crd.dtsi | 45 +++++++++++++++++++++++-
+ 1 file changed, 44 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur-crd.dtsi b/arch/arm64/boot/dts/qcom/glymur-crd.dtsi
+index e27c697e31..571c98124a 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-crd.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur-crd.dtsi
+@@ -594,10 +594,12 @@ &i2c9 {
+ 
+ 	status = "okay";
+ 
+-	embedded-controller@76 {
++	ec: embedded-controller@76 {
+ 		compatible = "qcom,glymur-crd-ec", "qcom,hamoa-crd-ec";
+ 		reg = <0x76>;
+ 
++		#thermal-sensor-cells = <1>;
++
+ 		interrupts-extended = <&tlmm 66 IRQ_TYPE_EDGE_FALLING>;
+ 
+ 		pinctrl-0 = <&ec_int_n_default>;
+@@ -955,6 +957,47 @@ right_tweeter: speaker@0,1 {
+ 	};
+ };
+ 
++&thermal_zones {
++	ec-back-cover {
++		polling-delay = <10000>;
++		thermal-sensors = <&ec 2>;
++
++		trips {
++			trip-point0 {
++				temperature = <90000>;
++				hysteresis = <5000>;
++				type = "hot";
++			};
++		};
++	};
++
++	ec-keyboard {
++		polling-delay = <10000>;
++		thermal-sensors = <&ec 1>;
++
++		trips {
++			trip-point0 {
++				temperature = <90000>;
++				hysteresis = <5000>;
++				type = "hot";
++			};
++		};
++	};
++
++	ec-soc {
++		polling-delay = <10000>;
++		thermal-sensors = <&ec 0>;
++
++		trips {
++			trip-point0 {
++				temperature = <90000>;
++				hysteresis = <5000>;
++				type = "hot";
++			};
++		};
++	};
++};
++
+ &remoteproc_soccp {
+ 	firmware-name = "qcom/glymur/soccp.mbn",
+ 			"qcom/glymur/soccp_dtb.mbn";
+-- 
+2.56.0
+

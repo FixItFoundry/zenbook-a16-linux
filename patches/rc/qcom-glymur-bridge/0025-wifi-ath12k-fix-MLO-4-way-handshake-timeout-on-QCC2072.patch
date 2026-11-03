@@ -1,0 +1,127 @@
+From efef2d1435c7766a8620bbd3c8da325ed34d4299 Mon Sep 17 00:00:00 2001
+From: Miaoqing Pan <miaoqing.pan@oss.qualcomm.com>
+Date: Fri, 14 Aug 2026 14:04:30 +0800
+Subject: [PATCH] FROMLIST: wifi: ath12k: fix MLO 4-way handshake timeout on
+ QCC2072
+
+In MLO connections, ath12k_wifi7_dp_rx_set_link_id_wcn7850() attempts
+to resolve the IEEE 802.11 link ID for received frames by matching
+rxcb->peer_id against the link_peer->peer_id entries in
+dp_peer->link_peers[].
+
+This fails for EAPOL frames because the firmware delivers them via
+the MLD peer path. In this case, rxcb->peer_id contains an MLD peer
+ID while link_peer->peer_id contains a link peer ID. The mismatch
+prevents status->link_valid from being set.
+
+When mac80211 receives a data frame with link_valid=0 for an MLO
+station, it calls link_sta_info_get_bss() with hdr->addr2 to resolve
+the link ID. If hdr->addr2 contains the AP MLD address rather than a
+link address, the lookup fails because link_sta_info_get_bss()
+indexes by link address, and the frame is dropped in
+__ieee80211_rx_handle_packet(). This is observed on QCC2072 where
+EAPOL M3 uses the MLD address,
+
+  deauthenticated (Reason: 15=4WAY_HANDSHAKE_TIMEOUT)
+
+Fix this by resolving the link peer using the current operating
+frequency associated with each link peer.
+
+For 6 GHz links, the received frequency corresponds to the operating
+center frequency, while for other bands it corresponds to the primary
+channel frequency. Match the received frame against associated links
+using the appropriate frequency for each band.
+
+The frequency-based lookup is used only when exactly one associated
+link matches the received frequency. If multiple links share the same
+frequency, the match becomes ambiguous and no link ID is assigned. In
+that case, leave status->link_valid unset and let mac80211 fall back
+to its own link resolution logic.
+
+Tested-on: QCC2072 hw1.0 PCI WLAN.COL.1.0.c2-00228-QCACOLSWPL_V1_TO_SILICON-1
+Tested-on: WCN7850 hw2.0 PCI WLAN.HMT.1.1.c7-00108-QCAHMTSWPL_V1.0_V2.0_SILICONZ_UPSTREAM-3
+
+Fixes: a2fe9dc70f3b ("wifi: ath12k: Fix low MLO RX throughput on WCN7850")
+Signed-off-by: Miaoqing Pan <miaoqing.pan@oss.qualcomm.com>
+Link: https://lore.kernel.org/linux-wireless/20260815014329.3748059-1-miaoqing.pan@oss.qualcomm.com/
+---
+ drivers/net/wireless/ath/ath12k/wifi7/dp_rx.c | 55 +++++++++++++++++--
+ 1 file changed, 49 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/wifi7/dp_rx.c b/drivers/net/wireless/ath/ath12k/wifi7/dp_rx.c
+index 95d87dd678..a3d016d0fb 100644
+--- a/drivers/net/wireless/ath/ath12k/wifi7/dp_rx.c
++++ b/drivers/net/wireless/ath/ath12k/wifi7/dp_rx.c
+@@ -2331,20 +2331,63 @@ ath12k_wifi7_dp_rx_set_link_id_wcn7850(struct ath12k_dp_peer *dp_peer,
+ 				       struct ath12k_skb_rxcb *rxcb,
+ 				       struct ieee80211_rx_status *status)
+ {
+-	struct ath12k_dp_link_peer *link_peer;
++	struct ath12k_dp_link_peer *lp, *link_peer = NULL;
++	struct ieee80211_bss_conf *link_conf;
++	struct ieee80211_chanctx_conf *ctx;
++	struct ieee80211_vif *vif;
++	struct ath12k_sta *ahsta;
+ 	unsigned long links_map;
++	int freq;
+ 	int i;
+ 
+ 	RCU_LOCKDEP_WARN(!rcu_read_lock_held(),
+ 			 "ath12k set rx link id called without rcu lock");
+ 
++	if (!status->freq)
++		return;
++
+ 	links_map = READ_ONCE(dp_peer->link_peers_map);
+ 	for_each_set_bit(i, &links_map, ATH12K_NUM_MAX_LINKS) {
+-		link_peer = rcu_dereference(dp_peer->link_peers[i]);
+-		if (link_peer && link_peer->peer_id == rxcb->peer_id) {
+-			status->link_valid = 1;
+-			status->link_id = link_peer->link_id;
+-			return;
++		lp = rcu_dereference(dp_peer->link_peers[i]);
++		if (!lp || !lp->sta)
++			continue;
++
++		ahsta = ath12k_sta_to_ahsta(lp->sta);
++		if (unlikely(!ahsta->ahvif))
++			continue;
++
++		vif = ahsta->ahvif->vif;
++		link_conf = rcu_dereference(vif->link_conf[lp->link_id]);
++		if (!link_conf)
++			continue;
++
++		ctx = rcu_dereference(link_conf->chanctx_conf);
++		if (!ctx)
++			continue;
++
++		/*
++		 * For 6 GHz, rx_status->freq contains the operating center frequency.
++		 * For other bands, it contains the primary channel frequency.
++		 */
++		freq = status->band == NL80211_BAND_6GHZ ?
++			ctx->def.center_freq1 : ctx->def.chan->center_freq;
++		if (freq != status->freq)
++			continue;
++
++		/*
++		 * Skip freq-based lookup if multiple links share
++		 * the same frequency; the match would be ambiguous.
++		 */
++		if (link_peer) {
++			link_peer = NULL;
++			break;
+ 		}
++
++		link_peer = lp;
++	}
++
++	if (likely(link_peer)) {
++		status->link_valid = 1;
++		status->link_id = link_peer->link_id;
+ 	}
+ }
+-- 
+2.56.0
+

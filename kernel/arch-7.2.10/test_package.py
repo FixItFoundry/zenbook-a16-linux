@@ -104,7 +104,9 @@ else:
     if any(arg.startswith('-D') for arg in sys.argv):
         destination.parent.mkdir(parents=True, exist_ok=True)
     for name in args[:-1]:
-        shutil.copyfile(name, destination / Path(name).name if destination.is_dir() else destination)
+        target = destination / Path(name).name if destination.is_dir() else destination
+        with open(name, 'rb') as source, target.open('wb') as output:
+            shutil.copyfileobj(source, output)
 ''',
             'depmod': '',
             'sha256sum': '''import hashlib, sys

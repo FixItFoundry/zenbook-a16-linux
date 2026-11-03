@@ -1,0 +1,32 @@
+{
+  "stable": {
+    "base": "c03c1a14507dfaf8b856c2608f9ac216021fc222",
+    "base_verifier": "kernel/stable/replay.py",
+    "release": "7.3.0-ZenbookA16-20261031-usb1+",
+    "config_inputs": [
+      "kernel/stable/config"
+    ],
+    "prior_source_tree": "004cf498d432dba102ea3d4c9f9389446d40c1bd",
+    "source_tree": "11f818cf609ff60e6f826f47e757f939b5442adc",
+    "camera_enabled": true,
+    "validation_scope": "USB PHY calibration candidate; build and hardware acceptance must be recorded independently for this track.",
+    "config_sha256": {
+      "kernel/stable/config": "afe4f4e2305ee6821ae1da55ead23d397f5bf160e49aa1fc58239360a636ad11"
+    }
+  },
+  "rc": {
+    "base": "72d3fcf802c45d00b300f25b848a93c3a2bd7c7e",
+    "base_verifier": "patches/rc/camera-microphone/replay.py",
+    "release": "7.3.0-rc5-ZenbookA16-20261031-usb1+",
+    "config_inputs": [
+      "kernel/stable/config"
+    ],
+    "prior_source_tree": "5cc084c973c02c41eaa968599b0e687a93222d46",
+    "source_tree": "b3ae7b3a8a4c74930dfeb905c6471c16da0f69f0",
+    "camera_enabled": true,
+    "validation_scope": "USB PHY calibration candidate; build and hardware acceptance must be recorded independently for this track.",
+    "config_sha256": {
+      "kernel/stable/config": "afe4f4e2305ee6821ae1da55ead23d397f5bf160e49aa1fc58239360a636ad11"
+    }
+  }
+}

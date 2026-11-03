@@ -1,0 +1,52 @@
+From a60df34c29d385f44d3ecb0183e51783ad3acdf3 Mon Sep 17 00:00:00 2001
+From: Linkai Gong <gonglinkai@kylinos.cn>
+Date: Tue, 11 Aug 2026 10:05:23 +0800
+Subject: [PATCH] wifi: ath12k: clear dangling channel pointers on error paths
+
+On failure, ath12k_mac_setup_channels_rates() frees band channel
+arrays but leaves the pointers set, or clears the wrong band after a
+copy-paste typo (6 GHz free paired with a 2 GHz NULL). Clear the
+matching sbands[].channels pointer after each kfree().
+
+Compile tested only.
+
+Signed-off-by: Linkai Gong <gonglinkai@kylinos.cn>
+Reviewed-by: Rameshkumar Sundaram <rameshkumar.sundaram@oss.qualcomm.com>
+Reviewed-by: Baochen Qiang <baochen.qiang@oss.qualcomm.com>
+Link: https://patch.msgid.link/20260811020523.387433-1-gonglinkai@kylinos.cn
+Signed-off-by: Jeff Johnson <jeff.johnson@oss.qualcomm.com>
+---
+ drivers/net/wireless/ath/ath12k/mac.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/mac.c b/drivers/net/wireless/ath/ath12k/mac.c
+index 879f5ad80..02dc7a8a1 100644
+--- a/drivers/net/wireless/ath/ath12k/mac.c
++++ b/drivers/net/wireless/ath/ath12k/mac.c
+@@ -14294,6 +14294,7 @@ static int ath12k_mac_setup_channels_rates(struct ath12k *ar,
+ 					   sizeof(ath12k_6ghz_channels), GFP_KERNEL);
+ 			if (!channels) {
+ 				kfree(ar->mac.sbands[NL80211_BAND_2GHZ].channels);
++				ar->mac.sbands[NL80211_BAND_2GHZ].channels = NULL;
+ 				return -ENOMEM;
+ 			}
+ 
+@@ -14344,7 +14345,9 @@ static int ath12k_mac_setup_channels_rates(struct ath12k *ar,
+ 					   GFP_KERNEL);
+ 			if (!channels) {
+ 				kfree(ar->mac.sbands[NL80211_BAND_2GHZ].channels);
++				ar->mac.sbands[NL80211_BAND_2GHZ].channels = NULL;
+ 				kfree(ar->mac.sbands[NL80211_BAND_6GHZ].channels);
++				ar->mac.sbands[NL80211_BAND_6GHZ].channels = NULL;
+ 				return -ENOMEM;
+ 			}
+ 
+@@ -14384,7 +14387,7 @@ static int ath12k_mac_setup_channels_rates(struct ath12k *ar,
+ 					kfree(ar->mac.sbands[NL80211_BAND_2GHZ].channels);
+ 					ar->mac.sbands[NL80211_BAND_2GHZ].channels = NULL;
+ 					kfree(ar->mac.sbands[NL80211_BAND_6GHZ].channels);
+-					ar->mac.sbands[NL80211_BAND_2GHZ].channels = NULL;
++					ar->mac.sbands[NL80211_BAND_6GHZ].channels = NULL;
+ 					kfree(channels);
+ 					band->channels = NULL;
+ 					return ret;

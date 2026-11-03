@@ -125,6 +125,32 @@ class Packages(unittest.TestCase):
         files = lambda root: {str(p.relative_to(root)) for p in root.rglob('*') if p.is_file() or p.is_symlink()}
         self.assertFalse(files(first[0]['kernel']) & files(second[0]['kernel']))
 
+    def test_camera_policy_is_per_build_and_preserves_legacy_metadata(self):
+        release = self.fixture(1)
+        metadata = self.bundle / f'lib/modules/{release}/zenbook-a16-boot.json'
+        blacklist = 'modprobe.blacklist=i2c_qcom_cci,qcom_camss,ov02c10'
+        self.assertIn(blacklist, json.loads(metadata.read_text())['cmdline'])
+        self.assertNotIn('camera_enabled', json.loads(metadata.read_text()))
+        build = json.loads(self.build.read_text())
+        build['camera_enabled'] = True
+        self.build.write_text(json.dumps(build))
+        data = package.write_metadata(self.bundle, self.build, 1)
+        self.assertEqual(data['cmdline'], [arg for arg in package.CMDLINE if arg != blacklist])
+        self.assertEqual(data['dsp_policy'], 'pre-root-v1')
+        self.assertIs(data['camera_enabled'], True)
+        self.assertIn(blacklist, package.CMDLINE)
+        build['camera_enabled'] = False
+        self.build.write_text(json.dumps(build))
+        self.assertIn(blacklist, package.write_metadata(self.bundle, self.build, 1)['cmdline'])
+        for value in ('false', 1, None):
+            with self.subTest(value=value):
+                build['camera_enabled'] = value
+                self.build.write_text(json.dumps(build))
+                before = metadata.read_bytes()
+                with self.assertRaisesRegex(ValueError, 'camera_enabled must be a boolean'):
+                    package.write_metadata(self.bundle, self.build, 1)
+                self.assertEqual(metadata.read_bytes(), before)
+
     @unittest.skipUnless(shutil.which('rpmbuild') and shutil.which('rpm'), 'RPM build tools required')
     def test_native_rpm_tools_build_arm_packages_and_reject_x86_target(self):
         self.fixture(1)

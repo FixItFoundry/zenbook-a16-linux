@@ -1,0 +1,49 @@
+From 55df18877471ade98ad0a1c12c95f78ba54ec5cc Mon Sep 17 00:00:00 2001
+From: Filippo Falezza <effeffe99@gmail.com>
+Date: Tue, 27 Oct 2026 01:33:56 +0000
+Subject: [PATCH] ASoC: qcom: sm8250: Limit RX digital gain to 0 dB
+
+The RX macro interpolator gains ("RX_RXn Digital Volume") run from
+-84 dB to +40 dB. PipeWire and PulseAudio map full volume to the top of
+a hardware control's range, so a UCM device that uses one of them as
+its volume control plays 40 dB hot at 100% and clips.
+
+Set a platform limit of 84 (0 dB) on the RX0, RX1 and RX2 interpolator
+gains when the RX codec DMA link is initialised, the way the sc8280xp
+and x1e80100 machine drivers limit their WSA gains. 0 dB is the default
+of these controls and the value alsa-ucm-conf's rx-macro init sets, so
+existing configurations are unaffected. A control that does not exist
+on a board is skipped.
+
+Signed-off-by: Filippo Falezza <effeffe99@gmail.com>
+Reviewed-by: Prasad Kumpatla <prasad.kumpatla@oss.qualcomm.com>
+Link: https://patch.msgid.link/20261027-sm8250-rx-gain-v1-1-386ee6d971db@gmail.com
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ sound/soc/qcom/sm8250.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/sound/soc/qcom/sm8250.c b/sound/soc/qcom/sm8250.c
+index 5866f1f34b3..d776a17f1fd 100644
+--- a/sound/soc/qcom/sm8250.c
++++ b/sound/soc/qcom/sm8250.c
+@@ -39,6 +39,16 @@ static int sm8250_snd_init(struct snd_soc_pcm_runtime *rtd)
+ 	case USB_RX:
+ 		return qcom_snd_usb_offload_jack_setup(rtd, &data->usb_offload_jack,
+ 						       &data->usb_offload_jack_setup);
++	case RX_CODEC_DMA_RX_0:
++		/*
++		 * The RX macro digital gain goes up to +40 dB. Userspace that
++		 * maps full volume to the top of the range (PipeWire, PulseAudio)
++		 * would clip there, so stop the interpolator gains at 0 dB.
++		 */
++		snd_soc_limit_volume(rtd->card, "RX_RX0 Digital Volume", 84);
++		snd_soc_limit_volume(rtd->card, "RX_RX1 Digital Volume", 84);
++		snd_soc_limit_volume(rtd->card, "RX_RX2 Digital Volume", 84);
++		fallthrough;
+ 	default:
+ 		return qcom_snd_wcd_jack_setup(rtd, &data->jack, &data->jack_setup);
+ 	}
+-- 
+2.56.0
+

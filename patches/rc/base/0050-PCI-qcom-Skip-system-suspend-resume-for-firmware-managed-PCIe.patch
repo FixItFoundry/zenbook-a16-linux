@@ -1,0 +1,50 @@
+From dc5013f35397330f015185cc6127f40c41c8194e Mon Sep 17 00:00:00 2001
+From: Mrinmay Sarkar <mrinmay.sarkar@oss.qualcomm.com>
+Date: Mon, 31 Aug 2026 19:07:02 +0530
+Subject: [PATCH] PCI: qcom: Skip system suspend/resume for firmware-managed
+ PCIe
+
+For firmware-managed PCIe controllers, all resources, including clocks,
+regulators, resets, PHYs and link state, are owned and managed by
+firmware. The host driver must not attempt to manage these resources
+during system suspend or resume. Firmware will properly transition the
+devices/controller into relevant low power modes.
+
+Skip the suspend and resume operations for firmware-managed controllers.
+The associated power domain transitions are handled independently by the
+genpd framework through its own system suspend/resume callbacks, so no
+explicit action is required by the PCIe controller driver.
+
+Signed-off-by: Mrinmay Sarkar <mrinmay.sarkar@oss.qualcomm.com>
+Signed-off-by: Manivannan Sadhasivam <manivannan.sadhasivam@oss.qualcomm.com>
+Link: https://patch.msgid.link/20260831-skip_suspend-v1-1-ba2d877e22b1@oss.qualcomm.com
+---
+ drivers/pci/controller/dwc/pcie-qcom.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/pci/controller/dwc/pcie-qcom.c b/drivers/pci/controller/dwc/pcie-qcom.c
+index c183213a9..ee63a6ec9 100644
+--- a/drivers/pci/controller/dwc/pcie-qcom.c
++++ b/drivers/pci/controller/dwc/pcie-qcom.c
+@@ -2412,6 +2412,10 @@ static int qcom_pcie_suspend_noirq(struct device *dev)
+ {
+ 	struct qcom_pcie *pcie;
+ 	int ret = 0;
++	const struct qcom_pcie_cfg *pcie_cfg = of_device_get_match_data(dev);
++
++	if (pcie_cfg && pcie_cfg->firmware_managed)
++		return 0;
+ 
+ 	pcie = dev_get_drvdata(dev);
+ 	if (!pcie)
+@@ -2470,6 +2474,10 @@ static int qcom_pcie_resume_noirq(struct device *dev)
+ {
+ 	struct qcom_pcie *pcie;
+ 	int ret;
++	const struct qcom_pcie_cfg *pcie_cfg = of_device_get_match_data(dev);
++
++	if (pcie_cfg && pcie_cfg->firmware_managed)
++		return 0;
+ 
+ 	pcie = dev_get_drvdata(dev);
+ 	if (!pcie)

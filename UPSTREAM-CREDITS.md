@@ -9,6 +9,58 @@ issue — we'll fix it immediately.
 
 ## Adopted into this tree
 
+The [rc5 audio channel-map overlay](patches/audio-channel-maps-20261031/series)
+backports Zhangfei Gao's [v3 multichannel helper replacement](https://lore.kernel.org/r/20261028024720.981971-1-zhangfei.gao@oss.qualcomm.com)
+and the two explicit-map clears from Fabian Renn-Giles's
+[stale-map fix](https://lore.kernel.org/r/20261028100708.6808-1-fabian@fielding.dev).
+It adapts rc5 context and drops the superseded helper hunk from Fabian's patch.
+Original authorship is retained; these are not new submissions by this project.
+
+The [7.3 final source port](patches/stable/README.md) carries the full
+143-patch A16/Qualcomm/camera/LKML stack on `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`),
+omitting three complete upstream equivalents (`0001`–`0111`) and integrating 32
+new fixes (`0112`–`0143`) from in-repo overlays, LKML, `qcom-next`, and
+`laptops-kernel/topic/glymur-laptops` (with three context adaptations for upstream
+overlap). Its [patch map](patches/stable/port-map.json) preserves original
+provenance and authorship trailers on every patch.
+
+## November 3, 2026 — Linux 7.3 final rebase (`0112`–`0143`)
+
+| Patch | Author | Subject | Upstream / LKML Provenance |
+|---|---|---|---|
+| [`0112`](patches/stable/0112-clk-qcom-gdsc-unwind-domains-when-registration-fails.patch) | **Jesse Casco** | `[RFC PATCH] clk: qcom: gdsc: unwind domains when registration fails` | Local authored RFC (`archive/patches/standalone/glymur-gdsc-genpd-teardown-UPSTREAM.patch`), extending Herman van Hazendonk's `20260602140934.796697-4-github.com@herrie.org` |
+| [`0113`](patches/stable/0113-pmdomain-core-clear-states-after-freeing-them.patch) | **Anfernee Cao** | `[PATCH] pmdomain: core: clear states after freeing them` | `179259111932.19580.13027750156272888992@gmail.com` |
+| [`0114`](patches/stable/0114-ASoC-qcom-audioreach-support-multichannel-PCM-formats.patch) | **Zhangfei Gao** | `[PATCH] ASoC: qcom: audioreach: support multichannel PCM formats` | `20261028024720.981971-1-zhangfei.gao@oss.qualcomm.com` |
+| [`0115`](patches/stable/0115-ASoC-qcom-qdsp6-clear-stale-channel_map-entries.patch) | **Fabian Renn-Giles** | `[PATCH] ASoC: qcom: qdsp6: clear stale channel_map entries` | `20261028100708.6808-1-fabian@fielding.dev` |
+| [`0116`](patches/stable/0116-phy-qualcomm-m31-eusb2-Add-register-XCFGI_159_152-for-SE0-recovery.patch) | **Peter Chen** / **Elson Serrao** | `[PATCH v2 1/1] phy: qualcomm: m31-eusb2: Add register XCFGI_159_152 for SE0 recovery` | `20261015221849.4027591-2-quic_eserrao@quicinc.com` (Tested-by Christian Cortner on Zenbook A16 UX3607OA) |
+| [`0117`](patches/stable/0117-arm64-dts-qcom-glymur-Set-snps-resume-hs-terminations-for-USB-controllers.patch) | **Peter Chen** | `[PATCH v2 1/4] arm64: dts: qcom: glymur: Set snps,resume-hs-terminations for USB controllers` | `20261015080909.2610018-2-peter.chen@oss.qualcomm.com` |
+| [`0118`](patches/stable/0118-arm64-dts-qcom-glymur-Refrain-from-overclocking-the-USB2-controller.patch) | **Konrad Dybcio** | `arm64: dts: qcom: glymur: Refrain from overclocking the USB2 controller` | `20261028-topic-usb2_glymur_clk-v1-1-34f1b4c245a7@oss.qualcomm.com` (`29a70f3d2326`) |
+| [`0119`](patches/stable/0119-phy-qcom-qmp-usb-Add-PM-suspend-resume-callbacks.patch) | **Prashanth K** | `FROMLIST: phy: qcom: qmp-usb: Add PM suspend/resume callbacks` | `20261022104321.306679-1-prashanth.k@oss.qualcomm.com` (`453569726aae`) |
+| [`0120`](patches/stable/0120-phy-qcom-qmp-combo-Add-PM-suspend-resume-callbacks.patch) | **Prashanth K** | `FROMLIST: phy: qcom: qmp-combo: Add PM suspend/resume callbacks` | `20261022104321.306679-2-prashanth.k@oss.qualcomm.com` (`0d348e9f0a31`, context adapted) |
+| [`0121`](patches/stable/0121-soc-qcom-apr-Publish-GPR-callback-before-client-probe.patch) | **Srinivas Kandagatla** | `FROMLIST: soc: qcom: apr: Publish GPR callback before client probe` | `laptops-kernel/topic/glymur-laptops` (`b75408b2f242`) |
+| [`0122`](patches/stable/0122-ASoC-qcom-q6apm-Guard-callbacks-until-probe-data-is-ready.patch) | **Srinivas Kandagatla** | `FROMLIST: ASoC: qcom: q6apm: Guard callbacks until probe data is ready` | `laptops-kernel/topic/glymur-laptops` (`d023cbd2af85`) |
+| [`0123`](patches/stable/0123-ASoC-qcom-q6apm-clear-g_apm-on-driver-removal.patch) | **Srinivas Kandagatla** | `ASoC: qcom: q6apm: clear g_apm on driver removal` | `laptops-kernel/topic/glymur-laptops` (`be2172758f26`) |
+| [`0124`](patches/stable/0124-ASoC-qcom-q6apm-Fix-unmap-regions-response-handling.patch) | **Srinivas Kandagatla** | `ASoC: qcom: q6apm: Fix unmap regions response handling` | `laptops-kernel/topic/glymur-laptops` (`4b832a2af52e`) |
+| [`0125`](patches/stable/0125-ASoC-qcom-q6apm-Clear-the-right-handle-on-pos-buffer-unmap.patch) | **Srinivas Kandagatla** | `ASoC: qcom: q6apm: Clear the right handle on pos buffer unmap` | `laptops-kernel/topic/glymur-laptops` (`43c69604271f`) |
+| [`0126`](patches/stable/0126-ASoC-qcom-q6apm-Unmap-DSP-buffers-before-removing-the-topology.patch) | **Srinivas Kandagatla** | `ASoC: qcom: q6apm: Unmap DSP buffers before removing the topology` | `laptops-kernel/topic/glymur-laptops` (`a51c5dd7f7fc`) |
+| [`0127`](patches/stable/0127-ASoC-qcom-q6apm-reset-the-hw-pointer-with-the-fragment-queue.patch) | **Srinivas Kandagatla** | `ASoC: qcom: q6apm: reset the hw pointer with the fragment queue` | `laptops-kernel/topic/glymur-laptops` (`0337b8129cf3`) |
+| [`0128`](patches/stable/0128-ASoC-qcom-q6apm-dai-wrap-the-position-of-a-full-ring-to-0.patch) | **Srinivas Kandagatla** | `ASoC: qcom: q6apm-dai: wrap the position of a full ring to 0` | `laptops-kernel/topic/glymur-laptops` (`0ea3e0b196f8`) |
+| [`0129`](patches/stable/0129-ASoC-qcom-audioreach-fix-module-cfg-blob-size-handling.patch) | **Srinivas Kandagatla** | `ASoC: qcom: audioreach: fix module cfg blob size handling` | `laptops-kernel/topic/glymur-laptops` (`e21fb64a8c47`) |
+| [`0130`](patches/stable/0130-ASoC-qcom-qdsp6-q6afe-fix-clk-vote-response-type-mismatch.patch) | **Srinivas Kandagatla** | `ASoC: qcom: qdsp6: q6afe: fix clk vote response type mismatch` | `laptops-kernel/topic/glymur-laptops` (`f3c7bee984ab`) |
+| [`0131`](patches/stable/0131-ASoC-qcom-sm8250-Limit-RX-digital-gain-to-0-dB.patch) | **Oleg Keri** | `ASoC: qcom: sm8250: Limit RX digital gain to 0 dB` | `20261009085811.27383-1-okerixx@gmail.com` (`55df18877473`) |
+| [`0132`](patches/stable/0132-soundwire-qcom-disable-the-interrupt-before-gating-the-clock.patch) | **Oleg Keri** | `[PATCH v2] soundwire: qcom: disable the interrupt before gating the clock` | `20261009082639.22662-1-okerixx@gmail.com` (`6c067677192f`, context adapted) |
+| [`0133`](patches/stable/0133-clk-qcom-Fix-camera-rivian-PLL-configuration-settings.patch) | **Jagadeesh Kona** | `clk: qcom: Fix camera rivian PLL configuration settings` | `qcom-next` (`6666c03f2346`) |
+| [`0134`](patches/stable/0134-clk-qcom-gcc-glymur-Use-clk_regmap_phy_mux_ops-for-GCC-UFS-muxes.patch) | **Jagadeesh Kona** | `clk: qcom: gcc-glymur: Use clk_regmap_phy_mux_ops for GCC UFS muxes` | `qcom-next` (`20b77a88fc6f`) |
+| [`0135`](patches/stable/0135-iommu-arm-smmu-Work-around-Qualcomm-SMMU-500-TLBIVAL-granule-issue.patch) | **Prakash Gupta** / **Sibi Sankar** | `WORKAROUND: iommu/arm-smmu: Work around Qualcomm SMMU-500 TLBIVAL granule issue` | `laptops-kernel/topic/glymur-laptops` (`7848b6fc30f4`) |
+| [`0136`](patches/stable/0136-mmc-sdhci-msm-Remove-brownout-risk.patch) | **Konrad Dybcio** | `mmc: sdhci-msm: Remove brownout risk` | `qcom-next` (`b0a3511a02ba`) |
+| [`0137`](patches/stable/0137-power-supply-qcom_battmgr-Notify-charger-supplies-of-online-changes.patch) | **Bjorn Andersson** | `power: supply: qcom_battmgr: Notify charger supplies of online changes` | `qcom-next` (`87fd20da8caa`) |
+| [`0138`](patches/stable/0138-power-supply-qcom_battmgr-report-full-batteries.patch) | **Bjorn Andersson** | `power: supply: qcom_battmgr: report full batteries` | `20261008-battmgr-full-v1-1-4f5485a9c421@oss.qualcomm.com` (`6c8098e04ee4`, context adapted) |
+| [`0139`](patches/stable/0139-wifi-ath12k-keep-ML-mgmt-tx-on-active-link.patch) | **Hangtian Zhu** | `FROMLIST: wifi: ath12k: keep ML mgmt tx on active link` | `20261020063719.3486519-1-hangtian.zhu@oss.qualcomm.com` (`cdf7a2675e70`) |
+| [`0140`](patches/stable/0140-PM-sleep-Do-not-mark-devices-without-PM-callbacks-active-on-resume.patch) | **Abel Vesa** | `[PATCH 1/2] PM: sleep: Do not mark devices without PM callbacks active on resume` | `20261029-pm-sleep-hibernation-fixes-v1-1-a2fd76bd9066@oss.qualcomm.com` |
+| [`0141`](patches/stable/0141-PM-sleep-Do-not-arm-wakeup-IRQs-for-hibernation-freeze-and-quiesce.patch) | **Abel Vesa** | `[PATCH 2/2] PM: sleep: Do not arm wakeup IRQs for hibernation freeze and quiesce` | `20261029-pm-sleep-hibernation-fixes-v1-2-a2fd76bd9066@oss.qualcomm.com` |
+| [`0142`](patches/stable/0142-drm-msm-a6xx-Reset-the-GMU-state-when-restoring-from-hibernation.patch) | **Abel Vesa** | `[PATCH RFC] drm/msm/a6xx: Reset the GMU state when restoring from hibernation` | `20261030-drm-msm-a6xx-hibernation-gmu-reset-v1-1-820bc7859df5@oss.qualcomm.com` |
+| [`0143`](patches/stable/0143-phy-qcom-qmp-combo-Update-Glymur-USB3-settings.patch) | **Konrad Dybcio** | `[PATCH] phy: qcom: qmp-combo: Update Glymur USB3 settings` | `76e97352-3a54-40de-8ef0-eef0ca27ca73@oss.qualcomm.com` / `20261102-topic-glymur_usb3_phy-v1-1-bf53bc466cf6@oss.qualcomm.com` (`8c9d1255de7c`) |
+
 The [2026-09-19 RC3 integration](patches/rc3-20260919/README.md) preserves author,
 review and source-link trailers in each exported patch. Its ordered commit list
 is [recorded separately](patches/rc3-20260919/commits.txt); local compatibility
@@ -76,7 +128,7 @@ local work, not new work attributed to the upstream authors below.
 ## Our own contributions, for contrast
 
 - `drm/msm/dp: skip PUSH_IDLE when the link was never enabled` — merged upstream into mainline Linux (commit `e249a6e2a130c08bb4d8b0a55cbe29754307e5c9`), included in Linux 7.3 and backported to 6.18.54 / 7.2.8. Retired from out-of-tree patch queue on v7.3-rc4 upgrade.
-- `clk: qcom: gdsc: fix genpd teardown` — real upstream bug, `patches/glymur-gdsc-genpd-teardown-UPSTREAM.patch`.
+- `clk: qcom: gdsc: unwind domains when registration fails` — local review draft in `archive/patches/standalone/glymur-gdsc-genpd-teardown-UPSTREAM.patch`. Successful-unregister cleanup was already contributed upstream by Herman van Hazendonk; this draft only fixes failed registration.
 - eDP link training running natively at HBR2 (retiring the forced-HBR3 hack) and the `LINK_RATE_SET` plumbing fix; ongoing LKML discussion carries our Tested-by flag.
 - Zenbook keyboard standalone backlight and feature completion in `hid-asus` (`QUIRK_USE_KBD_BACKLIGHT`, `QUIRK_PAD_FEATURE_REPORTS`, `QUIRK_FN_LOCK_DEFAULT_OFF`), plus deduplication omitting the competing EC v3 backlight registration.
 - `wsa884x` pm_runtime fix (`patches/0017`).

@@ -1,0 +1,87 @@
+From e58e9fef12bf12a7b424cbf04e2dd68814ee1e1f Mon Sep 17 00:00:00 2001
+From: Codex <codex@local>
+Date: Wed, 7 Oct 2026 17:15:12 -0400
+Subject: [PATCH] Keep pending I2C mappings owned until completion or
+ termination
+
+---
+ drivers/gpu/drm/msm/adreno/a6xx_gmu.c |  4 ++--
+ drivers/gpu/drm/msm/dp/dp_ctrl.c      |  2 +-
+ drivers/i2c/busses/i2c-qcom-geni.c    | 13 +++++++------
+ 3 files changed, 10 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+index c229a2605..bd0c07085 100644
+--- a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
++++ b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+@@ -1922,13 +1922,13 @@ static int a6xx_gmu_rpmh_votes_init(struct a6xx_gmu *gmu)
+ 		return ret;
+ 
+ 	ret = a6xx_gmu_rpmh_dep_votes_init(&gpu->pdev->dev, gmu->dep_arc_votes,
+-		gmu->gpu_freqs, gmu->nr_gpu_freqs);
++					   gmu->gpu_freqs, gmu->nr_gpu_freqs);
+ 	if (ret)
+ 		return ret;
+ 
+ 	/* Build the CX votes */
+ 	ret = a6xx_gmu_rpmh_arc_votes_init(gmu->dev, gmu->cx_arc_votes,
+-		gmu->gmu_freqs, gmu->nr_gmu_freqs, "cx.lvl", "mx.lvl");
++					   gmu->gmu_freqs, gmu->nr_gmu_freqs, "cx.lvl", "mx.lvl");
+ 	if (ret)
+ 		return ret;
+ 
+diff --git a/drivers/gpu/drm/msm/dp/dp_ctrl.c b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+index 6750ea2dd..2d1a9bef3 100644
+--- a/drivers/gpu/drm/msm/dp/dp_ctrl.c
++++ b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+@@ -1411,7 +1411,7 @@ static int msm_dp_ctrl_update_phy_vx_px(struct msm_dp_ctrl_private *ctrl,
+ }
+ 
+ static int msm_dp_ctrl_train_pattern_set(struct msm_dp_ctrl_private *ctrl,
+-		u8 pattern, enum drm_dp_phy dp_phy)
++					 u8 pattern, enum drm_dp_phy dp_phy)
+ {
+ 	u8 buf;
+ 	int reg;
+diff --git a/drivers/i2c/busses/i2c-qcom-geni.c b/drivers/i2c/busses/i2c-qcom-geni.c
+index f15301d26..2e3a2e058 100644
+--- a/drivers/i2c/busses/i2c-qcom-geni.c
++++ b/drivers/i2c/busses/i2c-qcom-geni.c
+@@ -632,14 +632,14 @@ static void geni_i2c_gpi_unmap(struct geni_i2c_dev *gi2c, struct i2c_msg *msg,
+  * geni_i2c_gpi_multi_desc_unmap() - Unmaps DMA buffers post multi message TX transfers
+  * @gi2c: I2C dev handle
+  * @msgs: Array of I2C  messages
++ * @msg_xfer_cnt: Completed transfers, or submitted transfers after DMA termination
+  */
+-static void geni_i2c_gpi_multi_desc_unmap(struct geni_i2c_dev *gi2c, struct i2c_msg msgs[])
++static void geni_i2c_gpi_multi_desc_unmap(struct geni_i2c_dev *gi2c, struct i2c_msg msgs[],
++					  u32 msg_xfer_cnt)
+ {
+-	u32 msg_xfer_cnt, wr_idx = 0;
++	u32 wr_idx = 0;
+ 	struct geni_i2c_gpi_multi_desc_xfer *tx_multi_xfer = &gi2c->i2c_multi_desc_config;
+ 
+-	msg_xfer_cnt = gi2c->err ? tx_multi_xfer->msg_idx_cnt : READ_ONCE(tx_multi_xfer->irq_cnt);
+-
+ 	/* Unmap the processed DMA buffers based on the received interrupt count */
+ 	for (; tx_multi_xfer->unmap_msg_cnt < msg_xfer_cnt; tx_multi_xfer->unmap_msg_cnt++) {
+ 		wr_idx = tx_multi_xfer->unmap_msg_cnt;
+@@ -935,7 +935,8 @@ static int geni_i2c_gpi_xfer(struct geni_i2c_dev *gi2c, struct i2c_msg msgs[], i
+ 		if (!gi2c->is_tx_multi_desc_xfer)
+ 			geni_i2c_gpi_unmap(gi2c, &msgs[i], tx_buf, tx_addr, rx_buf, rx_addr);
+ 		else if (tx_multi_xfer->unmap_msg_cnt != tx_multi_xfer->irq_cnt)
+-			geni_i2c_gpi_multi_desc_unmap(gi2c, msgs);
++			geni_i2c_gpi_multi_desc_unmap(gi2c, msgs,
++						      READ_ONCE(tx_multi_xfer->irq_cnt));
+ 	}
+ 
+ 	ret = num;
+@@ -946,7 +947,7 @@ static int geni_i2c_gpi_xfer(struct geni_i2c_dev *gi2c, struct i2c_msg msgs[], i
+ 	dmaengine_terminate_sync(gi2c->rx_c);
+ 	dmaengine_terminate_sync(gi2c->tx_c);
+ 	if (gi2c->is_tx_multi_desc_xfer)
+-		geni_i2c_gpi_multi_desc_unmap(gi2c, msgs);
++		geni_i2c_gpi_multi_desc_unmap(gi2c, msgs, tx_multi_xfer->msg_idx_cnt);
+ 	else
+ 		geni_i2c_gpi_unmap(gi2c, &msgs[i], tx_buf, tx_addr, rx_buf, rx_addr);
+ 

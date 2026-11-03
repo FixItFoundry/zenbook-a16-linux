@@ -61,6 +61,18 @@ def options(existing, policy, rescue=False):
     keys = {token.split('=', 1)[0] for token in policy['cmdline']} | {'omarchy.a16.dsp'}
     result = [token for token in tokens if token.split('=', 1)[0] not in keys]
     result += policy['cmdline']
+    if policy.get('camera_enabled') is True:
+        camera_modules = {'i2c_qcom_cci', 'qcom_camss', 'ov02c10'}
+        filtered = []
+        for token in result:
+            key, _, value = token.partition('=')
+            if key in ('modprobe.blacklist', 'module_blacklist'):
+                blocked = [name for name in value.split(',') if name.replace('-', '_') not in camera_modules]
+                if blocked:
+                    filtered.append(key + '=' + ','.join(blocked))
+            else:
+                filtered.append(token)
+        result = filtered
     if rescue:
         blocked = [name for token in result if token.startswith('module_blacklist=')
                    for name in token.split('=', 1)[1].split(',')]

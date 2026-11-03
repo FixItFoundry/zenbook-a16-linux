@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Mon, 17 Aug 2026 19:15:17 -0400
+Subject: [PATCH 15/24] security/keys/trusted-keys: include asn1_decoder.h for
+ asn1_ber_decoder()
+
+trusted_tpm2.c calls asn1_ber_decoder() but only included asn1_encoder.h,
+leaving it implicitly declared. Local generated tpm2key.asn1.{c,h} had also
+been left empty by an earlier interrupted build on this tree; a clean
+rebuild regenerated them correctly once this was fixed.
+
+(cherry picked from commit 519ce22f2ba792ea6826c978e39fa587c2879797)
+---
+ security/keys/trusted-keys/trusted_tpm2.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/security/keys/trusted-keys/trusted_tpm2.c b/security/keys/trusted-keys/trusted_tpm2.c
+index 67225dd562a9f695a4f0c8818df6b11352ec2a82..6c2ba1711c3c925530e9abf8ef7a329b089e3827 100644
+--- a/security/keys/trusted-keys/trusted_tpm2.c
++++ b/security/keys/trusted-keys/trusted_tpm2.c
+@@ -4,6 +4,7 @@
+  * Copyright (C) 2014 Intel Corporation
+  */
+ 
++#include <linux/asn1_decoder.h>
+ #include <linux/asn1_encoder.h>
+ #include <linux/oid_registry.h>
+ #include <linux/string.h>

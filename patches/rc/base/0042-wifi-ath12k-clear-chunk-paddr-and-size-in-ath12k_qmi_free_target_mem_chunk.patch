@@ -1,0 +1,71 @@
+From aa5297de56fc328b4c68068a82e73b76639000ee Mon Sep 17 00:00:00 2001
+From: Baochen Qiang <baochen.qiang@oss.qualcomm.com>
+Date: Thu, 30 Jul 2026 14:17:41 +0800
+Subject: [PATCH] wifi: ath12k: clear chunk paddr and size in
+ ath12k_qmi_free_target_mem_chunk()
+
+paddr and size of a chunk are not cleared after the chunk is freed, which
+is safe now since the code checks vaddr only and it is properly cleared
+on free. However, leaving stale values can mislead diagnostics and future
+maintenance. Clear both to reduce such risk, this also aligns with
+ath12k_qmi_free_mlo_mem_chunk().
+
+Tested-on: WCN7850 hw2.0 PCI WLAN.HMT.1.1.c5-00302-QCAHMTSWPL_V1.0_V2.0_SILICONZ-1.115823.3
+Tested-on: QCC2072 hw1.0 PCI WLAN.COL.1.0.c2-00074-QCACOLSWPL_V1_TO_SILICONZ-1
+
+Signed-off-by: Baochen Qiang <baochen.qiang@oss.qualcomm.com>
+Reviewed-by: Rameshkumar Sundaram <rameshkumar.sundaram@oss.qualcomm.com>
+Link: https://patch.msgid.link/20260730-ath12k-align-qmi-memory-v1-2-0fef98dda614@oss.qualcomm.com
+Signed-off-by: Jeff Johnson <jeff.johnson@oss.qualcomm.com>
+---
+ drivers/net/wireless/ath/ath12k/qmi.c | 26 ++++++++++++++++----------
+ 1 file changed, 16 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.c b/drivers/net/wireless/ath/ath12k/qmi.c
+index ac62f1a9e..6ac78db67 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.c
++++ b/drivers/net/wireless/ath/ath12k/qmi.c
+@@ -2602,27 +2602,33 @@ static void ath12k_qmi_free_mlo_mem_chunk(struct ath12k_base *ab,
+ static void ath12k_qmi_free_target_mem_chunk(struct ath12k_base *ab)
+ {
+ 	struct ath12k_hw_group *ag = ab->ag;
++	struct target_mem_chunk *chunk;
+ 	int i, mlo_idx;
+ 
+ 	for (i = 0, mlo_idx = 0; i < ab->qmi.mem_seg_count; i++) {
+-		if (ab->qmi.target_mem[i].type == MLO_GLOBAL_MEM_REGION_TYPE) {
++		chunk = &ab->qmi.target_mem[i];
++
++		if (chunk->type == MLO_GLOBAL_MEM_REGION_TYPE) {
+ 			ath12k_qmi_free_mlo_mem_chunk(ab,
+-						      &ab->qmi.target_mem[i],
++						      chunk,
+ 						      mlo_idx++);
+ 		} else {
+ 			if (test_bit(ATH12K_FLAG_FIXED_MEM_REGION, &ab->dev_flags) &&
+-			    ab->qmi.target_mem[i].v.ioaddr) {
+-				iounmap(ab->qmi.target_mem[i].v.ioaddr);
+-				ab->qmi.target_mem[i].v.ioaddr = NULL;
++			    chunk->v.ioaddr) {
++				iounmap(chunk->v.ioaddr);
++				chunk->v.ioaddr = NULL;
+ 			} else {
+-				if (!ab->qmi.target_mem[i].v.addr)
++				if (!chunk->v.addr)
+ 					continue;
+ 				dma_free_coherent(ab->dev,
+-						  ab->qmi.target_mem[i].prev_size,
+-						  ab->qmi.target_mem[i].v.addr,
+-						  ab->qmi.target_mem[i].paddr);
+-				ab->qmi.target_mem[i].v.addr = NULL;
++						  chunk->prev_size,
++						  chunk->v.addr,
++						  chunk->paddr);
++				chunk->v.addr = NULL;
+ 			}
++
++			chunk->paddr = 0;
++			chunk->size = 0;
+ 		}
+ 	}
+ 

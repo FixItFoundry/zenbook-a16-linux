@@ -12,7 +12,7 @@ REPO = Path(__file__).resolve().parents[1]
 
 class BuildManifestChecks(unittest.TestCase):
     def test_current_build_inputs_match_recorded_checksums(self):
-        for build in ("rc5-20261013", "rc5-qcom-bridge-20261018"):
+        for build in ("stable", "rc"):
             manifest = REPO / "kernel" / build / "SHA256SUMS"
             for line in manifest.read_text().splitlines():
                 expected, name = line.split("  ", 1)

@@ -1,0 +1,88 @@
+From 399ff2b76f7197dfc30b341fcdb1cc63f9d55cc8 Mon Sep 17 00:00:00 2001
+From: Ananthu C V <ananthu.cv@oss.qualcomm.com>
+Date: Tue, 8 Sep 2026 14:00:28 +0530
+Subject: [PATCH] FROMLIST: arch_topology: seed capacity_freq_ref with
+ boost-aware max freq
+
+capacity_freq_ref, the per-CPU frequency-invariance reference used by
+schedutil, is seeded from policy->cpuinfo.max_freq at policy creation.
+If boost frequencies are filtered out of the frequency table because
+boost isn't yet enabled at boot, max_freq only reflects the non-boost
+ceiling, so capacity_freq_ref never learns about boost frequencies for
+the policy's lifetime. Enabling boost later raises policy->max, but
+capacity_freq_ref stays stale, leaving schedutil unable to scale
+utilization or target a frequency above the non-boost maximum.
+
+Track the highest frequency in the table regardless of boost state
+(max_table_freq) and seed capacity_freq_ref with max(cpuinfo.max_freq,
+max_table_freq), so the invariance reference is boost-aware from boot
+regardless of whether boost is currently enabled. Runtime enforcement,
+still handled by policy->max, is unaffected.
+
+Link: https://lore.kernel.org/all/20260908-schedutil-boost-frequency-handling-v2-1-25312a713699@oss.qualcomm.com/
+Suggested-by: Vincent Guittot <vincent.guittot@linaro.org>
+Signed-off-by: Ananthu C V <ananthu.cv@oss.qualcomm.com>
+---
+ drivers/base/arch_topology.c | 3 ++-
+ drivers/cpufreq/freq_table.c | 6 ++++++
+ include/linux/cpufreq.h      | 1 +
+ 3 files changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/base/arch_topology.c b/drivers/base/arch_topology.c
+index 8c5e47c28d..da94f77441 100644
+--- a/drivers/base/arch_topology.c
++++ b/drivers/base/arch_topology.c
+@@ -404,7 +404,8 @@ init_cpu_capacity_callback(struct notifier_block *nb,
+ 	cpumask_andnot(cpus_to_visit, cpus_to_visit, policy->related_cpus);
+ 
+ 	for_each_cpu(cpu, policy->related_cpus) {
+-		per_cpu(capacity_freq_ref, cpu) = policy->cpuinfo.max_freq;
++		per_cpu(capacity_freq_ref, cpu) = max(policy->cpuinfo.max_freq,
++						      policy->cpuinfo.max_table_freq);
+ 		freq_inv_set_max_ratio(cpu,
+ 				       per_cpu(capacity_freq_ref, cpu) * HZ_PER_KHZ);
+ 	}
+diff --git a/drivers/cpufreq/freq_table.c b/drivers/cpufreq/freq_table.c
+index ea994647ab..4984142dc0 100644
+--- a/drivers/cpufreq/freq_table.c
++++ b/drivers/cpufreq/freq_table.c
+@@ -33,11 +33,15 @@ int cpufreq_frequency_table_cpuinfo(struct cpufreq_policy *policy)
+ 	struct cpufreq_frequency_table *pos, *table = policy->freq_table;
+ 	unsigned int min_freq = ~0;
+ 	unsigned int max_freq = 0;
++	unsigned int max_table_freq = 0;
+ 	unsigned int freq, i;
+ 
+ 	cpufreq_for_each_valid_entry_idx(pos, table, i) {
+ 		freq = pos->frequency;
+ 
++		if (freq > max_table_freq)
++			max_table_freq = freq;
++
+ 		if ((!cpufreq_boost_enabled() || !policy->boost_enabled)
+ 		    && (pos->flags & CPUFREQ_BOOST_FREQ))
+ 			continue;
+@@ -57,6 +61,8 @@ int cpufreq_frequency_table_cpuinfo(struct cpufreq_policy *policy)
+ 	if (policy->cpuinfo.max_freq < max_freq)
+ 		policy->cpuinfo.max_freq = max_freq;
+ 
++	policy->cpuinfo.max_table_freq = max_table_freq;
++
+ 	if (min_freq == ~0)
+ 		return -EINVAL;
+ 	else
+diff --git a/include/linux/cpufreq.h b/include/linux/cpufreq.h
+index 35ce665edf..3f3b138025 100644
+--- a/include/linux/cpufreq.h
++++ b/include/linux/cpufreq.h
+@@ -45,6 +45,7 @@ enum cpufreq_table_sorting {
+ struct cpufreq_cpuinfo {
+ 	unsigned int		max_freq;
+ 	unsigned int		min_freq;
++	unsigned int		max_table_freq; /* Highest valid frequency in the table */
+ 
+ 	/* in 10^(-9) s = nanoseconds */
+ 	unsigned int		transition_latency;
+-- 
+2.56.0
+

@@ -1,0 +1,55 @@
+From: Jesse Casco <jesse.casco@gmail.com>
+Subject: [RFC PATCH] clk: qcom: gdsc: unwind domains when registration fails
+
+gdsc_register() leaves previously initialized power domains registered if
+a later gdsc_init(), subdomain registration, or provider registration
+fails. The caller installs its managed gdsc_unregister() action only
+after gdsc_register() succeeds, so that action cannot clean up a failed
+registration.
+
+Remove the subdomains already added, then remove all initialized domains.
+When initialization itself fails, remove only the earlier domains. Leave
+the successful unregister path unchanged; it already removes the domains.
+
+Link: https://lore.kernel.org/r/20260602140934.796697-4-github.com@herrie.org
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ drivers/clk/qcom/gdsc.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/clk/qcom/gdsc.c b/drivers/clk/qcom/gdsc.c
+index b99d70149af34e75a822e3c2d9e1afb2ad921f03..989e3d76012e005c3b4a5bc47d1777370d7bb42b 100644
+--- a/drivers/clk/qcom/gdsc.c
++++ b/drivers/clk/qcom/gdsc.c
+@@ -648,7 +648,7 @@ int gdsc_register(struct gdsc_desc *desc,
+ 		scs[i]->rcdev = rcdev;
+ 		ret = gdsc_init(scs[i]);
+ 		if (ret)
+-			return ret;
++			goto err_pm_domain_remove;
+ 		data->domains[i] = &scs[i]->pd;
+ 	}
+ 
+@@ -667,10 +667,21 @@ int gdsc_register(struct gdsc_desc *desc,
+ 			goto err_pm_subdomain_remove;
+ 	}
+ 
+-	return of_genpd_add_provider_onecell(dev->of_node, data);
++	ret = of_genpd_add_provider_onecell(dev->of_node, data);
++	if (ret)
++		goto err_pm_subdomain_remove;
++
++	return 0;
+ 
+ err_pm_subdomain_remove:
+ 	gdsc_pm_subdomain_remove(desc, i);
++	i = num;
++
++err_pm_domain_remove:
++	while (i--) {
++		if (scs[i])
++			pm_genpd_remove(&scs[i]->pd);
++	}
+ 
+ 	return ret;
+ }

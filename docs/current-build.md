@@ -1,7 +1,55 @@
-# Current build — 2026-10-14
+# Current build — 2026-10-31
 
-**`7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+` is the repository and future-testing
-baseline.** Acceptance is limited to the checks below; full hardware acceptance remains open.
+The A16 is running **`7.3.0-7-omarchy`** with the local DSP test boot entry.
+Read-only inspection confirmed running ADSP/CDSP, attached SoCCP and no failed
+system units. The internal HDMI PHY still logs clock-enable failures; camera
+and TPM device nodes are absent. This does not establish stock-install,
+LUKS-unlock or full hardware acceptance. See [Omarchy status](omarchy-status.md).
+
+## Current rc5 review overlays — 2026-10-31
+
+The current development build starts with the rc5 camera/microphone tree
+`622916bf1849749a5aa3cdbccf5179de4423ae76`, not the 7.3-final port.
+The review build applies the [GDSC failed-registration RFC](../archive/patches/standalone/glymur-gdsc-genpd-teardown-UPSTREAM.patch),
+then the two AudioReach/Q6DMA channel-map patches (now integrated into [`patches/stable/0114`–`0115`](../patches/stable/series)).
+These are local review overlays; the dated build recipes and source queues retain
+their original identities. The combined source tree is
+`71c7dcd30f6560a4deb98e2dc889927b7b21efe3`.
+
+**GDSC promotion is blocked by same-object reprobe.** The real-kernel QEMU
+failure matrix reports 36 errors on the baseline and zero on the patched
+52-trial run. Reusing the same domains after successful unregister triggers
+kobject initialization warnings on both versions. Retrying after the patched
+failed-registration cleanup also triggers those warnings and returned
+`-EEXIST` in the observed run. The cleanup fixes the registration leak, but
+this does not establish a durable retry path. No physical A16 test was run.
+
+The audio backports reuse `q6dsp_map_channels()` and clear unused explicit TX/RX
+map entries. The helper supports 1–6 and 8 channels, maps mono to front-center,
+and rejects 7 channels. The rc5 UCM still matches its own MultiMedia2/4 topology
+and PCM devices 1/3. Omarchy's Glymur CRD topology uses MultiMedia1/2 and PCM
+devices 0/1, so its UCM routing cannot be copied onto this rc5 topology.
+The four-channel capture workaround remains until the new kernel passes
+physical capture and playback checks. See [upstream credits](../UPSTREAM-CREDITS.md)
+for the two audio authors and backport scope.
+
+## Transition targets — 2026-11-03
+
+Stable targets Linux 7.3 final ([`kernel/stable`](../kernel/stable/README.md)); the `rc` track ([`kernel/rc`](../kernel/rc/README.md)) stages layered `rc5` + Qualcomm bridge + camera/microphone + USB3 PHY overlays and upcoming `linux-next` rebases. The [7.3 final stable candidate](../kernel/stable/README.md) replays 143 patches to `11f818cf609ff60e6f826f47e757f939b5442adc` (`004cf498d432dba102ea3d4c9f9389446d40c1bd` prior to patch `0143`) and has completed full ARM64 `Image` + 8,469 modules + DTB + Fedora `aarch64` RPM compilation and KVM CI validation; physical boot acceptance on the laptop is next. The final rc5 camera/microphone candidate
+`7.3.0-rc5-ZenbookA16-20261022-a16pkg3+` passed build/installation checks and
+awaits final hardware validation; see its [exact scope](../patches/rc/camera-microphone/README.md).
+The [track policy](kernel-tracks.md) records the two-track packaging architecture and release checks.
+The dated Omarchy and Fedora records below retain their separate acceptance scopes.
+
+## Historical Omarchy candidate — 2026-10-21
+
+The **`7.2.8-24-omarchy` candidate**, source tree `d05c4879b3789c74e2a73684683b15deb0be258b`, completed the dated build, package, boot and hardware checks recorded in [Omarchy status](omarchy-status.md#revision-24-evidence--2026-10-21). These results do not validate the different source and boot settings in the current `7.3-7` package.
+
+The Fedora soc2 baseline below and the [rc Qualcomm bridge](../kernel/rc/README.md) are separate kernel tracks. Omarchy results do not establish acceptance of the bridge. The retained `kernel/arch-7.2.10/` package is an earlier backport, not the current shared Omarchy recipe.
+
+## Fedora soc2 baseline — 2026-10-14
+
+**`7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+` is the retained Fedora baseline.** The dated observations below describe that build and boot; they do not describe the newer Omarchy candidate or the laptop’s current boot selection.
 
 ## Identity
 
@@ -10,7 +58,7 @@ baseline.** Acceptance is limited to the checks below; full hardware acceptance 
 | Base | Linux v7.3-rc5, `72d3fcf802c45d00b300f25b848a93c3a2bd7c7e` |
 | Source commit | `80849361fb38a8adc11dd66f1d6856260d98e01b` |
 | Source tree | `e3af70b5403334c7d762fdb00b0a7cdfbb5a362c` |
-| Source package | [64 patches](../patches/rc5-20261013/README.md), [config and build helper](../kernel/rc5-20261013/README.md) |
+| Source package | [64 patches](../patches/rc/base/README.md), [config and build helper](../archive/kernel/rc5-20261013/README.md) |
 | Config SHA256 | `c41128086a5423948700342a853e26698754923827d6151951bbfdca869484c2` |
 | Build compiler | GCC 15.2.0, Ubuntu `15.2.0-16ubuntu1` |
 | Ordinary boot | `c847468f-0ae1-4278-82ce-8b5bf2414d0e` |
@@ -59,4 +107,5 @@ subvolume. Verify all boot surfaces when installing; changing the running root's
 The tested command line retains `clk_ignore_unused`, `pd_ignore_unused`,
 `cma=128M`, `glymur_pci_skip=5`, `selinux=0`, fan profile 2 and the
 `i2c_qcom_cci,qcom_camss,ov02c10` blacklist. These are part of the tested setup.
-This publication changes repository files only; it does not rebuild, install or select a boot entry.
+This historical publication did not rebuild, install or select a boot entry.
+The 2026-10-31 review builds above are separate artifacts.

@@ -5,7 +5,9 @@ limits. Component notes retain historical measurements.
 
 | Document | Contents |
 |---|---|
-| [Current build](current-build.md) | Source identity, validation and boot fallback. |
+| [Stable and rc tracks](kernel-tracks.md) | 7.3 final/linux-next transition, Qualcomm intake, porting blockers and installation release checks. |
+| [Current build](current-build.md) | 7.3 source candidate, pending camera validation, dated Omarchy and Fedora acceptance records. |
+| [Omarchy status](omarchy-status.md) | Validated hardware, open PRs, package prerequisites and channel promotion. |
 | [Hardware](hardware.md) | Components, interfaces and historical observations. |
 | [Modifications](modifications.md) | Earlier device-tree and kernel changes. |
 | [Changelog](../CHANGELOG.md) | Dated changes and corrections. |

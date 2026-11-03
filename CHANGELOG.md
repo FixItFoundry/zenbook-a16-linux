@@ -2,6 +2,22 @@
 
 Dated changes and corrections; [current status](docs/current-build.md) is recorded separately.
 
+## 2026-11-03 — Linux 7.3 final rebase with LKML & Qualcomm topic fixes (143 patches)
+
+- Rebased [`patches/stable/`](patches/stable/README.md) and [`kernel/stable/`](kernel/stable/README.md) onto `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) with 32 additional patches (`0112`–`0143`), expanding the `stable` (`7.3-final`) stack from 111 to 143 patches (tree `11f818cf609ff60e6f826f47e757f939b5442adc`, pre-USB3 tree `004cf498d432dba102ea3d4c9f9389446d40c1bd`) while keeping the `rc` development track synchronized via [`patches/rc/glymur-usb3/tracks.json`](patches/rc/glymur-usb3/tracks.json).
+- Integrated the in-repo GDSC failed-registration unwind RFC (`0112`, Jesse Casco), genpd freed-state clear (`0113`), AudioReach multichannel PCM + stale `channel_map` clears (`0114`–`0115`), M31 eUSB2 SE0 recovery + Glymur USB `snps,resume-hs-terminations` + USB2 clock + QMP USB/combo PM suspend/resume + Glymur USB3 QMP PHY settings (`0116`–`0120`, `0143`), APR/Q6APM/AudioReach/Q6AFE/SM8250 DSP lifecycle & ring-buffer fixes (`0121`–`0131`), SoundWire IRQ disable before `hclk` gate (`0132`), Rivian camera PLL + Glymur GCC UFS PHY muxes (`0133`–`0134`), Qualcomm SMMU-500 `TLBIVAL` granule workaround (`0135`), SDHCI brownout prevention (`0136`), `qcom_battmgr` charger online notification + full-battery status (`0137`–`0138`), `ath12k` ML management TX link selection (`0139`), and PM sleep + Adreno a6xx GMU hibernation restore fixes (`0140`–`0142`).
+
+## 2026-10-22 — Stable and rc maintenance transition
+
+- Defined 7.3 final as the stable target and pinned linux-next snapshots as the opt-in `rc` target, carrying the existing A16 work and reviewed Qualcomm enablement.
+- Put installation and ongoing hardware support first in the README; recorded source comparison results, camera validation limits and the package/installer checks required before promotion.
+- Prepared the complete 7.3 final source port: 111 patches reproduce `9ff6f6c65601156c8e0d1992fec83be31d7c5d7c`, with three upstream equivalents omitted and two patches adapted for overlap. Added the pkg3-derived config input, required-driver checks and per-build camera boot policy; compilation, package/boot acceptance and the linux-next port remain pending.
+
+## 2026-10-21 — Omarchy revision 24 validation and publication status
+
+- Recorded the locally built and booted shared `linux-omarchy 7.2.8-24` candidate, its source identity, automated checks and user-confirmed audio, keyboard, touchscreen, charger transitions and Bluetooth calls/audio.
+- Recorded revision 24 as the current tested and running Omarchy build, alongside the retained Fedora rc5 tracks. Camera/suspend remain unvalidated; package submission and publication still precede runtime/ISO merge.
+
 ## 2026-10-18 — Mainline release + `qcom-next` and `qcom-topics` bridge with post-install hooks
 
 - Refactored the kernel and packaging pipeline around a pull from the mainline release (`v7.3-rc5`), bridged with Qualcomm's `qcom-next` and `qcom-topics` repositories, and updated on target systems via scoped post-install hooks.
@@ -385,9 +401,9 @@ Dated changes and corrections; [current status](docs/current-build.md) is record
   `cooling-maps`, `ath12k_thermal`) and no equivalent for the third (NSP0/CDSP, an NPU
   bring-up gap, out of scope here). Grepped the full Windows device dump for NVMe/WSA884x
   thermal entries and found none — **neither OS puts those two devices on the OS
-  thermal-policy bus on this hardware**, so `docs/thermal-sensor-mapping-HANDOFF.md`'s open
+  thermal-policy bus on this hardware**, so the thermal mapping investigation's open
   question ("is this a known gap upstream too?") is answered: not a reference-design gap,
-  just unmanaged on both OSes. Full detail and update history in that file.
+  just unmanaged on both OSes. See `docs/hardware.md` for the hardware inventory.
 
 ---
 

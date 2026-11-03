@@ -1,0 +1,231 @@
+From: Zhangfei Gao <zhangfei.gao@oss.qualcomm.com>
+Date: Wed, 28 Oct 2026 10:47:20 +0800
+Subject: [PATCH] ASoC: qcom: audioreach: support multichannel PCM formats
+
+AudioReach currently rejects PCM streams with more than four channels in
+the PCM and shared-memory media format paths.
+
+This prevents TDM links that expose more channels, such as the 6-channel
+playback path used on SA8797P Ride, from being configured.
+
+Reuse q6dsp_map_channels() to support multichannel PCM formats and use
+the common PCM channel limit definition.
+
+Signed-off-by: Zhangfei Gao <zhangfei.gao@oss.qualcomm.com>
+Reviewed-by: Prasad Kumpatla <prasad.kumpatla@oss.qualcomm.com>
+Reviewed-by: Srinivas Kandagatla <srinivas.kandagatla@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20261028024720.981971-1-zhangfei.gao@oss.qualcomm.com
+---
+Local rc5 backport draft: remove the existing default-helper memset together
+with the helper; q6dsp_map_channels() already clears the full map. Context
+rebased onto the camera/microphone overlay. No other semantic changes.
+
+diff --git a/sound/soc/qcom/qdsp6/audioreach.c b/sound/soc/qcom/qdsp6/audioreach.c
+index b27adc7b22..fb9a96c9d1 100644
+--- a/sound/soc/qcom/qdsp6/audioreach.c
++++ b/sound/soc/qcom/qdsp6/audioreach.c
+@@ -306,23 +306,6 @@ void *audioreach_alloc_apm_cmd_pkt(int pkt_size, uint32_t opcode, uint32_t token
+ }
+ EXPORT_SYMBOL_GPL(audioreach_alloc_apm_cmd_pkt);
+ 
+-void audioreach_set_default_channel_mapping(u8 *ch_map, int num_channels)
+-{
+-	memset(ch_map, 0, AR_PCM_MAX_NUM_CHANNEL);
+-	if (num_channels == 1) {
+-		ch_map[0] =  PCM_CHANNEL_FL;
+-	} else if (num_channels == 2) {
+-		ch_map[0] =  PCM_CHANNEL_FL;
+-		ch_map[1] =  PCM_CHANNEL_FR;
+-	} else if (num_channels == 4) {
+-		ch_map[0] =  PCM_CHANNEL_FL;
+-		ch_map[1] =  PCM_CHANNEL_FR;
+-		ch_map[2] =  PCM_CHANNEL_LS;
+-		ch_map[3] =  PCM_CHANNEL_RS;
+-	}
+-}
+-EXPORT_SYMBOL_GPL(audioreach_set_default_channel_mapping);
+-
+ static void apm_populate_container_config(struct apm_container_obj *cfg,
+ 					  const struct audioreach_container *cont)
+ {
+@@ -773,7 +756,7 @@ static int audioreach_codec_dma_set_media_format(struct q6apm_graph *graph,
+ 	intf_cfg->cfg.intf_index = module->hw_interface_idx;
+ 	intf_cfg->cfg.active_channels_mask = 0;
+ 	/* Convert the physical channel mapping into a bit field */
+-	for (i = 0; i < AR_PCM_MAX_NUM_CHANNEL; i++)
++	for (i = 0; i < PCM_MAX_NUM_CHANNEL; i++)
+ 		if (cfg->channel_map[i])
+ 			intf_cfg->cfg.active_channels_mask |= BIT(i);
+ 
+@@ -896,7 +879,7 @@ static int audioreach_mfc_set_media_format(struct q6apm_graph *graph,
+ 	media_format->bit_width = cfg->bit_width;
+ 	media_format->num_channels = cfg->num_channels;
+ 	/* Convert the physical mapping to a logical mapping of the channels */
+-	for (i = 0, j = 0; i < AR_PCM_MAX_NUM_CHANNEL && j < cfg->num_channels; i++) {
++	for (i = 0, j = 0; i < PCM_MAX_NUM_CHANNEL && j < cfg->num_channels; i++) {
+ 		if (!cfg->channel_map[i])
+ 			continue;
+ 		media_format->channel_mapping[j++] = cfg->channel_map[i];
+@@ -1196,11 +1179,6 @@ static int audioreach_pcm_set_media_format(struct q6apm_graph *graph,
+ 	int payload_size;
+ 	int i, j;
+ 
+-	if (num_channels > 4) {
+-		dev_err(graph->dev, "Error: Invalid channels (%d)!\n", num_channels);
+-		return -EINVAL;
+-	}
+-
+ 	payload_size = APM_PCM_MODULE_FMT_CMD_PSIZE(num_channels);
+ 
+ 	struct gpr_pkt *pkt __free(kfree) =
+@@ -1229,7 +1207,7 @@ static int audioreach_pcm_set_media_format(struct q6apm_graph *graph,
+ 	media_cfg->q_factor = mcfg->bit_width - 1;
+ 	media_cfg->bits_per_sample = mcfg->bit_width;
+ 	/* Convert the physical mapping to a logical mapping of the channels */
+-	for (i = 0, j = 0; i < AR_PCM_MAX_NUM_CHANNEL && j < mcfg->num_channels; i++) {
++	for (i = 0, j = 0; i < PCM_MAX_NUM_CHANNEL && j < mcfg->num_channels; i++) {
+ 		if (!mcfg->channel_map[i])
+ 			continue;
+ 		media_cfg->channel_mapping[j++] = mcfg->channel_map[i];
+@@ -1286,11 +1264,6 @@ static int audioreach_shmem_set_media_format(struct q6apm_graph *graph,
+ 	int i, j;
+ 	void *p;
+ 
+-	if (num_channels > 4) {
+-		dev_err(graph->dev, "Error: Invalid channels (%d)!\n", num_channels);
+-		return -EINVAL;
+-	}
+-
+ 	payload_size = APM_SHMEM_FMT_CFG_PSIZE(num_channels) + APM_MODULE_PARAM_DATA_SIZE;
+ 
+ 	struct gpr_pkt *pkt __free(kfree) =
+@@ -1324,7 +1297,7 @@ static int audioreach_shmem_set_media_format(struct q6apm_graph *graph,
+ 		cfg->endianness = PCM_LITTLE_ENDIAN;
+ 		cfg->num_channels = mcfg->num_channels;
+ 		/* Convert the physical mapping to a logical mapping of the channels */
+-		for (i = 0, j = 0; i < AR_PCM_MAX_NUM_CHANNEL && j < cfg->num_channels; i++) {
++		for (i = 0, j = 0; i < PCM_MAX_NUM_CHANNEL && j < cfg->num_channels; i++) {
+ 			if (!mcfg->channel_map[i])
+ 				continue;
+ 			cfg->channel_mapping[j++] = mcfg->channel_map[i];
+@@ -1447,7 +1420,7 @@ static int audioreach_speaker_protection_vi(struct q6apm_graph *graph,
+ 
+ 	cm_cfg->cfg.num_channels = num_channels * 2;
+ 	/* Convert the physical mapping to a logical mapping of the channels */
+-	for (i = 0, j = 0; i < AR_PCM_MAX_NUM_CHANNEL && j < num_channels; i++) {
++	for (i = 0, j = 0; i < PCM_MAX_NUM_CHANNEL && j < num_channels; i++) {
+ 		if (!mcfg->channel_map[i])
+ 			continue;
+ 		/*
+diff --git a/sound/soc/qcom/qdsp6/audioreach.h b/sound/soc/qcom/qdsp6/audioreach.h
+index b3e5c8c185..6becde9344 100644
+--- a/sound/soc/qcom/qdsp6/audioreach.h
++++ b/sound/soc/qcom/qdsp6/audioreach.h
+@@ -6,6 +6,7 @@
+ #include <linux/soc/qcom/apr.h>
+ #include <uapi/sound/snd_ar_tokens.h>
+ #include <sound/soc.h>
++#include "q6dsp-common.h"
+ struct q6apm;
+ struct q6apm_graph;
+ 
+@@ -805,7 +806,6 @@ struct param_id_hw_ep_power_mode_cfg {
+ #define PARAM_ID_HW_EP_DMA_DATA_ALIGN	0x08001233
+ #define AR_HW_EP_DMA_DATA_ALIGN_MSB	0
+ #define AR_HW_EP_DMA_DATA_ALIGN_LSB	1
+-#define AR_PCM_MAX_NUM_CHANNEL		8
+ 
+ struct param_id_hw_ep_dma_data_align {
+ 	uint32_t dma_data_align;
+@@ -998,13 +998,12 @@ struct audioreach_module_config {
+ 	u16	nslots_per_frame;
+ 	u16	slot_width;
+ 	struct snd_codec codec;
+-	u8 channel_map[AR_PCM_MAX_NUM_CHANNEL];
++	u8 channel_map[PCM_MAX_NUM_CHANNEL];
+ };
+ 
+ /* Packet Allocation routines */
+ void *audioreach_alloc_apm_cmd_pkt(int pkt_size, uint32_t opcode, uint32_t
+ 				    token);
+-void audioreach_set_default_channel_mapping(u8 *ch_map, int num_channels);
+ void *audioreach_alloc_cmd_pkt(int payload_size, uint32_t opcode,
+ 			       uint32_t token, uint32_t src_port,
+ 			       uint32_t dest_port);
+diff --git a/sound/soc/qcom/qdsp6/q6apm-dai.c b/sound/soc/qcom/qdsp6/q6apm-dai.c
+index 033197bdd8..a8bdb26ae6 100644
+--- a/sound/soc/qcom/qdsp6/q6apm-dai.c
++++ b/sound/soc/qcom/qdsp6/q6apm-dai.c
+@@ -16,6 +16,7 @@
+ #include <linux/dma-mapping.h>
+ #include <sound/pcm_params.h>
+ #include "q6apm.h"
++#include "q6dsp-common.h"
+ 
+ #define DRV_NAME "q6apm-dai"
+ #define POS_BUFFER_BYTES	4096
+@@ -235,7 +236,10 @@ static int q6apm_dai_prepare(struct snd_soc_component *component,
+ 	cfg.num_channels = runtime->channels;
+ 	cfg.bit_width = prtd->bits_per_sample;
+ 	cfg.fmt = SND_AUDIOCODEC_PCM;
+-	audioreach_set_default_channel_mapping(cfg.channel_map, runtime->channels);
++	ret = q6dsp_map_channels(cfg.channel_map, runtime->channels);
++	if (ret)
++		return ret;
++
+ 	if (prtd->state) {
+ 		/* clear the previous setup if any  */
+ 		q6apm_graph_stop(prtd->graph);
+@@ -840,8 +844,10 @@ static int q6apm_dai_compr_set_params(struct snd_soc_component *component,
+ 		cfg.num_channels = 2;
+ 		cfg.bit_width = prtd->bits_per_sample;
+ 		cfg.fmt = codec->id;
+-		audioreach_set_default_channel_mapping(cfg.channel_map,
+-						       cfg.num_channels);
++		ret = q6dsp_map_channels(cfg.channel_map, cfg.num_channels);
++		if (ret)
++			return ret;
++
+ 		memcpy(&cfg.codec, codec, sizeof(*codec));
+ 
+ 		ret = q6apm_graph_media_format_shmem(prtd->graph, &cfg);
+diff --git a/sound/soc/qcom/qdsp6/q6apm-lpass-dais.c b/sound/soc/qcom/qdsp6/q6apm-lpass-dais.c
+index e204fd59e5..dac631923d 100644
+--- a/sound/soc/qcom/qdsp6/q6apm-lpass-dais.c
++++ b/sound/soc/qcom/qdsp6/q6apm-lpass-dais.c
+@@ -94,7 +94,7 @@ static int q6dma_set_channel_map(struct snd_soc_dai *dai,
+ 			return -EINVAL;
+ 		}
+ 
+-		if (tx_num > AR_PCM_MAX_NUM_CHANNEL) {
++		if (tx_num > PCM_MAX_NUM_CHANNEL) {
+ 			dev_err(dai->dev, "invalid tx num %d\n",
+ 				tx_num);
+ 			return -EINVAL;
+@@ -147,7 +147,9 @@ static int q6hdmi_hw_params(struct snd_pcm_substream *substream,
+ 	cfg->bit_width = params_width(params);
+ 	cfg->sample_rate = params_rate(params);
+ 	cfg->num_channels = channels;
+-	audioreach_set_default_channel_mapping(cfg->channel_map, channels);
++	ret = q6dsp_map_channels(cfg->channel_map, channels);
++	if (ret)
++		return ret;
+ 
+ 	switch (dai->id) {
+ 	case DISPLAY_PORT_RX_0:
+@@ -173,11 +175,14 @@ static int q6dma_hw_params(struct snd_pcm_substream *substream,
+ 	struct q6apm_lpass_dai_data *dai_data = dev_get_drvdata(dai->dev);
+ 	struct audioreach_module_config *cfg = &dai_data->module_config[dai->id];
+ 	int channels = hw_param_interval_c(params, SNDRV_PCM_HW_PARAM_CHANNELS)->max;
++	int ret;
+ 
+ 	cfg->bit_width = params_width(params);
+ 	cfg->sample_rate = params_rate(params);
+ 	cfg->num_channels = channels;
+-	audioreach_set_default_channel_mapping(cfg->channel_map, channels);
++	ret = q6dsp_map_channels(cfg->channel_map, channels);
++	if (ret)
++		return ret;
+ 
+ 	return 0;
+ }

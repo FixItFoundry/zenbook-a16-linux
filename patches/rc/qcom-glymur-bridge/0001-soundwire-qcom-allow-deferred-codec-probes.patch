@@ -1,0 +1,34 @@
+From b92cdb306acba4c87a5856d42a7be72528c73991 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Sun, 18 Oct 2026 00:00:00 +0000
+Subject: 0001-soundwire-qcom-allow-deferred-codec-probes.patch
+
+---
+ drivers/soundwire/qcom.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index 907213fda2..689fb7a76c 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -1996,13 +1996,13 @@ static int qcom_swrm_probe(struct platform_device *pdev)
+ 					qcom_swrm_all_slaves_online(ctrl),
+ 					msecs_to_jiffies(TIMEOUT_MS))) {
+ 			qcom_swrm_log_boot_slaves(ctrl);
+-			dev_err(dev, "boot enumeration failed: slaves still missing\n");
+-			ret = -ETIMEDOUT;
+-			goto err_master_add;
++			/* Reset suppliers may be queued behind this probe on the same worker. */
++			dev_info(dev, "boot enumeration pending: allowing deferred codec probes\n");
+ 		}
+ 	}
+ 	qcom_swrm_log_boot_slaves(ctrl);
+-	dev_info(dev, "boot enumeration complete: all slaves attached\n");
++	if (qcom_swrm_all_slaves_online(ctrl))
++		dev_info(dev, "boot enumeration complete: all slaves attached\n");
+ 	ret = qcom_swrm_register_dais(ctrl);
+ 	if (ret)
+ 		goto err_master_add;
+-- 
+2.56.0
+

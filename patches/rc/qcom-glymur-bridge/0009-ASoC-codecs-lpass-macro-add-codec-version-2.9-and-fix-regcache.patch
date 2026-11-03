@@ -1,0 +1,189 @@
+From 8834f7c79cfd4ad9e951753e2b01e983bab5e2ff Mon Sep 17 00:00:00 2001
+From: Mohammad Rafi Shaik <mohammad.rafi.shaik@oss.qualcomm.com>
+Date: Tue, 22 Sep 2026 22:10:27 +0530
+Subject: [PATCH] PENDING: ASoC: codecs: lpass-macro: add codec version 2.9 and
+ fix register cache handling
+
+Add LPASS macro codec support for codec version 2.9 and correct several
+register cache issues affecting all four macro codecs.
+
+Codec version handling in lpass-rx-macro:
+- Handle LPASS_CODEC_VERSION_2_9 in the version based switch statements
+so it is treated the same as the other members of the 2.5 family,
+which is what Glymur requires. This covers the read-write register
+check, the control and widget selection at component probe, and the
+register stride and default table selection at probe.
+- Add LPASS_MACRO_FLAG_HAS_NPL_CLOCK to the sm8550 match entry. The
+missing flag left sm8550 running without its NPL clock, which caused
+sporadic playback stalls.
+
+Register default sorting in lpass-rx-macro and lpass-wsa-macro:
+- Both drivers build the register defaults array by concatenating a
+base table with a codec version specific one, so the result is not in
+register address order because the version specific ranges overlap
+the base range. Regmap detects this, warns that the driver needs
+fixing, and sorts its own copy at runtime. Sort the concatenated
+array before handing it to regmap so the warning goes away and regmap
+does not sort a second time. The base and version specific split is
+kept deliberately for readability, so a static reorder is not
+appropriate here.
+
+Cache type for all four macro codecs:
+- Switch the register cache from REGCACHE_FLAT to REGCACHE_MAPLE in
+lpass-rx-macro, lpass-wsa-macro, lpass-tx-macro and lpass-va-macro.
+A flat cache hides missing default reads by returning the zero
+initialised cache slot instead of performing a bus read, and the
+caller cannot tell that value apart from a real hardware value, so
+any readable non-volatile register without a default silently returns
+wrong data. With a maple cache a miss returns -ENOENT and the regmap
+core falls back to a real bus read, so the caller always observes the
+true hardware value. Write cache behaviour is unchanged.
+
+Signed-off-by: Mohammad Rafi Shaik <mohammad.rafi.shaik@oss.qualcomm.com>
+---
+ sound/soc/codecs/lpass-rx-macro.c  | 11 +++++++++--
+ sound/soc/codecs/lpass-tx-macro.c  | 16 +++++++++++++++-
+ sound/soc/codecs/lpass-va-macro.c  |  2 +-
+ sound/soc/codecs/lpass-wsa-macro.c |  4 +++-
+ 4 files changed, 28 insertions(+), 5 deletions(-)
+
+diff --git a/sound/soc/codecs/lpass-rx-macro.c b/sound/soc/codecs/lpass-rx-macro.c
+index 2e74ec1a52..cc44b0329c 100644
+--- a/sound/soc/codecs/lpass-rx-macro.c
++++ b/sound/soc/codecs/lpass-rx-macro.c
+@@ -1613,6 +1613,7 @@ static bool rx_is_rw_register(struct device *dev, unsigned int reg)
+ 	case LPASS_CODEC_VERSION_2_6:
+ 	case LPASS_CODEC_VERSION_2_7:
+ 	case LPASS_CODEC_VERSION_2_8:
++	case LPASS_CODEC_VERSION_2_9:
+ 		return rx_2_5_is_rw_register(dev, reg);
+ 	default:
+ 		break;
+@@ -1673,7 +1674,7 @@ static const struct regmap_config rx_regmap_config = {
+ 	.reg_bits = 16,
+ 	.val_bits = 32, /* 8 but with 32 bit read/write */
+ 	.reg_stride = 4,
+-	.cache_type = REGCACHE_FLAT,
++	.cache_type = REGCACHE_MAPLE,
+ 	.max_register = RX_MAX_OFFSET,
+ 	.writeable_reg = rx_is_writeable_register,
+ 	.volatile_reg = rx_is_volatile_register,
+@@ -3652,6 +3653,7 @@ static int rx_macro_component_probe(struct snd_soc_component *component)
+ 	case LPASS_CODEC_VERSION_2_6:
+ 	case LPASS_CODEC_VERSION_2_7:
+ 	case LPASS_CODEC_VERSION_2_8:
++	case LPASS_CODEC_VERSION_2_9:
+ 		controls = rx_macro_2_5_snd_controls;
+ 		num_controls = ARRAY_SIZE(rx_macro_2_5_snd_controls);
+ 		widgets = rx_macro_2_5_dapm_widgets;
+@@ -3837,6 +3839,7 @@ static int rx_macro_probe(struct platform_device *pdev)
+ 	case LPASS_CODEC_VERSION_2_6:
+ 	case LPASS_CODEC_VERSION_2_7:
+ 	case LPASS_CODEC_VERSION_2_8:
++	case LPASS_CODEC_VERSION_2_9:
+ 		rx->rxn_reg_stride = 0xc0;
+ 		rx->rxn_reg_stride2 = 0x0;
+ 		def_count = ARRAY_SIZE(rx_defaults) + ARRAY_SIZE(rx_2_5_defaults);
+@@ -3852,6 +3855,8 @@ static int rx_macro_probe(struct platform_device *pdev)
+ 		return -EINVAL;
+ 	}
+ 
++	regcache_sort_defaults(reg_defaults, def_count);
++
+ 	struct regmap_config *reg_config __free(kfree) = kmemdup(&rx_regmap_config,
+ 								 sizeof(*reg_config),
+ 								 GFP_KERNEL);
+@@ -3932,9 +3937,11 @@ static int rx_macro_probe(struct platform_device *pdev)
+ 
+ static const struct of_device_id rx_macro_dt_match[] = {
+ 	{
++		.compatible = "qcom,glymur-lpass-rx-macro",
++		.data = (void *)LPASS_MACRO_FLAG_HAS_NPL_CLOCK,
++	}, {
+ 		.compatible = "qcom,sc7280-lpass-rx-macro",
+ 		.data = (void *)LPASS_MACRO_FLAG_HAS_NPL_CLOCK,
+-
+ 	}, {
+ 		.compatible = "qcom,sm6115-lpass-rx-macro",
+ 		.data = (void *)LPASS_MACRO_FLAG_HAS_NPL_CLOCK,
+diff --git a/sound/soc/codecs/lpass-tx-macro.c b/sound/soc/codecs/lpass-tx-macro.c
+index 4ac8a11f30..f3cd8c67ef 100644
+--- a/sound/soc/codecs/lpass-tx-macro.c
++++ b/sound/soc/codecs/lpass-tx-macro.c
+@@ -602,7 +602,7 @@ static const struct regmap_config tx_regmap_config = {
+ 	.reg_bits = 16,
+ 	.val_bits = 32,
+ 	.reg_stride = 4,
+-	.cache_type = REGCACHE_FLAT,
++	.cache_type = REGCACHE_MAPLE,
+ 	.max_register = TX_MAX_OFFSET,
+ 	.reg_defaults = tx_defaults,
+ 	.num_reg_defaults = ARRAY_SIZE(tx_defaults),
+@@ -2477,8 +2477,21 @@ static const struct tx_macro_data lpass_ver_11 = {
+ 	.extra_routes_num	= ARRAY_SIZE(tx_audio_map_v9_2),
+ };
+ 
++static const struct tx_macro_data lpass_ver_11_glymur = {
++	.flags                  = LPASS_MACRO_FLAG_HAS_NPL_CLOCK |
++				  LPASS_MACRO_FLAG_RESET_SWR,
++	.ver                    = LPASS_VER_11_0_0,
++	.extra_widgets          = tx_macro_dapm_widgets_v9_2,
++	.extra_widgets_num      = ARRAY_SIZE(tx_macro_dapm_widgets_v9_2),
++	.extra_routes           = tx_audio_map_v9_2,
++	.extra_routes_num       = ARRAY_SIZE(tx_audio_map_v9_2),
++};
++
+ static const struct of_device_id tx_macro_dt_match[] = {
+ 	{
++		.compatible = "qcom,glymur-lpass-tx-macro",
++		.data = &lpass_ver_11_glymur,
++	}, {
+ 		/*
+ 		 * The block is actually LPASS v9.4, but keep LPASS v9 match
+ 		 * data and audio widgets, due to compatibility reasons.
+@@ -2512,6 +2525,7 @@ static const struct of_device_id tx_macro_dt_match[] = {
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(of, tx_macro_dt_match);
++
+ static struct platform_driver tx_macro_driver = {
+ 	.driver = {
+ 		.name = "tx_macro",
+diff --git a/sound/soc/codecs/lpass-va-macro.c b/sound/soc/codecs/lpass-va-macro.c
+index a3b3af0d7d..03d6434a4a 100644
+--- a/sound/soc/codecs/lpass-va-macro.c
++++ b/sound/soc/codecs/lpass-va-macro.c
+@@ -454,7 +454,7 @@ static const struct regmap_config va_regmap_config = {
+ 	.reg_bits = 32,
+ 	.val_bits = 32,
+ 	.reg_stride = 4,
+-	.cache_type = REGCACHE_FLAT,
++	.cache_type = REGCACHE_MAPLE,
+ 	.reg_defaults = va_defaults,
+ 	.num_reg_defaults = ARRAY_SIZE(va_defaults),
+ 	.max_register = VA_MAX_OFFSET,
+diff --git a/sound/soc/codecs/lpass-wsa-macro.c b/sound/soc/codecs/lpass-wsa-macro.c
+index 2d403e3f41..899c8bee46 100644
+--- a/sound/soc/codecs/lpass-wsa-macro.c
++++ b/sound/soc/codecs/lpass-wsa-macro.c
+@@ -1109,7 +1109,7 @@ static const struct regmap_config wsa_regmap_config = {
+ 	.reg_bits = 16,
+ 	.val_bits = 32, /* 8 but with 32 bit read/write */
+ 	.reg_stride = 4,
+-	.cache_type = REGCACHE_FLAT,
++	.cache_type = REGCACHE_MAPLE,
+ 	/* .reg_defaults and .num_reg_defaults set in probe() */
+ 	.max_register = WSA_MAX_OFFSET,
+ 	.writeable_reg = wsa_is_writeable_register,
+@@ -2766,6 +2766,8 @@ static int wsa_macro_probe(struct platform_device *pdev)
+ 		return -EINVAL;
+ 	}
+ 
++	regcache_sort_defaults(reg_defaults, def_count);
++
+ 	struct regmap_config *reg_config __free(kfree) = kmemdup(&wsa_regmap_config,
+ 								 sizeof(*reg_config),
+ 								 GFP_KERNEL);
+-- 
+2.56.0
+

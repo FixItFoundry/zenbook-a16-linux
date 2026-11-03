@@ -1,0 +1,41 @@
+From c5abae74db9588c9851c794df6e4eba248cf3e94 Mon Sep 17 00:00:00 2001
+From: Zenbook private build <checkpoint@localhost>
+Date: Tue, 6 Oct 2026 13:04:54 -0400
+Subject: [PATCH] wifi: ath12k: bound padded QMI DMA allocation size
+
+Local safety follow-up: reject firmware sizes whose padded allocation cannot fit the retained u32 length, and promote before addition to prevent intermediate wrap. Not an upstream patch.
+---
+ drivers/net/wireless/ath/ath12k/qmi.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.c b/drivers/net/wireless/ath/ath12k/qmi.c
+index 2549a35be..4eb1992bd 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.c
++++ b/drivers/net/wireless/ath/ath12k/qmi.c
+@@ -15,6 +15,7 @@
+ #include <linux/ioport.h>
+ #include <linux/of_reserved_mem.h>
+ #include <linux/sizes.h>
++#include <linux/limits.h>
+ 
+ #define SLEEP_CLOCK_SELECT_INTERNAL_BIT	0x02
+ #define HOST_CSTATE_BIT			0x04
+@@ -2657,6 +2658,9 @@ static int ath12k_qmi_alloc_chunk(struct ath12k_base *ab,
+ 	size_t size;
+ 	void *vaddr;
+ 
++	if (chunk->size > U32_MAX - (SZ_64K - PAGE_SIZE))
++		return -EOVERFLOW;
++
+ 	/* Firmware reloads in recovery/resume.
+ 	 * In such cases, no need to allocate memory for FW again.
+ 	 */
+@@ -2689,7 +2693,7 @@ static int ath12k_qmi_alloc_chunk(struct ath12k_base *ab,
+ 	if (vaddr && !IS_ALIGNED(paddr, SZ_64K)) {
+ 		dma_free_coherent(ab->dev, size, vaddr, paddr);
+ 
+-		size = chunk->size + SZ_64K - PAGE_SIZE;
++		size = (size_t)chunk->size + SZ_64K - PAGE_SIZE;
+ 		vaddr = dma_alloc_coherent(ab->dev, size, &paddr,
+ 					   GFP_KERNEL | __GFP_NOWARN);
+ 	}

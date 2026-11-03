@@ -1,0 +1,31 @@
+From: Anfernee Cao <anferneemelokc5@gmail.com>
+Subject: [PATCH] pmdomain: core: clear states after freeing them
+
+genpd_free_data() frees the power states through ->free_states(), but
+leaves the states pointer and count referring to the freed allocation.
+Clear both fields so later cleanup does not free the states again.
+
+Link: https://lore.kernel.org/r/179259111932.19580.13027750156272888992@gmail.com
+Fixes: 9d976d6721df ("cpuidle: Factor-out power domain related code from PSCI domain driver")
+Signed-off-by: Anfernee Cao <anferneemelokc5@gmail.com>
+---
+ drivers/pmdomain/core.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/pmdomain/core.c b/drivers/pmdomain/core.c
+index 052ec478dfcc4ced0b2850a6775ea29d464e972a..12db69f53aeea4cacb34145cd40d3d101a30b005 100644
+--- a/drivers/pmdomain/core.c
++++ b/drivers/pmdomain/core.c
+@@ -2353,8 +2353,11 @@ static void genpd_free_data(struct generic_pm_domain *genpd)
+ 		ida_free(&genpd_ida, genpd->device_id);
+ 	if (genpd_is_cpu_domain(genpd))
+ 		free_cpumask_var(genpd->cpus);
+-	if (genpd->free_states)
++	if (genpd->free_states) {
+ 		genpd->free_states(genpd->states, genpd->state_count);
++		genpd->states = NULL;
++		genpd->state_count = 0;
++	}
+ 	kfree(genpd->gd);
+ }
+ 

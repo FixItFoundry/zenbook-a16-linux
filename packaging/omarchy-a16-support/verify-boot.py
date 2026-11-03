@@ -219,7 +219,8 @@ def validate_kernel_metadata(root, release, kernel, dtb, modules_dir=None):
     metadata = json.loads((directory / "zenbook-a16-boot.json").read_text())
     if (not isinstance(metadata, dict) or type(metadata.get("schema")) is not int
             or metadata.get("schema") != 1 or metadata.get("kernel_release") != release
-            or metadata.get("dsp_policy") != "pre-root-v1"):
+            or metadata.get("dsp_policy") != "pre-root-v1"
+            or not isinstance(metadata.get("camera_enabled", False), bool)):
         raise ValueError("kernel metadata lacks the supported A16 pre-root DSP policy; rebuild the kernel bundle")
     for key, path in (("kernel_sha256", kernel), ("dtb_sha256", dtb)):
         if metadata.get(key) != hashlib.sha256(path.read_bytes()).hexdigest():

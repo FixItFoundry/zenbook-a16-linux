@@ -1,33 +1,29 @@
-# Kernel packages
+# Kernel Packages
 
-The repository pulls from the mainline Linux v7.3-rc5 release (`72d3fcf802c45d00b300f25b848a93c3a2bd7c7e`), with both the boot-validated **`7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+`** baseline and the **`7.3.0-rc5-ZenbookA16-20261018-rc5-qcom1+`** bridge package incorporating Qualcomm's `qcom-next` and `qcom-topics` series. Installed systems are updated via scoped post-install hooks.
+Active kernel build recipes are organized into two maintained tracks (`stable` and `rc`), alongside the standalone Arch Linux `7.2.10` recipe (`arch-7.2.10`). Retired bringup recipes (`rc3-*`, `rc5-202610*`) live under [`../archive/kernel/`](../archive/kernel/).
 
-See the [bridge build package](rc5-qcom-bridge-20261018/README.md), [soc2 baseline package](rc5-20261013/README.md), and [validation record](../docs/current-build.md).
+| Directory | Track | Upstream Base | Patches | Replayed Source Tree | Status |
+|---|---|---|---:|---|---|
+| [`stable/`](stable/README.md) | **Stable Release Track** (`main`) | Linux `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) | [143](../patches/stable/README.md) | `11f818cf609ff60e6f826f47e757f939b5442adc` | Source replay, KVM CI, and ARM64 `Image` + 8,469 modules + DTB + Fedora RPMs verified; laptop boot acceptance next. Also serves as the validation base for `linux-omarchy 7.3`. |
+| [`rc/`](rc/README.md) | **RC / Upstream Development Track** (`rc`) | Linux `v7.3-rc5` (`72d3fcf802c45d00b300f25b848a93c3a2bd7c7e`) | [104 + 11 overlays](../patches/rc/README.md) | `a17d7e30ee161a146706c0752c11a389454a9062` (`b3ae7b3a8a4c74930dfeb905c6471c16da0f69f0` with camera + USB3) | Development & LKML testing track with merged [`rc/bridge.config`](rc/bridge.config). |
+| [`arch-7.2.10/`](arch-7.2.10/BUILD-AND-UPGRADE.txt) | **Arch Linux 7.2.10 Recipe** | Linux `v7.2.10` | 127 | `4d6a5f56ffa9571ec5b5f053ecbe4861c158b2b2` | Standalone `PKGBUILD` generator with side-by-side UKI and header support. |
+| [`../archive/kernel/`](../archive/kernel/) | **Retired Snapshots** | `v7.3-rc3` / `v7.3-rc5` | — | Historical | Retained `rc3-20260919`, `rc5-20261002`, `rc5-20261008`, and `rc5-20261013` recipes. |
+
+## Replay and Build Commands
 
 ```sh
-# Mainline release + qcom-next / qcom-topics bridge (104 patches):
-python3 kernel/rc5-qcom-bridge-20261018/verify.py /path/to/linux
-JOBS=4 ./kernel/rc5-qcom-bridge-20261018/build.sh /path/to/linux /path/to/new-output
+# Stable track (Linux 7.3 final, 143 patches):
+python3 kernel/stable/replay.py /path/to/linux
+JOBS=4 ./kernel/stable/build.sh /path/to/linux /path/to/stable-output
 
-# Boot-validated soc2 baseline (64 patches):
-python3 kernel/rc5-20261013/verify.py /path/to/linux
-JOBS=4 ./kernel/rc5-20261013/build.sh /path/to/linux /path/to/new-output-soc2
+# RC track (Linux 7.3-rc5 + Qualcomm bridge, 104 patches):
+python3 kernel/rc/replay.py /path/to/linux
+JOBS=4 ./kernel/rc/build.sh /path/to/linux /path/to/rc-output
+
+# Replay both tracks including camera/microphone and USB3 PHY overlays:
+python3 scripts/ci.py --replay-only --track both --linux-git /path/to/linux
 ```
 
-The helper verifies the source, applies patches in a separate worktree, and builds
-Image, modules, DTB, matching headers and RPMs. New releases add `-a16pkgN+` so
-they cannot overwrite the installed baseline. It does not install files or change
-boot selection. See the [Fedora/Ubuntu package contract](../packaging/zenbook-a16-kernel/README.md)
-for Ubuntu builds, post-install hooks, rollback behavior and validation still required.
+Each `build.sh` verifies source checksums and tree identity in a temporary Git index, creates an isolated worktree, builds `Image`, modules, `glymur-asus-zenbook-a16-ux3607oa.dtb` (verifying `qcom,keep-runtime-active;` via `dtc`), external-module headers, and distro packages (`BUILD_RPM=1` for Fedora RPMs, `BUILD_DEB=1` for Ubuntu/Debian DEBs, `STAGE_BUNDLE=1` for the portable bundle). New builds append `-a16pkgN+` so they never overwrite an installed fallback kernel.
 
-| Package | Status |
-|---|---|
-| [rc5-qcom-bridge-20261018](rc5-qcom-bridge-20261018/README.md) | Mainline v7.3-rc5 release + `qcom-next`/`qcom-topics` bridge: 104 patches (64 base + 40 bridge) and merged [`qcom-glymur-bridge.config`](qcom-glymur-bridge.config), updated via post-install hooks. |
-| [rc5-20261013](rc5-20261013/README.md) | Boot-validated soc2 baseline: 64 patches and exact tested config. |
-| [arch-7.2.10](arch-7.2.10/BUILD-AND-UPGRADE.txt) | Arch Linux 7.2.10 stable backport: 127 patches (56 mainline 7.3-rc + 64 A16 + 7 7.2 bridges). |
-| [rc5-20261008](rc5-20261008/README.md) | Retained audiopm1 package and saved boot fallback. |
-| [rc5-20261002](rc5-20261002/README.md) | Earlier RC5 integrated package. |
-| [rc3-20260919](rc3-20260919/README.md) | Retained RC3 fallback package. |
-
-Use matching artifacts and [board firmware](../firmware/README.md).
-Other files in this directory are historical helpers and reference fragments.
+See the [package contract](../packaging/zenbook-a16-kernel/README.md), [track policy](../docs/kernel-tracks.md), and [board firmware guide](../firmware/README.md).

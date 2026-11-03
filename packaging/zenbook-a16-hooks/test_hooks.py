@@ -67,6 +67,22 @@ class BootHooks(unittest.TestCase):
         self.assertIn('omarchy.a16.dsp=off', rescue_text)
         self.assertEqual((self.root / f'boot/dtb-{self.release}').read_bytes(), self.dtb.read_bytes())
 
+    def test_camera_build_removes_inherited_camera_blacklists_only(self):
+        existing = ('root=UUID=root ro modprobe.blacklist=i2c_qcom_cci,other,qcom-camss,ov02c10 '
+                    'module_blacklist=keep,ov02c10')
+        self.assertIn('i2c_qcom_cci', artifacts.options(existing, self.policy))
+        self.policy['camera_enabled'] = True
+        normal = artifacts.options(existing, self.policy)
+        self.assertIn('modprobe.blacklist=other', normal)
+        self.assertIn('module_blacklist=keep', normal)
+        for name in ('i2c_qcom_cci', 'qcom-camss', 'ov02c10'):
+            self.assertNotIn(name, normal)
+        rescue = artifacts.options(existing, self.policy, rescue=True)
+        self.assertIn('module_blacklist=keep,qcom_q6v5_pas', rescue)
+        self.assertIn('omarchy.a16.dsp=off', rescue)
+        clean = artifacts.options('root=UUID=root modprobe.blacklist=qcom_camss', self.policy)
+        self.assertNotIn('modprobe.blacklist=', clean)
+
     def test_systemd_loader_copies_normalized_for_separate_and_shared_boot(self):
         for prefix in ('', '/boot'):
             with self.subTest(prefix=prefix):
@@ -112,7 +128,8 @@ class BootHooks(unittest.TestCase):
 
     def test_mismatched_identity_rejected(self):
         for field, bad in [('kernel_release', 'wrong'), ('kernel_sha256', '0'*64),
-                           ('dtb_sha256', '0'*64), ('dsp_policy', '1'), ('cmdline', ['a', 'a'])]:
+                           ('dtb_sha256', '0'*64), ('dsp_policy', '1'), ('cmdline', ['a', 'a']),
+                           ('camera_enabled', 'true'), ('camera_enabled', 1)]:
             with self.subTest(field=field):
                 self.metadata.write_text(json.dumps(self.policy | {field: bad}))
                 with self.assertRaises(ValueError):
