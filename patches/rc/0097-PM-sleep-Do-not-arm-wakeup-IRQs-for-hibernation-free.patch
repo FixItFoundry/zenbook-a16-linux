@@ -1,0 +1,81 @@
+From 721355a0db02372b72182ee704f2d3a2a60bbe4b Mon Sep 17 00:00:00 2001
+From: Abel Vesa <abel.vesa@oss.qualcomm.com>
+Date: Mon, 2 Nov 2026 16:46:51 +0200
+Subject: [PATCH 097/100] PM: sleep: Do not arm wakeup IRQs for hibernation
+ freeze and quiesce
+
+Freezing devices to take a hibernation image and quiescing them before
+jumping into one go through the regular noirq suspend path, which arms
+the wakeup IRQs of all devices that may wake up the system. A wakeup
+IRQ firing then aborts the hibernation or the restore:
+
+  PM: Triggering wakeup from IRQ 180
+  Wakeup pending. Abort CPU freeze
+  PM: hibernation: Failed to load image, recovering.
+
+On a Qualcomm Glymur CRD this happens on every hibernation and every
+restore. The WWAN modem keeps asserting WAKE# once its root port goes
+down, after its driver has shut it down for the freeze, and the WAKE#
+GPIO of a PCIe port is a dedicated wakeup IRQ with wakeup enabled by
+default.
+
+Neither transition is one the system can be woken up from, as nothing
+goes to sleep, and Documentation/driver-api/pm/devices.rst already says
+that in the freeze_late and freeze_noirq phases a device "should not be
+allowed to generate wakeup events". Do not arm the wakeup IRQs for
+them, and only disarm them in the noirq resume path if they have been
+armed. Wakeup IRQs are still armed for the final transition to sleep,
+PM_EVENT_HIBERNATE, and for suspend.
+
+Link: https://lore.kernel.org/all/20261029-pm-sleep-hibernation-fixes-v1-2-a2fd76bd9066@oss.qualcomm.com/
+Signed-off-by: Abel Vesa <abel.vesa@oss.qualcomm.com>
+---
+ drivers/base/power/main.c | 21 +++++++++++++++++++--
+ 1 file changed, 19 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/base/power/main.c b/drivers/base/power/main.c
+index 16a1f017051e..34ba0e5941a3 100644
+--- a/drivers/base/power/main.c
++++ b/drivers/base/power/main.c
+@@ -949,6 +949,9 @@ static void dpm_noirq_resume_devices(pm_message_t state)
+ 	trace_suspend_resume(TPS("dpm_resume_noirq"), state.event, false);
+ }
+ 
++/* Whether dpm_suspend_noirq() has armed the wakeup IRQs of devices */
++static bool dpm_wake_irqs_armed;
++
+ /**
+  * dpm_resume_noirq - Execute "noirq resume" callbacks for all devices.
+  * @state: PM transition of the system being carried out.
+@@ -961,7 +964,11 @@ void dpm_resume_noirq(pm_message_t state)
+ 	dpm_noirq_resume_devices(state);
+ 
+ 	resume_device_irqs();
+-	device_wakeup_disarm_wake_irqs();
++
++	if (dpm_wake_irqs_armed) {
++		device_wakeup_disarm_wake_irqs();
++		dpm_wake_irqs_armed = false;
++	}
+ }
+ 
+ static void async_resume_early(void *data, async_cookie_t cookie);
+@@ -1685,7 +1692,17 @@ int dpm_suspend_noirq(pm_message_t state)
+ {
+ 	int ret;
+ 
+-	device_wakeup_arm_wake_irqs();
++	/*
++	 * Freezing devices to take a hibernation image, and quiescing them
++	 * before jumping into one, are not transitions the system can be woken
++	 * up from, as nothing goes to sleep. A wakeup IRQ of a device that
++	 * signals for attention once its link goes down, like a PCIe endpoint
++	 * asserting WAKE#, would only abort the hibernation or the restore.
++	 */
++	if (state.event != PM_EVENT_FREEZE && state.event != PM_EVENT_QUIESCE) {
++		device_wakeup_arm_wake_irqs();
++		dpm_wake_irqs_armed = true;
++	}
+ 	suspend_device_irqs();
+ 
+ 	ret = dpm_noirq_suspend_devices(state);

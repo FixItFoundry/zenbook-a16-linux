@@ -12,32 +12,34 @@ import tempfile
 
 REPO = Path(__file__).resolve().parents[1]
 TRACKS = ('stable', 'rc')
-CANDIDATE = 'patches/rc/glymur-usb3'
 
 
 def verify_candidate(repo, linux_git, track):
-    here = (repo / CANDIDATE).resolve()
-    names = (here / 'series').read_text().splitlines()
+    kdir = (repo / 'kernel' / track).resolve()
+    pdir = (repo / 'patches' / track).resolve()
+    names = (pdir / 'series').read_text().splitlines()
     if not names or len(set(names)) != len(names):
         raise SystemExit('empty series or duplicate patches')
     if any(Path(name).name != name or not name.endswith('.patch') for name in names):
         raise SystemExit('invalid patch name')
-    checks = [line.split('  ', 1) for line in (here / 'SHA256SUMS').read_text().splitlines()]
-    required = set(names) | {'series', 'tracks.json', 'README.md'}
+    meta = json.loads((kdir / 'build.json').read_text())
+    if len(names) != meta['patch_count']:
+        raise SystemExit('series length does not match build.json')
+    checks = [line.split('  ', 1) for line in (kdir / 'SHA256SUMS').read_text().splitlines()]
+    required = ({f'kernel/{track}/{name}' for name in ('build.json', 'build.sh', 'config', 'replay.py')}
+                | {f'patches/{track}/port-map.json', f'patches/{track}/series'}
+                | {f'patches/{track}/{name}' for name in names})
     if len(checks) != len(required) or {name for _, name in checks} != required:
-        raise SystemExit('checksum manifest does not cover the overlay inputs')
+        raise SystemExit('checksum manifest does not cover track inputs')
     for expected, name in checks:
-        path = (here / name).resolve()
-        if not path.is_relative_to(here) or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
-            raise SystemExit(f'checksum mismatch: {name}')
-    meta = json.loads((here / 'tracks.json').read_text())[track]
-    for name in meta['config_inputs']:
         path = (repo / name).resolve()
-        if not path.is_relative_to(repo) or hashlib.sha256(path.read_bytes()).hexdigest() != meta['config_sha256'][name]:
-            raise SystemExit(f'configuration checksum mismatch: {name}')
+        if not path.is_relative_to(repo) or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+            raise SystemExit(f'checksum mismatch: {name}')
+    if not (kdir / 'required.config').is_file() or not (kdir / 'required.config').read_text().strip():
+        raise SystemExit(f'missing required.config for {track}')
     kernel = linux_git.resolve()
-    subprocess.run([sys.executable, str(repo / meta['base_verifier']), str(kernel)], check=True)
-    with tempfile.TemporaryDirectory(prefix='a16-usb-verify-') as directory:
+    subprocess.run([sys.executable, str(kdir / 'replay.py'), str(kernel)], check=True)
+    with tempfile.TemporaryDirectory(prefix=f'a16-{track}-verify-') as directory:
         env = {**os.environ, 'GIT_INDEX_FILE': str(Path(directory) / 'index')}
 
         def git(*command):
@@ -45,17 +47,21 @@ def verify_candidate(repo, linux_git, track):
                 ['git', '-c', 'core.ignorecase=false', '-C', str(kernel), *command],
                 env=env, text=True).strip()
 
-        git('read-tree', meta['prior_source_tree'])
-        for name in names:
-            git('apply', '--cached', str(here / name))
+        base_tree = git('rev-parse', f'{meta["base"]}^{{tree}}')
+        git('read-tree', meta['base'])
+        for idx, name in enumerate(names):
+            if idx and idx == len(names) - 1:
+                git('write-tree')
+            git('apply', '--cached', str(pdir / name))
         actual = git('write-tree')
         if actual != meta['source_tree']:
             raise SystemExit(f'{track} source tree mismatch: {actual}')
         for name in reversed(names):
-            git('apply', '--cached', '--reverse', str(here / name))
-        if git('write-tree') != meta['prior_source_tree']:
+            git('apply', '--cached', '--reverse', str(pdir / name))
+        if git('write-tree') != base_tree:
             raise SystemExit('reverse application did not restore the baseline')
-    print(f'PASS: {track} USB candidate {actual}; checksums and reverse replay match')
+    print(f'PASS: {track} candidate {actual}; checksums and reverse replay match')
+
 
 def checks(repo, linux_git=None, track='both'):
     # Run files separately: several suites share the test_package module name.

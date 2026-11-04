@@ -1,0 +1,41 @@
+From 352e8d89aa64216298538cdbe31cdf823ace84bf Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Sat, 19 Sep 2026 10:17:08 -0400
+Subject: [PATCH 016/100] LOCAL COMPAT: A16 retain board-scoped SCMI polling
+ and
+
+attached SOCCP defaults
+
+Do not carry the duplicate SoC-wide polling patch or obsolete asus,soccp-glink node. This preserves effective known DT behavior for CPUCP and the existing firmware-attached remoteproc; not a proven upstream requirement.
+
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ .../boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts    | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+index 2913d7b4d58f..6eb22400e1a5 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+@@ -990,8 +990,7 @@ &remoteproc_cdsp {
+ };
+ 
+ &remoteproc_soccp {
+-	firmware-name = "qcom/glymur/ASUSTeK/UX3607OA/soccp.mbn",
+-			"qcom/glymur/ASUSTeK/UX3607OA/soccp_dtb.mbn";
++	/* Firmware-attached SOCCP: preserve the current DT's default names. */
+ };
+ 
+ &smb2370_j_e2_eusb2_repeater {
+@@ -1439,6 +1438,11 @@ &usb_mp_qmpphy1 {
+ 	status = "okay";
+ };
+ 
++/* Compatibility only; built-in CPUCP versus polling needs a separate trial. */
++&{/firmware/scmi} {
++	arm,no-completion-irq;
++};
++
+ /* Local compatibility: retain the validated CPU/LLC cooling-map coverage. */
+ &{/thermal-zones/cpu-0-0-0-thermal} {
+ 	polling-delay-passive = <100>;

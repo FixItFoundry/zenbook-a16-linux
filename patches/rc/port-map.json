@@ -1,0 +1,996 @@
+{
+  "source_track": "stable",
+  "source_base_release": "v7.3",
+  "source_patch_count": 143,
+  "target_track": "rc",
+  "target_base_tag": "next-20261103",
+  "target_base_commit": "d6bcfc94eb4da6e089c5473970cd96727292fd97",
+  "target_mainline_rc_tag": "v7.4-rc1",
+  "target_mainline_rc_commit": "6628e7d4c6b25c8d18f1345e3a20d21829aae7e4",
+  "target_patch_count": 100,
+  "counts": {
+    "ported": 84,
+    "adapted": 14,
+    "dropped_merged": 45,
+    "added_rc_only": 2
+  },
+  "entries": [
+    {
+      "stable_patch": null,
+      "rc_patch": "0001-LOCAL-drop-localversion-next-the-build-name-carries-.patch",
+      "status": "added_rc_only",
+      "subject": "LOCAL: drop localversion-next, the build name carries the snapshot date",
+      "notes": "Drops upstream linux-next localversion-next file so CONFIG_LOCALVERSION controls UTS_RELEASE"
+    },
+    {
+      "stable_patch": "0001-drm-msm-dp-make-the-eDP-1.4-LINK_RATE_SET-path-actua.patch",
+      "status": "ported",
+      "subject": "drm/msm/dp: make the eDP 1.4 LINK_RATE_SET path",
+      "rc_patch": "0002-drm-msm-dp-make-the-eDP-1.4-LINK_RATE_SET-path.patch"
+    },
+    {
+      "stable_patch": "0002-phy-qcom-edp-split-power-on-sequencing-by-PHY-versio.patch",
+      "status": "ported",
+      "subject": "phy: qcom: edp: split power-on sequencing by PHY",
+      "rc_patch": "0003-phy-qcom-edp-split-power-on-sequencing-by-PHY.patch"
+    },
+    {
+      "stable_patch": "0003-phy-qcom-edp-update-v8-power-on-programming-sequence.patch",
+      "status": "ported",
+      "subject": "phy: qcom: edp: update v8 power-on programming sequence",
+      "rc_patch": "0004-phy-qcom-edp-update-v8-power-on-programming-sequence.patch"
+    },
+    {
+      "stable_patch": "0004-HID-asus-complete-the-feature-set-for-the-Zenbook-I2.patch",
+      "status": "ported",
+      "subject": "HID: asus: complete the feature set for the Zenbook I2C",
+      "rc_patch": "0005-HID-asus-complete-the-feature-set-for-the-Zenbook-I2.patch"
+    },
+    {
+      "stable_patch": "0005-wifi-carry-proven-A16-QCC2072-baseline-into-audio-te.patch",
+      "status": "ported",
+      "subject": "wifi: carry proven A16 QCC2072 baseline into audio test",
+      "rc_patch": "0006-wifi-carry-proven-A16-QCC2072-baseline-into-audio-te.patch"
+    },
+    {
+      "stable_patch": "0006-ASoC-codecs-lpass-wsa-macro-use-v2.5-Compander1-addr.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "ASoC: codecs: lpass-wsa-macro: use v2.5 Compander1",
+      "upstream_commit": "233d36a96009682208cc4ca1139b9e5641a8bf09",
+      "upstream_subject": "ASoC: codecs: lpass-wsa-macro: use v2.5 Compander1 addresses on v2.5+"
+    },
+    {
+      "stable_patch": "0007-ASoC-codecs-lpass-Make-sure-clk_init_data-is-fully-i.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "ASoC: codecs: lpass: Make sure clk_init_data is fully",
+      "upstream_commit": "2cf55c64e64e1426def6f358d655ed036f2b9250",
+      "upstream_subject": "ASoC: codecs: lpass: Make sure clk_init_data is fully initialized"
+    },
+    {
+      "stable_patch": "0008-arm64-dts-qcom-glymur-Add-missing-USB-clock-power-an.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "arm64: dts: qcom: glymur: Add missing USB clock, power",
+      "upstream_commit": "0f8d35f04a126fb17134728ec441a177a35babb5",
+      "upstream_subject": "arm64: dts: qcom: glymur: Add missing USB clock, power and bandwidth votes"
+    },
+    {
+      "stable_patch": "0009-LOCAL-EXPERIMENT-preserve-test4-SoundWire-compatibil.patch",
+      "status": "ported",
+      "subject": "LOCAL EXPERIMENT: preserve test4 SoundWire",
+      "rc_patch": "0007-LOCAL-EXPERIMENT-preserve-test4-SoundWire.patch"
+    },
+    {
+      "stable_patch": "0010-ASoC-wsa884x-balance-pm_runtime_enable-with-devm-man.patch",
+      "status": "ported",
+      "subject": "ASoC: wsa884x: balance pm_runtime_enable() with",
+      "rc_patch": "0008-ASoC-wsa884x-balance-pm_runtime_enable-with.patch"
+    },
+    {
+      "stable_patch": "0011-ASoC-qdsp6-q6apm-fast-retry-APM_CMD_GET_SPF_STATE-to.patch",
+      "status": "adapted",
+      "subject": "ASoC: qdsp6: q6apm: fast-retry APM_CMD_GET_SPF_STATE to",
+      "notes": "Rebased onto upstream audioreach/q6apm context in sound/soc/qcom/qdsp6/",
+      "rc_patch": "0009-ASoC-qdsp6-q6apm-fast-retry-APM_CMD_GET_SPF_STATE-to.patch"
+    },
+    {
+      "stable_patch": "0012-LOCAL-PCI-add-glymur_pci_skip-to-work-around-the-sus.patch",
+      "status": "adapted",
+      "subject": "LOCAL: PCI: add glymur_pci_skip to work around the",
+      "notes": "Rebased onto upstream CONFIG_HIBERNATE_CALLBACKS guard in drivers/pci/pci-driver.c",
+      "rc_patch": "0010-LOCAL-PCI-add-glymur_pci_skip-to-work-around-the.patch"
+    },
+    {
+      "stable_patch": "0013-security-keys-trusted-keys-include-asn1_decoder.h-fo.patch",
+      "status": "ported",
+      "subject": "security/keys/trusted-keys: include asn1_decoder.h for",
+      "rc_patch": "0011-security-keys-trusted-keys-include-asn1_decoder.h-fo.patch"
+    },
+    {
+      "stable_patch": "0014-soundwire-qcom-cache-SCP_ADDRPAGE1-2-to-preserve-MBQ.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "soundwire: qcom: cache SCP_ADDRPAGE1/2 to preserve MBQ",
+      "upstream_commit": "eb9ea1a0fa28abe7a511cb67363a0cc835a02f04",
+      "upstream_subject": "soundwire: qcom: cache SCP_ADDRPAGE1/2 to preserve MBQ atomicity"
+    },
+    {
+      "stable_patch": "0015-arm64-dts-qcom-glymur-asus-zenbook-a16-Fix-up-the-mi.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "arm64: dts: qcom: glymur-asus-zenbook-a16: Fix up the",
+      "upstream_commit": "73f0a1026210c008ba4414b3181fa679096ef968",
+      "upstream_subject": "arm64: dts: qcom: glymur-asus-zenbook-a16: Fix up the mic sample rate"
+    },
+    {
+      "stable_patch": "0016-LOCAL-COMPAT-A16-Wi-Fi-and-Bluetooth-power-sequencin.patch",
+      "status": "ported",
+      "subject": "LOCAL COMPAT: A16 Wi-Fi and Bluetooth power sequencing",
+      "rc_patch": "0012-LOCAL-COMPAT-A16-Wi-Fi-and-Bluetooth-power-sequencin.patch"
+    },
+    {
+      "stable_patch": "0017-LOCAL-COMPAT-A16-display-supply-compatibility.patch",
+      "status": "ported",
+      "subject": "LOCAL COMPAT: A16 display supply compatibility",
+      "rc_patch": "0013-LOCAL-COMPAT-A16-display-supply-compatibility.patch"
+    },
+    {
+      "stable_patch": "0018-LOCAL-COMPAT-A16-RTC-compatibility.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "LOCAL COMPAT: A16 RTC compatibility",
+      "upstream_commit": "e918efbf9bf5c034c015a6dfef75fb5bcbbabbc1",
+      "upstream_subject": "efi: Use sysfb_parent_dev() to fix efifb parent device on ARM64"
+    },
+    {
+      "stable_patch": "0019-LOCAL-COMPAT-A16-USB-host-and-HDMI-clock-compatibili.patch",
+      "status": "ported",
+      "subject": "LOCAL COMPAT: A16 USB host and HDMI clock compatibility",
+      "rc_patch": "0014-LOCAL-COMPAT-A16-USB-host-and-HDMI-clock-compatibili.patch"
+    },
+    {
+      "stable_patch": "0020-LOCAL-COMPAT-A16-retain-CPU-and-LLC-passive-cooling-.patch",
+      "status": "ported",
+      "subject": "LOCAL COMPAT: A16 retain CPU and LLC passive cooling",
+      "rc_patch": "0015-LOCAL-COMPAT-A16-retain-CPU-and-LLC-passive-cooling.patch"
+    },
+    {
+      "stable_patch": "0021-LOCAL-COMPAT-A16-retain-board-scoped-SCMI-polling-an.patch",
+      "status": "ported",
+      "subject": "LOCAL COMPAT: A16 retain board-scoped SCMI polling and",
+      "rc_patch": "0016-LOCAL-COMPAT-A16-retain-board-scoped-SCMI-polling-an.patch"
+    },
+    {
+      "stable_patch": "0022-LOCAL-COMPAT-align-QCC2072-endpoint-with-effective-b.patch",
+      "status": "ported",
+      "subject": "LOCAL COMPAT: align QCC2072 endpoint with effective",
+      "rc_patch": "0017-LOCAL-COMPAT-align-QCC2072-endpoint-with-effective.patch"
+    },
+    {
+      "stable_patch": "0023-dt-bindings-embedded-controller-Add-ASUS-Zenbook-A16.patch",
+      "status": "ported",
+      "subject": "dt-bindings: embedded-controller: Add ASUS Zenbook A16 EC",
+      "rc_patch": "0018-dt-bindings-embedded-controller-Add-ASUS-Zenbook-A16.patch"
+    },
+    {
+      "stable_patch": "0024-platform-arm64-Add-a-driver-for-the-EC-found-on-ASUS.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "platform: arm64: Add a driver for the EC found on ASUS",
+      "upstream_commit": "76d093c4f973cf1101d15c0ff9fd7cf8da5e733b",
+      "upstream_subject": "platform: arm64: Add a driver for the EC found on ASUS Zenbook A16"
+    },
+    {
+      "stable_patch": "0025-arm64-dts-qcom-glymur-zenbook-a16-Add-Embedded-Contr.patch",
+      "status": "ported",
+      "subject": "arm64: dts: qcom: glymur-zenbook-a16: Add Embedded",
+      "rc_patch": "0019-arm64-dts-qcom-glymur-zenbook-a16-Add-Embedded.patch"
+    },
+    {
+      "stable_patch": "0026-LOCAL-keep-HID-ownership-of-Zenbook-keyboard-backlig.patch",
+      "status": "adapted",
+      "subject": "LOCAL: keep HID ownership of Zenbook keyboard backlight",
+      "notes": "Rebased onto upstream db3a9dddab5f (platform/arm64: asus-glymur-ec: Add keyboard backlight and Fn+F4 LED)",
+      "rc_patch": "0020-LOCAL-keep-HID-ownership-of-Zenbook-keyboard-backlig.patch"
+    },
+    {
+      "stable_patch": "0027-regulator-qcom-rpmh-add-PMH0104-camera-LDOs.patch",
+      "status": "ported",
+      "subject": "regulator: qcom-rpmh: add PMH0104 camera LDOs for the A16",
+      "rc_patch": "0021-regulator-qcom-rpmh-add-PMH0104-camera-LDOs-for-the-.patch"
+    },
+    {
+      "stable_patch": "0028-Snapshot-RC5-source-only-build-push-for-Windows-WSL-continuation.patch",
+      "status": "adapted",
+      "subject": "Snapshot RC5 source-only build push for Windows WSL",
+      "notes": "Retained unmerged camss CSIPHY port check, QMP Combo init_count guard, and SoundWire startup retry onto next-20261103",
+      "rc_patch": "0022-Snapshot-RC5-source-only-build-push-for-Windows-WSL.patch"
+    },
+    {
+      "stable_patch": "0029-drm-msm-a6xx-Fix-secondary-rail-vote-in-ARC-votes.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "drm/msm/a6xx: Fix secondary rail vote in ARC votes",
+      "upstream_commit": "128a0edde50780ed9eb93ab5d2e18ca24c1f1c43",
+      "upstream_subject": "drm/msm/a6xx: Fix secondary rail vote in ARC votes"
+    },
+    {
+      "stable_patch": "0030-drm-msm-a6xx-Fix-RPMH-dependency-votes.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "drm/msm/a6xx: Fix RPMH dependency votes",
+      "upstream_commit": "eab0aff8965ee17cf972a37eb6456032c45b7acd",
+      "upstream_subject": "drm/msm/a6xx: Fix RPMH dependency votes"
+    },
+    {
+      "stable_patch": "0031-drm-msm-a6xx-Honor-perfmode_bw-threshold-on-A8x.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "drm/msm/a6xx: Honor perfmode_bw threshold on A8x",
+      "upstream_commit": "db6a2e4a7ebd4378d03a97f4bef22f8c157240ad",
+      "upstream_subject": "drm/msm/a6xx: Honor perfmode_bw threshold on A8x"
+    },
+    {
+      "stable_patch": "0032-PCI-qcom-Only-check-bridge-nodes-for-PERST-GPIOs.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "PCI: qcom: Only check bridge nodes for PERST# GPIOs",
+      "upstream_commit": "1b3b0bc2b3672e928e06997444528f8797579eb2",
+      "upstream_subject": "PCI: qcom: Only check bridge nodes for PERST# GPIOs"
+    },
+    {
+      "stable_patch": "0033-wifi-ath12k-signal-regd-update-completion-when-reg-event-is-dropped.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "wifi: ath12k: signal regd update completion when reg event is",
+      "upstream_commit": "f2576dc0f894ef33045ba7ed057ec417988bba8a",
+      "upstream_subject": "wifi: ath12k: signal regd update completion when reg event is dropped"
+    },
+    {
+      "stable_patch": "0034-wifi-ath12k-use-per-radio-ab-in-ath12k_mac_hw_register.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "wifi: ath12k: use per-radio ab in ath12k_mac_hw_register()",
+      "upstream_commit": "af8d103b2b23f8cf9a1a72b15b3873bad53470df",
+      "upstream_subject": "wifi: ath12k: use per-radio ab in ath12k_mac_hw_register()"
+    },
+    {
+      "stable_patch": "0035-wifi-ath12k-protect-new_alpha2-access-with-base_lock.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "wifi: ath12k: protect new_alpha2 access with base_lock",
+      "upstream_commit": "04497f2a77216f27f60463c9b3d84c3c8f2cf62c",
+      "upstream_subject": "wifi: ath12k: protect new_alpha2 access with base_lock"
+    },
+    {
+      "stable_patch": "0036-wifi-ath12k-skip-setting-country-code-during-registration-when-unchanged.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "wifi: ath12k: skip setting country code during registration",
+      "upstream_commit": "8ab8a5ee16b2fcb06837039dc42405ed53866fec",
+      "upstream_subject": "wifi: ath12k: skip setting country code during registration when unchanged"
+    },
+    {
+      "stable_patch": "0037-wifi-ath12k-Free-allocated-CE-IRQs-on-request_irq-failure.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "wifi: ath12k: Free allocated CE IRQs on request_irq() failure",
+      "upstream_commit": "12ca935af2e68447e9218a615ebbb5ff7faf1554",
+      "upstream_subject": "wifi: ath12k: Free allocated CE IRQs on request_irq() failure"
+    },
+    {
+      "stable_patch": "0038-wifi-ath12k-Free-allocated-external-IRQs-on-request_irq-failure.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "wifi: ath12k: Free allocated external IRQs on request_irq()",
+      "upstream_commit": "9a78703ec4a895bd2e99bf43bd18d76683126c19",
+      "upstream_subject": "wifi: ath12k: Free allocated external IRQs on request_irq() failure"
+    },
+    {
+      "stable_patch": "0039-wifi-ath12k-clear-dangling-channel-pointers-on-error-paths.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "wifi: ath12k: clear dangling channel pointers on error paths",
+      "upstream_commit": "507478f6f93864978a399173d4f54c8a987c8235",
+      "upstream_subject": "wifi: ath12k: clear dangling channel pointers on error paths"
+    },
+    {
+      "stable_patch": "0040-wifi-ath12k-use-per-device-max-QMI-chunk-size.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "wifi: ath12k: use per-device max QMI chunk size",
+      "upstream_commit": "4e286c780d75831a169b0489afd015214838affd",
+      "upstream_subject": "wifi: ath12k: use per-device max QMI chunk size"
+    },
+    {
+      "stable_patch": "0041-wifi-ath12k-clear-chunk-paddr-and-size-in-ath12k_qmi_free_target_mem_chunk.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "wifi: ath12k: clear chunk paddr and size in",
+      "upstream_commit": "a1af8645cf2dcdac5c6b3929e1dcb2274ca9f27e",
+      "upstream_subject": "wifi: ath12k: clear chunk paddr and size in ath12k_qmi_free_target_mem_chunk()"
+    },
+    {
+      "stable_patch": "0042-wifi-ath12k-align-QMI-target-memory-to-64-KB.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "wifi: ath12k: align QMI target memory to 64 KB",
+      "upstream_commit": "f7f05c443361ebaa503e054e882633913273b3fa",
+      "upstream_subject": "wifi: ath12k: align QMI target memory to 64 KB"
+    },
+    {
+      "stable_patch": "0043-soc-qcom-pmic_glink-Avoid-losing-early-rpmsg-probe.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "soc: qcom: pmic_glink: Avoid losing early rpmsg probe",
+      "upstream_commit": "0c79a829af36a94143c747a0ab8f0a8563b17cfa",
+      "upstream_subject": "soc: qcom: pmic_glink: Avoid losing early rpmsg probe"
+    },
+    {
+      "stable_patch": "0044-wifi-ath12k-bound-padded-QMI-DMA-allocation-size.patch",
+      "status": "ported",
+      "subject": "wifi: ath12k: bound padded QMI DMA allocation size",
+      "rc_patch": "0023-wifi-ath12k-bound-padded-QMI-DMA-allocation-size.patch"
+    },
+    {
+      "stable_patch": "0045-drm-msm-a6xx-Factor-out-RPMh-arc-vote-helpers.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "drm/msm/a6xx: Factor out RPMh arc-vote helpers",
+      "upstream_commit": "b5269bf0e1adc2f5d313fce9268b9ac594dc26e0",
+      "upstream_subject": "drm/msm/a6xx: Factor out RPMh arc-vote helpers"
+    },
+    {
+      "stable_patch": "0046-drm-msm-a6xx-Add-BX-rail-support-to-GMU-dependency-votes.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "drm/msm/a6xx: Add BX rail support to GMU dependency votes",
+      "upstream_commit": "020b8eaa1db838c6b58fd500a03218cd1ac76176",
+      "upstream_subject": "drm/msm/a6xx: Add BX rail support to GMU dependency votes"
+    },
+    {
+      "stable_patch": "0047-drm-msm-a6xx-Clamp-MX-dependency-vote.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "drm/msm/a6xx: Clamp MX dependency vote",
+      "upstream_commit": "86f80884fb7f4601a49444a3c36df894b218336e",
+      "upstream_subject": "drm/msm/a6xx: Clamp MX dependency vote"
+    },
+    {
+      "stable_patch": "0048-PCI-qcom-Block-accesses-to-downstream-devices-on-link-down.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "PCI: qcom: Block accesses to downstream devices on link down",
+      "upstream_commit": "967a73293ae5f57af68e815942078e110c1f6d08",
+      "upstream_subject": "PCI: qcom: Block accesses to downstream devices on link down"
+    },
+    {
+      "stable_patch": "0049-PCI-qcom-Skip-system-suspend-resume-for-firmware-managed-PCIe.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "PCI: qcom: Skip system suspend/resume for firmware-managed",
+      "upstream_commit": "5af84e8928cb2ccc9696d90a0096a43c5bab5913",
+      "upstream_subject": "PCI: qcom: Skip system suspend/resume for firmware-managed PCIe"
+    },
+    {
+      "stable_patch": "0050-Preserve-RPMh-request-lifetime-and-stop-GPU-submission-after-failed-power-votes.patch",
+      "status": "ported",
+      "subject": "Preserve RPMh request lifetime and stop GPU submission after",
+      "rc_patch": "0024-Preserve-RPMh-request-lifetime-and-stop-GPU-submissi.patch"
+    },
+    {
+      "stable_patch": "0051-Align-bounded-TCS-wait-continuation.patch",
+      "status": "ported",
+      "subject": "Align bounded TCS wait continuation",
+      "rc_patch": "0025-Align-bounded-TCS-wait-continuation.patch"
+    },
+    {
+      "stable_patch": "0052-Stop-GMU-resume-before-MMIO-when-runtime-power-fails.patch",
+      "status": "ported",
+      "subject": "Stop GMU resume before MMIO when runtime power fails",
+      "rc_patch": "0026-Stop-GMU-resume-before-MMIO-when-runtime-power-fails.patch"
+    },
+    {
+      "stable_patch": "0053-Add-opt-in-BIOS-312-EC-fan-profile-selection-for-A16.patch",
+      "status": "ported",
+      "subject": "Add opt-in BIOS 312 EC fan profile selection for A16",
+      "rc_patch": "0027-Add-opt-in-BIOS-312-EC-fan-profile-selection-for-A16.patch"
+    },
+    {
+      "stable_patch": "0054-Repair-GMU-lifetime-SoundWire-PM-I2C-DMA-accounting-and-failed-vote-propagation.patch",
+      "status": "adapted",
+      "subject": "Repair GMU lifetime, SoundWire PM, I2C DMA accounting and",
+      "notes": "Rebased onto upstream GMU device link, GENI I2C timeout, ath12k debugfs, and SoundWire PM changes",
+      "rc_patch": "0028-Repair-GMU-lifetime-SoundWire-PM-I2C-DMA-accounting-.patch"
+    },
+    {
+      "stable_patch": "0055-Reset-successful-DP-configuration-byte-count-before-repeater-training.patch",
+      "status": "ported",
+      "subject": "Reset successful DP configuration byte count before repeater",
+      "rc_patch": "0029-Reset-successful-DP-configuration-byte-count-before-.patch"
+    },
+    {
+      "stable_patch": "0056-Keep-pending-I2C-mappings-owned-until-completion-or-termination.patch",
+      "status": "ported",
+      "subject": "Keep pending I2C mappings owned until completion or",
+      "rc_patch": "0030-Keep-pending-I2C-mappings-owned-until-completion-or.patch"
+    },
+    {
+      "stable_patch": "0057-dmaengine-qcom-gpi-retire-linked-I2C-command-descriptors.patch",
+      "status": "ported",
+      "subject": "dmaengine: qcom: gpi: retire linked I2C command descriptors",
+      "rc_patch": "0031-dmaengine-qcom-gpi-retire-linked-I2C-command-descrip.patch"
+    },
+    {
+      "stable_patch": "0058-LOCAL-keep-A16-speaker-controllers-runtime-active-for-audio-prevention-baseline.patch",
+      "status": "ported",
+      "subject": "LOCAL: keep A16 speaker controllers runtime active for audio",
+      "rc_patch": "0032-LOCAL-keep-A16-speaker-controllers-runtime-active-fo.patch"
+    },
+    {
+      "stable_patch": "0059-Integrate-16-private-A16-review-source-fixes.patch",
+      "status": "adapted",
+      "subject": "Integrate 16 private A16 review source fixes",
+      "notes": "Rebased onto upstream QMP Combo USB4 PHY and SoundWire bus/qcom changes",
+      "rc_patch": "0033-Integrate-16-private-A16-review-source-fixes.patch"
+    },
+    {
+      "stable_patch": "0060-Add-approved-A16-hibernation-configuration-fragment.patch",
+      "status": "ported",
+      "subject": "Add approved A16 hibernation configuration fragment",
+      "rc_patch": "0034-Add-approved-A16-hibernation-configuration-fragment.patch"
+    },
+    {
+      "stable_patch": "0061-Integrate-tested-A16-Bluetooth-DMA-SoundWire-and-DP-.patch",
+      "status": "adapted",
+      "subject": "Integrate tested A16 Bluetooth, DMA, SoundWire and DP",
+      "notes": "Rebased onto upstream DP MST stream_clks_on[DP_STREAM_MAX] (5e4a3f7b2620) and gpi_ch_init loop fix (dd27c3f4d610)",
+      "rc_patch": "0035-Integrate-tested-A16-Bluetooth-DMA-SoundWire-and-DP.patch"
+    },
+    {
+      "stable_patch": "0062-Preserve-QMP-Type-C-ownership-and-contain-board-tran.patch",
+      "status": "adapted",
+      "subject": "Preserve QMP Type-C ownership and contain board transition",
+      "notes": "Rebased onto upstream QMP Combo USB4 PHY support (89563a152973) and pmic_glink_altmode system_freezable_wq (c7c56b6ec077)",
+      "rc_patch": "0036-Preserve-QMP-Type-C-ownership-and-contain-board-tran.patch"
+    },
+    {
+      "stable_patch": "0063-Release-GPI-caller-ring-only-on-failures-before-hard.patch",
+      "status": "adapted",
+      "subject": "Release GPI caller ring only on failures before hardware",
+      "notes": "Rebased onto upstream gpi_ch_init DISABLE_STATE and gpi_alloc_chan_resources error path (dd27c3f4d610)",
+      "rc_patch": "0037-Release-GPI-caller-ring-only-on-failures-before-hard.patch"
+    },
+    {
+      "stable_patch": "0064-soundwire-qcom-allow-deferred-codec-probes.patch",
+      "status": "ported",
+      "subject": "0001-soundwire-qcom-allow-deferred-codec-probes.patch",
+      "rc_patch": "0038-0001-soundwire-qcom-allow-deferred-codec-probes.patc.patch"
+    },
+    {
+      "stable_patch": "0065-clk-qcom-gcc-glymur-Use-PWRSTS_RET_ON-flag-for-USB-GDSCs.patch",
+      "status": "ported",
+      "subject": "FROMLIST: clk: qcom: gcc-glymur: Use PWRSTS_RET_ON flag for",
+      "rc_patch": "0039-FROMLIST-clk-qcom-gcc-glymur-Use-PWRSTS_RET_ON-flag-.patch"
+    },
+    {
+      "stable_patch": "0066-phy-qualcomm-phy-qcom-eusb2-repeater-Fix-SMB-Power-leakage.patch",
+      "status": "adapted",
+      "subject": "FROMLIST: phy: qualcomm: phy-qcom-eusb2-repeater: Fix SMB",
+      "notes": "Rebased onto upstream SPMI subdevice regmap migration (1b6603de9a71) in drivers/phy/qualcomm/phy-qcom-eusb2-repeater.c",
+      "rc_patch": "0040-FROMLIST-phy-qualcomm-phy-qcom-eusb2-repeater-Fix-SM.patch"
+    },
+    {
+      "stable_patch": "0067-usb-typec-ucsi-ucsi_glink-Prevent-suspend-during-UCSI-notification.patch",
+      "status": "ported",
+      "subject": "FROMLIST: usb: typec: ucsi: ucsi_glink: Prevent suspend",
+      "rc_patch": "0041-FROMLIST-usb-typec-ucsi-ucsi_glink-Prevent-suspend.patch"
+    },
+    {
+      "stable_patch": "0068-usb-dwc3-qcom-Add-support-to-skip-phy-management-by-USB-core.patch",
+      "status": "ported",
+      "subject": "FROMLIST: usb: dwc3: qcom: Add support to skip phy management",
+      "rc_patch": "0042-FROMLIST-usb-dwc3-qcom-Add-support-to-skip-phy-manag.patch"
+    },
+    {
+      "stable_patch": "0069-arm64-dts-qcom-glymur-Fix-missing-SMMU-stream-IDs-for-ADSP.patch",
+      "status": "ported",
+      "subject": "FROMLIST: arm64: dts: qcom: glymur: Fix missing SMMU stream",
+      "rc_patch": "0043-FROMLIST-arm64-dts-qcom-glymur-Fix-missing-SMMU-stre.patch"
+    },
+    {
+      "stable_patch": "0070-clk-qcom-add-Glymur-LPASS-clock-controller-with-reset-lines.patch",
+      "status": "ported",
+      "subject": "[PATCH] PENDING: clk: qcom: add Glymur LPASS clock controller",
+      "rc_patch": "0044-PATCH-PENDING-clk-qcom-add-Glymur-LPASS-clock-contro.patch"
+    },
+    {
+      "stable_patch": "0071-ASoC-codecs-lpass-macro-add-codec-version-2.9-and-fix-regcache.patch",
+      "status": "ported",
+      "subject": "PENDING: ASoC: codecs: lpass-macro: add codec version 2.9 and",
+      "rc_patch": "0045-PENDING-ASoC-codecs-lpass-macro-add-codec-version-2..patch"
+    },
+    {
+      "stable_patch": "0072-ASoC-qcom-lpass-macro-common-Add-missing-v2.9-version-string.patch",
+      "status": "ported",
+      "subject": "FROMLIST: ASoC: qcom: lpass-macro-common: Add missing v2.9",
+      "rc_patch": "0046-FROMLIST-ASoC-qcom-lpass-macro-common-Add-missing-v2.patch"
+    },
+    {
+      "stable_patch": "0073-ASoC-codecs-lpass-rx-macro-manage-clocks-in-runtime-PM.patch",
+      "status": "ported",
+      "subject": "FROMLIST: ASoC: codecs: lpass-rx-macro: manage clocks in",
+      "rc_patch": "0047-FROMLIST-ASoC-codecs-lpass-rx-macro-manage-clocks-in.patch"
+    },
+    {
+      "stable_patch": "0074-ASoC-codecs-lpass-tx-macro-manage-clocks-in-runtime-PM.patch",
+      "status": "ported",
+      "subject": "FROMLIST: ASoC: codecs: lpass-tx-macro: manage clocks in",
+      "rc_patch": "0048-FROMLIST-ASoC-codecs-lpass-tx-macro-manage-clocks-in.patch"
+    },
+    {
+      "stable_patch": "0075-ASoC-codecs-lpass-va-macro-manage-clocks-in-runtime-PM.patch",
+      "status": "ported",
+      "subject": "FROMLIST: ASoC: codecs: lpass-va-macro: manage clocks in",
+      "rc_patch": "0049-FROMLIST-ASoC-codecs-lpass-va-macro-manage-clocks-in.patch"
+    },
+    {
+      "stable_patch": "0076-ASoC-codecs-lpass-wsa-macro-manage-clocks-in-runtime-PM.patch",
+      "status": "ported",
+      "subject": "FROMLIST: ASoC: codecs: lpass-wsa-macro: manage clocks in",
+      "rc_patch": "0050-FROMLIST-ASoC-codecs-lpass-wsa-macro-manage-clocks-i.patch"
+    },
+    {
+      "stable_patch": "0077-ASoC-codecs-lpass-macro-drop-PM_CLK-dependency.patch",
+      "status": "ported",
+      "subject": "FROMLIST: ASoC: codecs: lpass-macro: drop PM_CLK dependency",
+      "rc_patch": "0051-FROMLIST-ASoC-codecs-lpass-macro-drop-PM_CLK-depende.patch"
+    },
+    {
+      "stable_patch": "0078-power-supply-qcom_battmgr-Add-multi-port-USB-C-and-capacity.patch",
+      "status": "ported",
+      "subject": "FROMLIST: power: supply: qcom_battmgr: Add multi-port USB-C",
+      "rc_patch": "0052-FROMLIST-power-supply-qcom_battmgr-Add-multi-port-US.patch"
+    },
+    {
+      "stable_patch": "0079-dt-bindings-soc-qcom-pmic-glink-Document-RTC-client-properties.patch",
+      "status": "ported",
+      "subject": "FROMLIST: dt-bindings: soc: qcom: qcom,pmic-glink: Document",
+      "rc_patch": "0053-FROMLIST-dt-bindings-soc-qcom-qcom-pmic-glink-Docume.patch"
+    },
+    {
+      "stable_patch": "0080-rtc-qcom-rtc-glink-Add-PMIC-GLINK-RTC-driver.patch",
+      "status": "ported",
+      "subject": "FROMLIST: rtc: qcom: rtc-glink: Add PMIC GLINK RTC driver and",
+      "rc_patch": "0054-FROMLIST-rtc-qcom-rtc-glink-Add-PMIC-GLINK-RTC-drive.patch"
+    },
+    {
+      "stable_patch": "0081-dt-bindings-display-msm-gmu-Fix-Glymur-compatible.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "FROMLIST: dt-bindings: display/msm/gmu: Fix Glymur's",
+      "upstream_commit": "f221c5856392fc16f56c7aa709d18f6714ab6f82",
+      "upstream_subject": "dt-bindings: display/msm/gmu: Fix Glymur's compatible"
+    },
+    {
+      "stable_patch": "0082-arm64-dts-qcom-glymur-fix-Adreno-X2-90-GMU-compatible.patch",
+      "status": "ported",
+      "subject": "FROMLIST: arm64: dts: qcom: glymur: fix Adreno X2-90 GMU",
+      "rc_patch": "0055-FROMLIST-arm64-dts-qcom-glymur-fix-Adreno-X2-90-GMU.patch"
+    },
+    {
+      "stable_patch": "0083-drm-msm-dp-wake-threaded-handler-for-HPD-IRQs.patch",
+      "status": "ported",
+      "subject": "FROMLIST: drm/msm/dp: wake threaded handler for HPD IRQs",
+      "rc_patch": "0056-FROMLIST-drm-msm-dp-wake-threaded-handler-for-HPD-IR.patch"
+    },
+    {
+      "stable_patch": "0084-drm-msm-dp-skip-LTTPR-init-when-no-LTTPRs-are-present.patch",
+      "status": "ported",
+      "subject": "FROMLIST: drm/msm/dp: skip LTTPR init when no LTTPRs are",
+      "rc_patch": "0057-FROMLIST-drm-msm-dp-skip-LTTPR-init-when-no-LTTPRs-a.patch"
+    },
+    {
+      "stable_patch": "0085-arm64-dts-qcom-glymur-Fix-fastrpc-compute-cb-reg-values-for-cdsp.patch",
+      "status": "ported",
+      "subject": "FROMLIST: arm64: dts: qcom: glymur: Fix fastrpc compute-cb",
+      "rc_patch": "0058-FROMLIST-arm64-dts-qcom-glymur-Fix-fastrpc-compute-c.patch"
+    },
+    {
+      "stable_patch": "0086-arm64-dts-qcom-glymur-Add-iris-video-node.patch",
+      "status": "ported",
+      "subject": "FROMLIST: arm64: dts: qcom: glymur: Add iris video node",
+      "rc_patch": "0059-FROMLIST-arm64-dts-qcom-glymur-Add-iris-video-node.patch"
+    },
+    {
+      "stable_patch": "0087-wifi-ath12k-fix-MLO-4-way-handshake-timeout-on-QCC2072.patch",
+      "status": "adapted",
+      "subject": "FROMLIST: wifi: ath12k: fix MLO 4-way handshake timeout on",
+      "notes": "Rebased onto upstream ath12k_wifi7_dp_rx_get_link_id_wcn7850 return-value refactor (a8188bb7644f)",
+      "rc_patch": "0060-FROMLIST-wifi-ath12k-fix-MLO-4-way-handshake-timeout.patch"
+    },
+    {
+      "stable_patch": "0088-wifi-ath12k-Fix-missing-station-power-save-configuration.patch",
+      "status": "ported",
+      "subject": "wifi: ath12k: Fix missing station power save configuration",
+      "rc_patch": "0061-wifi-ath12k-Fix-missing-station-power-save-configura.patch"
+    },
+    {
+      "stable_patch": "0089-PCI-qcom-Disable-halting-feature.patch",
+      "status": "ported",
+      "subject": "FROMLIST: PCI: qcom: Disable halting feature",
+      "rc_patch": "0062-FROMLIST-PCI-qcom-Disable-halting-feature.patch"
+    },
+    {
+      "stable_patch": "0090-arch_topology-seed-capacity_freq_ref-with-boost-aware-max-freq.patch",
+      "status": "ported",
+      "subject": "FROMLIST: arch_topology: seed capacity_freq_ref with",
+      "rc_patch": "0063-FROMLIST-arch_topology-seed-capacity_freq_ref-with.patch"
+    },
+    {
+      "stable_patch": "0091-arm64-dts-qcom-glymur-Add-EC-thermal-zones.patch",
+      "status": "ported",
+      "subject": "FROMLIST: arm64: dts: qcom: glymur: Add EC thermal zones",
+      "rc_patch": "0064-FROMLIST-arm64-dts-qcom-glymur-Add-EC-thermal-zones.patch"
+    },
+    {
+      "stable_patch": "0092-tee-qcomtee-Track-the-object-invocation-context.patch",
+      "status": "ported",
+      "subject": "FROMLIST: tee: qcomtee: Track the object invocation context",
+      "rc_patch": "0065-FROMLIST-tee-qcomtee-Track-the-object-invocation-con.patch"
+    },
+    {
+      "stable_patch": "0093-tee-Add-kernel-client-object-invoke-helper.patch",
+      "status": "ported",
+      "subject": "FROMLIST: tee: Add kernel client object invoke helper",
+      "rc_patch": "0066-FROMLIST-tee-Add-kernel-client-object-invoke-helper.patch"
+    },
+    {
+      "stable_patch": "0094-tee-qcomtee-Allow-object-invokes-from-kernel-clients.patch",
+      "status": "ported",
+      "subject": "FROMLIST: tee: qcomtee: Allow object invokes from kernel",
+      "rc_patch": "0067-FROMLIST-tee-qcomtee-Allow-object-invokes-from-kerne.patch"
+    },
+    {
+      "stable_patch": "0095-tee-Export-uuidv5-generation-for-TEE-backends.patch",
+      "status": "ported",
+      "subject": "FROMLIST: tee: Export uuidv5 generation for TEE backends",
+      "rc_patch": "0068-FROMLIST-tee-Export-uuidv5-generation-for-TEE-backen.patch"
+    },
+    {
+      "stable_patch": "0096-tee-qcomtee-Add-support-for-registering-QTEE-services-on-TEE-bus.patch",
+      "status": "ported",
+      "subject": "FROMLIST: tee: qcomtee: Add support for registering QTEE",
+      "rc_patch": "0069-FROMLIST-tee-qcomtee-Add-support-for-registering-QTE.patch"
+    },
+    {
+      "stable_patch": "0097-firmware-qcom-Add-support-for-TEE-based-EFI-var-client-driver.patch",
+      "status": "ported",
+      "subject": "FROMLIST: firmware: qcom: Add support for TEE based EFI-var",
+      "rc_patch": "0070-FROMLIST-firmware-qcom-Add-support-for-TEE-based-EFI.patch"
+    },
+    {
+      "stable_patch": "0098-tee-qcomtee-Register-qcom.tz.tpm-service-for-discovery.patch",
+      "status": "ported",
+      "subject": "FROMLIST: tee: qcomtee: Register qcom.tz.tpm service for",
+      "rc_patch": "0071-FROMLIST-tee-qcomtee-Register-qcom.tz.tpm-service-fo.patch"
+    },
+    {
+      "stable_patch": "0099-tpm-Introduce-Qualcomm-TPM-driver.patch",
+      "status": "ported",
+      "subject": "FROMLIST: tpm: Introduce Qualcomm TPM driver",
+      "rc_patch": "0072-FROMLIST-tpm-Introduce-Qualcomm-TPM-driver.patch"
+    },
+    {
+      "stable_patch": "0100-arm64-dts-qcom-glymur-Add-CAMSS-and-CSIPHY-nodes-for-Glymur.patch",
+      "status": "ported",
+      "subject": "FROMLIST: arm64: dts: qcom: glymur: Add CAMSS and CSIPHY",
+      "rc_patch": "0073-FROMLIST-arm64-dts-qcom-glymur-Add-CAMSS-and-CSIPHY.patch"
+    },
+    {
+      "stable_patch": "0101-arm64-dts-qcom-glymur-Add-CCI-definitions-for-Glymur.patch",
+      "status": "ported",
+      "subject": "FROMLIST: arm64: dts: qcom: glymur: Add CCI definitions for",
+      "rc_patch": "0074-FROMLIST-arm64-dts-qcom-glymur-Add-CCI-definitions-f.patch"
+    },
+    {
+      "stable_patch": "0102-arm64-dts-qcom-glymur-Add-camera-MCLK-pinctrl.patch",
+      "status": "ported",
+      "subject": "FROMLIST: arm64: dts: qcom: glymur: Add camera MCLK pinctrl",
+      "rc_patch": "0075-FROMLIST-arm64-dts-qcom-glymur-Add-camera-MCLK-pinct.patch"
+    },
+    {
+      "stable_patch": "0103-i2c-cci-require-exact-clock-rates.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "i2c: qcom-cci: skip core clock rates the clock cannot provide",
+      "upstream_commit": "ed404d9fd36b826f43e85a7c7cc77b3d966cf83d",
+      "upstream_subject": "i2c: qcom-cci: skip core clock rates the clock cannot provide"
+    },
+    {
+      "stable_patch": "0104-mfd-pm8010-i2c.patch",
+      "status": "ported",
+      "subject": "mfd: qcom-pm8008: support PM8010 without dropping PM8008 GPIOs",
+      "rc_patch": "0076-mfd-qcom-pm8008-support-PM8010-without-dropping-PM80.patch"
+    },
+    {
+      "stable_patch": "0105-regulator-pm8010.patch",
+      "status": "ported",
+      "subject": "regulator: qcom-pm8008: add PM8010 voltage tables and mode support",
+      "rc_patch": "0077-regulator-qcom-pm8008-add-PM8010-voltage-tables-and-.patch"
+    },
+    {
+      "stable_patch": "0106-media-hm1092.patch",
+      "status": "adapted",
+      "subject": "media: i2c: add HM1092 with native rc5 pad API",
+      "notes": "Rebased onto upstream v4l2_subdev_pad_ops.get_selection client_info signature in drivers/media/i2c/hm1092.c",
+      "rc_patch": "0078-media-i2c-add-HM1092-with-native-rc5-pad-API.patch"
+    },
+    {
+      "stable_patch": "0107-camss-glymur-nonsecure-resources.patch",
+      "status": "ported",
+      "subject": "media: camss: limit Glymur to the validated nonsecure capture path",
+      "rc_patch": "0079-media-camss-limit-Glymur-to-the-validated-nonsecure-.patch"
+    },
+    {
+      "stable_patch": "0108-arm64-dts-a16-rgb-ir.patch",
+      "status": "ported",
+      "subject": "arm64: dts: qcom: wire A16 RGB and IR cameras with runtime power domains",
+      "rc_patch": "0080-arm64-dts-qcom-wire-A16-RGB-and-IR-cameras-with-runt.patch"
+    },
+    {
+      "stable_patch": "0109-i2c-cci-clock-stretching.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "i2c: qcom-cci: always enable SCL clock stretching",
+      "upstream_commit": "0265dfc5d2a8de303561ced996c46b38f95cb4ef",
+      "upstream_subject": "i2c: qcom-cci: always enable SCL clock stretching"
+    },
+    {
+      "stable_patch": "0110-audioreach-clear-reused-default-channel-map.patch",
+      "status": "ported",
+      "subject": "audioreach clear reused default channel map",
+      "rc_patch": "0081-audioreach-clear-reused-default-channel-map.patch"
+    },
+    {
+      "stable_patch": "0111-glymur-a16-windows-dmic-pin-settings.patch",
+      "status": "ported",
+      "subject": "[EXPERIMENTAL] pinctrl: qcom: match A16 Windows DMIC pin settings",
+      "rc_patch": "0082-EXPERIMENTAL-pinctrl-qcom-match-A16-Windows-DMIC-pin.patch"
+    },
+    {
+      "stable_patch": "0112-clk-qcom-gdsc-unwind-domains-when-registration-fails.patch",
+      "status": "ported",
+      "subject": "[RFC PATCH] clk: qcom: gdsc: unwind domains when registration fails",
+      "rc_patch": "0083-RFC-PATCH-clk-qcom-gdsc-unwind-domains-when-registra.patch"
+    },
+    {
+      "stable_patch": "0113-pmdomain-core-clear-states-after-freeing-them.patch",
+      "status": "ported",
+      "subject": "pmdomain: core: clear states after freeing them",
+      "rc_patch": "0084-pmdomain-core-clear-states-after-freeing-them.patch"
+    },
+    {
+      "stable_patch": "0114-ASoC-qcom-audioreach-support-multichannel-PCM-formats.patch",
+      "status": "adapted",
+      "subject": "ASoC: qcom: audioreach: support multichannel PCM formats",
+      "notes": "Rebased onto upstream audioreach header context in sound/soc/qcom/qdsp6/audioreach.h",
+      "rc_patch": "0085-ASoC-qcom-audioreach-support-multichannel-PCM-format.patch"
+    },
+    {
+      "stable_patch": "0115-ASoC-qcom-qdsp6-clear-stale-channel_map-entries.patch",
+      "status": "ported",
+      "subject": "ASoC: qcom: qdsp6: clear stale channel_map entries",
+      "rc_patch": "0086-ASoC-qcom-qdsp6-clear-stale-channel_map-entries.patch"
+    },
+    {
+      "stable_patch": "0116-phy-qualcomm-m31-eusb2-Add-register-XCFGI_159_152-for-SE0-recovery.patch",
+      "status": "ported",
+      "subject": "phy: qualcomm: m31-eusb2: Add register XCFGI_159_152 for SE0 recovery",
+      "rc_patch": "0087-phy-qualcomm-m31-eusb2-Add-register-XCFGI_159_152-fo.patch"
+    },
+    {
+      "stable_patch": "0117-arm64-dts-qcom-glymur-Set-snps-resume-hs-terminations-for-USB-controllers.patch",
+      "status": "ported",
+      "subject": "arm64: dts: qcom: glymur: Set snps,resume-hs-terminations for USB controllers",
+      "rc_patch": "0088-arm64-dts-qcom-glymur-Set-snps-resume-hs-termination.patch"
+    },
+    {
+      "stable_patch": "0118-arm64-dts-qcom-glymur-Refrain-from-overclocking-the-USB2-controller.patch",
+      "status": "ported",
+      "subject": "arm64: dts: qcom: glymur: Refrain from overclocking the USB2",
+      "rc_patch": "0089-arm64-dts-qcom-glymur-Refrain-from-overclocking-the-.patch"
+    },
+    {
+      "stable_patch": "0119-phy-qcom-qmp-usb-Add-PM-suspend-resume-callbacks.patch",
+      "status": "ported",
+      "subject": "FROMLIST: phy: qcom: qmp-usb: Add PM suspend/resume callbacks",
+      "rc_patch": "0090-FROMLIST-phy-qcom-qmp-usb-Add-PM-suspend-resume-call.patch"
+    },
+    {
+      "stable_patch": "0120-phy-qcom-qmp-combo-Add-PM-suspend-resume-callbacks.patch",
+      "status": "adapted",
+      "subject": "FROMLIST: phy: qcom: qmp-combo: Add PM suspend/resume callbacks",
+      "notes": "Rebased onto adapted qmp_combo_pm_ops in drivers/phy/qualcomm/phy-qcom-qmp-combo.c",
+      "rc_patch": "0091-FROMLIST-phy-qcom-qmp-combo-Add-PM-suspend-resume-ca.patch"
+    },
+    {
+      "stable_patch": "0121-soc-qcom-apr-Publish-GPR-callback-before-client-probe.patch",
+      "status": "ported",
+      "subject": "FROMLIST: soc: qcom: apr: Publish GPR callback before client",
+      "rc_patch": "0092-FROMLIST-soc-qcom-apr-Publish-GPR-callback-before-cl.patch"
+    },
+    {
+      "stable_patch": "0122-ASoC-qcom-q6apm-Guard-callbacks-until-probe-data-is-ready.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "FROMLIST: ASoC: qcom: q6apm: Guard callbacks until probe data",
+      "upstream_commit": "ef7062864c0511bba52775d0eb3aa72d886b5f3a",
+      "upstream_subject": "ASoC: qcom: q6apm: Guard callbacks until probe data is ready"
+    },
+    {
+      "stable_patch": "0123-ASoC-qcom-q6apm-clear-g_apm-on-driver-removal.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "ASoC: qcom: q6apm: clear g_apm on driver removal",
+      "upstream_commit": "be2172758f2b7c801ae80b9c8d1510b31eeffdaa",
+      "upstream_subject": "ASoC: qcom: q6apm: clear g_apm on driver removal"
+    },
+    {
+      "stable_patch": "0124-ASoC-qcom-q6apm-Fix-unmap-regions-response-handling.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "ASoC: qcom: q6apm: Fix unmap regions response handling",
+      "upstream_commit": "4b832a2af523cbf857a977414c0f07d7f90a4c9d",
+      "upstream_subject": "ASoC: qcom: q6apm: Fix unmap regions response handling"
+    },
+    {
+      "stable_patch": "0125-ASoC-qcom-q6apm-Clear-the-right-handle-on-pos-buffer-unmap.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "ASoC: qcom: q6apm: Clear the right handle on pos buffer unmap",
+      "upstream_commit": "43c69604271d8b54c494fde70bd4a9eaab7a974d",
+      "upstream_subject": "ASoC: qcom: q6apm: Clear the right handle on pos buffer unmap"
+    },
+    {
+      "stable_patch": "0126-ASoC-qcom-q6apm-Unmap-DSP-buffers-before-removing-the-topology.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "ASoC: qcom: q6apm: Unmap DSP buffers before removing the",
+      "upstream_commit": "a51c5dd7f7fc7cdf4ae28fec4a013d8418d1cb53",
+      "upstream_subject": "ASoC: qcom: q6apm: Unmap DSP buffers before removing the topology"
+    },
+    {
+      "stable_patch": "0127-ASoC-qcom-q6apm-reset-the-hw-pointer-with-the-fragment-queue.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "ASoC: qcom: q6apm: reset the hw pointer with the fragment",
+      "upstream_commit": "0337b8129cf676b8eb767b2a1f312955760a5460",
+      "upstream_subject": "ASoC: qcom: q6apm: reset the hw pointer with the fragment queue"
+    },
+    {
+      "stable_patch": "0128-ASoC-qcom-q6apm-dai-wrap-the-position-of-a-full-ring-to-0.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "ASoC: qcom: q6apm-dai: wrap the position of a full ring to 0",
+      "upstream_commit": "0ea3e0b196f9dcc17b40ac881a6efef06459975b",
+      "upstream_subject": "ASoC: qcom: q6apm-dai: wrap the position of a full ring to 0"
+    },
+    {
+      "stable_patch": "0129-ASoC-qcom-audioreach-fix-module-cfg-blob-size-handling.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "ASoC: qcom: audioreach: fix module cfg blob size handling",
+      "upstream_commit": "e21fb64a8c4aecae31ec63f994423ac944705c3e",
+      "upstream_subject": "ASoC: qcom: audioreach: fix module cfg blob size handling"
+    },
+    {
+      "stable_patch": "0130-ASoC-qcom-qdsp6-q6afe-fix-clk-vote-response-type-mismatch.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "ASoC: qcom: qdsp6: q6afe: fix clk vote response type mismatch",
+      "upstream_commit": "f3c7bee984aa0ba2b48a44e16a6f3ec2c27f851e",
+      "upstream_subject": "ASoC: qcom: qdsp6: q6afe: fix clk vote response type mismatch"
+    },
+    {
+      "stable_patch": "0131-ASoC-qcom-sm8250-Limit-RX-digital-gain-to-0-dB.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "ASoC: qcom: sm8250: Limit RX digital gain to 0 dB",
+      "upstream_commit": "55df18877471ade98ad0a1c12c95f78ba54ec5cc",
+      "upstream_subject": "ASoC: qcom: sm8250: Limit RX digital gain to 0 dB"
+    },
+    {
+      "stable_patch": "0132-soundwire-qcom-disable-the-interrupt-before-gating-the-clock.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "soundwire: qcom: disable the interrupt before gating the clock",
+      "upstream_commit": "6c067677192f054bbfa815caf04f536bb8dcdee2",
+      "upstream_subject": "soundwire: qcom: disable the interrupt before gating the clock"
+    },
+    {
+      "stable_patch": "0133-clk-qcom-Fix-camera-rivian-PLL-configuration-settings.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "clk: qcom: Fix camera rivian PLL configuration settings",
+      "upstream_commit": "6666c03f2348886774d6441350fbe0e7a782f471",
+      "upstream_subject": "clk: qcom: Fix camera rivian PLL configuration settings"
+    },
+    {
+      "stable_patch": "0134-clk-qcom-gcc-glymur-Use-clk_regmap_phy_mux_ops-for-GCC-UFS-muxes.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "clk: qcom: gcc-glymur: Use clk_regmap_phy_mux_ops for GCC UFS",
+      "upstream_commit": "20b77a88fc6e410b69bc98d3d61c035a8618fb90",
+      "upstream_subject": "clk: qcom: gcc-glymur: Use clk_regmap_phy_mux_ops for GCC UFS muxes"
+    },
+    {
+      "stable_patch": "0135-iommu-arm-smmu-Work-around-Qualcomm-SMMU-500-TLBIVAL-granule-issue.patch",
+      "status": "ported",
+      "subject": "WORKAROUND: iommu/arm-smmu: Work around Qualcomm SMMU-500",
+      "rc_patch": "0093-WORKAROUND-iommu-arm-smmu-Work-around-Qualcomm-SMMU-.patch"
+    },
+    {
+      "stable_patch": "0136-mmc-sdhci-msm-Remove-brownout-risk.patch",
+      "status": "ported",
+      "subject": "mmc: sdhci-msm: Remove brownout risk",
+      "rc_patch": "0094-mmc-sdhci-msm-Remove-brownout-risk.patch"
+    },
+    {
+      "stable_patch": "0137-power-supply-qcom_battmgr-Notify-charger-supplies-of-online-changes.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "power: supply: qcom_battmgr: Notify charger supplies of",
+      "upstream_commit": "87fd20da8ca8bacdaa9bff5860167f208077dc51",
+      "upstream_subject": "power: supply: qcom_battmgr: Notify charger supplies of online changes"
+    },
+    {
+      "stable_patch": "0138-power-supply-qcom_battmgr-report-full-batteries.patch",
+      "rc_patch": null,
+      "status": "dropped_merged",
+      "subject": "power: supply: qcom_battmgr: report full batteries",
+      "upstream_commit": "6c8098e04ee4d233399e40e7311715844910f8f8",
+      "upstream_subject": "power: supply: qcom_battmgr: report full batteries"
+    },
+    {
+      "stable_patch": "0139-wifi-ath12k-keep-ML-mgmt-tx-on-active-link.patch",
+      "status": "ported",
+      "subject": "FROMLIST: wifi: ath12k: keep ML mgmt tx on active link",
+      "rc_patch": "0095-FROMLIST-wifi-ath12k-keep-ML-mgmt-tx-on-active-link.patch"
+    },
+    {
+      "stable_patch": "0140-PM-sleep-Do-not-mark-devices-without-PM-callbacks-active-on-resume.patch",
+      "status": "ported",
+      "subject": "PM: sleep: Do not mark devices without PM callbacks active on resume",
+      "rc_patch": "0096-PM-sleep-Do-not-mark-devices-without-PM-callbacks-ac.patch"
+    },
+    {
+      "stable_patch": "0141-PM-sleep-Do-not-arm-wakeup-IRQs-for-hibernation-freeze-and-quiesce.patch",
+      "status": "ported",
+      "subject": "PM: sleep: Do not arm wakeup IRQs for hibernation freeze and quiesce",
+      "rc_patch": "0097-PM-sleep-Do-not-arm-wakeup-IRQs-for-hibernation-free.patch"
+    },
+    {
+      "stable_patch": "0142-drm-msm-a6xx-Reset-the-GMU-state-when-restoring-from-hibernation.patch",
+      "status": "ported",
+      "subject": "drm/msm/a6xx: Reset the GMU state when restoring from hibernation",
+      "rc_patch": "0098-drm-msm-a6xx-Reset-the-GMU-state-when-restoring-from.patch"
+    },
+    {
+      "stable_patch": "0143-phy-qcom-qmp-combo-Update-Glymur-USB3-settings.patch",
+      "status": "ported",
+      "subject": "phy: qcom: qmp-combo: Update Glymur USB3 settings",
+      "rc_patch": "0099-phy-qcom-qmp-combo-Update-Glymur-USB3-settings.patch"
+    },
+    {
+      "stable_patch": null,
+      "rc_patch": "0100-Revert-drm-msm-a8xx-Enable-CLX-feature-on-Adreno-X2-.patch",
+      "status": "added_rc_only",
+      "subject": "Revert \"drm/msm/a8xx: Enable CLX feature on Adreno X2-85\"",
+      "upstream_commit": "d448c66b9e471451a3dbe890c555d957f60513e0",
+      "notes": "Reverts c2a6bcfbebce in next-20261103 to prevent Adreno X2-85 GPU hangs on Glymur"
+    }
+  ]
+}

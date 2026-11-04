@@ -1,13 +1,15 @@
 {
-  "base": "72d3fcf802c45d00b300f25b848a93c3a2bd7c7e",
-  "source_commit": "8e3099a6152991ba10f638748f16ecc52975b141",
-  "source_tree": "a17d7e30ee161a146706c0752c11a389454a9062",
-  "release": "7.3.0-rc5-ZenbookA16-20261018-rc5-qcom1+",
-  "patch_count": 104,
-  "base_patch_count": 64,
-  "bridge_patch_count": 40,
-  "prior_release": "7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+",
-  "prior_source_tree": "732b59a49185ef2c3c1cb462db166137dcf757a4",
-  "promotion_date": "2026-10-18",
-  "validation_scope": "Mainline v7.3-rc5 release base bridged with 41 qcom-next and qcom-topics commits; managed and updated via post-install hooks."
+  "base": "d6bcfc94eb4da6e089c5473970cd96727292fd97",
+  "base_tag": "next-20261103",
+  "mainline_rc_tag": "v7.4-rc1",
+  "mainline_rc_commit": "6628e7d4c6b25c8d18f1345e3a20d21829aae7e4",
+  "source_commit": "32a6ad3aef859024ea2a7ceff32b57c48a3eff77",
+  "source_tree": "f5c8bd36414eae4cea1cd2c0bf51de2ccf3b5caa",
+  "release": "7.4.0-rc1-next-20261103-zenbook-a16+",
+  "patch_count": 100,
+  "prior_release": "7.3.0-rc5-ZenbookA16-20261031-usb1+",
+  "prior_source_tree": "b3ae7b3a8a4c74930dfeb905c6471c16da0f69f0",
+  "promotion_date": "2026-11-03",
+  "camera_enabled": true,
+  "validation_scope": "Linux 7.4-rc1 linux-next (next-20261103) development track with 100-patch residual A16/Qualcomm/camera/microphone/USB stack (45 upstreamed patches retired from 7.3 stable, plus localversion-next drop and Adreno X2-85 CLX revert). Forward/reverse source replay, ARM64 Image/Image.gz/modules/DTB compilation, portable bundle, Fedora aarch64 RPMs, and disposable KVM guest package lifecycle verified on .19."
 }

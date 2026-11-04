@@ -27,7 +27,7 @@ def main():
     for name, expected in checks.items():
         if hashlib.sha256((here/name).read_bytes()).hexdigest() != expected:
             raise SystemExit(f'checksum mismatch: {name}')
-    subprocess.run([sys.executable, str(here.parents[2]/'kernel/rc/replay.py'), str(kernel)], check=True)
+    subprocess.run([sys.executable, str(here.parents[3]/'archive/kernel/rc5-20261031/replay.py'), str(kernel)], check=True)
     with tempfile.TemporaryDirectory(prefix='a16-camera-mic-verify-') as directory:
         env = {**os.environ, 'GIT_INDEX_FILE': str(Path(directory)/'index')}
 

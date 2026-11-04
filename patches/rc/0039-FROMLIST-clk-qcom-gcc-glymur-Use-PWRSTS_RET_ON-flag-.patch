@@ -1,0 +1,118 @@
+From ae2674c40de46990378eae846e4d6d73a3db29bb Mon Sep 17 00:00:00 2001
+From: Jagadeesh Kona <jagadeesh.kona@oss.qualcomm.com>
+Date: Fri, 16 Oct 2026 11:52:24 +0530
+Subject: [PATCH 039/100] FROMLIST: clk: qcom: gcc-glymur: Use PWRSTS_RET_ON
+ flag for
+
+USB GDSCs
+
+The USB GDSCs on Glymur are currently configured with PWRSTS_OFF_ON,
+which allows the GDSC framework to fully collapse these power domains
+during gdsc_disable(). When these GDSCs collapse, the corresponding USB
+configurations are not retained in USB host mode use-cases and this breaks
+the resume of USB controller from suspend.
+
+To avoid this, configure the USB GDSC power states to PWRSTS_RET_ON. This
+prevents the GDSC from powering off during gdsc_disable(), and allows
+hardware to retain the USB configurations across USB host mode use-cases.
+
+Link: https://lore.kernel.org/all/20261016-glymur-usb-ret-on-v1-1-1790a523fd9c@oss.qualcomm.com/
+Signed-off-by: Jagadeesh Kona <jagadeesh.kona@oss.qualcomm.com>
+---
+ drivers/clk/qcom/gcc-glymur.c | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/clk/qcom/gcc-glymur.c b/drivers/clk/qcom/gcc-glymur.c
+index be18a555fe31..857596210f71 100644
+--- a/drivers/clk/qcom/gcc-glymur.c
++++ b/drivers/clk/qcom/gcc-glymur.c
+@@ -7752,7 +7752,7 @@ static struct gdsc gcc_usb20_prim_gdsc = {
+ 	.pd = {
+ 		.name = "gcc_usb20_prim_gdsc",
+ 	},
+-	.pwrsts = PWRSTS_OFF_ON,
++	.pwrsts = PWRSTS_RET_ON,
+ 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
+ };
+ 
+@@ -7764,7 +7764,7 @@ static struct gdsc gcc_usb30_mp_gdsc = {
+ 	.pd = {
+ 		.name = "gcc_usb30_mp_gdsc",
+ 	},
+-	.pwrsts = PWRSTS_OFF_ON,
++	.pwrsts = PWRSTS_RET_ON,
+ 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
+ };
+ 
+@@ -7776,7 +7776,7 @@ static struct gdsc gcc_usb30_prim_gdsc = {
+ 	.pd = {
+ 		.name = "gcc_usb30_prim_gdsc",
+ 	},
+-	.pwrsts = PWRSTS_OFF_ON,
++	.pwrsts = PWRSTS_RET_ON,
+ 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
+ };
+ 
+@@ -7788,7 +7788,7 @@ static struct gdsc gcc_usb30_sec_gdsc = {
+ 	.pd = {
+ 		.name = "gcc_usb30_sec_gdsc",
+ 	},
+-	.pwrsts = PWRSTS_OFF_ON,
++	.pwrsts = PWRSTS_RET_ON,
+ 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
+ };
+ 
+@@ -7800,7 +7800,7 @@ static struct gdsc gcc_usb30_tert_gdsc = {
+ 	.pd = {
+ 		.name = "gcc_usb30_tert_gdsc",
+ 	},
+-	.pwrsts = PWRSTS_OFF_ON,
++	.pwrsts = PWRSTS_RET_ON,
+ 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
+ };
+ 
+@@ -7812,7 +7812,7 @@ static struct gdsc gcc_usb3_mp_ss0_phy_gdsc = {
+ 	.pd = {
+ 		.name = "gcc_usb3_mp_ss0_phy_gdsc",
+ 	},
+-	.pwrsts = PWRSTS_OFF_ON,
++	.pwrsts = PWRSTS_RET_ON,
+ 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
+ };
+ 
+@@ -7824,7 +7824,7 @@ static struct gdsc gcc_usb3_mp_ss1_phy_gdsc = {
+ 	.pd = {
+ 		.name = "gcc_usb3_mp_ss1_phy_gdsc",
+ 	},
+-	.pwrsts = PWRSTS_OFF_ON,
++	.pwrsts = PWRSTS_RET_ON,
+ 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
+ };
+ 
+@@ -7872,7 +7872,7 @@ static struct gdsc gcc_usb_0_phy_gdsc = {
+ 	.pd = {
+ 		.name = "gcc_usb_0_phy_gdsc",
+ 	},
+-	.pwrsts = PWRSTS_OFF_ON,
++	.pwrsts = PWRSTS_RET_ON,
+ 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
+ };
+ 
+@@ -7884,7 +7884,7 @@ static struct gdsc gcc_usb_1_phy_gdsc = {
+ 	.pd = {
+ 		.name = "gcc_usb_1_phy_gdsc",
+ 	},
+-	.pwrsts = PWRSTS_OFF_ON,
++	.pwrsts = PWRSTS_RET_ON,
+ 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
+ };
+ 
+@@ -7896,7 +7896,7 @@ static struct gdsc gcc_usb_2_phy_gdsc = {
+ 	.pd = {
+ 		.name = "gcc_usb_2_phy_gdsc",
+ 	},
+-	.pwrsts = PWRSTS_OFF_ON,
++	.pwrsts = PWRSTS_RET_ON,
+ 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
+ };
+ 

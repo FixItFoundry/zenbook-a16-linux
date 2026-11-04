@@ -11,7 +11,7 @@ Qualcomm is now actively developing Snapdragon X2 (`glymur`) laptop support upst
 1. **A Distro Packaging & Update Layer**: Delivers side-by-side installable **Fedora RPMs**, **Ubuntu/Debian DEBs**, **Arch / Omarchy PKGBUILDs**, and portable bundles alongside early-DSP initramfs barriers (`dracut`, `initramfs-tools`, `mkinitcpio`), verified DTBs (`qcom,keep-runtime-active;`), ALSA UCM2 / WirePlumber audio routing, and owner-extracted board firmware.
 2. **A Two-Track Kernel Bridge (`stable` & `rc`)**:
    - **`stable` ([`kernel/stable/`](kernel/stable/README.md) + [`patches/stable/`](patches/stable/README.md))**: Pinned to **Linux `v7.3` final** (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) with 143 backported and local patches (`11f818cf609ff60e6f826f47e757f939b5442adc`). Directly aligned with **`linux-omarchy 7.3`** so patches validated on `stable` ship to both standalone Fedora/Ubuntu users and Omarchy.
-   - **`rc` ([`kernel/rc/`](kernel/rc/README.md) + [`patches/rc/`](patches/rc/README.md))**: Development and upstream testing track for validating new LKML series (`Tested-by:` / `Reviewed-by:`), staging local contributor fixes before upstream submission, and rebasing onto `qcom-next` / `linux-next` snapshots. As patches land in mainline, they are retired from our queues (`patches/stable/port-map.json`).
+   - **`rc` ([`kernel/rc/`](kernel/rc/README.md) + [`patches/rc/`](patches/rc/README.md))**: Pinned to **Linux `v7.4-rc1` `linux-next` (`next-20261103`, `d6bcfc94eb4da6e089c5473970cd96727292fd97`)** with 100 residual patches (`f5c8bd36414eae4cea1cd2c0bf51de2ccf3b5caa`) after retiring 45 upstreamed patches from the `7.3` stable queue ([`patches/rc/port-map.json`](patches/rc/port-map.json)). Used for validating LKML series (`Tested-by:` / `Reviewed-by:`), staging local contributor fixes before upstream submission, and tracking `qcom-next` / `linux-next`.
 
 ---
 
@@ -19,7 +19,7 @@ Qualcomm is now actively developing Snapdragon X2 (`glymur`) laptop support upst
 
 ### 1. Build Kernel Packages (`RPM`, `DEB`, or Portable Bundle)
 
-Supply any Linux Git repository containing the pinned base commit (`v7.3` for `stable`, `v7.3-rc5` for `rc`):
+Supply any Linux Git repository containing the pinned base commit (`v7.3` for `stable`, `next-20261103` / `v7.4-rc1` for `rc`):
 
 ```sh
 # Replay and verify both tracks in a temporary Git index (no checkout changes):
@@ -74,15 +74,15 @@ See the [Fedora/Ubuntu installation guide](iso/README.md), [package contract](pa
 |---|---|
 | [`kernel/stable/`](kernel/stable/README.md) | **Stable Release Track (`v7.3` final)**: `build.sh`, `replay.py`, `build.json`, Kconfig (`config`, `required.config`), and `SHA256SUMS`. |
 | [`patches/stable/`](patches/stable/README.md) | **Stable Patch Queue (143 patches)**: Ordered `git format-patch` series for `v7.3` final plus [`port-map.json`](patches/stable/port-map.json) tracking upstream equivalents. |
-| [`kernel/rc/`](kernel/rc/README.md) | **RC / Upstream Development Track**: `build.sh`, `replay.py`, `build.json`, base `config`, and [`bridge.config`](kernel/rc/bridge.config). |
-| [`patches/rc/`](patches/rc/README.md) | **RC Layered Patch Stack**: [`base/`](patches/rc/base/README.md) (64 patches), [`qcom-glymur-bridge/`](patches/rc/qcom-glymur-bridge/README.md) (40 patches), [`camera-microphone/`](patches/rc/camera-microphone/README.md) (10 patches), and [`glymur-usb3/`](patches/rc/glymur-usb3/README.md) (1 patch + `tracks.json`). |
+| [`kernel/rc/`](kernel/rc/README.md) | **RC / Upstream Development Track (`v7.4-rc1` / `next-20261103`)**: `build.sh`, `replay.py`, `build.json`, Kconfig (`config`, `required.config`), and `SHA256SUMS`. |
+| [`patches/rc/`](patches/rc/README.md) | **RC Patch Queue (100 patches)**: Ordered `git format-patch` series for `next-20261103` (`d6bcfc94eb4da6e089c5473970cd96727292fd97`) plus [`port-map.json`](patches/rc/port-map.json) recording 45 retired upstream commits. |
 | [`kernel/arch-7.2.10/`](kernel/arch-7.2.10/BUILD-AND-UPGRADE.txt) | **Arch Linux 7.2.10 Recipe**: Reproducible `PKGBUILD` generator with side-by-side UKI and header support. |
 | [`packaging/`](packaging/zenbook-a16-kernel/README.md) | Distro packager ([`zenbook-a16-kernel/`](packaging/zenbook-a16-kernel/README.md)), persistent post-install hooks ([`zenbook-a16-hooks/`](packaging/zenbook-a16-hooks/)), and boot/initramfs verifiers ([`omarchy-a16-support/`](packaging/omarchy-a16-support/)). |
 | [`iso/`](iso/README.md) | Live image builder (`build-live-images.sh`), disk installer (`zenbook-install-to-disk.sh`), and Windows firmware extractor (`glymur-fetch-firmware.sh`). |
 | [`tweaks/`](tweaks/) | UX3607OA ALSA UCM2 profiles, WirePlumber rules, CPU frequency profiles (`glymur-cpu-profile.sh`), and suspend/resume guards. |
 | [`firmware/`](firmware/README.md) | Required Qualcomm/ASUS firmware manifest and topology documentation (no proprietary blobs are stored in Git). |
 | [`scripts/`](scripts/ci.py) | Hardware-free CI runner (`ci.py`), disposable KVM guest harness (`ci-vm.sh`), and runtime triage utilities (`scripts/triage/`). |
-| [`archive/`](archive/README.md) | Retired bringup snapshots (`rc3-20260919`, `rc5-20261002`, `rc5-20261008`, `rc5-20261013`, `next-202608*`) and historical standalone patches. |
+| [`archive/`](archive/README.md) | Retired bringup snapshots (`rc3-20260919`, `rc5-20261002`, `rc5-20261008`, `rc5-20261013`, `rc5-20261031`, `next-202608*`) and historical standalone patches. |
 
 ---
 

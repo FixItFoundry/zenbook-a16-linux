@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Replay the mainline release + qcom-next/qcom-topics bridge series in a temporary Git index."""
+"""Replay the shipped RC series in a temporary Git index; never alter a checkout."""
 import hashlib
 import json
 import os
@@ -21,8 +21,7 @@ def main():
         raise SystemExit(f'not a Git repository: {kernel}')
     here = Path(__file__).resolve().parent
     repo = here.parent.parent
-    base_series = repo / 'patches/rc/base'
-    bridge_series = repo / 'patches/rc/qcom-glymur-bridge'
+    series = repo / 'patches/rc'
     meta = json.loads((here / 'build.json').read_text())
     if subprocess.run(
         ['git', '-C', str(kernel), 'cat-file', '-e', f'{meta["base"]}^{{commit}}'],
@@ -33,15 +32,10 @@ def main():
             f'base commit {meta["base"]} is missing from {kernel}; '
             'fetch the recorded Linux history first'
         )
-    base_names = (base_series / 'series').read_text().splitlines()
-    bridge_names = (bridge_series / 'series').read_text().splitlines()
-    if (len(base_names) != meta['base_patch_count']
-            or len(bridge_names) != meta['bridge_patch_count']
-            or len(base_names) + len(bridge_names) != meta['patch_count']
-            or len(set(base_names)) != len(base_names)
-            or len(set(bridge_names)) != len(bridge_names)):
+    names = (series / 'series').read_text().splitlines()
+    if len(names) != meta['patch_count'] or len(set(names)) != len(names):
         raise SystemExit('invalid series length or duplicate patches')
-    for name in [*base_names, *bridge_names]:
+    for name in names:
         if Path(name).name != name or not name.endswith('.patch'):
             raise SystemExit('invalid patch name')
     for line in (here / 'SHA256SUMS').read_text().splitlines():
@@ -49,11 +43,11 @@ def main():
         path = (repo / name).resolve()
         if not path.is_relative_to(repo) or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
             raise SystemExit(f'checksum mismatch: {name}')
-    with tempfile.TemporaryDirectory(prefix='a16-qcom-bridge-verify-') as directory:
+    with tempfile.TemporaryDirectory(prefix='a16-rc-verify-') as directory:
         env = {**os.environ, 'GIT_INDEX_FILE': str(Path(directory) / 'index')}
         def git(*args):
             result = subprocess.run(
-                ['git', '-C', str(kernel), *args],
+                ['git', '-c', 'core.ignorecase=false', '-C', str(kernel), *args],
                 env=env,
                 text=True,
                 stdout=subprocess.PIPE,
@@ -63,18 +57,20 @@ def main():
                 detail = result.stderr.strip() or result.stdout.strip()
                 raise SystemExit(f'git {args[0]} failed: {detail}')
             return result.stdout.strip()
+        base_tree = git('rev-parse', f'{meta["base"]}^{{tree}}')
         git('read-tree', meta['base'])
-        for name in base_names:
-            git('apply', '--cached', str(base_series / name))
-        prior = git('write-tree')
-        if prior != meta['prior_source_tree']:
-            raise SystemExit(f'prior tree mismatch: {prior}')
-        for name in bridge_names:
-            git('apply', '--cached', str(bridge_series / name))
+        for idx, name in enumerate(names):
+            if idx and idx == len(names) - 1:
+                git('write-tree')
+            git('apply', '--cached', str(series / name))
         actual = git('write-tree')
         if actual != meta['source_tree']:
             raise SystemExit(f'tree mismatch: {actual}')
-    print(f'PASS: {meta["patch_count"]} patches ({len(base_names)} base + {len(bridge_names)} qcom-next/qcom-topics bridge) reproduce source tree {actual}; checksums match')
+        for name in reversed(names):
+            git('apply', '--cached', '--reverse', str(series / name))
+        if git('write-tree') != base_tree:
+            raise SystemExit('reverse application did not restore base tree')
+    print(f'PASS: {len(names)} patches reproduce source tree {actual} and reverse cleanly; checksums match')
 
 
 if __name__ == '__main__':

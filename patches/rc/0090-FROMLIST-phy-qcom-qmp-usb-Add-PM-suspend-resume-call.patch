@@ -1,0 +1,48 @@
+From ade1a4a4b6d71b7bfd29f50ba70311fc28068415 Mon Sep 17 00:00:00 2001
+From: Prashanth K <prashanth.k@oss.qualcomm.com>
+Date: Wed, 7 Oct 2026 15:43:02 +0530
+Subject: [PATCH 090/100] FROMLIST: phy: qcom: qmp-usb: Add PM suspend/resume
+ callbacks
+
+Currently when we perform system suspend, the USB clocks are not
+turned off, this leads to power leakage. Prevent this by adding
+PM suspend/resume callbacks for the qmp-usb phy which toggles
+clocks on/off correspondingly.
+
+Link: https://lore.kernel.org/all/20261022104321.306679-3-prashanth.k@oss.qualcomm.com/
+Signed-off-by: Prashanth K <prashanth.k@oss.qualcomm.com>
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-usb.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-usb.c b/drivers/phy/qualcomm/phy-qcom-qmp-usb.c
+index 6a9faa0ce3bb..0876715900ea 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-usb.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-usb.c
+@@ -2126,9 +2126,26 @@ static int __maybe_unused qmp_usb_runtime_resume(struct device *dev)
+ 	return 0;
+ }
+ 
++static int __maybe_unused qmp_usb_pm_suspend(struct device *dev)
++{
++	if (pm_runtime_suspended(dev))
++		return 0;
++
++	return qmp_usb_runtime_suspend(dev);
++}
++
++static int __maybe_unused qmp_usb_pm_resume(struct device *dev)
++{
++	if (pm_runtime_suspended(dev))
++		return 0;
++
++	return qmp_usb_runtime_resume(dev);
++}
++
+ static const struct dev_pm_ops qmp_usb_pm_ops = {
+ 	SET_RUNTIME_PM_OPS(qmp_usb_runtime_suspend,
+ 			   qmp_usb_runtime_resume, NULL)
++	SET_SYSTEM_SLEEP_PM_OPS(qmp_usb_pm_suspend, qmp_usb_pm_resume)
+ };
+ 
+ static int qmp_usb_reset_init(struct qmp_usb *qmp,

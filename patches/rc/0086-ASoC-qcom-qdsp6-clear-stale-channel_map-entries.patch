@@ -1,0 +1,41 @@
+From e13df32e1e64f09bea938e27fd7068849ed65134 Mon Sep 17 00:00:00 2001
+From: Fabian Renn-Giles <fabian@fielding.dev>
+Date: Mon, 17 Aug 2026 18:20:00 -0400
+Subject: [PATCH 086/100] ASoC: qcom: qdsp6: clear stale channel_map entries
+
+q6dma_set_channel_map() only writes the first tx_num/rx_num entries.
+The per-DAI module_config in q6apm-lpass-dais is persistent, so entries
+written by an earlier, wider configuration survive a later narrower one.
+The codec DMA active_channels_mask is built from non-zero channel_map
+entries, so stale entries can make it disagree with num_channels.
+
+Clear the whole channel_map before filling it in both setter branches.
+The default mapping path is already cleared by q6dsp_map_channels().
+
+Fixes: c663014e452d ("ASoC: qcom: audioreach: compute active channel maps from channel_map")
+Signed-off-by: Fabian Renn-Giles <fabian@fielding.dev>
+Link: https://lore.kernel.org/r/20261028100708.6808-1-fabian@fielding.dev
+---
+ sound/soc/qcom/qdsp6/q6apm-lpass-dais.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/sound/soc/qcom/qdsp6/q6apm-lpass-dais.c b/sound/soc/qcom/qdsp6/q6apm-lpass-dais.c
+index 9a3994a4f475..31c9d3bfd324 100644
+--- a/sound/soc/qcom/qdsp6/q6apm-lpass-dais.c
++++ b/sound/soc/qcom/qdsp6/q6apm-lpass-dais.c
+@@ -99,6 +99,7 @@ static int q6dma_set_channel_map(struct snd_soc_dai *dai,
+ 				tx_num);
+ 			return -EINVAL;
+ 		}
++		memset(cfg->channel_map, 0, sizeof(cfg->channel_map));
+ 		for (i = 0; i < tx_num; i++)
+ 			cfg->channel_map[i] = tx_ch_mask[i];
+ 
+@@ -123,6 +124,7 @@ static int q6dma_set_channel_map(struct snd_soc_dai *dai,
+ 				rx_num);
+ 			return -EINVAL;
+ 		}
++		memset(cfg->channel_map, 0, sizeof(cfg->channel_map));
+ 		for (i = 0; i < rx_num; i++)
+ 			cfg->channel_map[i] = rx_ch_mask[i];
+ 

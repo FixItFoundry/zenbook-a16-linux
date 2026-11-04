@@ -1,0 +1,35 @@
+From 07ee0600cb07024a8712e9c6d1edd7f9da23c7c9 Mon Sep 17 00:00:00 2001
+From: Krishna Kurapati <krishna.kurapati@oss.qualcomm.com>
+Date: Thu, 17 Sep 2026 15:10:09 +0530
+Subject: [PATCH 040/100] FROMLIST: phy: qualcomm: phy-qcom-eusb2-repeater: Fix
+ SMB
+
+Power leakage issue
+
+On Glymur, it is observed that although the exit call is done, there is a
+power leakage seen on SMB2370 charger (which embeds the eUSB2 module as
+well). As per recommendation of HW team, disable the repeater during the
+exit call to prevent this power leakage.
+
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Reviewed-by: Abel Vesa <abel.vesa@oss.qualcomm.com>
+Link: https://lore.kernel.org/all/20260917-smb-repeater-power-leakage-v1-1-6d7311c3c03e@oss.qualcomm.com/
+Signed-off-by: Krishna Kurapati <krishna.kurapati@oss.qualcomm.com>
+---
+ drivers/phy/qualcomm/phy-qcom-eusb2-repeater.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-eusb2-repeater.c b/drivers/phy/qualcomm/phy-qcom-eusb2-repeater.c
+index 89bc1c89fc85..607b5a5a1713 100644
+--- a/drivers/phy/qualcomm/phy-qcom-eusb2-repeater.c
++++ b/drivers/phy/qualcomm/phy-qcom-eusb2-repeater.c
+@@ -227,7 +227,9 @@ static int eusb2_repeater_set_mode(struct phy *phy,
+ static int eusb2_repeater_exit(struct phy *phy)
+ {
+ 	struct eusb2_repeater *rptr = phy_get_drvdata(phy);
++	struct regmap *regmap = rptr->regmap;
+ 
++	regmap_write(regmap, EUSB2_EN_CTL1, 0);
+ 	return regulator_bulk_disable(rptr->cfg->num_vregs, rptr->vregs);
+ }
+ 

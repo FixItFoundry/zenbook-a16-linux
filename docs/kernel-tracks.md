@@ -10,9 +10,9 @@ Updated 2026-11-03. With Qualcomm actively developing Snapdragon X2 (`glymur`) l
 | Track | Recipe Directory | Patch Queue | Upstream Base | Replayed Source Tree | Role |
 |---|---|---|---|---|---|
 | **`stable`** | [`kernel/stable/`](../kernel/stable/README.md) | [`patches/stable/`](../patches/stable/README.md) (143 patches) | `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) | `11f818cf609ff60e6f826f47e757f939b5442adc` | Primary release and packaging target for Fedora, Ubuntu/Debian, and `linux-omarchy 7.3`. |
-| **`rc`** | [`kernel/rc/`](../kernel/rc/README.md) | [`patches/rc/`](../patches/rc/README.md) (`base` + `qcom-glymur-bridge` + `camera-microphone` + `glymur-usb3`) | `v7.3-rc5` (`72d3fcf802c45d00b300f25b848a93c3a2bd7c7e`) / next snapshots | `a17d7e30ee161a146706c0752c11a389454a9062` (`b3ae7b3a8a4c74930dfeb905c6471c16da0f69f0` full) | Opt-in development, LKML patch validation, and upstream rebase staging. |
+| **`rc`** | [`kernel/rc/`](../kernel/rc/README.md) | [`patches/rc/`](../patches/rc/README.md) (100 patches) | `next-20261103` (`d6bcfc94eb4da6e089c5473970cd96727292fd97`, `v7.4-rc1`) | `f5c8bd36414eae4cea1cd2c0bf51de2ccf3b5caa` | Opt-in development, LKML patch validation, and upstream rebase staging (`7.4.0-rc1-next-20261103-zenbook-a16+`). |
 
-Historical bringup recipes (`rc3-*`, `rc5-20261002`, `rc5-20261008`, `rc5-20261013`) and standalone diagnostic patches are archived under [`archive/`](../archive/README.md).
+Historical bringup recipes (`rc3-*`, `rc5-20261002`, `rc5-20261008`, `rc5-20261013`, `rc5-20261031`) and standalone diagnostic patches are archived under [`archive/`](../archive/README.md).
 
 ## Patch Lifecycle: From `rc` to `stable` to Mainline
 
@@ -26,7 +26,7 @@ Historical bringup recipes (`rc3-*`, `rc5-20261002`, `rc5-20261008`, `rc5-202610
    ```sh
    python3 scripts/ci.py --replay-only --track both --linux-git /path/to/linux.git
    ```
-   Verifies every SHA256 checksum in `kernel/stable/SHA256SUMS`, `kernel/rc/SHA256SUMS`, `patches/rc/camera-microphone/SHA256SUMS`, and `patches/rc/glymur-usb3/SHA256SUMS`, replays all patches in a temporary Git index without modifying the checkout, and confirms reverse application of candidate overlays.
+   Verifies every SHA256 checksum in `kernel/stable/SHA256SUMS` and `kernel/rc/SHA256SUMS`, replays all patches in a temporary Git index without modifying the checkout, and confirms reverse application back to the recorded upstream base.
 2. **Hardware-Free CI & Package Contract Suite**:
    ```sh
    ./scripts/ci-vm.sh --linux-git /path/to/linux.git

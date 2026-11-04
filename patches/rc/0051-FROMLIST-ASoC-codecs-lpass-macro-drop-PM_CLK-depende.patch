@@ -1,0 +1,50 @@
+From 7bff2c62c158fa2769145a152cbc294e65dcfab5 Mon Sep 17 00:00:00 2001
+From: Ajay Kumar Nandam <ajay.nandam@oss.qualcomm.com>
+Date: Mon, 28 Sep 2026 16:14:58 +0530
+Subject: [PATCH 051/100] FROMLIST: ASoC: codecs: lpass-macro: drop PM_CLK
+ dependency
+
+The LPASS macro codec drivers no longer use PM clock framework helpers
+after moving clock handling into runtime PM callbacks. Drop the PM_CLK
+dependency from RX, TX, VA and WSA macro Kconfig symbols.
+
+Link: https://lore.kernel.org/all/20260928-xo-sd-runtimepm-v1-final-v1-5-e3ebade3aeb7@oss.qualcomm.com/
+Signed-off-by: Ajay Kumar Nandam <ajay.nandam@oss.qualcomm.com>
+Signed-off-by: Aiyaz Patel <aiyapate@qti.qualcomm.com>
+---
+ sound/soc/codecs/Kconfig | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/sound/soc/codecs/Kconfig b/sound/soc/codecs/Kconfig
+index 3e379a8d5b1c..601d6bc6a413 100644
+--- a/sound/soc/codecs/Kconfig
++++ b/sound/soc/codecs/Kconfig
+@@ -2985,28 +2985,24 @@ config SND_SOC_LPASS_MACRO_COMMON
+ 
+ config SND_SOC_LPASS_WSA_MACRO
+ 	depends on COMMON_CLK
+-	depends on PM_CLK
+ 	select REGMAP_MMIO
+ 	select SND_SOC_LPASS_MACRO_COMMON
+ 	tristate "Qualcomm WSA Macro in LPASS(Low Power Audio SubSystem)"
+ 
+ config SND_SOC_LPASS_VA_MACRO
+ 	depends on COMMON_CLK
+-	depends on PM_CLK
+ 	select REGMAP_MMIO
+ 	select SND_SOC_LPASS_MACRO_COMMON
+ 	tristate "Qualcomm VA Macro in LPASS(Low Power Audio SubSystem)"
+ 
+ config SND_SOC_LPASS_RX_MACRO
+ 	depends on COMMON_CLK
+-	depends on PM_CLK
+ 	select REGMAP_MMIO
+ 	select SND_SOC_LPASS_MACRO_COMMON
+ 	tristate "Qualcomm RX Macro in LPASS(Low Power Audio SubSystem)"
+ 
+ config SND_SOC_LPASS_TX_MACRO
+ 	depends on COMMON_CLK
+-	depends on PM_CLK
+ 	select REGMAP_MMIO
+ 	select SND_SOC_LPASS_MACRO_COMMON
+ 	tristate "Qualcomm TX Macro in LPASS(Low Power Audio SubSystem)"

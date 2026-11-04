@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Build the mainline release + qcom-next/qcom-topics bridge source as a
-# versioned A16 kernel package managed via post-install hooks.
+# Build the pinned Linux 7.4-rc1 linux-next (next-20261103) A16/Qualcomm/camera source as a versioned candidate.
 set -Eeuo pipefail
 
 usage() {
@@ -9,7 +8,7 @@ Usage: build.sh [--resume] LINUX_GIT OUTPUT_DIR
 
 LINUX_GIT must be a Linux kernel Git repository containing the recorded base
 commit. OUTPUT_DIR must not already exist unless --resume is given. Resume
-reuses a clean, fully patched worktree and its build objects after a build or
+reuses an unchanged, fully patched worktree and its build objects after a build or
 packaging failure. Use the same environment settings as the original build.
 The script never changes your current kernel checkout.
 
@@ -43,8 +42,7 @@ linux_git=$(realpath "$1")
 output=$2
 project=$(realpath "$(dirname "${BASH_SOURCE[0]}")/../..")
 meta="$project/kernel/rc/build.json"
-base_patch_dir="$project/patches/rc/base"
-bridge_patch_dir="$project/patches/rc/qcom-glymur-bridge"
+patch_dir="$project/patches/rc"
 jobs=${JOBS:-4}
 build_rpm=${BUILD_RPM:-1}
 build_deb=${BUILD_DEB:-0}
@@ -54,6 +52,8 @@ local_version="-a16pkg${revision}+"
 export ARCH=${ARCH:-arm64}
 export CROSS_COMPILE=${CROSS_COMPILE:-}
 
+# Accept a non-bare checkout or a bare repository; both are valid inputs
+# because the worktree is created from the recorded base commit, not HEAD.
 if [[ "$(git -C "$linux_git" rev-parse --is-inside-work-tree 2>/dev/null)" != true ]] \
     && [[ "$(git -C "$linux_git" rev-parse --is-bare-repository 2>/dev/null)" != true ]]; then
     echo "error: not a Git checkout or bare repository: $linux_git" >&2
@@ -117,41 +117,40 @@ if [[ "$resume" == 1 ]]; then
         echo "error: source worktree belongs to a different Linux repository" >&2
         exit 1
     }
-    source_status=$(git -C "$source_tree" status --porcelain --untracked-files=all)
+    source_status=$(git -C "$source_tree" ls-files --others --exclude-standard)
     [[ -z "$source_status" && \
-       ! -d "$(git -C "$source_tree" rev-parse --git-path rebase-apply)" ]] || {
-        echo "error: cannot resume a modified worktree or an unfinished git am" >&2
+       ! -d "$(git -C "$source_tree" rev-parse --git-path rebase-apply)" ]] \
+       && git -C "$source_tree" diff --quiet || {
+        echo "error: cannot resume a modified worktree or unfinished patch application" >&2
         exit 1
     }
     echo "Resuming with existing source and build objects..."
 else
     echo "Creating an isolated source worktree..."
     git -C "$linux_git" worktree add --detach "$source_tree" "$base"
-    git -C "$source_tree" config user.name "${GIT_COMMITTER_NAME:-Zenbook A16 Builder}"
-    git -C "$source_tree" config user.email "${GIT_COMMITTER_EMAIL:-builder@localhost}"
     while IFS= read -r patch; do
         [[ -n "$patch" ]] || continue
-        git -C "$source_tree" am "$base_patch_dir/$patch"
-    done < "$base_patch_dir/series"
-    while IFS= read -r patch; do
-        [[ -n "$patch" ]] || continue
-        git -C "$source_tree" am "$bridge_patch_dir/$patch"
-    done < "$bridge_patch_dir/series"
+        git -C "$source_tree" apply --index "$patch_dir/$patch"
+    done < "$patch_dir/series"
 fi
 
-actual_tree=$(git -C "$source_tree" rev-parse 'HEAD^{tree}')
-[[ "$actual_tree" == "$expected_tree" ]] || {
+actual_tree=$(git -C "$source_tree" write-tree)
+[[ "$actual_tree" == "$expected_tree" && "$(git -C "$source_tree" rev-parse HEAD)" == "$base" ]] || {
     echo "error: patched source tree is $actual_tree; expected $expected_tree (resume requires completed patch application)" >&2
     exit 1
 }
 
 mkdir -p "$object_dir"
 if [[ "$resume" == 0 || ! -s "$object_dir/.config" ]]; then
-    "$source_tree/scripts/kconfig/merge_config.sh" -m -O "$object_dir" \
-        "$project/kernel/rc/config" \
-        "$project/kernel/rc/bridge.config"
+    cp "$project/kernel/rc/config" "$object_dir/.config"
 fi
 make -C "$source_tree" O="$object_dir" LOCALVERSION="$local_version" olddefconfig
+while IFS= read -r setting; do
+    grep -Fxq -- "$setting" "$object_dir/.config" || {
+        echo "error: required A16 setting lost after olddefconfig: $setting" >&2
+        exit 1
+    }
+done < "$project/kernel/rc/required.config"
 release=$(make -s -C "$source_tree" O="$object_dir" LOCALVERSION="$local_version" kernelrelease)
 [[ "$release" == "$expected_release" ]] || {
     echo "error: kernel release is $release; expected $expected_release" >&2
@@ -232,6 +231,5 @@ Build complete: $release
   Ubuntu/Debian DEBs: $deb_summary
 
 Nothing was installed or selected for boot. Review packaging/zenbook-a16-kernel/README.md
-before installing all three packages together. Post-install hooks manage initramfs, DTB,
-and hardware activation upon installation.
+before installing all three packages together. Live initramfs generation is separate.
 EOF

@@ -35,10 +35,6 @@ class BuildResumeChecks(unittest.TestCase):
             "\t@mkdir -p '$(O)/arch/arm64/boot/dts/qcom'\n"
             "\t@echo dtb > '$(O)/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dtb'\n"
             "modules dtbs:\n\t@:\n")
-        merge = self.linux / "scripts/kconfig/merge_config.sh"
-        merge.parent.mkdir(parents=True)
-        merge.write_text('#!/bin/sh\ncp "$4" "$3/.config"\n')
-        merge.chmod(0o755)
         self.git(self.linux, "add", ".")
         self.git(self.linux, "commit", "-qm", "Fixture base")
         base = self.git(self.linux, "rev-parse", "HEAD")
@@ -48,29 +44,27 @@ class BuildResumeChecks(unittest.TestCase):
         self.git(self.linux, "commit", "-qm", "Fixture patch")
         tree = self.git(self.linux, "rev-parse", "HEAD^{tree}")
         self.expected_tree = tree
-        series = self.project / "patches/rc/base"
-        series.mkdir(parents=True)
-        (series / "fixture.patch").write_text(self.git(self.linux, "format-patch", "-1", "--stdout") + "\n")
-        (series / "series").write_text("fixture.patch\n")
-        bridge = self.project / "patches/rc/qcom-glymur-bridge"
-        bridge.mkdir(parents=True)
-        (bridge / "series").write_text("")
-        final = self.project / "patches/stable"
-        shutil.copytree(series, final)
-        raw = (final / "fixture.patch").read_text()
-        (final / "fixture.patch").write_text("Subject: Raw camera-style patch\n\n" + raw[raw.index("diff --git "):])
+        patch_text = self.git(self.linux, "format-patch", "-1", "--stdout") + "\n"
         for build in BUILDS:
+            pdir = self.project / "patches" / build
+            pdir.mkdir(parents=True)
+            if build == "stable":
+                (pdir / "fixture.patch").write_text(
+                    "Subject: Raw camera-style patch\n\n" + patch_text[patch_text.index("diff --git "):]
+                )
+            else:
+                (pdir / "fixture.patch").write_text(patch_text)
+            (pdir / "series").write_text("fixture.patch\n")
             folder = self.project / "kernel" / build
             folder.mkdir(parents=True)
             for name in ("build.sh", "replay.py"):
                 shutil.copy2(REPO / "kernel" / build / name, folder / name)
             (folder / "build.json").write_text(json.dumps({
                 "base": base, "source_tree": tree, "release": "fixture+", "patch_count": 1,
-                "base_patch_count": 1, "bridge_patch_count": 0, "prior_source_tree": tree}))
+                "prior_source_tree": tree}))
             (folder / "config").write_text("CONFIG_FIXTURE=y\n")
             (folder / "required.config").write_text("CONFIG_FIXTURE=y\n")
             (folder / "SHA256SUMS").write_text("")
-        (self.project / "kernel/rc/bridge.config").write_text("")
         commands = self.root / "commands"
         commands.mkdir()
         for name in ("dtc", "fdtget"):
@@ -110,9 +104,8 @@ class BuildResumeChecks(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertIn("Build complete", result.stdout)
                 self.assertEqual(self.git(source, "rev-parse", "HEAD"), head)
-                if build == "stable":
-                    self.assertEqual(self.git(source, "rev-parse", "HEAD"), self.base)
-                    self.assertEqual(self.git(source, "write-tree"), self.expected_tree)
+                self.assertEqual(self.git(source, "rev-parse", "HEAD"), self.base)
+                self.assertEqual(self.git(source, "write-tree"), self.expected_tree)
                 self.assertIn("CONFIG_PRESERVED=y", config.read_text())
                 self.assertEqual((obj.stat().st_ino, obj.stat().st_mtime_ns), (stat.st_ino, stat.st_mtime_ns))
 
@@ -135,28 +128,25 @@ class BuildResumeChecks(unittest.TestCase):
                         path.unlink()
                 (source / "patched").write_text("staged change\n")
                 self.git(source, "add", "patched")
-                expected = "patched source tree" if build == "stable" else "modified worktree"
-                self.assertIn(expected, self.run_build(build, resume=True).stderr)
+                self.assertIn("patched source tree", self.run_build(build, resume=True).stderr)
                 self.git(source, "restore", "--source", self.expected_tree, "--staged", "--worktree", "patched")
                 state = Path(self.git(source, "rev-parse", "--git-path", "rebase-apply"))
                 state.mkdir()
                 self.assertIn("unfinished", self.run_build(build, resume=True).stderr)
                 state.rmdir()
                 self.assertIn("different Linux repository", self.run_build(build, resume=True, linux=self.other).stderr)
-                if build == "stable":
-                    self.git(source, "checkout", "--detach", self.git(self.linux, "rev-parse", "HEAD"))
-                else:
-                    self.git(source, "checkout", "--detach", "HEAD^")
+                self.git(source, "checkout", "--detach", self.git(self.linux, "rev-parse", "HEAD"))
                 self.assertIn("patched source tree", self.run_build(build, resume=True).stderr)
                 self.assertEqual(calls.read_bytes(), before)
 
     def test_final_build_stops_if_olddefconfig_drops_a_required_driver(self):
-        build = "stable"
-        (self.project / "kernel" / build / "required.config").write_text("CONFIG_CAMERA_REQUIRED=m\n")
-        result = self.run_build(build)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("required A16 setting lost after olddefconfig: CONFIG_CAMERA_REQUIRED=m", result.stderr)
-        self.assertFalse((self.root / build / "build/retained.o").exists())
+        for build in BUILDS:
+            with self.subTest(build=build):
+                (self.project / "kernel" / build / "required.config").write_text("CONFIG_CAMERA_REQUIRED=m\n")
+                result = self.run_build(build)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("required A16 setting lost after olddefconfig: CONFIG_CAMERA_REQUIRED=m", result.stderr)
+                self.assertFalse((self.root / build / "build/retained.o").exists())
 
 
 if __name__ == "__main__":

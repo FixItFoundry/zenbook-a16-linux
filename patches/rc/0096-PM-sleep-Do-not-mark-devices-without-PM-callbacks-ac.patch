@@ -1,0 +1,69 @@
+From 35dc164fb95eb5dbedb832bb7eec619a77f55d18 Mon Sep 17 00:00:00 2001
+From: Abel Vesa <abel.vesa@oss.qualcomm.com>
+Date: Mon, 2 Nov 2026 16:46:50 +0200
+Subject: [PATCH 096/100] PM: sleep: Do not mark devices without PM callbacks
+ active on resume
+
+Devices without system sleep callbacks get power.smart_suspend set in
+device_prepare_smart_suspend(), unless their parent or a supplier
+prevents it, so device_resume_noirq() sets their runtime PM status to
+"active" whenever dev_pm_skip_resume() returns false. That is always
+the case for PM_EVENT_RESTORE.
+
+Nothing resumes such a device, though. If its bus or driver manages
+resources from runtime PM callbacks, those resources stay off while the
+device is now reported as active, and the next runtime suspend releases
+them a second time.
+
+AMBA devices are an example, since the AMBA bus only has runtime PM
+callbacks, which enable and disable the APB clock. After restoring from
+hibernation on a Qualcomm Glymur CRD, the runtime-suspended CoreSight
+devices are marked active, and the following runtime suspend of each of
+them hits:
+
+  qdss already disabled
+  WARNING: drivers/clk/clk.c:1259 at clk_core_disable+0xa4/0xac
+  Call trace:
+   clk_core_disable+0xa4/0xac (P)
+   clk_disable+0x30/0x4c
+   amba_pm_runtime_suspend+0x58/0x74
+   __rpm_callback+0x48/0x1e0
+   rpm_callback+0x58/0x64
+   rpm_suspend+0x10c/0x5a4
+   pm_runtime_work+0xc8/0xd8
+
+followed by "qdss already unprepared".
+
+On suspend-to-RAM this does not happen, because such devices take the
+direct_complete path and device_resume_noirq() returns early for them.
+
+Leave the runtime PM status of devices without PM callbacks as it is.
+
+Fixes: bca84a7b93fd ("PM: sleep: Use DPM_FLAG_SMART_SUSPEND conditionally")
+Link: https://lore.kernel.org/all/20261029-pm-sleep-hibernation-fixes-v1-1-a2fd76bd9066@oss.qualcomm.com/
+Signed-off-by: Abel Vesa <abel.vesa@oss.qualcomm.com>
+---
+ drivers/base/power/main.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/base/power/main.c b/drivers/base/power/main.c
+index 88a31e09e4f3..16a1f017051e 100644
+--- a/drivers/base/power/main.c
++++ b/drivers/base/power/main.c
+@@ -839,10 +839,15 @@ static void device_resume_noirq(struct device *dev, pm_message_t state, bool asy
+ 	 * Otherwise, the device is going to be resumed, so set its PM-runtime
+ 	 * status to "active" unless its power.smart_suspend flag is clear, in
+ 	 * which case it is not necessary to update its PM-runtime status.
++	 *
++	 * A device without system sleep callbacks is not going to be resumed
++	 * by anyone, though, so leave its PM-runtime status as is. Otherwise,
++	 * resources managed by its runtime PM callbacks, like the bus clock of
++	 * an AMBA device, would end up unbalanced on the next runtime suspend.
+ 	 */
+ 	if (skip_resume)
+ 		pm_runtime_set_suspended(dev);
+-	else if (dev_pm_smart_suspend(dev))
++	else if (dev_pm_smart_suspend(dev) && !dev->power.no_pm_callbacks)
+ 		pm_runtime_set_active(dev);
+ 
+ 	if (dev->pm_domain) {

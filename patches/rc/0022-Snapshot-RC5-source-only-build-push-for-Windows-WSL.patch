@@ -1,0 +1,120 @@
+From 6eed6ad05de13b8338d33cd1bf98ebdb567147a6 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Tue, 6 Oct 2026 10:40:44 -0400
+Subject: [PATCH 022/100] Snapshot RC5 source-only build push for Windows WSL
+
+continuation
+
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ drivers/media/platform/qcom/camss/camss.c | 10 ++++++++--
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 12 +++---------
+ drivers/soundwire/qcom.c                  | 16 ++++++++++++++++
+ 3 files changed, 27 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/media/platform/qcom/camss/camss.c b/drivers/media/platform/qcom/camss/camss.c
+index c54185c93a8a..ac1eb594797e 100644
+--- a/drivers/media/platform/qcom/camss/camss.c
++++ b/drivers/media/platform/qcom/camss/camss.c
+@@ -4679,11 +4679,12 @@ static const struct parent_dev_ops vfe_parent_dev_ops = {
+  *
+  * Return 0 on success or a negative error code on failure
+  */
+-static int camss_parse_endpoint_node(struct device *dev,
++static int camss_parse_endpoint_node(struct camss *camss,
+ 				     struct fwnode_handle *ep,
+ 				     struct camss_async_subdev *csd,
+ 				     u8 lane_base)
+ {
++	struct device *dev = camss->dev;
+ 	struct csiphy_lanes_cfg *lncfg = &csd->interface.csi2.lane_cfg;
+ 	struct v4l2_mbus_config_mipi_csi2 *mipi_csi2;
+ 	struct v4l2_fwnode_endpoint vep = { { 0 } };
+@@ -4703,6 +4704,11 @@ static int camss_parse_endpoint_node(struct device *dev,
+ 		return -EINVAL;
+ 	}
+ 
++	if (vep.base.port >= camss->res->csiphy_num) {
++		dev_err(dev, "Invalid CSIPHY port %u\n", vep.base.port);
++		return -EINVAL;
++	}
++
+ 	csd->interface.csiphy_id = vep.base.port;
+ 
+ 	mipi_csi2 = &vep.bus.mipi_csi2;
+@@ -4783,7 +4789,7 @@ static int camss_parse_ports(struct camss *camss)
+ 		if (IS_ERR(csd))
+ 			return PTR_ERR(csd);
+ 
+-		ret = camss_parse_endpoint_node(dev, ep, csd, lane_base);
++		ret = camss_parse_endpoint_node(camss, ep, csd, lane_base);
+ 		if (ret < 0)
+ 			return ret;
+ 	}
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index 187f0cd11f6c..7a70524420d6 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -4225,7 +4225,8 @@ static int qmp_combo_com_init(struct qmp_combo *qmp, bool force)
+ err_disable_regulators:
+ 	regulator_bulk_disable(cfg->num_vregs, qmp->vregs);
+ err_decrement_count:
+-	qmp->init_count--;
++	if (!force)
++		qmp->init_count--;
+ 
+ 	return ret;
+ }
+@@ -4405,15 +4406,8 @@ static int qmp_combo_usb_power_on(struct phy *phy)
+ 	status = pcs + cfg->regs[QPHY_PCS_STATUS];
+ 	ret = readl_poll_timeout(status, val, !(val & PHYSTATUS), 200,
+ 			PHY_INIT_COMPLETE_TIMEOUT);
+-	if (ret) {
++	if (ret)
+ 		dev_err(qmp->dev, "phy initialization timed-out\n");
+-		goto err_disable_pipe_clk;
+-	}
+-
+-	return 0;
+-
+-err_disable_pipe_clk:
+-	clk_disable_unprepare(qmp->pipe_clk);
+ 
+ 	return ret;
+ }
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index 6bb6f73b1106..fcbec2fc49c5 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -1543,8 +1543,10 @@ static int qcom_swrm_startup(struct snd_pcm_substream *substream,
+ 			     struct snd_soc_dai *dai)
+ {
+ 	struct qcom_swrm_ctrl *ctrl = dev_get_drvdata(dai->dev);
++	bool recovery_retried = false;
+ 	int ret;
+ 
++retry:
+ 	if (atomic_read(&ctrl->recovery_pending)) {
+ 		/* Startup can be called while another controller still probes. */
+ 		if (!mutex_trylock(&qcom_swrm_probe_recovery_lock))
+@@ -1571,6 +1573,20 @@ static int qcom_swrm_startup(struct snd_pcm_substream *substream,
+ 		goto unlock;
+ 	}
+ 
++	/* Resume can queue clash recovery after the pre-resume check. */
++	synchronize_irq(ctrl->irq);
++	if (atomic_read(&ctrl->recovery_pending)) {
++		pm_runtime_mark_last_busy(ctrl->dev);
++		pm_runtime_put_autosuspend(ctrl->dev);
++		mutex_unlock(&ctrl->recovery_lock);
++
++		/* The worker needs recovery_lock; wait only after releasing it. */
++		if (recovery_retried)
++			return -EIO;
++		recovery_retried = true;
++		goto retry;
++	}
++
+ 	ctrl->active_streams++;
+ 	ret = 0;
+ unlock:

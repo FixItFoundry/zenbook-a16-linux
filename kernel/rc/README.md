@@ -1,32 +1,40 @@
-# Reproduce the Mainline + `qcom-next` / `qcom-topics` Bridge Kernel (`rc`)
+# Linux 7.4 RC (`next-20261103`) Development Track (`kernel/rc`)
 
-`7.3.0-rc5-ZenbookA16-20261018-rc5-qcom1+` pulls from the mainline Linux v7.3-rc5 release (`72d3fcf802c45d00b300f25b848a93c3a2bd7c7e`), applies the [64-patch local A16 baseline](../../patches/rc/base/README.md), and bridges the [40-patch `qcom-next` and `qcom-topics` series](../../patches/rc/qcom-glymur-bridge/README.md) (104 patches total) to reproduce source tree `a17d7e30ee161a146706c0752c11a389454a9062`.
+Upstream development and LKML validation track for the **ASUS Zenbook A16 (`UX3607OA` / `glymur`)**, rebased onto **Linux `v7.4-rc1`'s `linux-next` tag `next-20261103`** (`d6bcfc94eb4da6e089c5473970cd96727292fd97`).
 
-Installed systems are updated via scoped post-install hooks (`packaging/zenbook-a16-hooks/`), which automatically rebuild the early-DSP initramfs, stage the verified DTB, link audio UCM2 and WirePlumber policies on UX3607OA hardware, conditionally unmask `/dev/tpm0` when `CONFIG_TCG_QCOM` is enabled, and verify boot entries while preserving rollback kernels.
+| Identity | Value |
+|---|---|
+| Upstream `linux-next` base | `next-20261103`, commit `d6bcfc94eb4da6e089c5473970cd96727292fd97` |
+| Underlying mainline RC | `v7.4-rc1`, commit `6628e7d4c6b25c8d18f1345e3a20d21829aae7e4` |
+| Ordered residual queue | [100 patches](../../patches/rc/README.md) ([`port-map.json`](../../patches/rc/port-map.json)) |
+| Patched source tree | `f5c8bd36414eae4cea1cd2c0bf51de2ccf3b5caa` |
+| Recorded release | `7.4.0-rc1-next-20261103-zenbook-a16+` |
+| Package revision 1 | `7.4.0-rc1-next-20261103-zenbook-a16-a16pkg1+` |
 
-## Verify and build
+## Upstream Retirement & RC-Specific Adjustments
 
-From the project root, supply a Linux Git checkout or bare repository containing the base commit (`72d3fcf802c45d00b300f25b848a93c3a2bd7c7e`). The output directory must not exist for a fresh build.
+Auditing all 143 patches in [`patches/stable`](../../patches/stable/README.md) against `next-20261103` retired **45 upstreamed patches** (recorded with their non-merge upstream commit SHAs in [`patches/rc/port-map.json`](../../patches/rc/port-map.json)), adapted **12 patches** to `v7.4-rc1` / `next-20261103` API changes, and added **2 `rc`-specific patches**:
+
+1. `0001-LOCAL-drop-localversion-next-the-build-name-carries-.patch`: Removes the root `localversion-next` file so `CONFIG_LOCALVERSION="-next-20261103-zenbook-a16"` controls `UTS_RELEASE` cleanly without duplicating `-next-20261103`.
+2. `0100-Revert-drm-msm-a8xx-Enable-CLX-feature-on-Adreno-X2-.patch`: Applies Abel Vesa's revert (`d448c66b9e47` from `laptops-kernel/topic/glymur-laptops`) of `93b6c8d10fad` / `c2a6bcfbebce` (`drm/msm/a8xx: Enable CLX feature on Adreno X2-85`), preventing GMU `HFI_H2F_MSG_GX_BW_PERF_VOTE` timeouts on Glymur laptops.
+
+## Verify Without Modifying a Checkout
 
 ```sh
-python3 kernel/rc/replay.py /path/to/linux
-sudo dnf install bc bison dtc dwarves elfutils-libelf-devel flex gcc git make \
-  openssl-devel perl python3 rpm-build rsync
-JOBS=4 ./kernel/rc/build.sh /path/to/linux /path/to/new-output
+python3 kernel/rc/replay.py /path/to/linux-git
+python3 scripts/ci.py --replay-only --track rc --linux-git /path/to/linux-git
 ```
 
-After fixing a build or packaging error, reuse the same directory and environment:
+## Build Packages
 
 ```sh
-JOBS=4 ./kernel/rc/build.sh --resume /path/to/linux /path/to/new-output
+# Fedora RPMs and portable bundle:
+JOBS=4 PACKAGE_REVISION=1 \
+  ./kernel/rc/build.sh /path/to/linux-git /path/to/rc-output
+
+# Ubuntu/Debian packages instead:
+JOBS=4 PACKAGE_REVISION=1 BUILD_RPM=0 BUILD_DEB=1 \
+  ./kernel/rc/build.sh /path/to/linux-git /path/to/rc-deb-output
 ```
 
-Resume preserves `.config` and compiled objects, and verifies the source tree and
-kernel release again. It refuses modified worktrees, another repository's worktree,
-or incomplete patch application; those require correction or a fresh output directory.
-
-The verifier checks SHA256 hashes and replays all 104 patches in a temporary Git index, leaving `HEAD`, the normal index, and working files untouched.
-
-The build helper uses a separate worktree, applies both patch queues with `git am`, merges [`config`](config) with [`kernel/rc/bridge.config`](bridge.config), checks the source tree and release, and builds `Image`, modules, DTB, matching headers, and three RPMs (`BUILD_RPM=0 BUILD_DEB=1` builds Ubuntu/Debian packages instead).
-
-`PACKAGE_REVISION=1` appends `-a16pkg1+` to the recorded release in place of its final `+` so packaged installations never overwrite existing baseline files. See the [package contract](../../packaging/zenbook-a16-kernel/README.md) for post-install hook behavior, boot metadata, and rollback handling.
+The retired `v7.3-rc5` layered RC recipe is archived under [`../../archive/kernel/rc5-20261031/`](../../archive/kernel/rc5-20261031/README.md).

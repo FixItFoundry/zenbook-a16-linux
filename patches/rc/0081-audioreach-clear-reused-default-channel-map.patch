@@ -1,0 +1,22 @@
+From 7e6bed3412c49b0c9d7bb6e566828b8ca5c008d0 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Mon, 17 Aug 2026 18:20:00 -0400
+Subject: [PATCH 081/100] audioreach clear reused default channel map
+
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ sound/soc/qcom/qdsp6/audioreach.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/sound/soc/qcom/qdsp6/audioreach.c b/sound/soc/qcom/qdsp6/audioreach.c
+index 1229d3cf1d7e..f09bcbd1560d 100644
+--- a/sound/soc/qcom/qdsp6/audioreach.c
++++ b/sound/soc/qcom/qdsp6/audioreach.c
+@@ -308,6 +308,7 @@ EXPORT_SYMBOL_GPL(audioreach_alloc_apm_cmd_pkt);
+ 
+ void audioreach_set_default_channel_mapping(u8 *ch_map, int num_channels)
+ {
++	memset(ch_map, 0, AR_PCM_MAX_NUM_CHANNEL);
+ 	if (num_channels == 1) {
+ 		ch_map[0] =  PCM_CHANNEL_FL;
+ 	} else if (num_channels == 2) {

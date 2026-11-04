@@ -35,9 +35,11 @@ for the two audio authors and backport scope.
 
 ## Transition targets — 2026-11-03
 
-Stable targets Linux 7.3 final ([`kernel/stable`](../kernel/stable/README.md)); the `rc` track ([`kernel/rc`](../kernel/rc/README.md)) stages layered `rc5` + Qualcomm bridge + camera/microphone + USB3 PHY overlays and upcoming `linux-next` rebases. The [7.3 final stable candidate](../kernel/stable/README.md) replays 143 patches to `11f818cf609ff60e6f826f47e757f939b5442adc` (`004cf498d432dba102ea3d4c9f9389446d40c1bd` prior to patch `0143`) and has completed full ARM64 `Image` + 8,469 modules + DTB + Fedora `aarch64` RPM compilation and KVM CI validation; physical boot acceptance on the laptop is next. The final rc5 camera/microphone candidate
-`7.3.0-rc5-ZenbookA16-20261022-a16pkg3+` passed build/installation checks and
-awaits final hardware validation; see its [exact scope](../patches/rc/camera-microphone/README.md).
+Stable targets Linux 7.3 final ([`kernel/stable`](../kernel/stable/README.md)); the `rc` development track ([`kernel/rc`](../kernel/rc/README.md)) targets **Linux `v7.4-rc1` `linux-next` (`next-20261103`, `d6bcfc94eb4da6e089c5473970cd96727292fd97`)**.
+
+- **`stable` (`7.3.0-ZenbookA16-20261022-final1+`)**: Replays 143 patches to `11f818cf609ff60e6f826f47e757f939b5442adc` (`004cf498d432dba102ea3d4c9f9389446d40c1bd` prior to patch `0143`) and has completed full ARM64 `Image` + modules + DTB + Fedora `aarch64` RPM compilation and KVM CI validation; physical boot acceptance on the laptop is next.
+- **`rc` (`7.4.0-rc1-next-20261103-zenbook-a16+`)**: Rebased onto `next-20261103` (`d6bcfc94eb4da6e089c5473970cd96727292fd97` on `v7.4-rc1` `6628e7d4c6b25c8d18f1345e3a20d21829aae7e4`), retiring 45 upstreamed patches ([`patches/rc/port-map.json`](../patches/rc/port-map.json)), adapting 14 patches, and adding `localversion-next` removal plus Abel Vesa's Adreno X2-85 CLX revert (`d448c66b9e47`) to produce a 100-patch queue (`f5c8bd36414eae4cea1cd2c0bf51de2ccf3b5caa`). Forward/reverse replay, ARM64 `Image`/`Image.gz`/modules/DTB (`qcom,keep-runtime-active;` and `snps,resume-hs-terminations;`), portable bundle, Fedora `aarch64` RPMs, and disposable KVM guest package lifecycle checks are verified on `.19`.
+- The retired `v7.3-rc5` layered RC recipe (`7.3.0-rc5-ZenbookA16-20261022-a16pkg3+` / `20261031-usb1+`) is archived under [`archive/kernel/rc5-20261031/`](../archive/kernel/rc5-20261031/README.md) and [`archive/patches/rc5-20261031/`](../archive/patches/rc5-20261031/README.md).
 The [track policy](kernel-tracks.md) records the two-track packaging architecture and release checks.
 The dated Omarchy and Fedora records below retain their separate acceptance scopes.
 

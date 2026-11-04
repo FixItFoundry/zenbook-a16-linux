@@ -59,36 +59,33 @@ class CIChecks(unittest.TestCase):
             self.assertEqual(error.exception.code, 2)
             run.assert_not_called()
 
-
-
     def test_overlay_rejects_tampered_or_incomplete_inputs_before_git(self):
         real_repo = Path(__file__).resolve().parents[1]
-        for case in ('patch', 'checksum', 'duplicate', 'escape', 'config'):
-            with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
-                repo = Path(directory)
-                here = repo / ci.CANDIDATE
-                shutil.copytree(real_repo / ci.CANDIDATE, here)
-                series = here / 'series'
-                if case == 'patch':
-                    target = here / series.read_text().splitlines()[0]
-                    target.write_bytes(target.read_bytes() + b'tampered\n')
-                elif case == 'checksum':
-                    target = here / 'SHA256SUMS'
-                    target.write_text('\n'.join(target.read_text().splitlines()[1:]) + '\n')
-                elif case == 'duplicate':
-                    series.write_text(series.read_text() * 2)
-                elif case == 'escape':
-                    series.write_text('../outside.patch\n')
-                else:
-                    meta = json.loads((here / 'tracks.json').read_text())['stable']
-                    for name in meta['config_inputs']:
-                        target = repo / name
-                        target.parent.mkdir(parents=True, exist_ok=True)
-                        target.write_text('tampered configuration\n')
-                with patch.object(ci.subprocess, 'run') as baseline:
-                    with self.assertRaises(SystemExit):
-                        ci.verify_candidate(repo, repo / 'unused.git', 'stable')
-                    baseline.assert_not_called()
+        for track in ('stable', 'rc'):
+            for case in ('patch', 'checksum', 'duplicate', 'escape', 'config'):
+                with self.subTest(track=track, case=case), tempfile.TemporaryDirectory() as directory:
+                    repo = Path(directory)
+                    kdir = repo / 'kernel' / track
+                    pdir = repo / 'patches' / track
+                    shutil.copytree(real_repo / 'kernel' / track, kdir)
+                    shutil.copytree(real_repo / 'patches' / track, pdir)
+                    series = pdir / 'series'
+                    if case == 'patch':
+                        target = pdir / series.read_text().splitlines()[0]
+                        target.write_bytes(target.read_bytes() + b'tampered\n')
+                    elif case == 'checksum':
+                        target = kdir / 'SHA256SUMS'
+                        target.write_text('\n'.join(target.read_text().splitlines()[1:]) + '\n')
+                    elif case == 'duplicate':
+                        series.write_text(series.read_text() * 2)
+                    elif case == 'escape':
+                        series.write_text('../outside.patch\n')
+                    else:
+                        (kdir / 'config').write_text('tampered configuration\n')
+                    with patch.object(ci.subprocess, 'run') as baseline:
+                        with self.assertRaises(SystemExit):
+                            ci.verify_candidate(repo, repo / 'unused.git', track)
+                        baseline.assert_not_called()
 
 
 if __name__ == '__main__':
