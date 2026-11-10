@@ -59,6 +59,14 @@ cat /sys/class/drm/card1/card1-eDP-1/status   # connected
 ls /sys/class/backlight/                       # dp_aux_backlight
 ```
 
+**Link rates (verified 2026-11-10):** eDP 1.4 panel with a `SUPPORTED_LINK_RATES` table of
+1.62/2.7/5.4 Gbps and `MAX_LINK_RATE = 0x00`, so it advertises rates only through the table.
+At boot `LINK_BW_SET` still holds the firmware's `0x14`, so the driver uses `LINK_BW_SET`; when
+the compositor starts and the caps are re-read it reads `0x00`, and the driver selects the
+table. Mainline drops that selection before link training (bug since `ed100aa239be`). The fix
+and four follow-ups are carried in Omarchy as `2367`–`2371` and are not yet upstream; with
+them the panel trains through `LINK_RATE_SET`, including a fallback to 2.7 Gbps.
+
 ⛔ Do not re-derive the eDP elimination list — it is in the maintainer’s private eDP notes. In particular the old
 reasoning "UEFI left `LINK_BW_SET = 0x14` so the firmware's known-good link is HBR3" is
 **wrong** (`0x14` is 5.4G; HBR3 is `0x1e`). Why 8.1G works is still unexplained.
@@ -282,13 +290,27 @@ host router is missing. Nothing to do locally.
 
 ## Wi-Fi and Bluetooth ✅
 
-Wi-Fi 7, Qualcomm **QCC2072** via `ath12k`, on PCIe. Bluetooth is **WCN7850** on a serdev UART.
+One Qualcomm **QCC2072** combo chip: Wi-Fi 7 via `ath12k` on PCIe (`17cb:1112`), Bluetooth on
+a serdev UART (product `0x20`, ROM `0x0101`, board ID `0x17`). The Bluetooth half is not a
+WCN7850; our DT only describes it as one.
 
-Needs firmware extracted from the device's own Windows install, plus a forced regdomain (`US`).
-Firmware is deliberately **not** shipped in this repo.
+Wi-Fi needs firmware extracted from the device's own Windows install, plus a forced regdomain
+(`US`). Firmware is deliberately **not** shipped in this repo.
 
-**What we changed:** added the WCN7850 Bluetooth serdev node; brought Wi-Fi up through the
+**What we changed:** added a `qcom,wcn7850-bt` serdev node; brought Wi-Fi up through the
 `qcom,wcn7850-pmu` power-sequencing binding rather than hand-rolled regulator asserts.
+
+⚠️ **Bluetooth runs on ROM firmware.** Our selector asks for `qca/clnbtfw10.tlv` (the Windows
+name), which no Linux package ships, so `hci_qca` falls back to ROM firmware without in-band
+sleep. Basic pairing and audio still work.
+
+**Upstream path (tested 2026-11-10):** linux-firmware's `qca/ornbtfw11.tlv` is built for this
+exact chip (product `0x20`, ROM `0x0101`). Qualcomm's pending QCC2072 series loads it with
+`ornnv11.bin` and `ornbcscal11.bin`, enables in-band sleep and plays A2DP audio. On 7.4 the
+mainline A16 DT's `pcie-m2-e-connector` brings up Wi-Fi and, with Manivannan's pending
+`hci_qca` M.2 pwrseq patch, Bluetooth too, with no A16 DT change. Once both series land, our
+`wcn7850-pmu` and `wcn7850-bt` nodes can go. One of five boots stalled during the Bluetooth
+firmware download while Wi-Fi was starting.
 
 ⚠️ Wi-Fi takes up to ~5 minutes to re-associate after resume. "I cannot ssh in" is not evidence
 of a crash — judge by `uptime -s`.
