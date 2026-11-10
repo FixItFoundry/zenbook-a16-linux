@@ -4,6 +4,7 @@ The following repo files match the inspected live configuration:
 
 - `etc/dracut.conf.d/98-glymur-soundwire-early.conf`: early modules and audio topology.
 - `etc/dracut.conf.d/99-glymur-adsp.conf`: ADSP firmware in the boot initramfs.
+- `etc/dracut.conf.d/99-glymur-cdsp.conf`: CDSP firmware in the boot initramfs.
 - `etc/modules-load.d/battery-baseline.conf`: retain ps883x; retire soccp_glink.
 - `etc/systemd/system/wsa-mix-boost.service`: four valid mixer controls, bounded startup.
 - `etc/systemd/system/NetworkManager-wait-online.service.d/first-uplink.conf`:
@@ -15,7 +16,8 @@ The following repo files match the inspected live configuration:
 
 These are not an unattended installer. Back up existing files and review paths
 before deployment; dracut files do not change an existing initramfs until rebuilt.
-The separate CDSP firmware/initramfs trial is deliberately excluded.
+The CDSP firmware now ships in the initramfs too: without it the CDSP stays offline all
+session, because remoteproc does not retry the firmware load after switch-root.
 
 ## Session integration
 
