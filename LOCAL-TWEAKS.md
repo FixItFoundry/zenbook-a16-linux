@@ -226,8 +226,13 @@ journalctl --user -b -u glymur-audio-wait
 `cat /sys/power/mem_sleep` shows `[s2idle] deep` — **the brackets mark the active mode**, so that
 output means s2idle is selected, not deep.
 
-⚠️ **This does NOT make suspend correct.** It remains dependent on the PCI noirq workaround and
-the resume guard; see `docs/hardware.md` for the current evidence and limitations.
+⚠️ Selecting s2idle alone is insufficient. The November 11–12 attended trials used
+the PCI noirq workaround, Wi-Fi removal/rescan and dock-specific USB settings;
+see [the tested procedure and limits](docs/hardware.md#attended-s2idle-workaround-november-1112-2026).
+The optional `tweaks/usr/lib/systemd/system-sleep/a16-wifi-pci` hook is not
+installed automatically. It checks the A16 compatible, PCI identity and driver
+before removing Wi-Fi. Its guarded form has host fixture coverage; the hardware
+trials used an earlier removal/rescan hook. Keep automatic sleep disabled.
 
 ⚠️ **Crash evidence is not collectable on this box — but not for the reason stated here
 before.** This used to blame mandatory `efi=noruntime`. Corrected 2026-07-30: the flag was

@@ -1,0 +1,33 @@
+#!/bin/sh
+# Opt-in A16 workaround: remove Wi-Fi before sleep and reprobe after wake.
+# shortcut: bypasses native ath12k resume; retire when firmware resume is reliable.
+tr '\000' '\n' < /sys/firmware/devicetree/base/compatible 2>/dev/null |
+	grep -qx 'asus,zenbook-a16-ux3607oa' || exit 0
+
+P=/sys/bus/pci/devices/0004:01:00.0
+S=/run/a16-wifi-pci.bdf
+log() { logger -t a16-wifi-pci "$*"; }
+case "$1/$2" in
+pre/suspend)
+	[ ! -e "$S" ] || { log 'pre: stale recovery state'; exit 1; }
+	[ -d "$P" ] || exit 0
+	[ "$(cat "$P/vendor")" = 0x17cb ] &&
+		[ "$(cat "$P/class")" = 0x028000 ] &&
+		[ "$(basename "$(readlink "$P/driver")")" = ath12k_wifi7_pci ] || exit 1
+	printf '%s\n' 0004:01:00.0 > "$S" || exit 1
+	if ! echo 1 > "$P/remove"; then
+		rm -f "$S"
+		log 'pre: failed to remove Wi-Fi'
+		exit 1
+	fi
+	log 'pre: removed 0004:01:00.0'
+	;;
+post/suspend)
+	[ -f "$S" ] || exit 0
+	[ "$(cat "$S")" = 0004:01:00.0 ] || exit 1
+	echo 1 > /sys/bus/pci/rescan || exit 1
+	[ -d "$P" ] || { log 'post: Wi-Fi absent after rescan'; exit 1; }
+	rm -f "$S" || exit 1
+	log 'post: Wi-Fi enumerated; association may still be pending'
+	;;
+esac

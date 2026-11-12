@@ -492,6 +492,50 @@ explanation for it.
 
 ## Suspend / resume ⚠️ works on a workaround
 
+### Attended s2idle workaround, November 11–12, 2026
+
+Three dock-connected real-sleep cycles returned to a responsive desktop:
+202.841 seconds on the 7.3 `a16pkg3` build, then 56.522 and 453.204 seconds on
+`7.3.0-ZenbookA16-20261022-final1-a16diag1+`. The short cycle passed recovery
+but failed the requested two-minute duration check. The diagnostic repeat
+passed freezer, devices and platform stages first; its success counter rose
+from 4 to 5 with no failure-counter changes. Wi-Fi and dock Ethernet each
+passed three gateway pings after wake; NFS access and Bluetooth power state
+were checked. Bluetooth traffic was not tested.
+
+The tested combination was:
+
+- `glymur_pci_skip=5`, s2idle selected, and the existing GLINK RTC driver with
+  the wake-source error fix and read-only ops selection. The new GLINK v2
+  driver's initial read timed out and is excluded.
+- Remove Wi-Fi at PCI `0004:01:00.0` before sleep and rescan after wake.
+  This bypasses the failing native ath12k resume path. The optional
+  [A16 hook](../tweaks/usr/lib/systemd/system-sleep/a16-wifi-pci) adds machine,
+  identity and driver checks to the earlier tested hook. Install it manually
+  as `/usr/lib/systemd/system-sleep/a16-wifi-pci`, root-owned and mode 755,
+  only for attended testing. Its updated guards have not been hardware-tested.
+- For the dock-facing `/sys/bus/platform/devices/a600000.usb` controller,
+  `power/wakeup=disabled` and `power/control=on`.
+- Only the unbound VIA `2109:8888`, device class `11` Billboard function had
+  `power/persist=0`. It disconnected and re-enumerated on resume. The dock NIC
+  retained persistence. USB bus numbers changed between boots: locate the
+  device again and verify its IDs, class, descriptor bytes, absence of an
+  interface driver, and ancestry under `a600000.usb` before changing it.
+
+Keep the historical `glymur-resume-guard` non-executable: these trials did
+not unbind xHCI controllers. Preserve the known-good boot entry and masked
+sleep policy; coordinate an awake observer, then test freezer, devices and
+platform before one attended s2idle cycle. Restore the original USB settings
+and sleep mask afterward, including on failure. Billboard persistence was
+restored to 1 after each trial, so the workaround was not left enabled.
+Do not add a global persistence rule for all VIA devices or all USB ports.
+
+These trials establish bounded sleep and recovery with this dock and image.
+Native Wi-Fi suspend, battery drain, low-power residency, charging/PD behavior,
+other docks and long-term reliability remain open. IRQ 138 (`hid-over-i2c`)
+was the recorded wake source. RTC alarms are unavailable; arrange a physical
+wake. The older observations below remain historical evidence.
+
 **Root cause, isolated 2026-07-30: PCI config-space access during `dpm_suspend_noirq()`
 hard-resets the SoC.** Both paths inside `pci_pm_suspend_noirq()` are *independently* lethal —
 `pci_save_state()` (reads) and `pci_prepare_to_sleep()` (write/D-state). Driver `noirq`
