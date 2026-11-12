@@ -4,8 +4,8 @@ Active patch stacks are split into two maintained tracks (`stable` and `rc`), wh
 
 | Directory | Track | Base | Patches | Replayed Source Tree |
 |---|---|---|---:|---|
-| [`stable/`](stable/README.md) | **Stable Release Track** (`kernel/stable`) | Linux `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) | 143 | `11f818cf609ff60e6f826f47e757f939b5442adc` |
-| [`rc/`](rc/README.md) | **RC / Upstream Development Track** (`kernel/rc`) | Linux `next-20261103` (`d6bcfc94eb4da6e089c5473970cd96727292fd97`, `v7.4-rc1`) | 100 | `f5c8bd36414eae4cea1cd2c0bf51de2ccf3b5caa` |
+| [`stable/`](stable/README.md) | **Stable Release Track** (`kernel/stable`) | Linux `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) | 144 | `928695840df5d59b1d481a8fa672442ae6205fa8` |
+| [`rc/`](rc/README.md) | **RC / Upstream Development Track** (`kernel/rc`) | Linux `next-20261103` (`d6bcfc94eb4da6e089c5473970cd96727292fd97`, `v7.4-rc1`) | 101 | `2b1378a830da64996ce87b1941a9d0cb592239be` |
 | [`../archive/patches/`](../archive/patches/) | Retired bringup snapshots (`next-202608*`, `rc3-*`, `rc5-20261002`, `rc5-20261008`, `rc5-20261031`, `standalone/`) | Historical | — | Retained for provenance |
 
 ## Verifying Both Tracks

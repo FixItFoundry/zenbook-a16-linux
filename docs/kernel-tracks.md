@@ -9,8 +9,8 @@ Updated 2026-11-03. With Qualcomm actively developing Snapdragon X2 (`glymur`) l
 
 | Track | Recipe Directory | Patch Queue | Upstream Base | Replayed Source Tree | Role |
 |---|---|---|---|---|---|
-| **`stable`** | [`kernel/stable/`](../kernel/stable/README.md) | [`patches/stable/`](../patches/stable/README.md) (143 patches) | `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) | `11f818cf609ff60e6f826f47e757f939b5442adc` | Primary release and packaging target for Fedora, Ubuntu/Debian, and `linux-omarchy 7.3`. |
-| **`rc`** | [`kernel/rc/`](../kernel/rc/README.md) | [`patches/rc/`](../patches/rc/README.md) (100 patches) | `next-20261103` (`d6bcfc94eb4da6e089c5473970cd96727292fd97`, `v7.4-rc1`) | `f5c8bd36414eae4cea1cd2c0bf51de2ccf3b5caa` | Opt-in development, LKML patch validation, and upstream rebase staging (`7.4.0-rc1-next-20261103-zenbook-a16+`). |
+| **`stable`** | [`kernel/stable/`](../kernel/stable/README.md) | [`patches/stable/`](../patches/stable/README.md) (144 patches) | `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) | `928695840df5d59b1d481a8fa672442ae6205fa8` | Primary release and packaging target for Fedora, Ubuntu/Debian, and `linux-omarchy 7.3`. |
+| **`rc`** | [`kernel/rc/`](../kernel/rc/README.md) | [`patches/rc/`](../patches/rc/README.md) (101 patches) | `next-20261103` (`d6bcfc94eb4da6e089c5473970cd96727292fd97`, `v7.4-rc1`) | `2b1378a830da64996ce87b1941a9d0cb592239be` | Opt-in development, LKML patch validation, and upstream rebase staging (`7.4.0-rc1-next-20261103-zenbook-a16+`). |
 
 Historical bringup recipes (`rc3-*`, `rc5-20261002`, `rc5-20261008`, `rc5-20261013`, `rc5-20261031`) and standalone diagnostic patches are archived under [`archive/`](../archive/README.md).
 

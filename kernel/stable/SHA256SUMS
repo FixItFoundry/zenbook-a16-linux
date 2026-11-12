@@ -1,9 +1,9 @@
-a248c302f0df84753fc89b030b04d7510372625e06b2b829b6d384353b08d9e9  kernel/stable/build.json
+16472cd28787dd8c828f12d98dcd404e5925c327c19eef85a7eca61c71de3194  kernel/stable/build.json
 34a90747b0afe950f8e86b4507b14ec5a65ac1dc82a32e988456c1cc0abf5ad7  kernel/stable/build.sh
 afe4f4e2305ee6821ae1da55ead23d397f5bf160e49aa1fc58239360a636ad11  kernel/stable/config
 13feedb2d3088340e9955d29ba19661994a2cd37b628452f5c04d75af2746032  kernel/stable/replay.py
-d0eede529a72ea1bbf7e4aae7e6cab26ad199241f1adde916cacb20e06141712  patches/stable/port-map.json
-6c2334985dac623cc3f0798dd9f13dd181cdc56575ac7b269457abe722560577  patches/stable/series
+dbce6247c39fb912fb070d96a3d23c764b1759916fb7694f915c58d3078ea358  patches/stable/port-map.json
+8cad216a03b17d55dbdaa3fe041a33594ab68fbfb19b05c07b658717ece55150  patches/stable/series
 73d754992616b6c879f2d27381b51ab9171babce4b4fcd63828dd6551738ef8f  patches/stable/0001-drm-msm-dp-make-the-eDP-1.4-LINK_RATE_SET-path-actua.patch
 0ebab1b5d069c18b7d666588336b8478fab4191a004fbffb1b3635174ed38c2a  patches/stable/0002-phy-qcom-edp-split-power-on-sequencing-by-PHY-versio.patch
 137f2d1dcc4ba2e5c6678f49f756bb7ccde02002a1dda62a5dc047636e741c95  patches/stable/0003-phy-qcom-edp-update-v8-power-on-programming-sequence.patch
@@ -147,3 +147,4 @@ e0eac4972849b502e6c16e16a0f331d34eefaecfd8b4fa92300b4fb2c9264296  patches/stable
 ebae22d8745e34326f1e8face92673bbc3e24e9ba01076746a07d8d4343ca4ff  patches/stable/0141-PM-sleep-Do-not-arm-wakeup-IRQs-for-hibernation-freeze-and-quiesce.patch
 7f7858ef0fa935662e22da535c01677e025e9276df452fe3c73de72766c2ffd6  patches/stable/0142-drm-msm-a6xx-Reset-the-GMU-state-when-restoring-from-hibernation.patch
 5a78b548309da9143707d44ab48033caa296f973d7038c94fb5099d4a2cc8ca7  patches/stable/0143-phy-qcom-qmp-combo-Update-Glymur-USB3-settings.patch
+fb9013cd58c1ea12c140ae085b3bdde2d56158ee738cd305b28d6365da46576b  patches/stable/0144-regulator-qcom-rpmh-preserve-initial-mode.patch

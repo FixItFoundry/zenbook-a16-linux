@@ -8,8 +8,8 @@ validation reference; nothing here installs or selects a kernel.
 | Identity | Value |
 |---|---|
 | Upstream base | `v7.3`, commit `c03c1a14507dfaf8b856c2608f9ac216021fc222` |
-| Ordered residual queue | [143 patches](../../patches/stable/README.md) |
-| Patched source tree | `11f818cf609ff60e6f826f47e757f939b5442adc` |
+| Ordered residual queue | [144 patches](../../patches/stable/README.md) |
+| Patched source tree | `928695840df5d59b1d481a8fa672442ae6205fa8` |
 | Recorded release | `7.3.0-ZenbookA16-20261022-final1+` |
 | Package revision 1 | `7.3.0-ZenbookA16-20261022-final1-a16pkg1+` |
 
@@ -27,7 +27,7 @@ see [upstream credits](../../UPSTREAM-CREDITS.md).
 python3 kernel/stable/replay.py /path/to/linux-git
 ```
 
-The verifier checks the manifest and applies all 143 patches in a temporary Git
+The verifier checks the manifest and applies all 144 patches in a temporary Git
 index, requiring the exact source tree above. It leaves HEAD, the normal index
 and working files alone. It creates Git tree/blob objects, not commits.
 
@@ -77,3 +77,16 @@ and simultaneous camera/microphone recording tests are pending.
 No 7.3 kernel or DTB has been compiled, installed or booted by this preparation.
 Native RPM/DEB transactions, external-module headers, physical update/rollback
 and hardware acceptance remain open. See the [transition checklist](../../docs/kernel-tracks.md).
+
+## RPMh and RTC additions, November 12
+
+Preserve a mode already applied by regulator registration. Fixed/legacy/fixed
+diagnostic boots retained FAST; the legacy overwrite did not reproduce because
+ENABLE was zero at inference. Host tests cover the overwrite branch. No physical
+rail or audio-quality improvement is established.
+
+Both tracks pass source replay and host checks. Hardware observations cover
+only the A16; other machines using these shared drivers were not tested.
+This exact combined queue
+has not been compiled or booted. The successful attended sleep trials used
+the diagnostic image described in [the hardware record](../../docs/hardware.md).

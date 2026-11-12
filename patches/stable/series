@@ -141,3 +141,4 @@
 0141-PM-sleep-Do-not-arm-wakeup-IRQs-for-hibernation-freeze-and-quiesce.patch
 0142-drm-msm-a6xx-Reset-the-GMU-state-when-restoring-from-hibernation.patch
 0143-phy-qcom-qmp-combo-Update-Glymur-USB3-settings.patch
+0144-regulator-qcom-rpmh-preserve-initial-mode.patch

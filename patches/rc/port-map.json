@@ -1,15 +1,15 @@
 {
   "source_track": "stable",
   "source_base_release": "v7.3",
-  "source_patch_count": 143,
+  "source_patch_count": 144,
   "target_track": "rc",
   "target_base_tag": "next-20261103",
   "target_base_commit": "d6bcfc94eb4da6e089c5473970cd96727292fd97",
   "target_mainline_rc_tag": "v7.4-rc1",
   "target_mainline_rc_commit": "6628e7d4c6b25c8d18f1345e3a20d21829aae7e4",
-  "target_patch_count": 100,
+  "target_patch_count": 101,
   "counts": {
-    "ported": 84,
+    "ported": 85,
     "adapted": 14,
     "dropped_merged": 45,
     "added_rc_only": 2
@@ -991,6 +991,12 @@
       "subject": "Revert \"drm/msm/a8xx: Enable CLX feature on Adreno X2-85\"",
       "upstream_commit": "d448c66b9e471451a3dbe890c555d957f60513e0",
       "notes": "Reverts c2a6bcfbebce in next-20261103 to prevent Adreno X2-85 GPU hangs on Glymur"
+    },
+    {
+      "stable_patch": "0144-regulator-qcom-rpmh-preserve-initial-mode.patch",
+      "rc_patch": "0101-regulator-qcom-rpmh-preserve-initial-mode.patch",
+      "status": "ported",
+      "subject": "regulator: qcom-rpmh: preserve the initial mode"
     }
   ]
 }

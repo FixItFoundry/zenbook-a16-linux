@@ -6,8 +6,8 @@ Upstream development and LKML validation track for the **ASUS Zenbook A16 (`UX36
 |---|---|
 | Upstream `linux-next` base | `next-20261103`, commit `d6bcfc94eb4da6e089c5473970cd96727292fd97` |
 | Underlying mainline RC | `v7.4-rc1`, commit `6628e7d4c6b25c8d18f1345e3a20d21829aae7e4` |
-| Ordered residual queue | [100 patches](../../patches/rc/README.md) ([`port-map.json`](../../patches/rc/port-map.json)) |
-| Patched source tree | `f5c8bd36414eae4cea1cd2c0bf51de2ccf3b5caa` |
+| Ordered residual queue | [101 patches](../../patches/rc/README.md) ([`port-map.json`](../../patches/rc/port-map.json)) |
+| Patched source tree | `2b1378a830da64996ce87b1941a9d0cb592239be` |
 | Recorded release | `7.4.0-rc1-next-20261103-zenbook-a16+` |
 | Package revision 1 | `7.4.0-rc1-next-20261103-zenbook-a16-a16pkg1+` |
 
@@ -38,3 +38,16 @@ JOBS=4 PACKAGE_REVISION=1 BUILD_RPM=0 BUILD_DEB=1 \
 ```
 
 The retired `v7.3-rc5` layered RC recipe is archived under [`../../archive/kernel/rc5-20261031/`](../../archive/kernel/rc5-20261031/README.md).
+
+## RPMh and RTC additions, November 12
+
+Preserve a mode already applied by regulator registration. Fixed/legacy/fixed
+diagnostic boots retained FAST; the legacy overwrite did not reproduce because
+ENABLE was zero at inference. Host tests cover the overwrite branch. No physical
+rail or audio-quality improvement is established.
+
+Both tracks pass source replay and host checks. Hardware observations cover
+only the A16; other machines using these shared drivers were not tested.
+This exact combined queue
+has not been compiled or booted. The successful attended sleep trials used
+the diagnostic image described in [the hardware record](../../docs/hardware.md).

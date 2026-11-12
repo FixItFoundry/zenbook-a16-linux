@@ -4,19 +4,19 @@ Active kernel build recipes are organized into two maintained tracks (`stable` a
 
 | Directory | Track | Upstream Base | Patches | Replayed Source Tree | Status |
 |---|---|---|---:|---|---|
-| [`stable/`](stable/README.md) | **Stable Release Track** (`main`) | Linux `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) | [143](../patches/stable/README.md) | `11f818cf609ff60e6f826f47e757f939b5442adc` | Source replay, KVM CI, and ARM64 `Image` + 8,469 modules + DTB + Fedora RPMs verified; laptop boot acceptance next. Also serves as the validation base for `linux-omarchy 7.3`. |
-| [`rc/`](rc/README.md) | **RC / Upstream Development Track** (`rc`) | Linux `next-20261103` (`d6bcfc94eb4da6e089c5473970cd96727292fd97`, `v7.4-rc1`) | [100](../patches/rc/README.md) | `f5c8bd36414eae4cea1cd2c0bf51de2ccf3b5caa` | Development & LKML testing track (`7.4.0-rc1-next-20261103-zenbook-a16+`); 45 upstreamed patches retired from `stable`, forward/reverse replay, ARM64 `Image`/`Image.gz`/modules/DTB/RPMs, and KVM CI verified. |
+| [`stable/`](stable/README.md) | **Stable Release Track** (`main`) | Linux `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) | [144](../patches/stable/README.md) | `928695840df5d59b1d481a8fa672442ae6205fa8` | Source replay and host checks pass; this exact queue is unbuilt and unbooted. |
+| [`rc/`](rc/README.md) | **RC / Upstream Development Track** (`rc`) | Linux `next-20261103` (`d6bcfc94eb4da6e089c5473970cd96727292fd97`, `v7.4-rc1`) | [101](../patches/rc/README.md) | `2b1378a830da64996ce87b1941a9d0cb592239be` | Source replay and host checks pass; this exact queue is unbuilt and unbooted. |
 | [`arch-7.2.10/`](arch-7.2.10/BUILD-AND-UPGRADE.txt) | **Arch Linux 7.2.10 Recipe** | Linux `v7.2.10` | 127 | `4d6a5f56ffa9571ec5b5f053ecbe4861c158b2b2` | Standalone `PKGBUILD` generator with side-by-side UKI and header support. |
 | [`../archive/kernel/`](../archive/kernel/) | **Retired Snapshots** | `v7.3-rc3` / `v7.3-rc5` | — | Historical | Retained `rc3-20260919`, `rc5-20261002`, `rc5-20261008`, `rc5-20261013`, and `rc5-20261031` recipes. |
 
 ## Replay and Build Commands
 
 ```sh
-# Stable track (Linux 7.3 final, 143 patches):
+# Stable track (Linux 7.3 final, 144 patches):
 python3 kernel/stable/replay.py /path/to/linux
 JOBS=4 ./kernel/stable/build.sh /path/to/linux /path/to/stable-output
 
-# RC track (Linux 7.4-rc1 linux-next next-20261103, 100 patches):
+# RC track (Linux 7.4-rc1 linux-next next-20261103, 101 patches):
 python3 kernel/rc/replay.py /path/to/linux
 JOBS=4 ./kernel/rc/build.sh /path/to/linux /path/to/rc-output
 

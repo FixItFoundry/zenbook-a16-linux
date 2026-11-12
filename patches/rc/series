@@ -98,3 +98,4 @@
 0098-drm-msm-a6xx-Reset-the-GMU-state-when-restoring-from.patch
 0099-phy-qcom-qmp-combo-Update-Glymur-USB3-settings.patch
 0100-Revert-drm-msm-a8xx-Enable-CLX-feature-on-Adreno-X2-.patch
+0101-regulator-qcom-rpmh-preserve-initial-mode.patch

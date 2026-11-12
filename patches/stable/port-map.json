@@ -1,6 +1,6 @@
 {
   "base": "c03c1a14507dfaf8b856c2608f9ac216021fc222",
-  "source_tree": "11f818cf609ff60e6f826f47e757f939b5442adc",
+  "source_tree": "928695840df5d59b1d481a8fa672442ae6205fa8",
   "original_patch_count": 146,
   "patches": [
     {
@@ -1019,6 +1019,13 @@
       "patch": "0143-phy-qcom-qmp-combo-Update-Glymur-USB3-settings.patch",
       "before": "004cf498d432dba102ea3d4c9f9389446d40c1bd",
       "after": "11f818cf609ff60e6f826f47e757f939b5442adc"
+    },
+    {
+      "original": "lkml/20261112160942.27909-1-jesse.casco@gmail.com",
+      "status": "unchanged",
+      "patch": "0144-regulator-qcom-rpmh-preserve-initial-mode.patch",
+      "before": "11f818cf609ff60e6f826f47e757f939b5442adc",
+      "after": "928695840df5d59b1d481a8fa672442ae6205fa8"
     }
   ],
   "pre_usb3_source_tree": "004cf498d432dba102ea3d4c9f9389446d40c1bd"

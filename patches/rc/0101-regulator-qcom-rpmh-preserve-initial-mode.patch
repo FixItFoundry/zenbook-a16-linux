@@ -1,0 +1,46 @@
+From cfe2e71cc5baba33aeb788a81b49cfc8c4fcd0cd Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Thu, 12 Nov 2026 09:47:30 -0500
+Subject: [PATCH] regulator: qcom-rpmh: Don't overwrite the initial mode with
+ the boot readback
+
+rpmh_regulator_init_vreg() registers the regulator, and
+set_machine_constraints() applies regulator-initial-mode (or the mode
+derived from regulator-system-load) through ->set_mode(), caching it in
+vreg->mode. Probe then calls rpmh_regulator_determine_initial_mode()
+unconditionally, which for an enabled regulator overwrites vreg->mode
+with the RPMh boot readback (mapping a raw mode of 0 to the lowest
+supported mode).
+
+Skip rpmh_regulator_determine_initial_mode() when registration has
+already set vreg->mode. Leaving vreg->bypassed clear also matches the
+non-bypass mode request that ->set_mode() just sent.
+
+Fixes: 09d99ff7fc3c ("regulator: qcom-rpmh: readback voltage/bypass/mode set during bootup")
+Cc: stable@vger.kernel.org
+Link: https://lore.kernel.org/r/20261112160942.27909-1-jesse.casco@gmail.com
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ drivers/regulator/qcom-rpmh-regulator.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/regulator/qcom-rpmh-regulator.c b/drivers/regulator/qcom-rpmh-regulator.c
+index 08e39499be86..da4764ffa632 100644
+--- a/drivers/regulator/qcom-rpmh-regulator.c
++++ b/drivers/regulator/qcom-rpmh-regulator.c
+@@ -1961,6 +1961,10 @@ static int rpmh_regulator_probe(struct platform_device *pdev)
+ 		if (ret < 0)
+ 			return ret;
+ 
++		/* Keep a mode already applied by set_machine_constraints() */
++		if (vreg->mode != REGULATOR_MODE_INVALID)
++			continue;
++
+ 		ret = rpmh_regulator_determine_initial_mode(vreg);
+ 		if (ret < 0)
+ 			dev_err(dev, "failed to read initial mode for %s\n",
+
+base-commit: a2a6f6b0b394eda55bd3483ecafbdc8228819a98
+-- 
+2.56.0
+

@@ -1,9 +1,9 @@
-f45c2204c85d15f315c2dfcc832414b1bf48269e233194eaf7ce053adcf7ddc9  kernel/rc/build.json
+7eddef0a6be9327cca7ed296560b01111253d9a5b4d9f292231b0dd86d80e410  kernel/rc/build.json
 2ef9245583068bd0da57c1aad71262b3d3517241a65d94fcd0804be563d33d22  kernel/rc/build.sh
 1af619d3ecf11e4903458a20cb42aad5b78b899194fe377600bd08d2edf3bf19  kernel/rc/config
 7da3f2490140b5209a063f04d7d82995bf79df7f9ee2ea9d551096996c72d9d6  kernel/rc/replay.py
-9414e9792f0107e2e62b9d76daa4ae4d70144636b512f1f2c85f9014de9aab1a  patches/rc/port-map.json
-495e9fb1903035d8cf2a6cdd4939c3d24713061814fdafce90624aa60b549984  patches/rc/series
+d2ce092fc815b2888c1bee5319448dc7004487cf1b0df77c3da3cd1b4ce6b105  patches/rc/port-map.json
+9d1a12adc7972aaaaad4270c5695e27aef88b3d5f974518981769e2a5b827823  patches/rc/series
 7b50c4fa3e0954a45a5338202c0916ba65c3c2be376e615ec5bde215032c64dc  patches/rc/0001-LOCAL-drop-localversion-next-the-build-name-carries-.patch
 689a8ed5490f6fd1097f4f3988a86674e62a6f7b1544fcc84873d0b980a4f2a9  patches/rc/0002-drm-msm-dp-make-the-eDP-1.4-LINK_RATE_SET-path.patch
 31fed8c11e1bb56699e40a1a194a0c81aaf4478f452bf8c5a4d4bae2b75013a7  patches/rc/0003-phy-qcom-edp-split-power-on-sequencing-by-PHY.patch
@@ -104,3 +104,4 @@ b96b94447fb26d1bc951710b538cbe8007cb800cdca499522231698d98ee93b1  patches/rc/009
 bedacb8446c3a090cf6571b899900ac396c0e50c6e0e13e775245ef9c359bb2a  patches/rc/0098-drm-msm-a6xx-Reset-the-GMU-state-when-restoring-from.patch
 7a8120575d812f62e0d2b160a45b9465fcbef99560d4cf03bde3f58db78d4c09  patches/rc/0099-phy-qcom-qmp-combo-Update-Glymur-USB3-settings.patch
 c9f55fb52f41299cddb2194134882112efd8ff08c232a967c05c599c4d2fc5fc  patches/rc/0100-Revert-drm-msm-a8xx-Enable-CLX-feature-on-Adreno-X2-.patch
+fb9013cd58c1ea12c140ae085b3bdde2d56158ee738cd305b28d6365da46576b  patches/rc/0101-regulator-qcom-rpmh-preserve-initial-mode.patch
