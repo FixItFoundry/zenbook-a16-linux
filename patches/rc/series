@@ -100,3 +100,4 @@
 0100-Revert-drm-msm-a8xx-Enable-CLX-feature-on-Adreno-X2-.patch
 0101-regulator-qcom-rpmh-preserve-initial-mode.patch
 0102-rtc-interface-release-wakeup-source-on-read-error.patch
+0103-rtc-qcom-glink-advertise-read-only-ops.patch

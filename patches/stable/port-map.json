@@ -1,6 +1,6 @@
 {
   "base": "c03c1a14507dfaf8b856c2608f9ac216021fc222",
-  "source_tree": "44195f01ab0d015144df468e500628b8cba81984",
+  "source_tree": "ca55d57edf4c0c2ade677f0b5336e69ab8645c3a",
   "original_patch_count": 146,
   "patches": [
     {
@@ -1033,6 +1033,13 @@
       "patch": "0145-rtc-interface-release-wakeup-source-on-read-error.patch",
       "before": "928695840df5d59b1d481a8fa672442ae6205fa8",
       "after": "44195f01ab0d015144df468e500628b8cba81984"
+    },
+    {
+      "original": "local/rtc-glink-read-only-ops-20261110",
+      "status": "unchanged",
+      "patch": "0146-rtc-qcom-glink-advertise-read-only-ops.patch",
+      "before": "44195f01ab0d015144df468e500628b8cba81984",
+      "after": "ca55d57edf4c0c2ade677f0b5336e69ab8645c3a"
     }
   ],
   "pre_usb3_source_tree": "004cf498d432dba102ea3d4c9f9389446d40c1bd"

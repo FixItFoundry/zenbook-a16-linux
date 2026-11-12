@@ -8,8 +8,8 @@ validation reference; nothing here installs or selects a kernel.
 | Identity | Value |
 |---|---|
 | Upstream base | `v7.3`, commit `c03c1a14507dfaf8b856c2608f9ac216021fc222` |
-| Ordered residual queue | [145 patches](../../patches/stable/README.md) |
-| Patched source tree | `44195f01ab0d015144df468e500628b8cba81984` |
+| Ordered residual queue | [146 patches](../../patches/stable/README.md) |
+| Patched source tree | `ca55d57edf4c0c2ade677f0b5336e69ab8645c3a` |
 | Recorded release | `7.3.0-ZenbookA16-20261022-final1+` |
 | Package revision 1 | `7.3.0-ZenbookA16-20261022-final1-a16pkg1+` |
 
@@ -27,7 +27,7 @@ see [upstream credits](../../UPSTREAM-CREDITS.md).
 python3 kernel/stable/replay.py /path/to/linux-git
 ```
 
-The verifier checks the manifest and applies all 145 patches in a temporary Git
+The verifier checks the manifest and applies all 146 patches in a temporary Git
 index, requiring the exact source tree above. It leaves HEAD, the normal index
 and working files alone. It creates Git tree/blob objects, not commits.
 
@@ -87,6 +87,10 @@ rail or audio-quality improvement is established.
 
 Release the RTC parent wake source when the timer worker cannot read time.
 The GLINK read timeout remains unresolved; this balances the wake-source lifetime.
+
+Select RTC ops without set_time unless allow-set-time is enabled. This stops NTP
+retrying unsupported writes and preserves the existing writable opt-in.
+The failed GLINK v2 diagnostic driver is excluded.
 
 Both tracks pass source replay and host checks. Hardware observations cover
 only the A16; other machines using these shared drivers were not tested.

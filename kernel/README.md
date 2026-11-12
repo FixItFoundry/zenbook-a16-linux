@@ -4,19 +4,19 @@ Active kernel build recipes are organized into two maintained tracks (`stable` a
 
 | Directory | Track | Upstream Base | Patches | Replayed Source Tree | Status |
 |---|---|---|---:|---|---|
-| [`stable/`](stable/README.md) | **Stable Release Track** (`main`) | Linux `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) | [145](../patches/stable/README.md) | `44195f01ab0d015144df468e500628b8cba81984` | Source replay and host checks pass; this exact queue is unbuilt and unbooted. |
-| [`rc/`](rc/README.md) | **RC / Upstream Development Track** (`rc`) | Linux `next-20261103` (`d6bcfc94eb4da6e089c5473970cd96727292fd97`, `v7.4-rc1`) | [102](../patches/rc/README.md) | `778e99957964e7549ecd0683065311df3db7961f` | Source replay and host checks pass; this exact queue is unbuilt and unbooted. |
+| [`stable/`](stable/README.md) | **Stable Release Track** (`main`) | Linux `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) | [146](../patches/stable/README.md) | `ca55d57edf4c0c2ade677f0b5336e69ab8645c3a` | Source replay and host checks pass; this exact queue is unbuilt and unbooted. |
+| [`rc/`](rc/README.md) | **RC / Upstream Development Track** (`rc`) | Linux `next-20261103` (`d6bcfc94eb4da6e089c5473970cd96727292fd97`, `v7.4-rc1`) | [103](../patches/rc/README.md) | `e52a4f3ca29b6348ecaf84a4f349bde8d0cc1fb7` | Source replay and host checks pass; this exact queue is unbuilt and unbooted. |
 | [`arch-7.2.10/`](arch-7.2.10/BUILD-AND-UPGRADE.txt) | **Arch Linux 7.2.10 Recipe** | Linux `v7.2.10` | 127 | `4d6a5f56ffa9571ec5b5f053ecbe4861c158b2b2` | Standalone `PKGBUILD` generator with side-by-side UKI and header support. |
 | [`../archive/kernel/`](../archive/kernel/) | **Retired Snapshots** | `v7.3-rc3` / `v7.3-rc5` | — | Historical | Retained `rc3-20260919`, `rc5-20261002`, `rc5-20261008`, `rc5-20261013`, and `rc5-20261031` recipes. |
 
 ## Replay and Build Commands
 
 ```sh
-# Stable track (Linux 7.3 final, 145 patches):
+# Stable track (Linux 7.3 final, 146 patches):
 python3 kernel/stable/replay.py /path/to/linux
 JOBS=4 ./kernel/stable/build.sh /path/to/linux /path/to/stable-output
 
-# RC track (Linux 7.4-rc1 linux-next next-20261103, 102 patches):
+# RC track (Linux 7.4-rc1 linux-next next-20261103, 103 patches):
 python3 kernel/rc/replay.py /path/to/linux
 JOBS=4 ./kernel/rc/build.sh /path/to/linux /path/to/rc-output
 

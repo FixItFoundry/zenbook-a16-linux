@@ -1,9 +1,9 @@
-36819a721790e16795d13d6372aee4b1736f097597430421b7c99b795aaa9893  kernel/stable/build.json
+35eda3250eedb1fe6abd8132a3350627053aa22b609ace027f96d7de1cf8da9b  kernel/stable/build.json
 34a90747b0afe950f8e86b4507b14ec5a65ac1dc82a32e988456c1cc0abf5ad7  kernel/stable/build.sh
 afe4f4e2305ee6821ae1da55ead23d397f5bf160e49aa1fc58239360a636ad11  kernel/stable/config
 13feedb2d3088340e9955d29ba19661994a2cd37b628452f5c04d75af2746032  kernel/stable/replay.py
-e4a7cb4b1a9844a30ae36b48f2003b47801b921c698b42fdfc1254a88f91658e  patches/stable/port-map.json
-36012d60f8ca8ab8e537afc012cf1146dc765a56de08dff848922f66f744e470  patches/stable/series
+955a77f590d57e98d7c0c6ee389ebebe2a92c4ec2af3eb3226bd4439a73f3bbf  patches/stable/port-map.json
+1b5ed44f9d9ef1b7a7a4c0b99d49d5102eccfd9157bf4620e91f1b1ae5406d45  patches/stable/series
 73d754992616b6c879f2d27381b51ab9171babce4b4fcd63828dd6551738ef8f  patches/stable/0001-drm-msm-dp-make-the-eDP-1.4-LINK_RATE_SET-path-actua.patch
 0ebab1b5d069c18b7d666588336b8478fab4191a004fbffb1b3635174ed38c2a  patches/stable/0002-phy-qcom-edp-split-power-on-sequencing-by-PHY-versio.patch
 137f2d1dcc4ba2e5c6678f49f756bb7ccde02002a1dda62a5dc047636e741c95  patches/stable/0003-phy-qcom-edp-update-v8-power-on-programming-sequence.patch
@@ -149,3 +149,4 @@ ebae22d8745e34326f1e8face92673bbc3e24e9ba01076746a07d8d4343ca4ff  patches/stable
 5a78b548309da9143707d44ab48033caa296f973d7038c94fb5099d4a2cc8ca7  patches/stable/0143-phy-qcom-qmp-combo-Update-Glymur-USB3-settings.patch
 fb9013cd58c1ea12c140ae085b3bdde2d56158ee738cd305b28d6365da46576b  patches/stable/0144-regulator-qcom-rpmh-preserve-initial-mode.patch
 4774a1d0aa66283545262be7c09f21bb4f4580c9d68768ff18b6008381f102d4  patches/stable/0145-rtc-interface-release-wakeup-source-on-read-error.patch
+254ffff25a65d8293951f9aa1fd44a2e25737df88af96da0c5cb5331e5097e5f  patches/stable/0146-rtc-qcom-glink-advertise-read-only-ops.patch

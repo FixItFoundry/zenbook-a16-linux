@@ -6,8 +6,8 @@ Upstream development and LKML validation track for the **ASUS Zenbook A16 (`UX36
 |---|---|
 | Upstream `linux-next` base | `next-20261103`, commit `d6bcfc94eb4da6e089c5473970cd96727292fd97` |
 | Underlying mainline RC | `v7.4-rc1`, commit `6628e7d4c6b25c8d18f1345e3a20d21829aae7e4` |
-| Ordered residual queue | [102 patches](../../patches/rc/README.md) ([`port-map.json`](../../patches/rc/port-map.json)) |
-| Patched source tree | `778e99957964e7549ecd0683065311df3db7961f` |
+| Ordered residual queue | [103 patches](../../patches/rc/README.md) ([`port-map.json`](../../patches/rc/port-map.json)) |
+| Patched source tree | `e52a4f3ca29b6348ecaf84a4f349bde8d0cc1fb7` |
 | Recorded release | `7.4.0-rc1-next-20261103-zenbook-a16+` |
 | Package revision 1 | `7.4.0-rc1-next-20261103-zenbook-a16-a16pkg1+` |
 
@@ -48,6 +48,10 @@ rail or audio-quality improvement is established.
 
 Release the RTC parent wake source when the timer worker cannot read time.
 The GLINK read timeout remains unresolved; this balances the wake-source lifetime.
+
+Select RTC ops without set_time unless allow-set-time is enabled. This stops NTP
+retrying unsupported writes and preserves the existing writable opt-in.
+The failed GLINK v2 diagnostic driver is excluded.
 
 Both tracks pass source replay and host checks. Hardware observations cover
 only the A16; other machines using these shared drivers were not tested.

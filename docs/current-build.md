@@ -37,8 +37,8 @@ for the two audio authors and backport scope.
 
 Stable targets Linux 7.3 final ([`kernel/stable`](../kernel/stable/README.md)); the `rc` development track ([`kernel/rc`](../kernel/rc/README.md)) targets **Linux `v7.4-rc1` `linux-next` (`next-20261103`, `d6bcfc94eb4da6e089c5473970cd96727292fd97`)**.
 
-- **`stable` (`7.3.0-ZenbookA16-20261022-final1+`)**: Replays 145 patches to `44195f01ab0d015144df468e500628b8cba81984`. Source and host checks pass; this exact queue is unbuilt and unbooted.
-- **`rc` (`7.4.0-rc1-next-20261103-zenbook-a16+`)**: Replays 102 patches to `778e99957964e7549ecd0683065311df3db7961f` on next-20261103. Source and host checks pass; this exact queue is unbuilt and unbooted.
+- **`stable` (`7.3.0-ZenbookA16-20261022-final1+`)**: Replays 146 patches to `ca55d57edf4c0c2ade677f0b5336e69ab8645c3a`. Source and host checks pass; this exact queue is unbuilt and unbooted.
+- **`rc` (`7.4.0-rc1-next-20261103-zenbook-a16+`)**: Replays 103 patches to `e52a4f3ca29b6348ecaf84a4f349bde8d0cc1fb7` on next-20261103. Source and host checks pass; this exact queue is unbuilt and unbooted.
 - The retired `v7.3-rc5` layered RC recipe (`7.3.0-rc5-ZenbookA16-20261022-a16pkg3+` / `20261031-usb1+`) is archived under [`archive/kernel/rc5-20261031/`](../archive/kernel/rc5-20261031/README.md) and [`archive/patches/rc5-20261031/`](../archive/patches/rc5-20261031/README.md).
 The [track policy](kernel-tracks.md) records the two-track packaging architecture and release checks.
 The dated Omarchy and Fedora records below retain their separate acceptance scopes.

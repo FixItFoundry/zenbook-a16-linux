@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Tue, 10 Nov 2026 19:30:00 -0500
+Subject: [PATCH] rtc: qcom-glink: drop set_time when the RTC is
+ read-only
+
+Without the allow-set-time opt-in the driver still advertises set_time and
+then returns -EOPNOTSUPP. The NTP hardware clock sync treats a present
+callback that fails as retryable and calls rtc_set_time() again about
+every two seconds; each call takes the RTC wake source and queues the
+timer worker. Only a missing set_time callback makes it stop.
+
+Register an ops table without set_time when writes are not allowed.
+Write-enabled boards keep the current behavior.
+
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ drivers/rtc/rtc-qcom-glink.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/rtc/rtc-qcom-glink.c b/drivers/rtc/rtc-qcom-glink.c
+--- a/drivers/rtc/rtc-qcom-glink.c
++++ b/drivers/rtc/rtc-qcom-glink.c
+@@ -606,6 +606,17 @@
+ 	.alarm_irq_enable = qcom_rtc_glink_alarm_irq_enable,
+ };
+ 
++/*
++ * Without set_time the NTP hardware clock sync treats the RTC as read-only
++ * and stops retrying; a set_time that fails is retried every two seconds.
++ */
++static const struct rtc_class_ops qcom_rtc_glink_ro_ops = {
++	.read_time = qcom_rtc_glink_read_time,
++	.read_alarm = qcom_rtc_glink_read_alarm,
++	.set_alarm = qcom_rtc_glink_set_alarm_dev,
++	.alarm_irq_enable = qcom_rtc_glink_alarm_irq_enable,
++};
++
+ static const struct of_device_id qcom_rtc_glink_of_variants[] = {
+ 	{ .compatible = "qcom,glymur-pmic-glink" },
+ 	{}
+@@ -652,7 +663,8 @@
+ 		return dev_err_probe(dev, PTR_ERR(rtc_glink->rtc),
+ 				     "failed to allocate RTC device\n");
+ 
+-	rtc_glink->rtc->ops      = &qcom_rtc_glink_rtc_ops;
++	rtc_glink->rtc->ops      = rtc_glink->allow_set_time ? &qcom_rtc_glink_rtc_ops :
++							    &qcom_rtc_glink_ro_ops;
+ 	rtc_glink->rtc->range_min = 0;
+ 	rtc_glink->rtc->range_max = U32_MAX;
+ 
+-- 
+2.51.0
