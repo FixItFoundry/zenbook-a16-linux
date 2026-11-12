@@ -1,8 +1,8 @@
 {
   "base": "c03c1a14507dfaf8b856c2608f9ac216021fc222",
-  "source_tree": "928695840df5d59b1d481a8fa672442ae6205fa8",
+  "source_tree": "44195f01ab0d015144df468e500628b8cba81984",
   "release": "7.3.0-ZenbookA16-20261022-final1+",
-  "patch_count": 144,
+  "patch_count": 145,
   "prior_release": "7.3.0-rc5-ZenbookA16-20261022-a16pkg3+",
   "prior_source_tree": "11f818cf609ff60e6f826f47e757f939b5442adc",
   "promotion_date": "2026-10-22",

@@ -1,0 +1,46 @@
+From 6628d741769f977ffe2e2def88d41c8f5cb34338 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Tue, 10 Nov 2026 20:41:50 -0500
+Subject: [PATCH] rtc: interface: fix wakeup source leak in rtc_timer_do_work()
+
+rtc_update_irq(), rtc_set_time() and the -ETIME paths of
+rtc_timer_enqueue() and rtc_timer_remove() call pm_stay_awake() on the
+RTC parent device before scheduling rtc->irqwork, and
+rtc_timer_do_work() balances that with pm_relax() when it is done.
+
+Since commit e8ba8a2bc4f6 ("rtc: check if __rtc_read_time was successful
+in rtc_timer_do_work()"), a failed time read returns early without
+calling pm_relax(). A single read error then leaves the wakeup source
+active, reads of /sys/power/wakeup_count block and suspend cannot
+proceed.
+
+Seen on an ASUS Zenbook A16 (UX3607OA), where reads of the PMIC GLINK
+RTC time out and the pmic_glink.rtc-glink.0 wakeup source stays active
+from boot. With this change the source is released after each failed
+read.
+
+Fixes: e8ba8a2bc4f6 ("rtc: check if __rtc_read_time was successful in rtc_timer_do_work()")
+Cc: stable@vger.kernel.org
+Link: https://lore.kernel.org/r/20261112002125.24566-1-jesse.casco@gmail.com
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ drivers/rtc/interface.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/rtc/interface.c b/drivers/rtc/interface.c
+index 96626f8068f9..ba4f92ac0f89 100644
+--- a/drivers/rtc/interface.c
++++ b/drivers/rtc/interface.c
+@@ -980,6 +980,7 @@ void rtc_timer_do_work(struct work_struct *work)
+ again:
+ 	err = __rtc_read_time(rtc, &tm);
+ 	if (err) {
++		pm_relax(rtc->dev.parent);
+ 		mutex_unlock(&rtc->ops_lock);
+ 		return;
+ 	}
+
+base-commit: 6628e7d4c6b25c8d18f1345e3a20d21829aae7e4
+-- 
+2.56.0
+

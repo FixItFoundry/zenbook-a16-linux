@@ -1,8 +1,8 @@
 # Full A16/Qualcomm stack on Linux 7.3 final
 
-Apply the 144 files in [series](series), in order, to Linux `v7.3`
+Apply the 145 files in [series](series), in order, to Linux `v7.3`
 (`c03c1a14507dfaf8b856c2608f9ac216021fc222`). They reproduce source tree
-`928695840df5d59b1d481a8fa672442ae6205fa8` (`004cf498d432dba102ea3d4c9f9389446d40c1bd`
+`44195f01ab0d015144df468e500628b8cba81984` (`004cf498d432dba102ea3d4c9f9389446d40c1bd`
 prior to patch `0143`). Use the matching
 [config, verifier and build helper](../../kernel/stable/README.md).
 
