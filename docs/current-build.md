@@ -109,7 +109,7 @@ The original cause is unproven; no offline structural check or backup verificati
 ## Remaining limits
 
 - USB1 SuperSpeed still fails with `-71`; only a USB2 hub appears. Both-orientation carrier and sustained traffic remain unaccepted.
-- Bluetooth reports missing `qca/clnbtfw10.tlv`; peer pairing and traffic remain unvalidated. This message alone does not prove total Bluetooth failure.
+- Bluetooth pairing and traffic remain unvalidated on revision 6. Builds before the November 12 queues reported missing `qca/clnbtfw10.tlv` and ran on ROM firmware.
 - Suspend/hibernate, efficient audio PM, battery life, repeated cold-boot/idle/playback checks and long-duration stability remain open. Historical resets and RPMh timeouts are unresolved.
 - Physical fan response, external displays/HDMI/USB4, camera capture, microphones and other audio routes remain unaccepted.
 

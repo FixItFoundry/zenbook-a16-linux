@@ -8,16 +8,16 @@ establish successful firmware loading or hardware acceptance.
 | Component | Required location |
 |---|---|
 | Wi-Fi | `ath12k/QCC2072/hw1.0/{board-2.bin,firmware-2.bin}` |
-| Bluetooth rampatch | `qca/clnbtfw10.tlv` |
+| Bluetooth | `qca/{ornbtfw11.tlv,ornnv11.bin,ornbcscal11.bin}` |
 | GPU | `qcom/{gen80100_sqe.fw,gen80100_gmu.bin}` |
 | ASUS ADSP | `qcom/glymur/ASUSTeK/UX3607OA/{qcadsp8480.mbn,adsp_dtbs.elf}` |
 | ASUS CDSP | `qcom/glymur/ASUSTeK/UX3607OA/{qccdsp8480.mbn,cdsp_dtbs.elf}` |
 | Audio topology | `qcom/glymur/ASUSTeK/UX3607OA-tplg.bin` or `qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin` |
 
-The current boot reports missing `clnbtfw10.tlv`. Older `hmt*` or `orn*` files
-are not substitutes. The board-specific Bluetooth NVM request and pairing still
-need confirmation after the rampatch loads; copying an existing `qca` directory
-preserves those filenames without guessing a replacement.
+The Bluetooth files come from `linux-firmware`. The current queues load them
+through the pending QCC2072 series. Kernels built before the November 12 queues
+asked for `qca/clnbtfw10.tlv`, the Windows name, which no Linux package ships;
+they fall back to ROM firmware and do not use the `orn*` files.
 
 Use distro/upstream `linux-firmware` where it supplies the exact files. Obtain
 ASUS board-signed DSP firmware from a verified matching source, including the

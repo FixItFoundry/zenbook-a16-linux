@@ -24,7 +24,8 @@ class FirmwareChecks(unittest.TestCase):
     def test_current_board_files_copy_and_missing_rampatch(self):
         required = [
             "ath12k/QCC2072/hw1.0/board-2.bin",
-            "ath12k/QCC2072/hw1.0/firmware-2.bin", "qca/clnbtfw10.tlv",
+            "ath12k/QCC2072/hw1.0/firmware-2.bin",
+            "qca/ornbtfw11.tlv", "qca/ornnv11.bin", "qca/ornbcscal11.bin",
             "qcom/gen80100_sqe.fw.xz", "qcom/gen80100_gmu.bin.zst",
             "qcom/glymur/ASUSTeK/UX3607OA/qcadsp8480.mbn",
             "qcom/glymur/ASUSTeK/UX3607OA/adsp_dtbs.elf",
@@ -67,11 +68,11 @@ class FirmwareChecks(unittest.TestCase):
             self.assertIn("MISSING  qcom/gen80100_sqe.fw", check().stdout)
             self.assertNotEqual(check().returncode, 0)
             wrong_sqe.rename(sqe)
-            rampatch = root / "qca/clnbtfw10.tlv"
+            rampatch = root / "qca/ornbtfw11.tlv"
             rampatch.rename(root / "qca/hmtbtfw20.tlv")
             result = check()
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("MISSING  qca/clnbtfw10.tlv", result.stdout)
+            self.assertIn("MISSING  qca/ornbtfw11.tlv", result.stdout)
             rampatch.touch()
             self.assertNotEqual(check().returncode, 0)
 

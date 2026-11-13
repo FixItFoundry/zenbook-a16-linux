@@ -22,7 +22,9 @@ EOF
 required=(
     ath12k/QCC2072/hw1.0/board-2.bin
     ath12k/QCC2072/hw1.0/firmware-2.bin
-    qca/clnbtfw10.tlv
+    qca/ornbtfw11.tlv
+    qca/ornnv11.bin
+    qca/ornbcscal11.bin
     qcom/gen80100_sqe.fw
     qcom/gen80100_gmu.bin
     qcom/glymur/ASUSTeK/UX3607OA/qcadsp8480.mbn
