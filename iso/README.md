@@ -7,7 +7,7 @@ Linux; the local regression tests do not establish hardware boot acceptance.
 
 ## Supported installation contract
 
-- Rebuild the current bundle with `kernel/rc5-20261013/build.sh`. Its
+- Build the bundle with `kernel/stable/build.sh` (or `kernel/rc/build.sh`). Its
   `lib/modules/$KREL/zenbook-a16-boot.json` records the exact kernel and DTB
   hashes, source tree, required boot settings and pre-root DSP policy.
 - Existing bundles with installer-created ABI markers must be rebuilt. The

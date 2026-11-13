@@ -17,12 +17,22 @@ It adapts rc5 context and drops the superseded helper hunk from Fabian's patch.
 Original authorship is retained; these are not new submissions by this project.
 
 The [7.3 final source port](patches/stable/README.md) carries the full
-143-patch A16/Qualcomm/camera/LKML stack on `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`),
+155-patch A16/Qualcomm/camera/LKML stack on `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`),
 omitting three complete upstream equivalents (`0001`–`0111`) and integrating 32
 new fixes (`0112`–`0143`) from in-repo overlays, LKML, `qcom-next`, and
 `laptops-kernel/topic/glymur-laptops` (with three context adaptations for upstream
-overlap). Its [patch map](patches/stable/port-map.json) preserves original
+overlap), plus the November 12 RPMh/RTC fixes (`0144`–`0146`) and nine carried-forward patches (`0147`–`0155`). Its [patch map](patches/stable/port-map.json) preserves original
 provenance and authorship trailers on every patch.
+
+## November 10, 2026 — QCC2072 and M.2 Bluetooth support
+
+- Stable `0150` / rc `0107`: **Rahul Samana**, QCC2072 DT binding, [v2 1/6](https://lore.kernel.org/all/20260727-rb3-industrial-bt-uart-v2-1-2d100f30e202@oss.qualcomm.com/).
+- Stable `0151` / rc `0108`: **Vivek Sahu**, QCC2072 UART driver support, [v2 2/6](https://lore.kernel.org/all/20260727-rb3-industrial-bt-uart-v2-2-2d100f30e202@oss.qualcomm.com/).
+- Stable `0152` / rc `0109`: **Krishna Chaitanya Chundru**, QCC2072 M.2 power sequencing, [v2 3/6](https://lore.kernel.org/all/20260727-rb3-industrial-bt-uart-v2-3-2d100f30e202@oss.qualcomm.com/).
+- Stable `0153` / rc `0110`: **Manivannan Sadhasivam**, M.2 Bluetooth power sequencing, [monza-wireless v7 1/8](https://lore.kernel.org/all/20261005-monza-wireless-v7-1-5a6de7662dcb@oss.qualcomm.com/), with the QCC2072 case-group context adaptation noted in the patch.
+
+These four patches are carried as `FROMLIST`. The accompanying eDP corrections,
+A16 M.2 wiring restoration and RGB camera clock-drive fix are by Jesse Casco.
 
 ## November 3, 2026 — Linux 7.3 final rebase (`0112`–`0143`)
 

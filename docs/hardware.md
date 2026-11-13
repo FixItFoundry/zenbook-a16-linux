@@ -63,9 +63,10 @@ ls /sys/class/backlight/                       # dp_aux_backlight
 1.62/2.7/5.4 Gbps and `MAX_LINK_RATE = 0x00`, so it advertises rates only through the table.
 At boot `LINK_BW_SET` still holds the firmware's `0x14`, so the driver uses `LINK_BW_SET`; when
 the compositor starts and the caps are re-read it reads `0x00`, and the driver selects the
-table. Mainline drops that selection before link training (bug since `ed100aa239be`). The fix
-and four follow-ups are carried in Omarchy as `2367`–`2371` and are not yet upstream; with
-them the panel trains through `LINK_RATE_SET`, including a fallback to 2.7 Gbps.
+table. Mainline drops that selection before link training (bug since `ed100aa239be`). The
+local rate-set fixes were tested with successful `LINK_RATE_SET` training, including a
+fallback to 2.7 Gbps. Omarchy carries an overlapping five-patch series (`2367`–`2371`);
+that complete series was not the source used for these tests.
 
 ⛔ Do not re-derive the eDP elimination list — it is in the maintainer’s private eDP notes. In particular the old
 reasoning "UEFI left `LINK_BW_SET = 0x14` so the firmware's known-good link is HBR3" is
@@ -292,15 +293,15 @@ host router is missing. Nothing to do locally.
 
 One Qualcomm **QCC2072** combo chip: Wi-Fi 7 via `ath12k` on PCIe (`17cb:1112`), Bluetooth on
 a serdev UART (product `0x20`, ROM `0x0101`, board ID `0x17`). The Bluetooth half is not a
-WCN7850; our DT only describes it as one.
+WCN7850; older local DTs described it as one.
 
 Wi-Fi needs firmware extracted from the device's own Windows install, plus a forced regdomain
 (`US`). Firmware is deliberately **not** shipped in this repo.
 
-**What we changed:** added a `qcom,wcn7850-bt` serdev node; brought Wi-Fi up through the
+**Earlier workaround:** added a `qcom,wcn7850-bt` serdev node; brought Wi-Fi up through the
 `qcom,wcn7850-pmu` power-sequencing binding rather than hand-rolled regulator asserts.
 
-⚠️ **Bluetooth runs on ROM firmware.** Our selector asks for `qca/clnbtfw10.tlv` (the Windows
+⚠️ **Revision 1 uses ROM firmware.** Its selector asks for `qca/clnbtfw10.tlv` (the Windows
 name), which no Linux package ships, so `hci_qca` falls back to ROM firmware without in-band
 sleep. Basic pairing and audio still work.
 
@@ -308,9 +309,11 @@ sleep. Basic pairing and audio still work.
 exact chip (product `0x20`, ROM `0x0101`). Qualcomm's pending QCC2072 series loads it with
 `ornnv11.bin` and `ornbcscal11.bin`, enables in-band sleep and plays A2DP audio. On 7.4 the
 mainline A16 DT's `pcie-m2-e-connector` brings up Wi-Fi and, with Manivannan's pending
-`hci_qca` M.2 pwrseq patch, Bluetooth too, with no A16 DT change. Once both series land, our
-`wcn7850-pmu` and `wcn7850-bt` nodes can go. One of five boots stalled during the Bluetooth
-firmware download while Wi-Fi was starting.
+`hci_qca` M.2 pwrseq patch, Bluetooth too, with no A16 DT change. Both queues
+carry these pending patches and restore mainline's connector wiring, removing the local
+`wcn7850-pmu` and `wcn7850-bt` nodes. Stable package revision 6 boots on 7.3 with Wi-Fi
+working through this path; Bluetooth on that build has not been re-checked. One of five earlier QCC2072 test boots stalled during the
+Bluetooth firmware download while Wi-Fi was starting.
 
 ⚠️ Wi-Fi takes up to ~5 minutes to re-associate after resume. "I cannot ssh in" is not evidence
 of a crash — judge by `uptime -s`.
@@ -843,7 +846,29 @@ genpd power-off/`simple-pm-bus` — individually **and all five combined**.
 NVMe root on PCIe. RTC is the PMIC RTC — enabled, but **read-only**; `qcom,uefi-rtc-info` is
 deliberately removed from the DT.
 
-## Camera ⏳ — sensors identified, CAMSS core & CCI probed on hardware, board wiring recovered
+## Camera — RGB capture and microphone-triggered banding fix verified
+
+### RGB MCLK4 fix — 2026-11-10
+
+The OV02C10 RGB sensor captures on the 7.3 revision-1 kernel. Enabling the
+internal DMIC caused horizontal RAW10 bands and stretched frame times with
+MCLK4 (TLMM GPIO100, `cam_asc_mclk4`, 19.2 MHz) driven at 2 mA. Setting
+`&cam_mclk4_default { drive-strength = <6>; };` in the A16 board DTS eliminated
+both symptoms in an A/B/A test:
+
+| Boot | MCLK4 | Microphone on: row high-pass RMS | Frame interval |
+|---|---|---:|---:|
+| A | 2 mA | 20.44 | 36.172 ms |
+| B | 6 mA | 0.90 | 33.274 ms |
+| A2 | 2 mA | 15.33 | 34.366 ms |
+
+With the microphone off, all three boots measured about 0.9–1.0 RMS and
+33.27 ms. Both maintained queues carry the board-local fix (stable `0155`,
+rc `0112`). Stability acceptance of the combined packages is still open;
+this test did not validate microphone audio quality or IR capture.
+
+The remaining camera sections retain historical bringup observations, including
+blockers that predate working RGB capture.
 
 ### Clock controller (`camcc-glymur`)
 

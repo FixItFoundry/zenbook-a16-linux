@@ -2,6 +2,15 @@
 
 Dated changes and corrections; [current status](docs/current-build.md) is recorded separately.
 
+## 2026-11-12 — eDP, QCC2072 Bluetooth, M.2 wiring and RGB camera carried forward
+
+- Added nine patches to each track after the RPMh/RTC fixes: stable `0147`–`0155` (155 total, tree `bd1327aac6e1431668eaa53f69e5867d3400b4a0`) and rc `0104`–`0112` (112 total, tree `ed1c21244abbeae943f39c5a4824ea05c1c613ba`). These are the changes the working revision-2 build carried; revision 5 was built without them and is superseded by revision 6.
+- Corrected eDP rate-set training: omit the redundant `LINK_BW_SET` write, restore the table index on lane down-shift, and stop rate fallback at the lowest table entry.
+- Carried patches 1–3 of Rahul Samana's QCC2072 v2 series and Manivannan Sadhasivam's M.2 `hci_qca` power-sequencing patch as `FROMLIST`, preserving their original authorship. Restored mainline's M.2 connector wiring for Wi-Fi and Bluetooth.
+- Set the A16 RGB camera's MCLK4 (GPIO100) drive strength to 6 mA. A 7.3 A/B/A test eliminated microphone-triggered RAW10 banding and frame-time stretch at 6 mA; both returned at 2 mA. IR capture and microphone audio quality were not validated by that test.
+- Source checksums and forward/reverse replay are verified. Stable revision 6 boots on the A16 with the display and Wi-Fi working; an unexplained reset between two boots is unresolved, so stability is not accepted. RC revision 6 is built and not booted. Native package-manager installation remains untested.
+- README: corrected the contribution list to match the patch queues, and marked the package install path as development status.
+
 ## 2026-11-03 — Linux 7.4 RC (`next-20261103`) development track & 7.3 final stable rebase
 
 - Transitioned [`kernel/rc/`](kernel/rc/README.md) and [`patches/rc/`](patches/rc/README.md) from `v7.3-rc5` to **Linux 7.4's latest RC in `linux-next` (`next-20261103`, `d6bcfc94eb4da6e089c5473970cd96727292fd97`, built on `v7.4-rc1` `6628e7d4c6b25c8d18f1345e3a20d21829aae7e4`)**, target release `7.4.0-rc1-next-20261103-zenbook-a16+` (tree `f5c8bd36414eae4cea1cd2c0bf51de2ccf3b5caa`):

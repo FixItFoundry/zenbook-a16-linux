@@ -8,14 +8,13 @@ do not make the RC kernel production-ready.
 
 ## Build without installing
 
-The [7.3 final candidate](../../kernel/7.3-final-20261022/README.md) carries the
-full A16/Qualcomm/camera stack. Its source replay passes; compilation and native
-package/boot acceptance are pending. Its builder applies patches to a staged
-index without making commits, preserving HEAD at the pinned upstream base.
-Use its dated build helper for that source; the rc5 commands below remain intact.
+Two recipes are maintained: [`kernel/stable`](../../kernel/stable/README.md)
+(Linux 7.3 final) and [`kernel/rc`](../../kernel/rc/README.md) (`next-20261103`).
+Each builder applies its patch queue to a staged index without making commits,
+preserving HEAD at the pinned upstream base.
 
 Run from this repository on a native aarch64 Linux build machine. Supply a kernel
-Git repository containing the pinned mainline base ([`rc5-qcom-bridge-20261018`](../../kernel/rc5-qcom-bridge-20261018/build.json) or [`rc5-20261013`](../../kernel/rc5-20261013/build.json)).
+Git repository containing the pinned base named in the recipe's `build.json`.
 The output directory must not exist for a fresh build. The helper creates a separate
 source worktree. After fixing a build or packaging error, repeat the command with
 `--resume` before `/path/to/linux`, keeping the same environment and output path.
@@ -23,13 +22,13 @@ Resume reuses the clean, fully patched source, saved configuration and build obj
 it refuses source changes, unrelated worktrees and incomplete patch application.
 
 ```sh
-# Fedora (mainline release + qcom-next / qcom-topics bridge):
-JOBS=4 PACKAGE_REVISION=1 BUILD_RPM=1 BUILD_DEB=0 \
-  ./kernel/rc5-qcom-bridge-20261018/build.sh /path/to/linux /path/to/fedora-build
+# Fedora:
+JOBS=4 PACKAGE_REVISION=6 BUILD_RPM=1 BUILD_DEB=0 \
+  ./kernel/stable/build.sh /path/to/linux /path/to/fedora-build
 
-# Ubuntu (mainline release + qcom-next / qcom-topics bridge):
-JOBS=4 PACKAGE_REVISION=1 BUILD_RPM=0 BUILD_DEB=1 \
-  ./kernel/rc5-qcom-bridge-20261018/build.sh /path/to/linux /path/to/ubuntu-build
+# Ubuntu:
+JOBS=4 PACKAGE_REVISION=6 BUILD_RPM=0 BUILD_DEB=1 \
+  ./kernel/stable/build.sh /path/to/linux /path/to/ubuntu-build
 ```
 
 Both builds require Python, `dtc`, `fdtget`, GNU coreutils and the kernel's compiler,
@@ -38,10 +37,7 @@ Builds do not install packages, generate host boot entries or change the default
 `BUILD_RPM=0 BUILD_DEB=0` stages only the portable bundle. Packages go in
 `bundle/rpms/` or `bundle/debs/`.
 
-The kernel source pulls from the mainline release base (`v7.3-rc5`), applies the
-local A16 series and the `qcom-next`/`qcom-topics` bridge patches, and merges
-[`kernel/qcom-glymur-bridge.config`](../../kernel/qcom-glymur-bridge.config).
-The new release ends in `-a16pkg1+`, replacing its original final `+`, so its modules
+The release ends in `-a16pkgN+`, replacing the recipe's final `+`, so its modules
 cannot overwrite the installed baseline. Increase `PACKAGE_REVISION` for each
 new rebuild; never distribute different bytes with the same release identity.
 This is a source/configuration rebuild, not a promise of byte-identical binaries.

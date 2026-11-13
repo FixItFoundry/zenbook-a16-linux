@@ -1,6 +1,23 @@
-# Current build — 2026-10-31
+# Current build — 2026-11-13
 
-The A16 is running **`7.3.0-7-omarchy`** with the local DSP test boot entry.
+The A16 runs Fedora with **`7.3.0-ZenbookA16-20261022-final1-a16pkg6+`**, staged
+by hand from the stable queue on November 12. The display (2880x1800 at 120 Hz)
+and Wi-Fi work. An unexplained reset occurred between two boots of this build,
+so stability is not accepted. Revision 2 remains installed as the fallback entry.
+
+| Track | Patches | Replayed source tree | Package release | State |
+|---|---:|---|---|---|
+| stable | 155 | `bd1327aac6e1431668eaa53f69e5867d3400b4a0` | `7.3.0-ZenbookA16-20261022-final1-a16pkg6+` | Built, installed, boots |
+| rc | 112 | `ed1c21244abbeae943f39c5a4824ea05c1c613ba` | `7.4.0-rc1-next-20261103-zenbook-a16-a16pkg6+` | Built, not installed |
+
+Revision 5 was built without the nine display, Bluetooth, M.2 and camera patches
+and is superseded. Native `dnf`/`apt` transactions, sleep and RTC behaviour are
+not accepted. Hardware-free CI does not establish native ARM64 installation.
+The dated records below retain their original identities and limits.
+
+## Historical running build — 2026-10-31
+
+The A16 was running **`7.3.0-7-omarchy`** with the local DSP test boot entry.
 Read-only inspection confirmed running ADSP/CDSP, attached SoCCP and no failed
 system units. The internal HDMI PHY still logs clock-enable failures; camera
 and TPM device nodes are absent. This does not establish stock-install,
@@ -37,8 +54,8 @@ for the two audio authors and backport scope.
 
 Stable targets Linux 7.3 final ([`kernel/stable`](../kernel/stable/README.md)); the `rc` development track ([`kernel/rc`](../kernel/rc/README.md)) targets **Linux `v7.4-rc1` `linux-next` (`next-20261103`, `d6bcfc94eb4da6e089c5473970cd96727292fd97`)**.
 
-- **`stable` (`7.3.0-ZenbookA16-20261022-final1+`)**: Replays 146 patches to `ca55d57edf4c0c2ade677f0b5336e69ab8645c3a`. Source and host checks pass; this exact queue is unbuilt and unbooted.
-- **`rc` (`7.4.0-rc1-next-20261103-zenbook-a16+`)**: Replays 103 patches to `e52a4f3ca29b6348ecaf84a4f349bde8d0cc1fb7` on next-20261103. Source and host checks pass; this exact queue is unbuilt and unbooted.
+- **`stable` (`7.3.0-ZenbookA16-20261022-final1+`)**: Replays 155 patches to `bd1327aac6e1431668eaa53f69e5867d3400b4a0`. Built as package revision 6 on November 12. It boots on the A16 with the display and Wi-Fi working; an unexplained reset between two boots is unresolved, so stability is not accepted.
+- **`rc` (`7.4.0-rc1-next-20261103-zenbook-a16+`)**: Replays 112 patches to `ed1c21244abbeae943f39c5a4824ea05c1c613ba` on next-20261103. Built as package revision 6 on November 12 and verified off the device; not installed or booted.
 - The retired `v7.3-rc5` layered RC recipe (`7.3.0-rc5-ZenbookA16-20261022-a16pkg3+` / `20261031-usb1+`) is archived under [`archive/kernel/rc5-20261031/`](../archive/kernel/rc5-20261031/README.md) and [`archive/patches/rc5-20261031/`](../archive/patches/rc5-20261031/README.md).
 The [track policy](kernel-tracks.md) records the two-track packaging architecture and release checks.
 The dated Omarchy and Fedora records below retain their separate acceptance scopes.

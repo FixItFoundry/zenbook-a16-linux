@@ -9,15 +9,15 @@ Updated 2026-11-03. With Qualcomm actively developing Snapdragon X2 (`glymur`) l
 
 | Track | Recipe Directory | Patch Queue | Upstream Base | Replayed Source Tree | Role |
 |---|---|---|---|---|---|
-| **`stable`** | [`kernel/stable/`](../kernel/stable/README.md) | [`patches/stable/`](../patches/stable/README.md) (146 patches) | `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) | `ca55d57edf4c0c2ade677f0b5336e69ab8645c3a` | Primary release and packaging target for Fedora, Ubuntu/Debian, and `linux-omarchy 7.3`. |
-| **`rc`** | [`kernel/rc/`](../kernel/rc/README.md) | [`patches/rc/`](../patches/rc/README.md) (103 patches) | `next-20261103` (`d6bcfc94eb4da6e089c5473970cd96727292fd97`, `v7.4-rc1`) | `e52a4f3ca29b6348ecaf84a4f349bde8d0cc1fb7` | Opt-in development, LKML patch validation, and upstream rebase staging (`7.4.0-rc1-next-20261103-zenbook-a16+`). |
+| **`stable`** | [`kernel/stable/`](../kernel/stable/README.md) | [`patches/stable/`](../patches/stable/README.md) (155 patches) | `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) | `bd1327aac6e1431668eaa53f69e5867d3400b4a0` | Primary release and packaging target for Fedora, Ubuntu/Debian, and `linux-omarchy 7.3`. |
+| **`rc`** | [`kernel/rc/`](../kernel/rc/README.md) | [`patches/rc/`](../patches/rc/README.md) (112 patches) | `next-20261103` (`d6bcfc94eb4da6e089c5473970cd96727292fd97`, `v7.4-rc1`) | `ed1c21244abbeae943f39c5a4824ea05c1c613ba` | Opt-in development, LKML patch validation, and upstream rebase staging (`7.4.0-rc1-next-20261103-zenbook-a16+`). |
 
 Historical bringup recipes (`rc3-*`, `rc5-20261002`, `rc5-20261008`, `rc5-20261013`, `rc5-20261031`) and standalone diagnostic patches are archived under [`archive/`](../archive/README.md).
 
 ## Patch Lifecycle: From `rc` to `stable` to Mainline
 
 1. **Stage & Test on `rc` / LKML**: New hardware fixes (authored locally or pulled from `lore.kernel.org/linux-arm-msm/`, `qcom-next`, or `laptops-kernel/topic/glymur-laptops`) are validated with original `From:`, `Date:`, `Signed-off-by:`, and `Link:` trailers intact.
-2. **Promote to `stable` (`kernel/stable` + `patches/stable`)**: Once a patch series replays cleanly, compiles without regressions, and passes CI/hardware checks, it is cherry-picked into `patches/stable` (Linux `7.3` final). Because Omarchy also runs on a `7.3` release kernel (`linux-omarchy 7.3`), patches validated on `stable` transfer directly to Omarchy packaging.
+2. **Promote to `stable` (`kernel/stable` + `patches/stable`)**: Once a patch series replays cleanly, compiles without regressions, and passes CI/hardware checks, it is cherry-picked into `patches/stable` (Linux `7.3` final). Omarchy also runs a `7.3` release kernel, so a `stable` patch usually applies there, but `linux-omarchy` is one kernel for many machines and carries a different A16 set ([comparison](omarchy-status.md)). A shared-driver patch needs a board gate or testing on other machines before it is proposed there.
 3. **Retire When Merged Upstream**: During each rebase onto a newer `7.3.y` stable tag or `rc` / `linux-next` snapshot, [`patches/stable/port-map.json`](../patches/stable/port-map.json) records upstream equivalents and drops redundant local patches.
 
 ## Verification and Promotion Gates
@@ -34,7 +34,7 @@ Historical bringup recipes (`rc3-*`, `rc5-20261002`, `rc5-20261008`, `rc5-202610
    Runs all 9 unit test suites (125 tests across installer safety, Arch/Fedora/Ubuntu package staging, post-install hooks, boot verification, build resume, and diagnostics) inside a disposable Linux KVM guest.
 3. **Full ARM64 Kernel, DTB & Package Build**:
    ```sh
-   JOBS=4 PACKAGE_REVISION=1 ./kernel/stable/build.sh /path/to/linux.git /path/to/output
+   JOBS=4 PACKAGE_REVISION=6 ./kernel/stable/build.sh /path/to/linux.git /path/to/output
    ```
    Verifies `CONFIG_LOCALVERSION`, required Kconfig symbols (`kernel/stable/required.config`), `qcom,keep-runtime-active;` in the compiled `glymur-asus-zenbook-a16-ux3607oa.dtb`, external-module build headers, portable bundle metadata, and `aarch64` RPM/DEB packages.
 4. **Hardware & Rollback Acceptance**:
