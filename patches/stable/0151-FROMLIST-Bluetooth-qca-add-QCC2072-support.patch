@@ -1,0 +1,325 @@
+From b3f5bb27defeb35a9dfcae143ac57c2c1d41cb3d Mon Sep 17 00:00:00 2001
+From: Vivek Sahu <vivek.sahu@oss.qualcomm.com>
+Date: Mon, 27 Jul 2026 21:15:02 +0530
+Subject: [PATCH 148/152] FROMLIST: Bluetooth: qca: add QCC2072 support
+
+QCC2072 uses the ORN firmware and NVM naming scheme. The tested RB3 Gen 2
+Industrial BT-over-UART setup also needs the BCS calibration TLV to be
+combined with the selected NVM before download.
+
+Keep the BCS/NVM combination in a helper so missing calibration data or
+allocation failures can fall back to downloading the NVM alone without a
+local skip label.
+
+Select the NVM file and BCS calibration file using the controller board ID
+when available, with fallback to the default files. Initialize the BCS
+calibration filename independently of the NVM filename source so custom NVM
+firmware-name paths do not leave it unset.
+
+Register the QCC2072 compatible with hci_qca and route it through the same
+UART setup, speed switching and power-control paths as recent Qualcomm
+Bluetooth controllers.
+
+This continues the QCC2072 enablement work previously posted by Vivek Sahu
+and later extended by Yepuri Siddu for the RB3 Gen 2 Industrial
+BT-over-UART use case.
+
+Signed-off-by: Vivek Sahu <vivek.sahu@oss.qualcomm.com>
+Co-developed-by: Yepuri Siddu <yepuri.siddu@oss.qualcomm.com>
+Signed-off-by: Yepuri Siddu <yepuri.siddu@oss.qualcomm.com>
+Co-developed-by: Rahul Samana <rahul.samana@oss.qualcomm.com>
+Link: https://lore.kernel.org/all/20260727-rb3-industrial-bt-uart-v2-2-2d100f30e202@oss.qualcomm.com/
+Signed-off-by: Rahul Samana <rahul.samana@oss.qualcomm.com>
+---
+ drivers/bluetooth/btqca.c   | 72 ++++++++++++++++++++++++++++++++++++-
+ drivers/bluetooth/btqca.h   |  2 ++
+ drivers/bluetooth/hci_qca.c | 24 +++++++++++++
+ 3 files changed, 97 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/bluetooth/btqca.c b/drivers/bluetooth/btqca.c
+index ab79a499ec47..ab0212a32bb7 100644
+--- a/drivers/bluetooth/btqca.c
++++ b/drivers/bluetooth/btqca.c
+@@ -550,6 +550,54 @@ static int qca_inject_cmd_complete_event(struct hci_dev *hdev)
+ 	return hci_recv_frame(hdev, skb);
+ }
+ 
++static void qca_combine_nvm_calib(struct hci_dev *hdev, u8 **data,
++				  int *size, char *calib_name,
++				  size_t max_size)
++{
++	const struct firmware *calib_fw;
++	struct tlv_type_hdr *outer_hdr;
++	size_t inner_len, combined_size;
++	u8 *combined_data;
++	int err;
++
++	err = request_firmware(&calib_fw, calib_name, &hdev->dev);
++	if (err) {
++		if (qca_get_alt_nvm_file(calib_name, max_size))
++			err = request_firmware(&calib_fw, calib_name, &hdev->dev);
++
++		if (err) {
++			bt_dev_err(hdev, "QCA Failed to request file: %s (%d)",
++				   calib_name, err);
++			return;
++		}
++	}
++
++	bt_dev_info(hdev, "QCA Downloading %s", calib_name);
++
++	inner_len = *size + calib_fw->size;
++	combined_size = sizeof(*outer_hdr) + inner_len;
++	combined_data = vmalloc(combined_size);
++	if (!combined_data) {
++		bt_dev_warn(hdev,
++			    "QCA Failed to allocate memory for file: %s",
++			    calib_name);
++		release_firmware(calib_fw);
++		return;
++	}
++
++	outer_hdr = (struct tlv_type_hdr *)combined_data;
++	/* high 24 bits = payload length, low 8 bits = type */
++	outer_hdr->type_len = cpu_to_le32((inner_len << 8) | 4);
++	memcpy(combined_data + sizeof(*outer_hdr), *data, *size);
++	memcpy(combined_data + sizeof(*outer_hdr) + *size,
++	       calib_fw->data, calib_fw->size);
++	release_firmware(calib_fw);
++
++	vfree(*data);
++	*data = combined_data;
++	*size = combined_size;
++}
++
+ static int qca_download_firmware(struct hci_dev *hdev,
+ 				 struct qca_fw_config *config,
+ 				 enum qca_btsoc_type soc_type,
+@@ -595,6 +643,11 @@ static int qca_download_firmware(struct hci_dev *hdev,
+ 	memcpy(data, fw->data, size);
+ 	release_firmware(fw);
+ 
++	if (soc_type == QCA_QCC2072 && config->type == TLV_TYPE_NVM)
++		qca_combine_nvm_calib(hdev, &data, &size,
++				      config->calib_name,
++				      sizeof(config->calib_name));
++
+ 	ret = qca_tlv_check_data(hdev, config, data, size, soc_type);
+ 	if (ret)
+ 		goto out;
+@@ -849,6 +902,10 @@ int qca_uart_setup(struct hci_dev *hdev, uint8_t baudrate,
+ 				snprintf(config.fwname, sizeof(config.fwname),
+ 					 "qca/hmtbtfw%02x.tlv", rom_ver);
+ 			break;
++		case QCA_QCC2072:
++			snprintf(config.fwname, sizeof(config.fwname),
++				 "qca/ornbtfw%02x.tlv", rom_ver);
++			break;
+ 		default:
+ 			snprintf(config.fwname, sizeof(config.fwname),
+ 				 "qca/rampatch_%08x.bin", soc_ver);
+@@ -882,7 +939,8 @@ int qca_uart_setup(struct hci_dev *hdev, uint8_t baudrate,
+ 	/* Give the controller some time to get ready to receive the NVM */
+ 	msleep(10);
+ 
+-	if (soc_type == QCA_QCA2066 || soc_type == QCA_WCN7850)
++	if (soc_type == QCA_QCA2066 || soc_type == QCA_WCN7850 ||
++	    soc_type == QCA_QCC2072)
+ 		qca_read_fw_board_id(hdev, &boardid);
+ 
+ 	/* Download NVM configuration */
+@@ -947,12 +1005,23 @@ int qca_uart_setup(struct hci_dev *hdev, uint8_t baudrate,
+ 				qca_get_nvm_name_by_board(config.fwname, sizeof(config.fwname),
+ 					 "hmtnv", soc_type, ver, rom_ver, boardid);
+ 			break;
++		case QCA_QCC2072:
++			qca_get_nvm_name_by_board(config.fwname, sizeof(config.fwname),
++						  "ornnv", soc_type, ver,
++						  rom_ver, boardid);
++			break;
+ 		default:
+ 			snprintf(config.fwname, sizeof(config.fwname),
+ 				 "qca/nvm_%08x.bin", soc_ver);
+ 		}
+ 	}
+ 
++	if (soc_type == QCA_QCC2072)
++		qca_get_nvm_name_by_board(config.calib_name,
++					  sizeof(config.calib_name),
++					  "ornbcscal", soc_type, ver,
++					  rom_ver, boardid);
++
+ 	err = qca_download_firmware(hdev, &config, soc_type, rom_ver);
+ 	if (err < 0 && !firmware_name && soc_type == QCA_WCN6855) {
+ 		qca_get_nvm_name_by_board(config.fwname, sizeof(config.fwname),
+@@ -1010,6 +1079,7 @@ int qca_uart_setup(struct hci_dev *hdev, uint8_t baudrate,
+ 	case QCA_WCN6750:
+ 	case QCA_WCN6855:
+ 	case QCA_WCN7850:
++	case QCA_QCC2072:
+ 		/* get fw build info */
+ 		err = qca_read_fw_build_info(hdev);
+ 		if (err < 0)
+diff --git a/drivers/bluetooth/btqca.h b/drivers/bluetooth/btqca.h
+index 8f3c1b1c77b3..425133096eda 100644
+--- a/drivers/bluetooth/btqca.h
++++ b/drivers/bluetooth/btqca.h
+@@ -94,6 +94,7 @@ enum qca_tlv_type {
+ struct qca_fw_config {
+ 	u8 type;
+ 	char fwname[64];
++	char calib_name[64];
+ 	uint8_t user_baud_rate;
+ 	enum qca_tlv_dnld_mode dnld_mode;
+ 	enum qca_tlv_dnld_mode dnld_type;
+@@ -158,6 +159,7 @@ enum qca_btsoc_type {
+ 	QCA_WCN6750,
+ 	QCA_WCN6855,
+ 	QCA_WCN7850,
++	QCA_QCC2072,
+ };
+ 
+ #if IS_ENABLED(CONFIG_BT_QCA)
+diff --git a/drivers/bluetooth/hci_qca.c b/drivers/bluetooth/hci_qca.c
+index 7089e9b639b2..e9d17772865a 100644
+--- a/drivers/bluetooth/hci_qca.c
++++ b/drivers/bluetooth/hci_qca.c
+@@ -1375,6 +1375,7 @@ static int qca_set_baudrate(struct hci_dev *hdev, uint8_t baudrate)
+ 
+ 	/* Give the controller time to process the request */
+ 	switch (qca_soc_type(hu)) {
++	case QCA_QCC2072:
+ 	case QCA_WCN3950:
+ 	case QCA_WCN3988:
+ 	case QCA_WCN3990:
+@@ -1462,6 +1463,7 @@ static unsigned int qca_get_speed(struct hci_uart *hu,
+ static int qca_check_speeds(struct hci_uart *hu)
+ {
+ 	switch (qca_soc_type(hu)) {
++	case QCA_QCC2072:
+ 	case QCA_WCN3950:
+ 	case QCA_WCN3988:
+ 	case QCA_WCN3990:
+@@ -1513,6 +1515,7 @@ static int qca_set_speed(struct hci_uart *hu, enum qca_speed_type speed_type)
+ 		case QCA_WCN6750:
+ 		case QCA_WCN6855:
+ 		case QCA_WCN7850:
++		case QCA_QCC2072:
+ 			hci_uart_set_flow_control(hu, true);
+ 			break;
+ 
+@@ -1548,6 +1551,7 @@ static int qca_set_speed(struct hci_uart *hu, enum qca_speed_type speed_type)
+ 		case QCA_WCN6750:
+ 		case QCA_WCN6855:
+ 		case QCA_WCN7850:
++		case QCA_QCC2072:
+ 			hci_uart_set_flow_control(hu, false);
+ 			break;
+ 
+@@ -1864,6 +1868,7 @@ static int qca_power_on(struct hci_dev *hdev)
+ 	case QCA_WCN6750:
+ 	case QCA_WCN6855:
+ 	case QCA_WCN7850:
++	case QCA_QCC2072:
+ 		ret = qca_regulator_init(hu);
+ 		break;
+ 
+@@ -1963,6 +1968,10 @@ static int qca_setup(struct hci_uart *hu)
+ 		soc_name = "wcn7850";
+ 		break;
+ 
++	case QCA_QCC2072:
++		soc_name = "qcc2072";
++		break;
++
+ 	default:
+ 		soc_name = "ROME/QCA6390";
+ 	}
+@@ -1986,6 +1995,7 @@ static int qca_setup(struct hci_uart *hu)
+ 	case QCA_WCN6750:
+ 	case QCA_WCN6855:
+ 	case QCA_WCN7850:
++	case QCA_QCC2072:
+ 		if (qcadev && qcadev->bdaddr_property_broken)
+ 			hci_set_quirk(hdev, HCI_QUIRK_BDADDR_PROPERTY_BROKEN);
+ 
+@@ -2019,6 +2029,7 @@ static int qca_setup(struct hci_uart *hu)
+ 	case QCA_WCN6750:
+ 	case QCA_WCN6855:
+ 	case QCA_WCN7850:
++	case QCA_QCC2072:
+ 		break;
+ 
+ 	default:
+@@ -2172,6 +2183,12 @@ static const struct qca_device_data qca_soc_data_wcn3998 __maybe_unused = {
+ 	.num_vregs = 4,
+ };
+ 
++static const struct qca_device_data qca_soc_data_qcc2072 __maybe_unused = {
++	.soc_type = QCA_QCC2072,
++	.num_vregs = 0,
++	.capabilities = QCA_CAP_WIDEBAND_SPEECH | QCA_CAP_VALID_LE_STATES,
++};
++
+ static const struct qca_device_data qca_soc_data_wcn6750 __maybe_unused = {
+ 	.soc_type = QCA_WCN6750,
+ 	.vregs = (struct qca_vreg []) {
+@@ -2280,6 +2297,7 @@ static void qca_power_off(struct hci_uart *hu)
+ 
+ 	case QCA_WCN6750:
+ 	case QCA_WCN6855:
++	case QCA_QCC2072:
+ 		gpiod_set_value_cansleep(qcadev->bt_en, 0);
+ 		msleep(100);
+ 		qca_regulator_disable(qcadev);
+@@ -2435,6 +2453,7 @@ static int qca_serdev_probe(struct serdev_device *serdev)
+ 	case QCA_WCN6750:
+ 	case QCA_WCN6855:
+ 	case QCA_WCN7850:
++	case QCA_QCC2072:
+ 		qcadev->bt_power = devm_kzalloc(&serdev->dev,
+ 						sizeof(struct qca_power),
+ 						GFP_KERNEL);
+@@ -2454,6 +2473,7 @@ static int qca_serdev_probe(struct serdev_device *serdev)
+ 	case QCA_WCN6750:
+ 	case QCA_WCN6855:
+ 	case QCA_WCN7850:
++	case QCA_QCC2072:
+ 		if (!device_property_present(&serdev->dev, "enable-gpios")) {
+ 			/*
+ 			 * Backward compatibility with old DT sources. If the
+@@ -2496,6 +2516,7 @@ static int qca_serdev_probe(struct serdev_device *serdev)
+ 		if (!qcadev->bt_en &&
+ 		    (data->soc_type == QCA_WCN6750 ||
+ 		     data->soc_type == QCA_WCN6855 ||
++		     data->soc_type == QCA_QCC2072 ||
+ 		     data->soc_type == QCA_WCN7850))
+ 			power_ctrl_enabled = false;
+ 
+@@ -2504,6 +2525,7 @@ static int qca_serdev_probe(struct serdev_device *serdev)
+ 		if (IS_ERR(qcadev->sw_ctrl) &&
+ 		    (data->soc_type == QCA_WCN6750 ||
+ 		     data->soc_type == QCA_WCN6855 ||
++		     data->soc_type == QCA_QCC2072 ||
+ 		     data->soc_type == QCA_WCN7850)) {
+ 			dev_err(&serdev->dev, "failed to acquire SW_CTRL gpio\n");
+ 			return PTR_ERR(qcadev->sw_ctrl);
+@@ -2582,6 +2604,7 @@ static void qca_serdev_remove(struct serdev_device *serdev)
+ 	struct qca_power *power = qcadev->bt_power;
+ 
+ 	switch (qcadev->btsoc_type) {
++	case QCA_QCC2072:
+ 	case QCA_WCN3988:
+ 	case QCA_WCN3990:
+ 	case QCA_WCN3991:
+@@ -2791,6 +2814,7 @@ static const struct of_device_id qca_bluetooth_of_match[] = {
+ 	{ .compatible = "qcom,wcn6750-bt", .data = &qca_soc_data_wcn6750},
+ 	{ .compatible = "qcom,wcn6855-bt", .data = &qca_soc_data_wcn6855},
+ 	{ .compatible = "qcom,wcn7850-bt", .data = &qca_soc_data_wcn7850},
++	{ .compatible = "qcom,qcc2072-bt", .data = &qca_soc_data_qcc2072 },
+ 	{ /* sentinel */ }
+ };
+ MODULE_DEVICE_TABLE(of, qca_bluetooth_of_match);
+-- 
+2.56.0
+

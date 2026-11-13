@@ -1,17 +1,17 @@
 # Linux 7.3 final A16/Qualcomm candidate
 
-Local source port of the full A16 stack to **Linux v7.3 final**. This is a
-candidate for the stable track, awaiting compilation, native package tests and
-hardware acceptance. The existing rc5 camera candidate remains the physical
-validation reference; nothing here installs or selects a kernel.
+Local source port of the full A16 stack to **Linux v7.3 final**. Package
+revision 6 was built from this queue on November 12 and boots on the A16.
+Native package transactions and stability acceptance are still open; nothing
+here installs or selects a kernel.
 
 | Identity | Value |
 |---|---|
 | Upstream base | `v7.3`, commit `c03c1a14507dfaf8b856c2608f9ac216021fc222` |
-| Ordered residual queue | [146 patches](../../patches/stable/README.md) |
-| Patched source tree | `ca55d57edf4c0c2ade677f0b5336e69ab8645c3a` |
+| Ordered residual queue | [155 patches](../../patches/stable/README.md) |
+| Patched source tree | `bd1327aac6e1431668eaa53f69e5867d3400b4a0` |
 | Recorded release | `7.3.0-ZenbookA16-20261022-final1+` |
-| Package revision 1 | `7.3.0-ZenbookA16-20261022-final1-a16pkg1+` |
+| Package revision 6 | `7.3.0-ZenbookA16-20261022-final1-a16pkg6+` |
 
 The queue retains the 64-patch A16 baseline, 40-patch Qualcomm bridge and
 10-patch camera/microphone overlay (minus three complete patches already in
@@ -27,7 +27,7 @@ see [upstream credits](../../UPSTREAM-CREDITS.md).
 python3 kernel/stable/replay.py /path/to/linux-git
 ```
 
-The verifier checks the manifest and applies all 146 patches in a temporary Git
+The verifier checks the manifest and applies all 155 patches in a temporary Git
 index, requiring the exact source tree above. It leaves HEAD, the normal index
 and working files alone. It creates Git tree/blob objects, not commits.
 
@@ -38,11 +38,11 @@ Supply a Linux Git repository containing the pinned base and a new output path:
 
 ```sh
 # Fedora RPMs and portable bundle:
-JOBS=4 PACKAGE_REVISION=1 \
+JOBS=4 PACKAGE_REVISION=6 \
   ./kernel/stable/build.sh /path/to/linux-git /path/to/final-output
 
 # Ubuntu/Debian packages instead:
-JOBS=4 PACKAGE_REVISION=1 BUILD_RPM=0 BUILD_DEB=1 \
+JOBS=4 PACKAGE_REVISION=6 BUILD_RPM=0 BUILD_DEB=1 \
   ./kernel/stable/build.sh /path/to/linux-git /path/to/final-deb-output
 ```
 
@@ -74,8 +74,8 @@ Camera/DMIC source and board settings are unchanged from the rc5 pkg3 candidate.
 The 4 mA/pull-down/slew-1 pin setting remains experimental while its cold-boot
 and simultaneous camera/microphone recording tests are pending.
 
-No 7.3 kernel or DTB has been compiled, installed or booted by this preparation.
-Native RPM/DEB transactions, external-module headers, physical update/rollback
+Package revision 6 was compiled, staged by hand and booted on the A16; see the
+November 12 carry-forward section below. Native RPM/DEB transactions, external-module headers, physical update/rollback
 and hardware acceptance remain open. See the [transition checklist](../../docs/kernel-tracks.md).
 
 ## RPMh and RTC additions, November 12
@@ -94,6 +94,16 @@ The failed GLINK v2 diagnostic driver is excluded.
 
 Both tracks pass source replay and host checks. Hardware observations cover
 only the A16; other machines using these shared drivers were not tested.
-This exact combined queue
-has not been compiled or booted. The successful attended sleep trials used
+The successful attended sleep trials used
 the diagnostic image described in [the hardware record](../../docs/hardware.md).
+
+## Display, wireless and camera carry-forward, November 12
+
+Patches `0147`–`0155` add eDP rate-set corrections, the pending QCC2072 Bluetooth and M.2 power-sequencing patches, mainline M.2 Wi-Fi/Bluetooth wiring, and RGB camera MCLK4 at 6 mA. They are the nine
+changes the working revision-2 build already carried, placed after the RPMh/RTC
+fixes.
+
+Built as package revision 6 on November 12. It boots on the A16 with the display and Wi-Fi working; an unexplained reset between two boots is unresolved, so stability is not accepted.
+The camera clock change was checked separately on revision 1: microphone-triggered
+banding disappeared at 6 mA and returned at 2 mA. That does not establish IR
+capture or microphone audio quality.

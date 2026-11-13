@@ -1,15 +1,15 @@
 {
   "source_track": "stable",
   "source_base_release": "v7.3",
-  "source_patch_count": 146,
+  "source_patch_count": 155,
   "target_track": "rc",
   "target_base_tag": "next-20261103",
   "target_base_commit": "d6bcfc94eb4da6e089c5473970cd96727292fd97",
   "target_mainline_rc_tag": "v7.4-rc1",
   "target_mainline_rc_commit": "6628e7d4c6b25c8d18f1345e3a20d21829aae7e4",
-  "target_patch_count": 103,
+  "target_patch_count": 112,
   "counts": {
-    "ported": 87,
+    "ported": 96,
     "adapted": 14,
     "dropped_merged": 45,
     "added_rc_only": 2
@@ -1009,6 +1009,69 @@
       "rc_patch": "0103-rtc-qcom-glink-advertise-read-only-ops.patch",
       "status": "ported",
       "subject": "rtc: qcom-glink: advertise read-only ops"
+    },
+    {
+      "stable_patch": "0147-drm-msm-dp-don-t-write-LINK_BW_SET-before-LINK_RATE_.patch",
+      "rc_patch": "0104-drm-msm-dp-don-t-write-LINK_BW_SET-before-LINK_RATE_.patch",
+      "status": "ported",
+      "subject": "drm/msm/dp: don't write LINK_BW_SET before",
+      "notes": "Added 2026-11-10 to both tracks."
+    },
+    {
+      "stable_patch": "0148-drm-msm-dp-restore-rate_set-with-the-rate-on-a-lane-.patch",
+      "rc_patch": "0105-drm-msm-dp-restore-rate_set-with-the-rate-on-a-lane-.patch",
+      "status": "ported",
+      "subject": "drm/msm/dp: restore rate_set with the rate on a lane",
+      "notes": "Added 2026-11-10 to both tracks."
+    },
+    {
+      "stable_patch": "0149-drm-msm-dp-stop-the-rate-set-fallback-at-the-lowest-.patch",
+      "rc_patch": "0106-drm-msm-dp-stop-the-rate-set-fallback-at-the-lowest-.patch",
+      "status": "ported",
+      "subject": "drm/msm/dp: stop the rate-set fallback at the lowest",
+      "notes": "Added 2026-11-10 to both tracks."
+    },
+    {
+      "stable_patch": "0150-FROMLIST-dt-bindings-bluetooth-qca-add-QCC2072.patch",
+      "rc_patch": "0107-FROMLIST-dt-bindings-bluetooth-qca-add-QCC2072.patch",
+      "status": "ported",
+      "subject": "FROMLIST: dt-bindings: bluetooth: qca: add QCC2072",
+      "notes": "Added 2026-11-10 to both tracks."
+    },
+    {
+      "stable_patch": "0151-FROMLIST-Bluetooth-qca-add-QCC2072-support.patch",
+      "rc_patch": "0108-FROMLIST-Bluetooth-qca-add-QCC2072-support.patch",
+      "status": "ported",
+      "subject": "FROMLIST: Bluetooth: qca: add QCC2072 support",
+      "notes": "Added 2026-11-10 to both tracks."
+    },
+    {
+      "stable_patch": "0152-FROMLIST-power-sequencing-pwrseq-pcie-m2-add-QCC2072.patch",
+      "rc_patch": "0109-FROMLIST-power-sequencing-pwrseq-pcie-m2-add-QCC2072.patch",
+      "status": "ported",
+      "subject": "FROMLIST: power: sequencing: pwrseq-pcie-m2: add",
+      "notes": "Added 2026-11-10 to both tracks."
+    },
+    {
+      "stable_patch": "0153-FROMLIST-Bluetooth-hci_qca-Add-M.2-Bluetooth-device-.patch",
+      "rc_patch": "0110-FROMLIST-Bluetooth-hci_qca-Add-M.2-Bluetooth-device-.patch",
+      "status": "ported",
+      "subject": "FROMLIST: Bluetooth: hci_qca: Add M.2 Bluetooth",
+      "notes": "Added 2026-11-10 to both tracks."
+    },
+    {
+      "stable_patch": "0154-LOCAL-arm64-dts-qcom-glymur-asus-zenbook-a16-use-the.patch",
+      "rc_patch": "0111-LOCAL-arm64-dts-qcom-glymur-asus-zenbook-a16-use-the.patch",
+      "status": "ported",
+      "subject": "LOCAL: arm64: dts: qcom: glymur-asus-zenbook-a16: use",
+      "notes": "Added 2026-11-10 to both tracks."
+    },
+    {
+      "stable_patch": "0155-arm64-dts-qcom-glymur-asus-zenbook-a16-drive-the-RGB.patch",
+      "rc_patch": "0112-arm64-dts-qcom-glymur-asus-zenbook-a16-drive-the-RGB.patch",
+      "status": "ported",
+      "subject": "arm64: dts: qcom: glymur-asus-zenbook-a16: drive the",
+      "notes": "Added 2026-11-10 to both tracks."
     }
   ]
 }

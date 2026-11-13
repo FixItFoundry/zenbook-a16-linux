@@ -1,12 +1,12 @@
 {
   "base": "c03c1a14507dfaf8b856c2608f9ac216021fc222",
-  "source_tree": "ca55d57edf4c0c2ade677f0b5336e69ab8645c3a",
+  "source_tree": "bd1327aac6e1431668eaa53f69e5867d3400b4a0",
   "release": "7.3.0-ZenbookA16-20261022-final1+",
-  "patch_count": 146,
+  "patch_count": 155,
   "prior_release": "7.3.0-rc5-ZenbookA16-20261022-a16pkg3+",
   "prior_source_tree": "11f818cf609ff60e6f826f47e757f939b5442adc",
   "promotion_date": "2026-10-22",
   "camera_enabled": true,
-  "validation_scope": "The included RPMh/RTC changes come from the A16 diagnostic work; forward/reverse source replay and host checks pass. The diagnostic sleep trials used a different complete source tree. This exact combined queue has not been compiled or booted. Native Wi-Fi suspend, power draw and charging are unverified.",
+  "validation_scope": "Carries forward the display, Bluetooth, M.2 and camera changes from the working pkg2 baseline together with the published RPMh/RTC fixes. Source replay and hardware-free checks must pass before building. This combined package and its initramfs require a new attended boot; native Wi-Fi suspend, power draw and charging remain unverified.",
   "pre_usb3_source_tree": "004cf498d432dba102ea3d4c9f9389446d40c1bd"
 }

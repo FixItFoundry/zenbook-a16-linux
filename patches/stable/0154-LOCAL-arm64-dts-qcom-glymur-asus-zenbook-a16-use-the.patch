@@ -1,0 +1,227 @@
+From 03f226de97a326e9e6b38a29acd7c3d6fa2ff49a Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Tue, 10 Nov 2026 15:59:45 -0500
+Subject: [PATCH 151/152] LOCAL: arm64: dts: qcom: glymur-asus-zenbook-a16: use
+ the M.2 connector for Wi-Fi and Bluetooth
+
+Revert this tree's local 0016 and 0022 patches, which replaced the
+mainline pcie-m2-e-connector with a qcom,wcn7850-pmu node and a
+qcom,wcn7850-bt serdev child because the connector path did not bind on
+7.2-rc3. With pwrseq-pcie-m2, the QCC2072 series and the hci_qca M.2
+pwrseq patch, the mainline wiring brings up Wi-Fi (W_DISABLE1#) and
+Bluetooth (W_DISABLE2#, qcom,qcc2072-bt created from PCI 17cb:1112)
+with no board change.
+
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ .../qcom/glymur-asus-zenbook-a16-ux3607oa.dts | 164 +++++-------------
+ 1 file changed, 45 insertions(+), 119 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+index a9ad2794b4dc..851979224e35 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+@@ -267,16 +267,6 @@ vreg_wcn_3p3: regulator-wcn-3p3 {
+ 		regulator-min-microvolt = <3300000>;
+ 		regulator-max-microvolt = <3300000>;
+ 
+-		/*
+-		 * GLYMUR-A16: qcom_wcn pwrseq asserts this rail for the power
+-		 * sequence and then releases it, so nothing holds a vote and
+-		 * regulator_init_complete() switches it off at t+30s
+-		 * (VREG_WCN_3P3: disabling), taking ath12k down ~60s later.
+-		 * The 7.1 tree only avoided this by reserving tlmm 94 so the
+-		 * regulator never probed and the firmware ON state persisted.
+-		 */
+-		regulator-always-on;
+-
+ 		gpio = <&tlmm 94 GPIO_ACTIVE_HIGH>;
+ 		enable-active-high;
+ 
+@@ -286,82 +276,6 @@ vreg_wcn_3p3: regulator-wcn-3p3 {
+ 		regulator-boot-on;
+ 	};
+ 
+-	/*
+-	 * GLYMUR-A16: Wi-Fi is brought up with the qcom,wcn7850-pmu power
+-	 * sequencer (our verified-working 7.1 mechanism), not the generic
+-	 * pcie-m2-e-connector + pwrseq path, which never binds on 7.2-rc3.
+-	 */
+-	vreg_wcn_0p95: regulator-wcn-0p95 {
+-		compatible = "regulator-fixed";
+-
+-		regulator-name = "VREG_WCN_0P95";
+-		regulator-min-microvolt = <950000>;
+-		regulator-max-microvolt = <950000>;
+-
+-		regulator-always-on;
+-
+-		vin-supply = <&vreg_wcn_3p3>;
+-	};
+-
+-	wcn7850-pmu {
+-		compatible = "qcom,wcn7850-pmu";
+-
+-		vdd-supply = <&vreg_wcn_0p95>;
+-		vddio-supply = <&vreg_l15b_e0>;
+-		vddaon-supply = <&vreg_l15b_e0>;
+-		vdddig-supply = <&vreg_l15b_e0>;
+-		vddrfa1p2-supply = <&vreg_l15b_e0>;
+-		vddrfa1p8-supply = <&vreg_l15b_e0>;
+-
+-		wlan-enable-gpios = <&tlmm 117 GPIO_ACTIVE_HIGH>;
+-		bt-enable-gpios = <&tlmm 116 GPIO_ACTIVE_HIGH>;
+-
+-		pinctrl-0 = <&wcn_wlan_bt_en>;
+-		pinctrl-names = "default";
+-
+-		regulators {
+-			vreg_pmu_rfa_cmn: ldo0 {
+-				regulator-name = "vreg_pmu_rfa_cmn";
+-			};
+-
+-			vreg_pmu_aon_0p59: ldo1 {
+-				regulator-name = "vreg_pmu_aon_0p59";
+-			};
+-
+-			vreg_pmu_wlcx_0p8: ldo2 {
+-				regulator-name = "vreg_pmu_wlcx_0p8";
+-			};
+-
+-			vreg_pmu_wlmx_0p85: ldo3 {
+-				regulator-name = "vreg_pmu_wlmx_0p85";
+-			};
+-
+-			vreg_pmu_btcmx_0p85: ldo4 {
+-				regulator-name = "vreg_pmu_btcmx_0p85";
+-			};
+-
+-			vreg_pmu_rfa_0p8: ldo5 {
+-				regulator-name = "vreg_pmu_rfa_0p8";
+-			};
+-
+-			vreg_pmu_rfa_1p2: ldo6 {
+-				regulator-name = "vreg_pmu_rfa_1p2";
+-			};
+-
+-			vreg_pmu_rfa_1p8: ldo7 {
+-				regulator-name = "vreg_pmu_rfa_1p8";
+-			};
+-
+-			vreg_pmu_pcie_0p9: ldo8 {
+-				regulator-name = "vreg_pmu_pcie_0p9";
+-			};
+-
+-			vreg_pmu_pcie_1p8: ldo9 {
+-				regulator-name = "vreg_pmu_pcie_1p8";
+-			};
+-		};
+-	};
+-
+ 	reserved-memory {
+ 		linux,cma {
+ 			compatible = "shared-dma-pool";
+@@ -418,6 +332,44 @@ platform {
+ 		};
+ 	};
+ 
++	wlan-connector {
++		compatible = "pcie-m2-e-connector";
++		vpcie3v3-supply = <&vreg_wcn_3p3>;
++		vpcie1v8-supply = <&vreg_l15b_e0>;
++
++		w-disable1-gpios = <&tlmm 117 GPIO_ACTIVE_LOW>;
++		w-disable2-gpios = <&tlmm 116 GPIO_ACTIVE_LOW>;
++
++		pinctrl-0 = <&wcn_wlan_bt_en>;
++		pinctrl-names = "default";
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			port@0 {
++				reg = <0>;
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				m2_e_pcie_ep: endpoint@0 {
++					reg = <0>;
++					remote-endpoint = <&pcie4_port0_ep>;
++				};
++			};
++
++			port@3 {
++				reg = <3>;
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				m2_e_uart_ep: endpoint@0 {
++					reg = <0>;
++					remote-endpoint = <&uart14_ep>;
++				};
++			};
++		};
++	};
+ };
+ 
+ &apps_rsc {
+@@ -1083,21 +1035,10 @@ &pcie4_phy {
+ &pcie4_port0 {
+ 	reset-gpios = <&tlmm 146 GPIO_ACTIVE_LOW>;
+ 	wake-gpios = <&tlmm 148 GPIO_ACTIVE_LOW>;
++};
+ 
+-	/* Match the currently booted QCC2072 power-sequencing topology. */
+-	wifi@0 {
+-		compatible = "pci17cb,1112";
+-		reg = <0x10000 0 0 0 0>;
+-		vddaon-supply = <&vreg_pmu_aon_0p59>;
+-		vddwlcx-supply = <&vreg_pmu_wlcx_0p8>;
+-		vddwlmx-supply = <&vreg_pmu_wlmx_0p85>;
+-		vddrfacmn-supply = <&vreg_pmu_rfa_cmn>;
+-		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
+-		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
+-		vddrfa1p8-supply = <&vreg_pmu_rfa_1p8>;
+-		vddpcie0p9-supply = <&vreg_pmu_pcie_0p9>;
+-		vddpcie1p8-supply = <&vreg_pmu_pcie_1p8>;
+-	};
++&pcie4_port0_ep {
++	remote-endpoint = <&m2_e_pcie_ep>;
+ };
+ 
+ &pcie5 {
+@@ -1447,26 +1388,11 @@ wake-n-pins {
+ &uart14 {
+ 	status = "okay";
+ 
+-	/*
+-	 * GLYMUR-A16: WCN7850 Bluetooth. Konrad's tree enables this UART and wires it
+-	 * into the pcie-m2-e-connector graph but declares no serdev child, so nothing
+-	 * probes a BT controller (bluetooth.service inactive, zero hci devices, no
+-	 * Bluetooth in rfkill). Supplies come from the qcom,wcn7850-pmu node we add for
+-	 * Wi-Fi, so these labels already resolve. Needs hci_uart + btqca.
+-	 */
+-	bluetooth {
+-		compatible = "qcom,wcn7850-bt";
+-		max-speed = <3200000>;
+-
+-		vddaon-supply = <&vreg_pmu_aon_0p59>;
+-		vddwlcx-supply = <&vreg_pmu_wlcx_0p8>;
+-		vddwlmx-supply = <&vreg_pmu_wlmx_0p85>;
+-		vddrfacmn-supply = <&vreg_pmu_rfa_cmn>;
+-		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
+-		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
+-		vddrfa1p8-supply = <&vreg_pmu_rfa_1p8>;
++	port {
++		uart14_ep: endpoint {
++			remote-endpoint = <&m2_e_uart_ep>;
++		};
+ 	};
+-
+ };
+ 
+ &uart21 {
+-- 
+2.56.0
+

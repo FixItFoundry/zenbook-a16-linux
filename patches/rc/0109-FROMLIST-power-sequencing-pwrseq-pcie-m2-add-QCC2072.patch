@@ -1,0 +1,40 @@
+From 9576212cd88a5be55c8db17967bb67c4f7e593ff Mon Sep 17 00:00:00 2001
+From: Krishna Chaitanya Chundru <krishna.chundru@oss.qualcomm.com>
+Date: Mon, 27 Jul 2026 21:15:03 +0530
+Subject: [PATCH 106/109] FROMLIST: power: sequencing: pwrseq-pcie-m2: add
+ QCC2072
+
+QCC2072 cards expose Bluetooth over the M.2 E-key UART pins. After the
+QCC2072 PCI function is enumerated, the M.2 power sequencing provider can
+create a Bluetooth serdev child using the documented qcom,qcc2072-bt
+compatible.
+
+Add the QCC2072 WLAN PCI device ID to the M.2 power sequencing match table.
+
+This carries the QCC2072 M.2 pwrseq PCI ID previously posted by Krishna
+Chaitanya Chundru as part of the Eliza EVK PCIe/M.2 series.
+
+Signed-off-by: Krishna Chaitanya Chundru <krishna.chundru@oss.qualcomm.com>
+Link: https://lore.kernel.org/all/20260727-rb3-industrial-bt-uart-v2-3-2d100f30e202@oss.qualcomm.com/
+Signed-off-by: Rahul Samana <rahul.samana@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260703-eliza_evk-v1-3-7624440bd76d@oss.qualcomm.com
+---
+ drivers/power/sequencing/pwrseq-pcie-m2.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/power/sequencing/pwrseq-pcie-m2.c b/drivers/power/sequencing/pwrseq-pcie-m2.c
+index 56c5d51293c1..0b29822886ee 100644
+--- a/drivers/power/sequencing/pwrseq-pcie-m2.c
++++ b/drivers/power/sequencing/pwrseq-pcie-m2.c
+@@ -227,6 +227,8 @@ static const struct pci_device_id pwrseq_m2_pci_ids[] = {
+ 	  .driver_data = (kernel_ulong_t)"qcom,wcn7850-bt" },
+ 	{ PCI_DEVICE_SUB(PCI_VENDOR_ID_QCOM, 0x1107, PCI_VENDOR_ID_FOXCONN, 0xe0ee),
+ 	  .driver_data = (kernel_ulong_t)"qcom,wcn7850-bt" },
++	{ PCI_DEVICE(PCI_VENDOR_ID_QCOM, 0x1112),
++	  .driver_data = (kernel_ulong_t)"qcom,qcc2072-bt" },
+ 	{ } /* Sentinel */
+ };
+ 
+-- 
+2.56.0
+

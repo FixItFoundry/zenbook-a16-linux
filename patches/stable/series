@@ -144,3 +144,12 @@
 0144-regulator-qcom-rpmh-preserve-initial-mode.patch
 0145-rtc-interface-release-wakeup-source-on-read-error.patch
 0146-rtc-qcom-glink-advertise-read-only-ops.patch
+0147-drm-msm-dp-don-t-write-LINK_BW_SET-before-LINK_RATE_.patch
+0148-drm-msm-dp-restore-rate_set-with-the-rate-on-a-lane-.patch
+0149-drm-msm-dp-stop-the-rate-set-fallback-at-the-lowest-.patch
+0150-FROMLIST-dt-bindings-bluetooth-qca-add-QCC2072.patch
+0151-FROMLIST-Bluetooth-qca-add-QCC2072-support.patch
+0152-FROMLIST-power-sequencing-pwrseq-pcie-m2-add-QCC2072.patch
+0153-FROMLIST-Bluetooth-hci_qca-Add-M.2-Bluetooth-device-.patch
+0154-LOCAL-arm64-dts-qcom-glymur-asus-zenbook-a16-use-the.patch
+0155-arm64-dts-qcom-glymur-asus-zenbook-a16-drive-the-RGB.patch

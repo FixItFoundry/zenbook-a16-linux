@@ -1,7 +1,7 @@
 {
   "base": "c03c1a14507dfaf8b856c2608f9ac216021fc222",
-  "source_tree": "ca55d57edf4c0c2ade677f0b5336e69ab8645c3a",
-  "original_patch_count": 146,
+  "source_tree": "bd1327aac6e1431668eaa53f69e5867d3400b4a0",
+  "original_patch_count": 155,
   "patches": [
     {
       "original": "rc5-20261013/0001-drm-msm-dp-make-the-eDP-1.4-LINK_RATE_SET-path-actua.patch",
@@ -1040,6 +1040,69 @@
       "patch": "0146-rtc-qcom-glink-advertise-read-only-ops.patch",
       "before": "44195f01ab0d015144df468e500628b8cba81984",
       "after": "ca55d57edf4c0c2ade677f0b5336e69ab8645c3a"
+    },
+    {
+      "original": "local/8e0d190d9ad58b68b187db5e7fcadb95988ad9ed",
+      "status": "unchanged",
+      "patch": "0147-drm-msm-dp-don-t-write-LINK_BW_SET-before-LINK_RATE_.patch",
+      "before": "ca55d57edf4c0c2ade677f0b5336e69ab8645c3a",
+      "after": "2863393a7a56a63dfd145c2dc70f3f512e69a260"
+    },
+    {
+      "original": "local/8d64c8a237abbd550cb5d4af2165c10ec201c9e1",
+      "status": "unchanged",
+      "patch": "0148-drm-msm-dp-restore-rate_set-with-the-rate-on-a-lane-.patch",
+      "before": "2863393a7a56a63dfd145c2dc70f3f512e69a260",
+      "after": "e952c073d8e26d93e3aea5e67aba58db504bc960"
+    },
+    {
+      "original": "local/fa2ac6b5a76e6983407e2566ccae4b062a28141d",
+      "status": "unchanged",
+      "patch": "0149-drm-msm-dp-stop-the-rate-set-fallback-at-the-lowest-.patch",
+      "before": "e952c073d8e26d93e3aea5e67aba58db504bc960",
+      "after": "87a6c6d7b8ce350e9d4d40a534bfc184ac80f71d"
+    },
+    {
+      "original": "lkml/20260727-rb3-industrial-bt-uart-v2-1-2d100f30e202@oss.qualcomm.com",
+      "status": "unchanged",
+      "patch": "0150-FROMLIST-dt-bindings-bluetooth-qca-add-QCC2072.patch",
+      "before": "87a6c6d7b8ce350e9d4d40a534bfc184ac80f71d",
+      "after": "dbe1004d187c9721e43168b5190c7efdd23949c8"
+    },
+    {
+      "original": "lkml/20260727-rb3-industrial-bt-uart-v2-2-2d100f30e202@oss.qualcomm.com",
+      "status": "unchanged",
+      "patch": "0151-FROMLIST-Bluetooth-qca-add-QCC2072-support.patch",
+      "before": "dbe1004d187c9721e43168b5190c7efdd23949c8",
+      "after": "c632dacf96be071abdbf2081c1a33feccc90f410"
+    },
+    {
+      "original": "lkml/20260727-rb3-industrial-bt-uart-v2-3-2d100f30e202@oss.qualcomm.com",
+      "status": "unchanged",
+      "patch": "0152-FROMLIST-power-sequencing-pwrseq-pcie-m2-add-QCC2072.patch",
+      "before": "c632dacf96be071abdbf2081c1a33feccc90f410",
+      "after": "bb10a33a8fb97cfc5a4900606ca2dd8b32ecbf63"
+    },
+    {
+      "original": "lkml/20261005-monza-wireless-v7-1-5a6de7662dcb@oss.qualcomm.com",
+      "status": "adapted",
+      "patch": "0153-FROMLIST-Bluetooth-hci_qca-Add-M.2-Bluetooth-device-.patch",
+      "before": "bb10a33a8fb97cfc5a4900606ca2dd8b32ecbf63",
+      "after": "6ceb10a0c47c44004537494b68e334e7849777c2"
+    },
+    {
+      "original": "local/03f226de97a326e9e6b38a29acd7c3d6fa2ff49a",
+      "status": "unchanged",
+      "patch": "0154-LOCAL-arm64-dts-qcom-glymur-asus-zenbook-a16-use-the.patch",
+      "before": "6ceb10a0c47c44004537494b68e334e7849777c2",
+      "after": "8b0474af571ca6b4c0184552f4d95774025bc6ae"
+    },
+    {
+      "original": "local/5899100e5bc4be25d5a3149930dc8ace0acedc09",
+      "status": "unchanged",
+      "patch": "0155-arm64-dts-qcom-glymur-asus-zenbook-a16-drive-the-RGB.patch",
+      "before": "8b0474af571ca6b4c0184552f4d95774025bc6ae",
+      "after": "bd1327aac6e1431668eaa53f69e5867d3400b4a0"
     }
   ],
   "pre_usb3_source_tree": "004cf498d432dba102ea3d4c9f9389446d40c1bd"

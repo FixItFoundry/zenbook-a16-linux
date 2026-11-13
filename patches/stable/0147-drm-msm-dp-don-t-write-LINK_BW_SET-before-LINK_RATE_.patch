@@ -1,0 +1,48 @@
+From 8e0d190d9ad58b68b187db5e7fcadb95988ad9ed Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Tue, 10 Nov 2026 15:59:43 -0500
+Subject: [PATCH 144/152] drm/msm/dp: don't write LINK_BW_SET before
+ LINK_RATE_SET
+
+dp_panel only selects the eDP 1.4 rate table when LINK_BW_SET already
+reads 0, so the write of 0 before LINK_RATE_SET is not needed. i915
+stopped writing it in commit e6861d8264cd ("drm/i915/edp: don't write
+to DP_LINK_BW_SET when using rate select") after a panel ignored
+LINK_RATE_SET following that write. Drop it, as in the upstream form of
+this fix.
+
+On the ASUS Zenbook A16 the panel trains through LINK_RATE_SET without
+the write once the compositor re-reads the link caps.
+
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ drivers/gpu/drm/msm/dp/dp_ctrl.c | 13 -------------
+ 1 file changed, 13 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/dp/dp_ctrl.c b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+index fee003b6d853..75cd4d2e9e6e 100644
+--- a/drivers/gpu/drm/msm/dp/dp_ctrl.c
++++ b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+@@ -188,19 +188,6 @@ static int msm_dp_aux_link_configure(struct drm_dp_aux *aux,
+ 		return err < 0 ? err : -EIO;
+ 
+ 	if (link->use_rate_set) {
+-		/*
+-		 * Per eDP 1.4b, LINK_RATE_SET is only consulted while
+-		 * LINK_BW_SET reads 00h, so the legacy selector has to be
+-		 * cleared before the rate-set one is written. Drivers that
+-		 * never touch LINK_BW_SET get this for free; we cannot assume
+-		 * it, because firmware may have trained the panel and left its
+-		 * own selection behind (on the ASUS Zenbook A16 the UEFI
+-		 * leaves DP_LINK_BW_5_4 there).
+-		 */
+-		err = drm_dp_dpcd_writeb(aux, DP_LINK_BW_SET, 0);
+-		if (err != 1)
+-			return err < 0 ? err : -EIO;
+-
+ 		DRM_DEBUG_DP("using LINK_RATE_SET: 0x%02x", link->rate_set);
+ 		err = drm_dp_dpcd_writeb(aux, DP_LINK_RATE_SET, link->rate_set);
+ 	} else {
+-- 
+2.56.0
+

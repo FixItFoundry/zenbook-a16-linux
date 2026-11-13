@@ -1,9 +1,7 @@
-35eda3250eedb1fe6abd8132a3350627053aa22b609ace027f96d7de1cf8da9b  kernel/stable/build.json
+f7b9c5a288ea85762b58a2c0abafbeb162f88eb1c0b81d66c82b8a4081ff882b  kernel/stable/build.json
 34a90747b0afe950f8e86b4507b14ec5a65ac1dc82a32e988456c1cc0abf5ad7  kernel/stable/build.sh
 afe4f4e2305ee6821ae1da55ead23d397f5bf160e49aa1fc58239360a636ad11  kernel/stable/config
 13feedb2d3088340e9955d29ba19661994a2cd37b628452f5c04d75af2746032  kernel/stable/replay.py
-955a77f590d57e98d7c0c6ee389ebebe2a92c4ec2af3eb3226bd4439a73f3bbf  patches/stable/port-map.json
-1b5ed44f9d9ef1b7a7a4c0b99d49d5102eccfd9157bf4620e91f1b1ae5406d45  patches/stable/series
 73d754992616b6c879f2d27381b51ab9171babce4b4fcd63828dd6551738ef8f  patches/stable/0001-drm-msm-dp-make-the-eDP-1.4-LINK_RATE_SET-path-actua.patch
 0ebab1b5d069c18b7d666588336b8478fab4191a004fbffb1b3635174ed38c2a  patches/stable/0002-phy-qcom-edp-split-power-on-sequencing-by-PHY-versio.patch
 137f2d1dcc4ba2e5c6678f49f756bb7ccde02002a1dda62a5dc047636e741c95  patches/stable/0003-phy-qcom-edp-update-v8-power-on-programming-sequence.patch
@@ -150,3 +148,14 @@ ebae22d8745e34326f1e8face92673bbc3e24e9ba01076746a07d8d4343ca4ff  patches/stable
 fb9013cd58c1ea12c140ae085b3bdde2d56158ee738cd305b28d6365da46576b  patches/stable/0144-regulator-qcom-rpmh-preserve-initial-mode.patch
 4774a1d0aa66283545262be7c09f21bb4f4580c9d68768ff18b6008381f102d4  patches/stable/0145-rtc-interface-release-wakeup-source-on-read-error.patch
 254ffff25a65d8293951f9aa1fd44a2e25737df88af96da0c5cb5331e5097e5f  patches/stable/0146-rtc-qcom-glink-advertise-read-only-ops.patch
+9b47b8c9503591e34daedb88afe75acccba7df3b936419cee63a5a8c68232334  patches/stable/0147-drm-msm-dp-don-t-write-LINK_BW_SET-before-LINK_RATE_.patch
+fc60380d10267d9403faf845eb27a629e02df7937a9770b29b98412c34136adb  patches/stable/0148-drm-msm-dp-restore-rate_set-with-the-rate-on-a-lane-.patch
+4c540fc6f141dd9a44c479e3c004960ecc4a575148b70192b8580a4642d31a43  patches/stable/0149-drm-msm-dp-stop-the-rate-set-fallback-at-the-lowest-.patch
+386605fe9dde14d4228fd0d647d4d113493903b3c7133117add40b7822f59a11  patches/stable/0150-FROMLIST-dt-bindings-bluetooth-qca-add-QCC2072.patch
+b21af2e9056256f1bbfe5696ec41cee5de352f4bd4f62e53bfced9a7c716c998  patches/stable/0151-FROMLIST-Bluetooth-qca-add-QCC2072-support.patch
+63acd177e00caddbbb6c88df91ad7d97976b8c30acbf81c95d304aa5a5e9a9c3  patches/stable/0152-FROMLIST-power-sequencing-pwrseq-pcie-m2-add-QCC2072.patch
+2cb342a482a7cdd270968dcfa0c862ca010fc59a0c9a7e4e75b2af4fb6b2fb6c  patches/stable/0153-FROMLIST-Bluetooth-hci_qca-Add-M.2-Bluetooth-device-.patch
+950854a6295568bc121ed331a14332fa1c92e1c500d174a1e6cd7a55b8733ce3  patches/stable/0154-LOCAL-arm64-dts-qcom-glymur-asus-zenbook-a16-use-the.patch
+9587a8d78a277bb125241ee296ac6b995dc36d3b953fc2fdfdc47bc05cdbb003  patches/stable/0155-arm64-dts-qcom-glymur-asus-zenbook-a16-drive-the-RGB.patch
+a3d5ec5e598e2c6339c9f214bdfc084dc41938d79672c7451d2dce86ef0bc78c  patches/stable/port-map.json
+25e1c4eb7bc87179e18b11d5bed4bcb455e1f60c40f011abf936e429826287d8  patches/stable/series

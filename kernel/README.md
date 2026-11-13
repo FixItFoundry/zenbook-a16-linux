@@ -4,19 +4,19 @@ Active kernel build recipes are organized into two maintained tracks (`stable` a
 
 | Directory | Track | Upstream Base | Patches | Replayed Source Tree | Status |
 |---|---|---|---:|---|---|
-| [`stable/`](stable/README.md) | **Stable Release Track** (`main`) | Linux `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) | [146](../patches/stable/README.md) | `ca55d57edf4c0c2ade677f0b5336e69ab8645c3a` | Source replay and host checks pass; this exact queue is unbuilt and unbooted. |
-| [`rc/`](rc/README.md) | **RC / Upstream Development Track** (`rc`) | Linux `next-20261103` (`d6bcfc94eb4da6e089c5473970cd96727292fd97`, `v7.4-rc1`) | [103](../patches/rc/README.md) | `e52a4f3ca29b6348ecaf84a4f349bde8d0cc1fb7` | Source replay and host checks pass; this exact queue is unbuilt and unbooted. |
+| [`stable/`](stable/README.md) | **Stable Release Track** (`main`) | Linux `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) | [155](../patches/stable/README.md) | `bd1327aac6e1431668eaa53f69e5867d3400b4a0` | Built as package revision 6 on November 12. It boots on the A16 with the display and Wi-Fi working; an unexplained reset between two boots is unresolved, so stability is not accepted. |
+| [`rc/`](rc/README.md) | **RC / Upstream Development Track** (`rc`) | Linux `next-20261103` (`d6bcfc94eb4da6e089c5473970cd96727292fd97`, `v7.4-rc1`) | [112](../patches/rc/README.md) | `ed1c21244abbeae943f39c5a4824ea05c1c613ba` | Built as package revision 6 on November 12 and verified off the device; not installed or booted. |
 | [`arch-7.2.10/`](arch-7.2.10/BUILD-AND-UPGRADE.txt) | **Arch Linux 7.2.10 Recipe** | Linux `v7.2.10` | 127 | `4d6a5f56ffa9571ec5b5f053ecbe4861c158b2b2` | Standalone `PKGBUILD` generator with side-by-side UKI and header support. |
 | [`../archive/kernel/`](../archive/kernel/) | **Retired Snapshots** | `v7.3-rc3` / `v7.3-rc5` | — | Historical | Retained `rc3-20260919`, `rc5-20261002`, `rc5-20261008`, `rc5-20261013`, and `rc5-20261031` recipes. |
 
 ## Replay and Build Commands
 
 ```sh
-# Stable track (Linux 7.3 final, 146 patches):
+# Stable track (Linux 7.3 final, 155 patches):
 python3 kernel/stable/replay.py /path/to/linux
 JOBS=4 ./kernel/stable/build.sh /path/to/linux /path/to/stable-output
 
-# RC track (Linux 7.4-rc1 linux-next next-20261103, 103 patches):
+# RC track (Linux 7.4-rc1 linux-next next-20261103, 112 patches):
 python3 kernel/rc/replay.py /path/to/linux
 JOBS=4 ./kernel/rc/build.sh /path/to/linux /path/to/rc-output
 

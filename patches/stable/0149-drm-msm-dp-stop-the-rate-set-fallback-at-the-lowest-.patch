@@ -1,0 +1,46 @@
+From fa2ac6b5a76e6983407e2566ccae4b062a28141d Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Tue, 10 Nov 2026 15:59:43 -0500
+Subject: [PATCH 146/152] drm/msm/dp: stop the rate-set fallback at the lowest
+ table entry
+
+When the sink is driven through LINK_RATE_SET and rate_set has reached
+index 0, msm_dp_ctrl_link_rate_down_shift() falls through to the legacy
+switch. If the lowest entry of the sink's SUPPORTED_LINK_RATES table is
+one of the standard rates above RBR, the source drops to the next
+standard rate while LINK_RATE_SET still selects index 0, so source and
+sink train at different rates.
+
+There is nothing lower to try once the table is exhausted, so fail the
+down-shift instead.
+
+Fixes: ed100aa239be ("drm/msm/dp: Enable support for eDP v1.4+ link rates table")
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ drivers/gpu/drm/msm/dp/dp_ctrl.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/dp/dp_ctrl.c b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+index 1d7726c51844..8861509facbe 100644
+--- a/drivers/gpu/drm/msm/dp/dp_ctrl.c
++++ b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+@@ -1514,9 +1514,13 @@ static int msm_dp_ctrl_link_rate_down_shift(struct msm_dp_ctrl_private *ctrl)
+ 	int ret = 0;
+ 	struct msm_dp_link_info *link_params = &ctrl->link->link_params;
+ 
+-	if (link_params->rate_set) {
+-		--link_params->rate_set;
+-		link_params->rate = link_params->supported_rates[link_params->rate_set];
++	if (link_params->use_rate_set) {
++		if (link_params->rate_set) {
++			--link_params->rate_set;
++			link_params->rate = link_params->supported_rates[link_params->rate_set];
++		} else {
++			ret = -EINVAL;
++		}
+ 	} else {
+ 		switch (link_params->rate) {
+ 		case 810000:
+-- 
+2.56.0
+
