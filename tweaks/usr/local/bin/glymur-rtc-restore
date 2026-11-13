@@ -21,10 +21,16 @@
 set -u
 
 OFFSET_FILE=/var/lib/glymur/rtc-offset
-COUNTER=/sys/class/rtc/rtc0/since_epoch
+COUNTER=
+# GLINK can register first; the saved offset belongs to the PM8xxx counter.
+for name in /sys/class/rtc/rtc*/name; do
+	[[ -r $name && $(<"$name") == "rtc-pm8xxx "* ]] || continue
+	COUNTER="${name%/name}/since_epoch"
+	break
+done
 
-if [[ ! -r $COUNTER ]]; then
-	echo "no $COUNTER -- RTC not bound, nothing to do"
+if [[ -z $COUNTER || ! -r $COUNTER ]]; then
+	echo "PM8xxx RTC counter unavailable -- nothing to restore"
 	exit 0
 fi
 if [[ ! -r $OFFSET_FILE ]]; then

@@ -267,23 +267,30 @@ with the property restored and the flag dropped. With the
 property set the driver returns `-EPROBE_DEFER` forever, so our device tree deletes it. The
 RTC then binds, but starts at ~1970.
 
-So we do what the firmware does. The offset is a **constant**, because the counter is
-monotonic and battery-backed:
+The local fallback stores an offset derived from NTP-synchronized time. The offset
+remains usable while the PM8xxx counter continues across boots:
 
 ```
 counter C = 4941867   now N = 1785382601   offset = N - C = 1780440734
 ```
 
-- **`glymur-rtc-save`** → writes the offset to `/var/lib/glymur/rtc-offset`, but **only while
-  `NTPSynchronized=yes`**, so a wrong clock can never poison it. Driven by
-  `glymur-rtc-save.timer` (`OnBootSec=3min`, `OnUnitActiveSec=1h`). The timer is *not* for
-  drift — there is none. It exists to capture the offset after the first NTP sync, and to
-  self-heal if the RTC domain loses power and the counter restarts from zero.
+Both scripts select the `rtc-pm8xxx` device by name, since GLINK can occupy `rtc0`.
+They skip the operation if the PM8xxx counter is unavailable.
+
+- **`glymur-rtc-save`** → writes the offset to `/var/lib/glymur/rtc-offset` only when
+  systemd's `NTPSynchronized` property returns `b true` through `busctl`. Query failures
+  leave the saved offset untouched. The timer (`OnBootSec=3min`, `OnUnitActiveSec=1h`)
+  captures the offset after NTP synchronization and recalibrates after a counter reset.
 - **`glymur-rtc-restore`** → early oneshot (`DefaultDependencies=no`, `After=local-fs.target`,
   `Before=sysinit.target`) that sets the clock to `counter + offset`. It **only ever moves the
-  clock forward**, which makes it impossible to stomp an already-correct clock. Verified by
-  running it against a good clock and watching it decline:
+  clock forward** and leaves the clock alone when it is already at or ahead of the
+  saved-counter estimate:
   `clock already at/ahead of RTC estimate -- leaving it alone`.
+
+**Power-loss limit:** if the RTC counter resets, the saved offset can restore stale
+time until NTP synchronizes and the save timer recalibrates it. Warm-boot restoration
+before NTP was verified on the A16; retention after complete battery depletion and
+long-term drift remain unvalidated.
 
 Install:
 ```
@@ -296,7 +303,7 @@ sudo systemctl enable glymur-rtc-restore.service
 ```
 
 ⚠️ **This does not give you a scheduled wake alarm.** `qcom,no-alarm` is upstream's and stays, so
-`/sys/class/rtc/rtc0/wakealarm` does not exist. Hibernate remains masked because it is untested,
+the PM8xxx RTC has no `wakealarm` file. Hibernate remains masked because it is untested,
 not because an RTC wake alarm is required. The RTC also remains **read-only** — `hwclock --systohc` fails with `ENODEV`, and `rtcsync` in
 `/etc/chrony.conf` will silently never succeed.
 

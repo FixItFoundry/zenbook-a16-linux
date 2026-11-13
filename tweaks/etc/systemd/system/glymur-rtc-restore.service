@@ -8,8 +8,6 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=local-fs.target
 Before=sysinit.target shutdown.target
-# If the RTC did not bind, skip silently rather than fail the boot.
-ConditionPathExists=/sys/class/rtc/rtc0/since_epoch
 
 [Service]
 Type=oneshot
