@@ -1,5 +1,7 @@
-# Let the desktop session drive the keyboard backlight and mic-mute LED without
-# root. asus::kbd_backlight comes from the patched hid-asus; orange:micmute is a
-# device-tree platform LED. brightnessctl needs group write on these.
+# Let the desktop session drive the keyboard backlight, mic-mute LED, and PMH0101
+# IR camera emitter without root. Keep ir:flash off (0) on boot/probe, and raise
+# OV02C10's default sensor digital_gain (1408 / ~1.38x) for low-light RGB headroom.
 ACTION=="add", SUBSYSTEM=="leds", KERNEL=="asus::kbd_backlight", RUN+="/bin/chgrp video /sys/class/leds/%k/brightness", RUN+="/bin/chmod g+w /sys/class/leds/%k/brightness"
 ACTION=="add", SUBSYSTEM=="leds", KERNEL=="orange:micmute",     RUN+="/bin/chgrp video /sys/class/leds/%k/brightness", RUN+="/bin/chmod g+w /sys/class/leds/%k/brightness"
+ACTION=="add", SUBSYSTEM=="leds", KERNEL=="ir:flash*", ATTR{brightness}="0", RUN+="/bin/chgrp video /sys/class/leds/%k/brightness", RUN+="/bin/chmod g+w /sys/class/leds/%k/brightness"
+ACTION=="add", SUBSYSTEM=="video4linux", KERNEL=="v4l-subdev*", ATTR{name}=="ov02c10*", RUN+="/usr/bin/v4l2-ctl -d /dev/%k -c digital_gain=1408"

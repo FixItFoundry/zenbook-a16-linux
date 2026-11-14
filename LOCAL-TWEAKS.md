@@ -328,3 +328,8 @@ stages both tuning files under `/usr/share/zenbook-a16/libcamera/ipa/simple/`, a
 
 - `ov02c10.yaml` — `BlackLevel: { blackLevel: 4096 }` (`64 << 6`), `Awb`, `Adjust`, `Agc`.
 - `hm1092.yaml` — `BlackLevel: { blackLevel: 2048 }` (`32 << 6`), `Adjust`, `Agc` (monochrome NIR; no `Awb`).
+
+`99-glymur-leds.rules` (staged into `/usr/share/zenbook-a16/` and linked into `/etc/udev/rules.d/`
+on UX3607OA) also ensures `/sys/class/leds/ir:flash*/brightness` starts at `0` with `video` group
+write access for unprivileged lock-screen face authentication, and initializes `ov02c10`
+`digital_gain=1408` (`~1.38x`) on subdev probe for low-light RGB headroom under `IPASoft`.

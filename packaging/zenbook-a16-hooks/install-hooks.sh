@@ -158,6 +158,10 @@ for ipa_cfg in ov02c10.yaml hm1092.yaml; do
             "$TARGET/usr/share/zenbook-a16/libcamera/ipa/simple/$ipa_cfg"
     fi
 done
+if [[ -s "$REPO_ROOT/tweaks/etc/udev/rules.d/99-glymur-leds.rules" ]]; then
+    install -Dm644 "$REPO_ROOT/tweaks/etc/udev/rules.d/99-glymur-leds.rules" \
+        "$TARGET/usr/share/zenbook-a16/99-glymur-leds.rules"
+fi
 if [[ -s "$REPO_ROOT/tweaks/usr/local/bin/glymur-cpu-profile.sh" ]]; then
     install -Dm755 "$REPO_ROOT/tweaks/usr/local/bin/glymur-cpu-profile.sh" \
         "$TARGET/usr/lib/zenbook-a16/glymur-cpu-profile"

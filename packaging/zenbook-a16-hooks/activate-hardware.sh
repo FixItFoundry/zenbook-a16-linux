@@ -103,6 +103,8 @@ link_config "usr/share/zenbook-a16/libcamera/ipa/simple/ov02c10.yaml" \
     "etc/libcamera/ipa/simple/ov02c10.yaml"
 link_config "usr/share/zenbook-a16/libcamera/ipa/simple/hm1092.yaml" \
     "etc/libcamera/ipa/simple/hm1092.yaml"
+link_config "usr/share/zenbook-a16/99-glymur-leds.rules" \
+    "etc/udev/rules.d/99-glymur-leds.rules"
 
 # 2. Ensure SCMI cpufreq autoload drop-in exists via post-install hook
 mkdir -p "$ROOT/etc/modules-load.d"

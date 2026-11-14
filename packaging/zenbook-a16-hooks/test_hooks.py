@@ -285,7 +285,8 @@ if installkernel; then exit 86; fi
                         'usr/share/zenbook-a16/battery-baseline.conf',
                         'usr/share/zenbook-a16/glymur-s2idle.conf',
                         'usr/share/zenbook-a16/libcamera/ipa/simple/ov02c10.yaml',
-                        'usr/share/zenbook-a16/libcamera/ipa/simple/hm1092.yaml'):
+                        'usr/share/zenbook-a16/libcamera/ipa/simple/hm1092.yaml',
+                        'usr/share/zenbook-a16/99-glymur-leds.rules'):
                 p = root / rel
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_text('# staged config\n')
@@ -297,6 +298,7 @@ if installkernel; then exit 86; fi
             self.assertFalse((root / 'etc/wireplumber/wireplumber.conf.d/51-glymur-ucm.conf').exists())
             self.assertFalse((root / 'etc/libcamera/ipa/simple/ov02c10.yaml').exists())
             self.assertFalse((root / 'etc/libcamera/ipa/simple/hm1092.yaml').exists())
+            self.assertFalse((root / 'etc/udev/rules.d/99-glymur-leds.rules').exists())
             self.assertFalse((root / 'etc/systemd/system/dev-tpm0.device').exists())
 
             # 2. A16 board without CONFIG_TCG_QCOM links configs and masks bare-metal TPM
@@ -310,6 +312,7 @@ if installkernel; then exit 86; fi
             self.assertTrue((root / 'etc/wireplumber/wireplumber.conf.d/51-glymur-ucm.conf').is_symlink())
             self.assertTrue((root / 'etc/libcamera/ipa/simple/ov02c10.yaml').is_symlink())
             self.assertTrue((root / 'etc/libcamera/ipa/simple/hm1092.yaml').is_symlink())
+            self.assertTrue((root / 'etc/udev/rules.d/99-glymur-leds.rules').is_symlink())
             self.assertEqual((root / 'etc/modules-load.d/zenbook-a16.conf').read_text(), 'scmi-cpufreq\n')
             self.assertEqual(os.readlink(root / 'etc/systemd/system/dev-tpm0.device'), '/dev/null')
             self.assertEqual(os.readlink(root / 'etc/systemd/system/dev-tpmrm0.device'), '/dev/null')
