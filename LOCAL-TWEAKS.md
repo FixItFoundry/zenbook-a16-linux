@@ -310,3 +310,21 @@ not because an RTC wake alarm is required. The RTC also remains **read-only** �
 Without this tweak the machine still recovers: chronyd is configured `makestep 1.0 3`, so it
 *steps* the ~1970 offset rather than slewing it. But there is a window early in boot where the
 clock reads 1970 and TLS validation would fail, which is what this closes.
+
+---
+
+## 10. Camera `libcamera` `simple` IPA black levels — `tweaks/etc/libcamera/ipa/simple/{ov02c10,hm1092}.yaml`
+
+Neither `ov02c10` nor `hm1092` implements `V4L2_CID_BLACK_LEVEL` or has a tuning entry in
+upstream `libcamera`'s `src/ipa/simple/data/`, so `libcamera`'s software ISP falls back to
+`uncalibrated.yaml` (`blackLevel` unset → `0`), mapping the sensors' 10-bit optical black
+pedestals (`64` on OV02C10, `32` on HM1092) into lifted gray shadows (`~38/255` in dark-room
+RGB output) and causing AGC to underexpose highlights.
+
+`libcamera` searches `/etc/libcamera/ipa` before `/usr/share/libcamera/ipa`. `install-hooks.sh`
+stages both tuning files under `/usr/share/zenbook-a16/libcamera/ipa/simple/`, and
+`activate-hardware.sh` links them into `/etc/libcamera/ipa/simple/` only when the DT
+`compatible` string matches `asus,zenbook-a16-ux3607oa`:
+
+- `ov02c10.yaml` — `BlackLevel: { blackLevel: 4096 }` (`64 << 6`), `Awb`, `Adjust`, `Agc`.
+- `hm1092.yaml` — `BlackLevel: { blackLevel: 2048 }` (`32 << 6`), `Adjust`, `Agc` (monochrome NIR; no `Awb`).

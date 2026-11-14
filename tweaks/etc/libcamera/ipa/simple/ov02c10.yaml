@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: CC0-1.0
+# OV02C10 BLC target is 64 on 10-bit RAW (64 << 6 = 4096 in libcamera's 16-bit scale).
+%YAML 1.1
+---
+version: 1
+algorithms:
+  - BlackLevel:
+      blackLevel: 4096
+  - Awb:
+  - Adjust:
+  - Agc:
+...

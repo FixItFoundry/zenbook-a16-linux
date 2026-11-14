@@ -152,6 +152,12 @@ if [[ -s "$REPO_ROOT/tweaks/etc/tmpfiles.d/glymur-s2idle.conf" ]]; then
     install -Dm644 "$REPO_ROOT/tweaks/etc/tmpfiles.d/glymur-s2idle.conf" \
         "$TARGET/usr/share/zenbook-a16/glymur-s2idle.conf"
 fi
+for ipa_cfg in ov02c10.yaml hm1092.yaml; do
+    if [[ -s "$REPO_ROOT/tweaks/etc/libcamera/ipa/simple/$ipa_cfg" ]]; then
+        install -Dm644 "$REPO_ROOT/tweaks/etc/libcamera/ipa/simple/$ipa_cfg" \
+            "$TARGET/usr/share/zenbook-a16/libcamera/ipa/simple/$ipa_cfg"
+    fi
+done
 if [[ -s "$REPO_ROOT/tweaks/usr/local/bin/glymur-cpu-profile.sh" ]]; then
     install -Dm755 "$REPO_ROOT/tweaks/usr/local/bin/glymur-cpu-profile.sh" \
         "$TARGET/usr/lib/zenbook-a16/glymur-cpu-profile"

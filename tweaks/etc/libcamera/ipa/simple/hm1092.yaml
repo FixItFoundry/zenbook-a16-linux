@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: CC0-1.0
+# HM1092 BLC pedestal is 32 on 10-bit monochrome NIR (32 << 6 = 2048 in libcamera's 16-bit scale).
+%YAML 1.1
+---
+version: 1
+algorithms:
+  - BlackLevel:
+      blackLevel: 2048
+  - Adjust:
+  - Agc:
+...

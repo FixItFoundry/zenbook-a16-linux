@@ -88,6 +88,8 @@ class Packages(unittest.TestCase):
                 self.assertTrue((roots['support'] / 'usr/lib/zenbook-a16/package-kernel').is_file())
                 self.assertTrue((roots['support'] / 'usr/lib/zenbook-a16/activate-hardware').is_file())
                 self.assertTrue((roots['support'] / 'usr/share/omarchy-a16/51-glymur-ucm.conf').is_file())
+                self.assertTrue((roots['support'] / 'usr/share/zenbook-a16/libcamera/ipa/simple/ov02c10.yaml').is_file())
+                self.assertTrue((roots['support'] / 'usr/share/zenbook-a16/libcamera/ipa/simple/hm1092.yaml').is_file())
                 self.assertTrue((roots['support'] / 'usr/share/alsa/ucm2/conf.d/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA.conf').is_file())
                 self.assertTrue((roots['support'] / 'usr/share/alsa/ucm2/conf.d/glymur/ASUSTeKCOMPUTERINC.-ZenbookA16UX3607OA-1.0-UX3607OA.conf').is_symlink())
                 self.assertFalse((roots['support'] / 'usr/lib/firmware').exists())

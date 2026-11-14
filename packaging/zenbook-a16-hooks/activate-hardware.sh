@@ -99,6 +99,10 @@ link_config "usr/share/zenbook-a16/battery-baseline.conf" \
     "etc/modules-load.d/battery-baseline.conf"
 link_config "usr/share/zenbook-a16/glymur-s2idle.conf" \
     "etc/tmpfiles.d/glymur-s2idle.conf"
+link_config "usr/share/zenbook-a16/libcamera/ipa/simple/ov02c10.yaml" \
+    "etc/libcamera/ipa/simple/ov02c10.yaml"
+link_config "usr/share/zenbook-a16/libcamera/ipa/simple/hm1092.yaml" \
+    "etc/libcamera/ipa/simple/hm1092.yaml"
 
 # 2. Ensure SCMI cpufreq autoload drop-in exists via post-install hook
 mkdir -p "$ROOT/etc/modules-load.d"

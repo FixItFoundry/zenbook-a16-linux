@@ -10,8 +10,8 @@ Qualcomm is now actively developing Snapdragon X2 (`glymur`) laptop support upst
 
 1. **A Distro Packaging & Update Layer**: Delivers side-by-side installable **Fedora RPMs**, **Ubuntu/Debian DEBs**, **Arch / Omarchy PKGBUILDs**, and portable bundles alongside early-DSP initramfs barriers (`dracut`, `initramfs-tools`, `mkinitcpio`), verified DTBs (`qcom,keep-runtime-active;`), ALSA UCM2 / WirePlumber audio routing, and owner-extracted board firmware.
 2. **A Two-Track Kernel Bridge (`stable` & `rc`)**:
-   - **`stable` ([`kernel/stable/`](kernel/stable/README.md) + [`patches/stable/`](patches/stable/README.md))**: Pinned to **Linux `v7.3` final** (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) with 155 backported and local patches (`bd1327aac6e1431668eaa53f69e5867d3400b4a0`). Directly aligned with **`linux-omarchy 7.3`** so patches validated on `stable` ship to both standalone Fedora/Ubuntu users and Omarchy.
-   - **`rc` ([`kernel/rc/`](kernel/rc/README.md) + [`patches/rc/`](patches/rc/README.md))**: Pinned to **Linux `v7.4-rc1` `linux-next` (`next-20261103`, `d6bcfc94eb4da6e089c5473970cd96727292fd97`)** with 112 residual patches (`ed1c21244abbeae943f39c5a4824ea05c1c613ba`) after retiring 45 upstreamed patches from the `7.3` stable queue ([`patches/rc/port-map.json`](patches/rc/port-map.json)). Used for validating LKML series (`Tested-by:` / `Reviewed-by:`), staging local contributor fixes before upstream submission, and tracking `qcom-next` / `linux-next`.
+   - **`stable` ([`kernel/stable/`](kernel/stable/README.md) + [`patches/stable/`](patches/stable/README.md))**: Pinned to **Linux `v7.3` final** (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) with 157 backported and local patches (`68c6fb5921f92299904c233333fccf4fb5093bc4`). Directly aligned with **`linux-omarchy 7.3`** so patches validated on `stable` ship to both standalone Fedora/Ubuntu users and Omarchy.
+   - **`rc` ([`kernel/rc/`](kernel/rc/README.md) + [`patches/rc/`](patches/rc/README.md))**: Pinned to **Linux `v7.4-rc1` `linux-next` (`next-20261103`, `d6bcfc94eb4da6e089c5473970cd96727292fd97`)** with 113 residual patches (`52ecc2153e2280fcf68b6a2d56f00804d7d27e73`) after retiring 46 upstreamed patches from the `7.3` stable queue ([`patches/rc/port-map.json`](patches/rc/port-map.json)). Used for validating LKML series (`Tested-by:` / `Reviewed-by:`), staging local contributor fixes before upstream submission, and tracking `qcom-next` / `linux-next`.
 
 ---
 
@@ -81,9 +81,9 @@ See the [Fedora/Ubuntu installation guide](iso/README.md), [package contract](pa
 | Path | Purpose |
 |---|---|
 | [`kernel/stable/`](kernel/stable/README.md) | **Stable Release Track (`v7.3` final)**: `build.sh`, `replay.py`, `build.json`, Kconfig (`config`, `required.config`), and `SHA256SUMS`. |
-| [`patches/stable/`](patches/stable/README.md) | **Stable Patch Queue (155 patches)**: Ordered `git format-patch` series for `v7.3` final plus [`port-map.json`](patches/stable/port-map.json) tracking upstream equivalents. |
+| [`patches/stable/`](patches/stable/README.md) | **Stable Patch Queue (157 patches)**: Ordered `git format-patch` series for `v7.3` final plus [`port-map.json`](patches/stable/port-map.json) tracking upstream equivalents. |
 | [`kernel/rc/`](kernel/rc/README.md) | **RC / Upstream Development Track (`v7.4-rc1` / `next-20261103`)**: `build.sh`, `replay.py`, `build.json`, Kconfig (`config`, `required.config`), and `SHA256SUMS`. |
-| [`patches/rc/`](patches/rc/README.md) | **RC Patch Queue (112 patches)**: Ordered `git format-patch` series for `next-20261103` (`d6bcfc94eb4da6e089c5473970cd96727292fd97`) plus [`port-map.json`](patches/rc/port-map.json) recording 45 retired upstream commits. |
+| [`patches/rc/`](patches/rc/README.md) | **RC Patch Queue (113 patches)**: Ordered `git format-patch` series for `next-20261103` (`d6bcfc94eb4da6e089c5473970cd96727292fd97`) plus [`port-map.json`](patches/rc/port-map.json) recording 46 retired upstream commits. |
 | [`kernel/arch-7.2.10/`](kernel/arch-7.2.10/BUILD-AND-UPGRADE.txt) | **Arch Linux 7.2.10 Recipe**: Reproducible `PKGBUILD` generator with side-by-side UKI and header support. |
 | [`packaging/`](packaging/zenbook-a16-kernel/README.md) | Distro packager ([`zenbook-a16-kernel/`](packaging/zenbook-a16-kernel/README.md)), persistent post-install hooks ([`zenbook-a16-hooks/`](packaging/zenbook-a16-hooks/)), and boot/initramfs verifiers ([`omarchy-a16-support/`](packaging/omarchy-a16-support/)). |
 | [`iso/`](iso/README.md) | Live image builder (`build-live-images.sh`), disk installer (`zenbook-install-to-disk.sh`), and firmware presence check and copy helper (`glymur-fetch-firmware.sh`). |
@@ -106,7 +106,7 @@ None of these has been posted to LKML from this repository yet. Patch numbers ar
 - **GDSC error unwind (RFC draft)**: `clk: qcom: gdsc: unwind domains when registration fails` (`0112`).
 - **RPMh regulator and RTC**: `regulator: qcom-rpmh: Don't overwrite the initial mode with the boot readback` (`0144`), `rtc: interface: fix wakeup source leak in rtc_timer_do_work()` (`0145`) and `rtc: qcom-glink: drop set_time when the RTC is read-only` (`0146`).
 - **Audio and SoundWire**: `ASoC: wsa884x: balance pm_runtime_enable() with devm-managed disable` (`0010`), `ASoC: qdsp6: q6apm: fast-retry APM_CMD_GET_SPF_STATE` (`0011`) and the `qcom,keep-runtime-active` speaker-controller guard (`0058`).
-- **A16 input and board**: `HID: asus: complete the feature set for the Zenbook I2C keyboard` (`0004`), M.2 connector wiring for Wi-Fi and Bluetooth (`0154`) and the RGB camera MCLK at 6 mA (`0155`).
+- **A16 input and board**: `HID: asus: complete the feature set for the Zenbook I2C keyboard` (`0004`), M.2 connector wiring for Wi-Fi and Bluetooth (`0154`), the RGB camera MCLK at 6 mA (`0155`), the 7.3 HM1092 `.set_fmt` pad hook (`0156`), and ganged PMH0101 IR emitter + `vreg_bob1_e0` wiring (`0157`).
 
 Several older local patches (`0028`, `0050`–`0063`, `0104`–`0111`) are combined snapshots without a sign-off. They are local carries, not upstream candidates in their current form.
 
@@ -133,7 +133,7 @@ See [`docs/current-build.md`](docs/current-build.md) and [`docs/omarchy-status.m
 | **Keyboard, Backlight & Touchpad** | Working via `hid-asus` UX3607OA I2C HID feature reports and `i2c_hid_of`. |
 | **Wi-Fi 7 & Bluetooth (QCC2072)** | Wi-Fi working through the mainline M.2 connector with board-specific `board-2.bin` / `firmware-2.bin`. Bluetooth uses the pending QCC2072 series and linux-firmware's `qca/orn*` files. |
 | **Speakers (4x WSA884x SoundWire)** | Working with `qcom,keep-runtime-active;` DTB guard and UX3607OA topology/UCM2. |
-| **Camera (OV02C10 RGB / HM1092 IR) & DMICs** | Integrated (`camera_enabled: true`, nonsecure CSID0/VFE0 path). MCLK4 at 6 mA removed microphone-triggered RGB banding in an A/B/A test; IR capture and combined acceptance are pending. |
+| **Camera (OV02C10 RGB / HM1092 IR) & DMICs** | Integrated (`camera_enabled: true`, nonsecure CSID0/VFE0 path). MCLK4 at 6 mA removes microphone-triggered RGB banding; `0156`–`0157` (`rc` `0113`) wire HM1092 `.set_fmt` on 7.3 and the ganged PMH0101 IR emitter (`ir:flash`, 350 mA torch), with `libcamera` `simple` IPA black-level configs in `tweaks/etc/libcamera/ipa/simple/`. Full packaged-image acceptance is pending. |
 | **USB-C / USB3 (`usb0`, `usb1`)** | `0143` updates Glymur USB3 QMP combo PHY SERDES/TX/RX/PCS tables for `usb1` `-71` SuperSpeed link training; physical port matrix acceptance in progress. |
 | **Power, EC Fan & Sleep** | USB-PD online and `asus_glymur_ec` fan profile 2 active; deep S2idle/PCIe noirq suspend remains guarded (`glymur_pci_skip=5`). |
 
