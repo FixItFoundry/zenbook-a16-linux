@@ -6,10 +6,10 @@ Upstream development and LKML validation track for the **ASUS Zenbook A16 (`UX36
 |---|---|
 | Upstream `linux-next` base | `next-20261103`, commit `d6bcfc94eb4da6e089c5473970cd96727292fd97` |
 | Underlying mainline RC | `v7.4-rc1`, commit `6628e7d4c6b25c8d18f1345e3a20d21829aae7e4` |
-| Ordered residual queue | [112 patches](../../patches/rc/README.md) ([`port-map.json`](../../patches/rc/port-map.json)) |
-| Patched source tree | `ed1c21244abbeae943f39c5a4824ea05c1c613ba` |
+| Ordered residual queue | [113 patches](../../patches/rc/README.md) ([`port-map.json`](../../patches/rc/port-map.json)) |
+| Patched source tree | `52ecc2153e2280fcf68b6a2d56f00804d7d27e73` |
 | Recorded release | `7.4.0-rc1-next-20261103-zenbook-a16+` |
-| Package revision 6 | `7.4.0-rc1-next-20261103-zenbook-a16-a16pkg6+` |
+| Package revision 6 | `7.4.0-rc1-next-20261103-zenbook-a16-a16pkg6+` (`ed1c21244abb`, prior to `0113`) |
 
 ## Upstream Retirement & RC-Specific Adjustments
 
@@ -68,3 +68,7 @@ Built as package revision 6 on November 12 and verified off the device; not inst
 The camera clock change was checked separately on revision 1: microphone-triggered
 banding disappeared at 6 mA and returned at 2 mA. That does not establish IR
 capture or microphone audio quality.
+
+## PMH0101 IR emitter, November 14
+
+Patch `0113` (stable `0157`) defines `vreg_bob1_e0` for PMH0101 L6–L9 and PM8010 L3/L4/L7, enables ganged PMH0101 MVFLASH channels 1+4 (`ir_led`), and attaches `flash-leds` to `camera@24` (`himax,hm1092`). Stable `0156` (`hm1092` `.set_fmt`) is retired on `rc` by upstream commit `48d8b2418f55`. Cross-compiled (`hm1092.o`, `leds-qcom-flash.o`, and `glymur-asus-zenbook-a16-ux3607oa.dtb`); not yet booted on `rc`.

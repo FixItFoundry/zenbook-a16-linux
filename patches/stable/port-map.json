@@ -1,7 +1,7 @@
 {
   "base": "c03c1a14507dfaf8b856c2608f9ac216021fc222",
-  "source_tree": "bd1327aac6e1431668eaa53f69e5867d3400b4a0",
-  "original_patch_count": 155,
+  "source_tree": "68c6fb5921f92299904c233333fccf4fb5093bc4",
+  "original_patch_count": 157,
   "patches": [
     {
       "original": "rc5-20261013/0001-drm-msm-dp-make-the-eDP-1.4-LINK_RATE_SET-path-actua.patch",
@@ -1103,6 +1103,20 @@
       "patch": "0155-arm64-dts-qcom-glymur-asus-zenbook-a16-drive-the-RGB.patch",
       "before": "8b0474af571ca6b4c0184552f4d95774025bc6ae",
       "after": "bd1327aac6e1431668eaa53f69e5867d3400b4a0"
+    },
+    {
+      "original": "local/4589c886aff1050b830cc63f1a88483f2edf8502",
+      "status": "unchanged",
+      "patch": "0156-media-i2c-hm1092-wire-up-.set_fmt-on-the-sensor-pad.patch",
+      "before": "bd1327aac6e1431668eaa53f69e5867d3400b4a0",
+      "after": "31d5a05c18ab35c5a4f334ca3e77cc40a7b6a235"
+    },
+    {
+      "original": "local/9a322704d1709e23698711fb7cff922d89ba09dd",
+      "status": "unchanged",
+      "patch": "0157-arm64-dts-qcom-glymur-asus-zenbook-a16-wire-the-PMH0.patch",
+      "before": "31d5a05c18ab35c5a4f334ca3e77cc40a7b6a235",
+      "after": "68c6fb5921f92299904c233333fccf4fb5093bc4"
     }
   ],
   "pre_usb3_source_tree": "004cf498d432dba102ea3d4c9f9389446d40c1bd"

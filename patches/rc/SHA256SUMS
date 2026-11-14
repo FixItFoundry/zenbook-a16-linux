@@ -113,3 +113,4 @@ c40481233f9b605fdac4352ed728364e5b4fcb6c411d5a020a77c6e9f7686934  0107-FROMLIST-
 b6758e445f0104c0ad87da8a3f4f4b0fbb1b99243aad595d5da8c5c951b066a8  0110-FROMLIST-Bluetooth-hci_qca-Add-M.2-Bluetooth-device-.patch
 0722820f6f9a8925c572ae5ae878a074f7107e5074af5504dd0345c075ae0fe3  0111-LOCAL-arm64-dts-qcom-glymur-asus-zenbook-a16-use-the.patch
 1bbf4d81da8aff07dcd135fc70def54a8eee2b6b43890c0a72ae0c4d8cd4590e  0112-arm64-dts-qcom-glymur-asus-zenbook-a16-drive-the-RGB.patch
+c9fc5786909f7eba9bfe1515275a8bc0dc254dcbd2fb0c03669ba28e16fd8e31  0113-arm64-dts-qcom-glymur-asus-zenbook-a16-wire-the-PMH0.patch

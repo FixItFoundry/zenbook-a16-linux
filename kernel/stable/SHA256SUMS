@@ -1,4 +1,4 @@
-f7b9c5a288ea85762b58a2c0abafbeb162f88eb1c0b81d66c82b8a4081ff882b  kernel/stable/build.json
+5aa5d1ea8378a5f142c829eb4e14473af42021d3744058211a6925846616d81f  kernel/stable/build.json
 34a90747b0afe950f8e86b4507b14ec5a65ac1dc82a32e988456c1cc0abf5ad7  kernel/stable/build.sh
 afe4f4e2305ee6821ae1da55ead23d397f5bf160e49aa1fc58239360a636ad11  kernel/stable/config
 13feedb2d3088340e9955d29ba19661994a2cd37b628452f5c04d75af2746032  kernel/stable/replay.py
@@ -157,5 +157,7 @@ b21af2e9056256f1bbfe5696ec41cee5de352f4bd4f62e53bfced9a7c716c998  patches/stable
 2cb342a482a7cdd270968dcfa0c862ca010fc59a0c9a7e4e75b2af4fb6b2fb6c  patches/stable/0153-FROMLIST-Bluetooth-hci_qca-Add-M.2-Bluetooth-device-.patch
 950854a6295568bc121ed331a14332fa1c92e1c500d174a1e6cd7a55b8733ce3  patches/stable/0154-LOCAL-arm64-dts-qcom-glymur-asus-zenbook-a16-use-the.patch
 9587a8d78a277bb125241ee296ac6b995dc36d3b953fc2fdfdc47bc05cdbb003  patches/stable/0155-arm64-dts-qcom-glymur-asus-zenbook-a16-drive-the-RGB.patch
-a3d5ec5e598e2c6339c9f214bdfc084dc41938d79672c7451d2dce86ef0bc78c  patches/stable/port-map.json
-25e1c4eb7bc87179e18b11d5bed4bcb455e1f60c40f011abf936e429826287d8  patches/stable/series
+f89a2d89f44d1d0b1da8ee68240086a177e9f712b8b2222d6829de693120a0b7  patches/stable/0156-media-i2c-hm1092-wire-up-.set_fmt-on-the-sensor-pad.patch
+c3f8da8a89d21a9e1e1924307f191c7702d1fc642bb099a6b038507ed15390a5  patches/stable/0157-arm64-dts-qcom-glymur-asus-zenbook-a16-wire-the-PMH0.patch
+39ad2a0b3bc703ca162ec49d72c78ddb900de8e7c802201171f3f55f05ff0af1  patches/stable/port-map.json
+f2fafe30ffd854148be2784d4a15e09482136365fef5f3d38ce138751baa66a7  patches/stable/series

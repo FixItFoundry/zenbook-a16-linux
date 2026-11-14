@@ -110,3 +110,4 @@
 0110-FROMLIST-Bluetooth-hci_qca-Add-M.2-Bluetooth-device-.patch
 0111-LOCAL-arm64-dts-qcom-glymur-asus-zenbook-a16-use-the.patch
 0112-arm64-dts-qcom-glymur-asus-zenbook-a16-drive-the-RGB.patch
+0113-arm64-dts-qcom-glymur-asus-zenbook-a16-wire-the-PMH0.patch

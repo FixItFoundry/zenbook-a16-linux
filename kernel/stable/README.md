@@ -8,10 +8,10 @@ here installs or selects a kernel.
 | Identity | Value |
 |---|---|
 | Upstream base | `v7.3`, commit `c03c1a14507dfaf8b856c2608f9ac216021fc222` |
-| Ordered residual queue | [155 patches](../../patches/stable/README.md) |
-| Patched source tree | `bd1327aac6e1431668eaa53f69e5867d3400b4a0` |
+| Ordered residual queue | [157 patches](../../patches/stable/README.md) |
+| Patched source tree | `68c6fb5921f92299904c233333fccf4fb5093bc4` |
 | Recorded release | `7.3.0-ZenbookA16-20261022-final1+` |
-| Package revision 6 | `7.3.0-ZenbookA16-20261022-final1-a16pkg6+` |
+| Package revision 6 | `7.3.0-ZenbookA16-20261022-final1-a16pkg6+` (`bd1327aac6e1`, prior to `0156`–`0157`) |
 
 The queue retains the 64-patch A16 baseline, 40-patch Qualcomm bridge and
 10-patch camera/microphone overlay (minus three complete patches already in
@@ -27,7 +27,7 @@ see [upstream credits](../../UPSTREAM-CREDITS.md).
 python3 kernel/stable/replay.py /path/to/linux-git
 ```
 
-The verifier checks the manifest and applies all 155 patches in a temporary Git
+The verifier checks the manifest and applies all 157 patches in a temporary Git
 index, requiring the exact source tree above. It leaves HEAD, the normal index
 and working files alone. It creates Git tree/blob objects, not commits.
 
@@ -107,3 +107,7 @@ Built as package revision 6 on November 12. It boots on the A16 with the display
 The camera clock change was checked separately on revision 1: microphone-triggered
 banding disappeared at 6 mA and returned at 2 mA. That does not establish IR
 capture or microphone audio quality.
+
+## HM1092 7.3 pad format and PMH0101 IR emitter, November 14
+
+Patches `0156`–`0157` wire `.set_fmt = v4l2_subdev_get_fmt` on `hm1092` (`v7.3` lacks `v7.4-rc1`'s `48d8b2418f55` core fallback) and enable ganged PMH0101 MVFLASH channels 1+4 (`ir_led`, 350 mA torch / 700 mA flash) plus `vreg_bob1_e0` parent supplies for PMH0101 L6–L9 and PM8010 L3/L4/L7. Verified on the A16 running revision 6 via runtime module/DT overlay (`cam`, PipeWire, and dark-room locked-exposure IR illumination A/B/A); a full packaged image from `68c6fb5921f9` has not yet been installed.

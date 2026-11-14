@@ -1,0 +1,87 @@
+From 6d6ca52f0e32b693de243851a7db773053aaea04 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Sat, 14 Nov 2026 06:42:13 -0500
+Subject: [PATCH] arm64: dts: qcom: glymur-asus-zenbook-a16: wire the PMH0101
+ IR emitter
+
+On the Zenbook A16 (UX3607OA), the Windows Hello near-infrared emitter
+is driven by PMH0101 MVFLASH channels 1 and 4 ganged in parallel
+(SPMI slave 3, base 0xee00; Windows LEDFLASH topology FlashLED_1 source
+ids 1 and 4, 350 mA torch / 700 mA flash, 1280 ms timeout). Both the
+PMH0101 flash/LDO6-9 group and the camera PM8010 LDO3/L4/L7 rails are
+fed by PMH0101 BOB1 (B1B_E0, 3.416 V nominal within AOP OTP bounds
+3.296-3.520 V; B2B_E0 is unpopulated on this board).
+
+Define vreg_bob1_e0, wire it to the PMH0101 L6-L9 and PM8010 L3/L4/L7
+parent supplies, enable pmh0101_flash with the ganged IR LED node, and
+attach it to the HM1092 camera node via flash-leds so v4l2-flash-led-class
+registers the ancillary IR illuminator subdev.
+
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ .../qcom/glymur-asus-zenbook-a16-ux3607oa.dts | 28 ++++++++++++++++++-
+ 1 file changed, 27 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+index 78688391d1b8..23860540490a 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+@@ -378,6 +378,17 @@ regulators-0 {
+ 		compatible = "qcom,pmh0101-rpmh-regulators";
+ 		qcom,pmic-id = "B_E0";
+ 
++		vdd-l6-l7-supply = <&vreg_bob1_e0>;
++		vdd-l8-l9-supply = <&vreg_bob1_e0>;
++
++		/* B2B_E0 (bob2) is unpopulated on UX3607OA; never define it. */
++		vreg_bob1_e0: bob1 {
++			regulator-name = "vreg_bob1_e0";
++			regulator-min-microvolt = <3384000>;
++			regulator-max-microvolt = <3512000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++		};
++
+ 		vreg_l1b_e0: ldo1 {
+ 			regulator-name = "vreg_l1b_e0";
+ 			regulator-min-microvolt = <1800000>;
+@@ -638,6 +649,7 @@ camera@24 {
+ 
+ 		reset-gpios = <&tlmm 109 GPIO_ACTIVE_LOW>;
+ 
++		flash-leds = <&ir_led>;
+ 		leds = <&privacy_led>;
+ 		led-names = "privacy";
+ 
+@@ -779,7 +791,8 @@ pm8010: pmic@8 {
+ 		reset-gpios = <&tlmm 106 GPIO_ACTIVE_LOW>;
+ 
+ 
+-		/* shortcut: input rails remain firmware-managed until their supply mapping is verified. */
++		vdd-l3-l4-supply = <&vreg_bob1_e0>;
++		vdd-l7-supply = <&vreg_bob1_e0>;
+ 
+ 		regulators {
+ 			/* L1/L2 are unused */
+@@ -1062,6 +1075,19 @@ &pcie5_port0 {
+ 	wake-gpios = <&tlmm 154 GPIO_ACTIVE_LOW>;
+ };
+ 
++&pmh0101_flash {
++	status = "okay";
++
++	ir_led: led-0 {
++		function = LED_FUNCTION_FLASH;
++		color = <LED_COLOR_ID_IR>;
++		led-sources = <1>, <4>;
++		led-max-microamp = <350000>;
++		flash-max-microamp = <700000>;
++		flash-max-timeout-us = <1280000>;
++	};
++};
++
+ &pmh0101_gpios {
+ 	nvme_reg_en: nvme-reg-en-state {
+ 		pins = "gpio14";
+-- 
+2.56.0
+

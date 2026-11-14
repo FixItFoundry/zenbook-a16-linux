@@ -1,0 +1,35 @@
+From 4589c886aff1050b830cc63f1a88483f2edf8502 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Sat, 14 Nov 2026 06:42:12 -0500
+Subject: [PATCH] media: i2c: hm1092: wire up .set_fmt on the sensor pad
+
+The HM1092 driver advertises a single fixed 560x360 Y10_1X10 mode and
+relies on v4l2-subdev falling back to .get_fmt when .set_fmt is omitted
+(commit 48d8b2418f55 ("media: v4l2-subdev: Always call get_fmt() if
+set_fmt() is unavailable") in v7.4-rc1).
+
+On Linux 7.3, v4l2-subdev returns -ENOTTY for VIDIOC_SUBDEV_S_FMT when
+.set_fmt is NULL, causing media-ctl, libcamera and PipeWire to reject
+the sensor during pipeline configuration. Point .set_fmt at
+v4l2_subdev_get_fmt, matching fixed-mode sensor drivers in 7.3.
+
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ drivers/media/i2c/hm1092.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/media/i2c/hm1092.c b/drivers/media/i2c/hm1092.c
+index d45b39dffff1..f2abd4cb2dda 100644
+--- a/drivers/media/i2c/hm1092.c
++++ b/drivers/media/i2c/hm1092.c
+@@ -867,6 +867,7 @@ static const struct v4l2_subdev_video_ops hm1092_video_ops = {
+ 
+ static const struct v4l2_subdev_pad_ops hm1092_pad_ops = {
+ 	.get_fmt = v4l2_subdev_get_fmt,
++	.set_fmt = v4l2_subdev_get_fmt,
+ 	.enum_mbus_code = hm1092_enum_mbus_code,
+ 	.enum_frame_size = hm1092_enum_frame_size,
+ 	.get_selection = hm1092_get_selection,
+-- 
+2.56.0
+
