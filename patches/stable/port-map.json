@@ -1,7 +1,7 @@
 {
   "base": "c03c1a14507dfaf8b856c2608f9ac216021fc222",
-  "source_tree": "68c6fb5921f92299904c233333fccf4fb5093bc4",
-  "original_patch_count": 157,
+  "source_tree": "f5b887e39ef793b172a4b4a641068e2e1d1a6db9",
+  "original_patch_count": 158,
   "patches": [
     {
       "original": "rc5-20261013/0001-drm-msm-dp-make-the-eDP-1.4-LINK_RATE_SET-path-actua.patch",
@@ -1117,6 +1117,13 @@
       "patch": "0157-arm64-dts-qcom-glymur-asus-zenbook-a16-wire-the-PMH0.patch",
       "before": "31d5a05c18ab35c5a4f334ca3e77cc40a7b6a235",
       "after": "68c6fb5921f92299904c233333fccf4fb5093bc4"
+    },
+    {
+      "original": "lore/20261115000021.78869-1-jesse.casco@gmail.com",
+      "status": "unchanged",
+      "patch": "0158-drm-msm-dp-don-t-fall-back-to-a-link-that-can-t-carr.patch",
+      "before": "68c6fb5921f92299904c233333fccf4fb5093bc4",
+      "after": "f5b887e39ef793b172a4b4a641068e2e1d1a6db9"
     }
   ],
   "pre_usb3_source_tree": "004cf498d432dba102ea3d4c9f9389446d40c1bd"

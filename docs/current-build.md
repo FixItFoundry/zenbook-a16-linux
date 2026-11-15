@@ -1,13 +1,21 @@
-# Current build — 2026-11-13
+# Current build — 2026-11-15
 
-The A16 runs Fedora with **`7.3.0-ZenbookA16-20261022-final1-a16pkg6+`**, staged
-by hand from the stable queue on November 12. The display (2880x1800 at 120 Hz)
-and Wi-Fi work. An unexplained reset occurred between two boots of this build,
-so stability is not accepted. Revision 2 remains installed as the fallback entry.
+The A16 runs Fedora with **`7.3.0-ZenbookA16-20261022-final1-a16pkg7+`**, built
+from the 158-patch stable queue and staged by hand on November 14. It adds the
+HM1092 `.set_fmt`, PMH0101 IR emitter and eDP link fallback patches
+(`0156`–`0158`) to revision 6. Revision 6 remains installed as the fallback entry.
+
+On the first boot of revision 7, the display (2880x1800 at 120 Hz), Wi-Fi,
+Bluetooth and speakers came up with no failed units and an untainted kernel.
+`cam` captured RGB frames, and IR frame brightness followed the emitter
+(0/80/255/0: 27.9/33.1/37.4/25.8 mean). In 100 Hyprland DPMS off/on cycles, all
+112 stream starts trained at 4 lanes; 12 cycles retried after a channel
+equalisation failure (11 once, 1 twice). The unexplained resets seen on
+revision 6 are not resolved, so stability is not accepted.
 
 | Track | Patches | Replayed source tree | Package release | State |
 |---|---:|---|---|---|
-| stable | 155 | `bd1327aac6e1431668eaa53f69e5867d3400b4a0` | `7.3.0-ZenbookA16-20261022-final1-a16pkg6+` | Built, installed, boots |
+| stable | 158 | `f5b887e39ef793b172a4b4a641068e2e1d1a6db9` | `7.3.0-ZenbookA16-20261022-final1-a16pkg7+` | Built, installed, boots |
 | rc | 112 | `ed1c21244abbeae943f39c5a4824ea05c1c613ba` | `7.4.0-rc1-next-20261103-zenbook-a16-a16pkg6+` | Built, not installed |
 
 Revision 5 was built without the nine display, Bluetooth, M.2 and camera patches

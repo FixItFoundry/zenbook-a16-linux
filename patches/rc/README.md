@@ -1,15 +1,15 @@
 # RC / Upstream Development Patch Stack (`patches/rc`)
 
-Apply the 113 patches in [series](series), in order, to Linux `next-20261103`
+Apply the 114 patches in [series](series), in order, to Linux `next-20261103`
 (`d6bcfc94eb4da6e089c5473970cd96727292fd97`, built on mainline `v7.4-rc1`
 `6628e7d4c6b25c8d18f1345e3a20d21829aae7e4`). They reproduce source tree
-`52ecc2153e2280fcf68b6a2d56f00804d7d27e73` and reverse cleanly back to base tree
+`0da32f0ed26b0d582fd44edfd1642e17fa76420d` and reverse cleanly back to base tree
 `a8860acf3c1c2856062494c95d68bc2521f54d1a`. Use the matching
 [config, verifier, and build helper](../../kernel/rc/README.md).
 
 ## Disposition vs. Linux 7.3 Stable (`patches/stable`)
 
-[port-map.json](port-map.json) records the disposition of all 157 patches in
+[port-map.json](port-map.json) records the disposition of all 158 patches in
 [`patches/stable`](../stable/README.md) plus two `next-20261103`-specific patches:
 
 | Category | Count | Summary |
@@ -22,6 +22,7 @@ Apply the 113 patches in [series](series), in order, to Linux `next-20261103`
 Patches `0101`–`0103` are the RPMh/RTC fixes ported from stable. Patches `0104`–`0112`
 match stable `0147`–`0155`: eDP rate-set corrections, the pending QCC2072 Bluetooth and M.2 power-sequencing patches, mainline M.2 Wi-Fi/Bluetooth wiring, and RGB camera MCLK4 at 6 mA.
 Patch `0113` matches stable `0157` (PMH0101 IR emitter and `vreg_bob1_e0` supplies), while stable `0156` (`hm1092` `.set_fmt`) is retired by `48d8b2418f55`.
+Patch `0114` matches stable `0158` (eDP link training fallback bandwidth check).
 
 ## Replay Without Modifying a Checkout
 

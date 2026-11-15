@@ -1,8 +1,8 @@
 # Full A16/Qualcomm stack on Linux 7.3 final
 
-Apply the 157 files in [series](series), in order, to Linux `v7.3`
+Apply the 158 files in [series](series), in order, to Linux `v7.3`
 (`c03c1a14507dfaf8b856c2608f9ac216021fc222`). They reproduce source tree
-`68c6fb5921f92299904c233333fccf4fb5093bc4` (`004cf498d432dba102ea3d4c9f9389446d40c1bd`
+`f5b887e39ef793b172a4b4a641068e2e1d1a6db9` (`004cf498d432dba102ea3d4c9f9389446d40c1bd`
 prior to patch `0143`). Use the matching
 [config, verifier and build helper](../../kernel/stable/README.md).
 
@@ -17,7 +17,8 @@ Patches `0144`–`0146` are the November 12 RPMh/RTC fixes. Patches `0147`–`01
 eDP rate-set corrections, the pending QCC2072 Bluetooth and M.2 power-sequencing patches,
 mainline M.2 Wi-Fi/Bluetooth wiring, and RGB camera MCLK4 at 6 mA. Patches `0156`–`0157`
 wire `hm1092` `.set_fmt` on 7.3 and connect the ganged PMH0101 IR emitter and `vreg_bob1_e0` supplies.
-The [kernel recipe](../../kernel/stable/README.md) describes all three groups.
+Patch `0158` stops the eDP link training fallback from dropping below the bandwidth the panel mode needs.
+The [kernel recipe](../../kernel/stable/README.md) describes all four groups.
 
 ## Upstream equivalents
 

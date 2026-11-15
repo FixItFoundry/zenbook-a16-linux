@@ -111,3 +111,4 @@
 0111-LOCAL-arm64-dts-qcom-glymur-asus-zenbook-a16-use-the.patch
 0112-arm64-dts-qcom-glymur-asus-zenbook-a16-drive-the-RGB.patch
 0113-arm64-dts-qcom-glymur-asus-zenbook-a16-wire-the-PMH0.patch
+0114-drm-msm-dp-don-t-fall-back-to-a-link-that-can-t-carr.patch
