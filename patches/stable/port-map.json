@@ -1,7 +1,7 @@
 {
   "base": "c03c1a14507dfaf8b856c2608f9ac216021fc222",
-  "source_tree": "f5b887e39ef793b172a4b4a641068e2e1d1a6db9",
-  "original_patch_count": 158,
+  "source_tree": "e6413608c5462649b3f0c670ff19486a19d04cc1",
+  "original_patch_count": 161,
   "patches": [
     {
       "original": "rc5-20261013/0001-drm-msm-dp-make-the-eDP-1.4-LINK_RATE_SET-path-actua.patch",
@@ -1124,6 +1124,27 @@
       "patch": "0158-drm-msm-dp-don-t-fall-back-to-a-link-that-can-t-carr.patch",
       "before": "68c6fb5921f92299904c233333fccf4fb5093bc4",
       "after": "f5b887e39ef793b172a4b4a641068e2e1d1a6db9"
+    },
+    {
+      "original": "lore/bf48f3c809f33c060e2944e5896f8a5a93fd78ea.1795196107.git.jesse.casco@gmail.com",
+      "status": "unchanged",
+      "patch": "0159-media-qcom-camss-x1e80100-Use-the-lite-clocks-for-th.patch",
+      "before": "f5b887e39ef793b172a4b4a641068e2e1d1a6db9",
+      "after": "c3a1dfb8fce1e67d7272ce6bd54f3bf3d63f452b"
+    },
+    {
+      "original": "local/9b8b4aa10affcb682b0998b7f10cfca084701fb3",
+      "status": "unchanged",
+      "patch": "0160-media-qcom-camss-x1e80100-Drop-CSID2.patch",
+      "before": "c3a1dfb8fce1e67d7272ce6bd54f3bf3d63f452b",
+      "after": "2ace98db73d6f954f258818d9b4e3a07acdb89bc"
+    },
+    {
+      "original": "local/6aab4abcda98e79a83697329afa029823715d0a2",
+      "status": "unchanged",
+      "patch": "0161-LOCAL-media-qcom-camss-use-the-full-X1E80100-tables-.patch",
+      "before": "2ace98db73d6f954f258818d9b4e3a07acdb89bc",
+      "after": "e6413608c5462649b3f0c670ff19486a19d04cc1"
     }
   ],
   "pre_usb3_source_tree": "004cf498d432dba102ea3d4c9f9389446d40c1bd"

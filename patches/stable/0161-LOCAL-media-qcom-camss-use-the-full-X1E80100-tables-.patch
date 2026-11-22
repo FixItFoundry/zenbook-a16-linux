@@ -1,0 +1,51 @@
+From 6aab4abcda98e79a83697329afa029823715d0a2 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Sat, 21 Nov 2026 20:34:09 -0500
+Subject: [PATCH 161/161] LOCAL: media: qcom: camss: use the full X1E80100
+ tables on Glymur
+
+Patch 0107 limited Glymur to CSID0/VFE0 until it was known which CAMSS
+blocks Linux may use. Linux owns all four CSID/VFE pairs on the A16, and
+with the lite CSID clocks and the CSID2 removal before this patch the
+lite pairs stream as well, so register the full X1E80100 TPG, CSID and
+VFE tables.
+
+On the A16 (Fedora, revision 7 with this camss.c as a module), the HM1092
+IR sensor streams through CSID/VFE 0/0, 1/1, LITE0 and LITE1, the OV02C10
+RGB sensor through LITE1, and libcamera captures from both cameras.
+
+Nihal Kumar Gupta's Glymur-specific resources replace this once merged.
+
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ drivers/media/platform/qcom/camss/camss.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/media/platform/qcom/camss/camss.c b/drivers/media/platform/qcom/camss/camss.c
+index 51814a74f..cd35dcb89 100644
+--- a/drivers/media/platform/qcom/camss/camss.c
++++ b/drivers/media/platform/qcom/camss/camss.c
+@@ -5803,7 +5803,6 @@ static const struct camss_resources x1e80100_resources = {
+ 	.vfe_num = ARRAY_SIZE(vfe_res_x1e80100),
+ };
+ 
+-/* shortcut: expose only CSID0/VFE0 until secure resource ownership is resolved. */
+ static const struct camss_resources glymur_resources = {
+ 	.version = CAMSS_X1E80100,
+ 	.pd_name = "top",
+@@ -5815,9 +5814,9 @@ static const struct camss_resources glymur_resources = {
+ 	.icc_res = icc_res_x1e80100,
+ 	.icc_path_num = ARRAY_SIZE(icc_res_x1e80100),
+ 	.csiphy_num = ARRAY_SIZE(csiphy_res_x1e80100),
+-	.tpg_num = 0,
+-	.csid_num = 1,
+-	.vfe_num = 1,
++	.tpg_num = ARRAY_SIZE(tpg_res_x1e80100),
++	.csid_num = ARRAY_SIZE(csid_res_x1e80100),
++	.vfe_num = ARRAY_SIZE(vfe_res_x1e80100),
+ };
+ 
+ static const struct of_device_id camss_dt_match[] = {
+-- 
+2.56.1
+

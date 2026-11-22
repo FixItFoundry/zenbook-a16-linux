@@ -1,4 +1,4 @@
-771981e095058cd57964bf151ad89406dd4750033591f407ee6d56b2766717b0  kernel/stable/build.json
+486ea28afcd87e376c124e25bd2f45f5732772df738630f0ff50b2e36e13945a  kernel/stable/build.json
 34a90747b0afe950f8e86b4507b14ec5a65ac1dc82a32e988456c1cc0abf5ad7  kernel/stable/build.sh
 afe4f4e2305ee6821ae1da55ead23d397f5bf160e49aa1fc58239360a636ad11  kernel/stable/config
 13feedb2d3088340e9955d29ba19661994a2cd37b628452f5c04d75af2746032  kernel/stable/replay.py
@@ -160,5 +160,8 @@ b21af2e9056256f1bbfe5696ec41cee5de352f4bd4f62e53bfced9a7c716c998  patches/stable
 f89a2d89f44d1d0b1da8ee68240086a177e9f712b8b2222d6829de693120a0b7  patches/stable/0156-media-i2c-hm1092-wire-up-.set_fmt-on-the-sensor-pad.patch
 c3f8da8a89d21a9e1e1924307f191c7702d1fc642bb099a6b038507ed15390a5  patches/stable/0157-arm64-dts-qcom-glymur-asus-zenbook-a16-wire-the-PMH0.patch
 9e377bf4d9fa7461bcaebd1a83e9e3b0128921d4776e994ac37316764f9449bf  patches/stable/0158-drm-msm-dp-don-t-fall-back-to-a-link-that-can-t-carr.patch
-b0566761635cdaa07f50c997687bc095e38c4a8a13e6b5c21477a942141e2e71  patches/stable/port-map.json
-79fda026e720849be162e4301358f276aa880d2a7438510fc9030b7194ba1cec  patches/stable/series
+b06345e528d85a1cc579f8db09c1760e0d834d69b386f815cfdadb8686ee30de  patches/stable/0159-media-qcom-camss-x1e80100-Use-the-lite-clocks-for-th.patch
+540ae4bfe9be12edc27c49d30199feb5e89223472dd26cb33b253e47b0eb59f0  patches/stable/0160-media-qcom-camss-x1e80100-Drop-CSID2.patch
+92f3693228ba8e3da3798cf0fdd6b135eb88b259131b25e7928ce59268fc1a29  patches/stable/0161-LOCAL-media-qcom-camss-use-the-full-X1E80100-tables-.patch
+4d9ae28a15768d4f0dfb23adac2cf6969a3e9e16885f8c43d673fd8c499b0bdf  patches/stable/port-map.json
+44cd28ec578bd1a93784b2a2ba566457c4d37250bfe0e1ad1c9a78de2a6583bd  patches/stable/series

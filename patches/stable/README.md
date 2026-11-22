@@ -1,8 +1,8 @@
 # Full A16/Qualcomm stack on Linux 7.3 final
 
-Apply the 158 files in [series](series), in order, to Linux `v7.3`
+Apply the 161 files in [series](series), in order, to Linux `v7.3`
 (`c03c1a14507dfaf8b856c2608f9ac216021fc222`). They reproduce source tree
-`f5b887e39ef793b172a4b4a641068e2e1d1a6db9` (`004cf498d432dba102ea3d4c9f9389446d40c1bd`
+`e6413608c5462649b3f0c670ff19486a19d04cc1` (`004cf498d432dba102ea3d4c9f9389446d40c1bd`
 prior to patch `0143`). Use the matching
 [config, verifier and build helper](../../kernel/stable/README.md).
 
@@ -18,6 +18,8 @@ eDP rate-set corrections, the pending QCC2072 Bluetooth and M.2 power-sequencing
 mainline M.2 Wi-Fi/Bluetooth wiring, and RGB camera MCLK4 at 6 mA. Patches `0156`–`0157`
 wire `hm1092` `.set_fmt` on 7.3 and connect the ganged PMH0101 IR emitter and `vreg_bob1_e0` supplies.
 Patch `0158` stops the eDP link training fallback from dropping below the bandwidth the panel mode needs.
+Patches `0159`–`0160` (v2 of the X1E80100 lite CSID fixes) give the lite CSIDs their own clocks and drop the
+unusable CSID2, and the local `0161` replaces `0107`'s CSID0/VFE0 limit with the full X1E80100 tables.
 The [kernel recipe](../../kernel/stable/README.md) describes all four groups.
 
 ## Upstream equivalents
@@ -48,6 +50,6 @@ Local experiments remain local experiments.
 
 The complete queue replays without three-way fallback or skipped failures.
 Package revision 6 was built from this queue and boots on the A16; stability
-acceptance is pending. The source retains RGB/IR wiring, PM8010/HM1092 support, the constrained
-nonsecure CAMSS path, channel-map clearing and experimental DMIC pin settings.
+acceptance is pending. The source retains RGB/IR wiring, PM8010/HM1092 support, the full X1E80100
+CAMSS tables, channel-map clearing and experimental DMIC pin settings.
 No firmware is included and no running system is changed.

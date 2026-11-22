@@ -8,8 +8,8 @@ here installs or selects a kernel.
 | Identity | Value |
 |---|---|
 | Upstream base | `v7.3`, commit `c03c1a14507dfaf8b856c2608f9ac216021fc222` |
-| Ordered residual queue | [158 patches](../../patches/stable/README.md) |
-| Patched source tree | `f5b887e39ef793b172a4b4a641068e2e1d1a6db9` |
+| Ordered residual queue | [161 patches](../../patches/stable/README.md) |
+| Patched source tree | `e6413608c5462649b3f0c670ff19486a19d04cc1` |
 | Recorded release | `7.3.0-ZenbookA16-20261022-final1+` |
 | Package revision 6 | `7.3.0-ZenbookA16-20261022-final1-a16pkg6+` (`bd1327aac6e1`, prior to `0156`–`0158`) |
 | Package revision 7 | `7.3.0-ZenbookA16-20261022-final1-a16pkg7+` (`f5b887e39ef7`) |
@@ -28,7 +28,7 @@ see [upstream credits](../../UPSTREAM-CREDITS.md).
 python3 kernel/stable/replay.py /path/to/linux-git
 ```
 
-The verifier checks the manifest and applies all 158 patches in a temporary Git
+The verifier checks the manifest and applies all 161 patches in a temporary Git
 index, requiring the exact source tree above. It leaves HEAD, the normal index
 and working files alone. It creates Git tree/blob objects, not commits.
 
@@ -116,3 +116,7 @@ Patches `0156`–`0157` wire `.set_fmt = v4l2_subdev_get_fmt` on `hm1092` (`v7.3
 ## eDP link training fallback, November 14
 
 Patch `0158` keeps `msm_dp_ctrl_on_link()` from falling back to a lane count or rate that can't carry the eDP mode; it retries at the previous parameters instead. On revision 6, 6 of 100 Hyprland DPMS wakes left the panel dark after channel equalisation failed at 4 lanes × HBR2 and training fell back to 2 lanes (once 1). With the patched `msm.ko` on revision 6, 100 wakes produced 7 equalisation failures, each recovered on the first retry at 4 lanes. Sent upstream as [20261115000021.78869-1-jesse.casco@gmail.com](https://lore.kernel.org/r/20261115000021.78869-1-jesse.casco@gmail.com). Package revision 7, built from `f5b887e39ef7`, is installed as the default; on it, 100 wakes all trained at 4 lanes (12 retried after an equalisation failure).
+
+## CAMSS lite CSID paths, November 21
+
+Patches `0159`–`0160` are v2 of the X1E80100 lite CSID series ([v1](https://lore.kernel.org/r/cover.1795196107.git.jesse.casco@gmail.com)): the lite CSIDs get the `vfe_lite_csid`/`vfe_lite_cphy_rx` clocks, and CSID2, which has no VFE, is dropped so each CSID sits at the index of the VFE it feeds. The lite CSID entities become `msm_csid2` and `msm_csid3`. The local `0161` lifts `0107`'s CSID0/VFE0 limit and registers the full X1E80100 TPG, CSID and VFE tables on Glymur. On revision 7 with the resulting `camss.c` loaded as a module, the HM1092 IR sensor streamed through all four CSID/VFE pairs and the OV02C10 RGB sensor through LITE1, and libcamera captured from both cameras. A packaged image from `e6413608c546` has not been built yet.
