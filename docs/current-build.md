@@ -1,4 +1,31 @@
-# Current build — 2026-11-15
+# Current build — 2026-11-21
+
+The A16 runs Fedora with **`7.3.0-ZenbookA16-20261022-final1-a16pkg8+`**, built
+from the 161-patch stable queue on November 21. It adds the X1E80100 lite CSID
+fixes (`0159`–`0160`) and the full Glymur CAMSS tables (`0161`) to revision 7.
+Revision 7 remains installed as the fallback entry.
+
+On the first boot of revision 8, the display (2880x1800 at 120 Hz), Wi-Fi,
+Bluetooth and playback came up with no failed units and an untainted kernel.
+The camera graph has CSIDs 0–3 and VFEs 0–3. The HM1092 IR sensor streamed
+8 frames through each of the four CSID/VFE pairs and the OV02C10 RGB sensor
+through LITE1, `cam` captured from both cameras, and IR frame brightness
+followed the emitter (0/80/255/0: 26.7/34.3/44.2/28.3 mean). In 20 Hyprland
+DPMS off/on cycles, 3 trainings failed channel equalisation and recovered; the
+panel ended at 2880x1800 at 120 Hz. The unexplained resets seen on revisions 6
+and 7 are not resolved, so stability is not accepted.
+
+| Track | Patches | Replayed source tree | Package release | State |
+|---|---:|---|---|---|
+| stable | 161 | `e6413608c5462649b3f0c670ff19486a19d04cc1` | `7.3.0-ZenbookA16-20261022-final1-a16pkg8+` | Built, installed, default |
+| rc | 112 | `ed1c21244abbeae943f39c5a4824ea05c1c613ba` | `7.4.0-rc1-next-20261103-zenbook-a16-a16pkg6+` | Built, not installed |
+
+Revision 5 was built without the nine display, Bluetooth, M.2 and camera patches
+and is superseded. Native `dnf`/`apt` transactions, sleep and RTC behaviour are
+not accepted. Hardware-free CI does not establish native ARM64 installation.
+The dated records below retain their original identities and limits.
+
+## Revision 7 — 2026-11-15
 
 The A16 runs Fedora with **`7.3.0-ZenbookA16-20261022-final1-a16pkg7+`**, built
 from the 158-patch stable queue and staged by hand on November 14. It adds the
@@ -12,16 +39,6 @@ Bluetooth and speakers came up with no failed units and an untainted kernel.
 112 stream starts trained at 4 lanes; 12 cycles retried after a channel
 equalisation failure (11 once, 1 twice). The unexplained resets seen on
 revision 6 are not resolved, so stability is not accepted.
-
-| Track | Patches | Replayed source tree | Package release | State |
-|---|---:|---|---|---|
-| stable | 158 | `f5b887e39ef793b172a4b4a641068e2e1d1a6db9` | `7.3.0-ZenbookA16-20261022-final1-a16pkg7+` | Built, installed, boots |
-| rc | 112 | `ed1c21244abbeae943f39c5a4824ea05c1c613ba` | `7.4.0-rc1-next-20261103-zenbook-a16-a16pkg6+` | Built, not installed |
-
-Revision 5 was built without the nine display, Bluetooth, M.2 and camera patches
-and is superseded. Native `dnf`/`apt` transactions, sleep and RTC behaviour are
-not accepted. Hardware-free CI does not establish native ARM64 installation.
-The dated records below retain their original identities and limits.
 
 ## Historical running build — 2026-10-31
 

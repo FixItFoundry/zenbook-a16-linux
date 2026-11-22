@@ -13,6 +13,7 @@ here installs or selects a kernel.
 | Recorded release | `7.3.0-ZenbookA16-20261022-final1+` |
 | Package revision 6 | `7.3.0-ZenbookA16-20261022-final1-a16pkg6+` (`bd1327aac6e1`, prior to `0156`–`0158`) |
 | Package revision 7 | `7.3.0-ZenbookA16-20261022-final1-a16pkg7+` (`f5b887e39ef7`) |
+| Package revision 8 | `7.3.0-ZenbookA16-20261022-final1-a16pkg8+` (`e6413608c546`) |
 
 The queue retains the 64-patch A16 baseline, 40-patch Qualcomm bridge and
 10-patch camera/microphone overlay (minus three complete patches already in
@@ -119,4 +120,4 @@ Patch `0158` keeps `msm_dp_ctrl_on_link()` from falling back to a lane count or 
 
 ## CAMSS lite CSID paths, November 21
 
-Patches `0159`–`0160` are v2 of the X1E80100 lite CSID series ([v1](https://lore.kernel.org/r/cover.1795196107.git.jesse.casco@gmail.com)): the lite CSIDs get the `vfe_lite_csid`/`vfe_lite_cphy_rx` clocks, and CSID2, which has no VFE, is dropped so each CSID sits at the index of the VFE it feeds. The lite CSID entities become `msm_csid2` and `msm_csid3`. The local `0161` lifts `0107`'s CSID0/VFE0 limit and registers the full X1E80100 TPG, CSID and VFE tables on Glymur. On revision 7 with the resulting `camss.c` loaded as a module, the HM1092 IR sensor streamed through all four CSID/VFE pairs and the OV02C10 RGB sensor through LITE1, and libcamera captured from both cameras. A packaged image from `e6413608c546` has not been built yet.
+Patches `0159`–`0160` are v2 of the X1E80100 lite CSID series ([v1](https://lore.kernel.org/r/cover.1795196107.git.jesse.casco@gmail.com)): the lite CSIDs get the `vfe_lite_csid`/`vfe_lite_cphy_rx` clocks, and CSID2, which has no VFE, is dropped so each CSID sits at the index of the VFE it feeds. The lite CSID entities become `msm_csid2` and `msm_csid3`. The local `0161` lifts `0107`'s CSID0/VFE0 limit and registers the full X1E80100 TPG, CSID and VFE tables on Glymur. On revision 7 with the resulting `camss.c` loaded as a module, the HM1092 IR sensor streamed through all four CSID/VFE pairs and the OV02C10 RGB sensor through LITE1, and libcamera captured from both cameras. Package revision 8, built from `e6413608c546`, is installed as the default; on its first boot the same camera checks passed, and the display, Wi-Fi, Bluetooth and 20 DPMS cycles came up as on revision 7.
