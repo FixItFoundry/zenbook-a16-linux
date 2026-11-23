@@ -29,7 +29,7 @@ provenance and authorship trailers on every patch.
 - Stable `0150` / rc `0107`: **Rahul Samana**, QCC2072 DT binding, [v2 1/6](https://lore.kernel.org/all/20260727-rb3-industrial-bt-uart-v2-1-2d100f30e202@oss.qualcomm.com/).
 - Stable `0151` / rc `0108`: **Vivek Sahu**, QCC2072 UART driver support, [v2 2/6](https://lore.kernel.org/all/20260727-rb3-industrial-bt-uart-v2-2-2d100f30e202@oss.qualcomm.com/).
 - Stable `0152` / rc `0109`: **Krishna Chaitanya Chundru**, QCC2072 M.2 power sequencing, [v2 3/6](https://lore.kernel.org/all/20260727-rb3-industrial-bt-uart-v2-3-2d100f30e202@oss.qualcomm.com/).
-- Stable `0153` / rc `0110`: **Manivannan Sadhasivam**, M.2 Bluetooth power sequencing, [monza-wireless v7 1/8](https://lore.kernel.org/all/20261005-monza-wireless-v7-1-5a6de7662dcb@oss.qualcomm.com/), with the QCC2072 case-group context adaptation noted in the patch.
+- Stable `0153` / rc `0110`: **Manivannan Sadhasivam**, M.2 Bluetooth power sequencing, [monza-wireless v9 1/8](https://lore.kernel.org/all/20261123-monza-wireless-v9-1-450d7d764aea@oss.qualcomm.com/), with the QCC2072 case-group context adaptation noted in the patch.
 
 These four patches are carried as `FROMLIST`. The accompanying eDP corrections,
 A16 M.2 wiring restoration and RGB camera clock-drive fix are by Jesse Casco.

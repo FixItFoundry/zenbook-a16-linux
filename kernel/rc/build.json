@@ -3,7 +3,7 @@
   "base_tag": "next-20261103",
   "mainline_rc_tag": "v7.4-rc1",
   "mainline_rc_commit": "6628e7d4c6b25c8d18f1345e3a20d21829aae7e4",
-  "source_tree": "0da32f0ed26b0d582fd44edfd1642e17fa76420d",
+  "source_tree": "ae9780ba94c73237250a58ecc44fca2485813f8a",
   "release": "7.4.0-rc1-next-20261103-zenbook-a16+",
   "patch_count": 114,
   "prior_release": "7.3.0-rc5-ZenbookA16-20261031-usb1+",

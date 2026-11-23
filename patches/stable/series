@@ -157,5 +157,5 @@
 0157-arm64-dts-qcom-glymur-asus-zenbook-a16-wire-the-PMH0.patch
 0158-drm-msm-dp-don-t-fall-back-to-a-link-that-can-t-carr.patch
 0159-media-qcom-camss-x1e80100-Use-the-lite-clocks-for-th.patch
-0160-media-qcom-camss-x1e80100-Drop-CSID2.patch
+0160-FROMLIST-media-qcom-camss-x1e80100-Fix-CSID2-routing.patch
 0161-LOCAL-media-qcom-camss-use-the-full-X1E80100-tables-.patch

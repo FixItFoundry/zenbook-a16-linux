@@ -7,7 +7,7 @@ Upstream development and LKML validation track for the **ASUS Zenbook A16 (`UX36
 | Upstream `linux-next` base | `next-20261103`, commit `d6bcfc94eb4da6e089c5473970cd96727292fd97` |
 | Underlying mainline RC | `v7.4-rc1`, commit `6628e7d4c6b25c8d18f1345e3a20d21829aae7e4` |
 | Ordered residual queue | [114 patches](../../patches/rc/README.md) ([`port-map.json`](../../patches/rc/port-map.json)) |
-| Patched source tree | `0da32f0ed26b0d582fd44edfd1642e17fa76420d` |
+| Patched source tree | `ae9780ba94c73237250a58ecc44fca2485813f8a` |
 | Recorded release | `7.4.0-rc1-next-20261103-zenbook-a16+` |
 | Package revision 6 | `7.4.0-rc1-next-20261103-zenbook-a16-a16pkg6+` (`ed1c21244abb`, prior to `0113`–`0114`) |
 

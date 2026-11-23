@@ -1,7 +1,7 @@
-From 3e4e7b5b6def5ed9834c84746fe98ffc7a61f971 Mon Sep 17 00:00:00 2001
+From 9738567d63e24027b34c434628180a4a6858396e Mon Sep 17 00:00:00 2001
 From: Manivannan Sadhasivam <manivannan.sadhasivam@oss.qualcomm.com>
-Date: Tue, 10 Nov 2026 15:59:45 -0500
-Subject: [PATCH 150/152] FROMLIST: Bluetooth: hci_qca: Add M.2 Bluetooth
+Date: Mon, 23 Nov 2026 14:56:08 +0100
+Subject: [PATCH 153/161] FROMLIST: Bluetooth: hci_qca: Add M.2 Bluetooth
  device support using pwrseq
 
 Power supply to the M.2 Bluetooth device attached to the host using M.2
@@ -10,18 +10,27 @@ getting the pwrseq device if the OF graph link is present. Once obtained,
 the existing pwrseq APIs can be used to control the power supplies of the
 M.2 card.
 
+The descriptor is looked up on the serdev controller, since that is
+the node holding the OF graph link to the connector, but it must be
+released when the Bluetooth serdev device goes away rather than when
+the UART controller does. Acquire it with pwrseq_get() and hand the
+release to a devres action bound to the serdev consumer instead of
+using devm_pwrseq_get() on the controller.
+
 Reviewed-by: Bartosz Golaszewski <bartosz.golaszewski@oss.qualcomm.com>
 Reviewed-by: Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>
 Signed-off-by: Manivannan Sadhasivam <manivannan.sadhasivam@oss.qualcomm.com>
-Link: https://lore.kernel.org/all/20261005-monza-wireless-v7-1-5a6de7662dcb@oss.qualcomm.com/
+Tested-by: Wei Deng <wei.deng@oss.qualcomm.com>
+Tested-by: Jesse Casco <jesse.casco@gmail.com> # ASUS Zenbook A16 (UX3607OA)
+Link: https://lore.kernel.org/all/20261123-monza-wireless-v9-1-450d7d764aea@oss.qualcomm.com/
 [jesse: applied on top of the QCC2072 series; QCA_QCC2072 is in the same case group]
 Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
 ---
- drivers/bluetooth/hci_qca.c | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
+ drivers/bluetooth/hci_qca.c | 49 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 49 insertions(+)
 
 diff --git a/drivers/bluetooth/hci_qca.c b/drivers/bluetooth/hci_qca.c
-index e9d17772865a..d6fdafd1023a 100644
+index e9d177728..cdfbc2a71 100644
 --- a/drivers/bluetooth/hci_qca.c
 +++ b/drivers/bluetooth/hci_qca.c
 @@ -25,6 +25,7 @@
@@ -32,19 +41,62 @@ index e9d17772865a..d6fdafd1023a 100644
  #include <linux/acpi.h>
  #include <linux/platform_device.h>
  #include <linux/pwrseq/consumer.h>
-@@ -2474,6 +2475,18 @@ static int qca_serdev_probe(struct serdev_device *serdev)
+@@ -2413,6 +2414,46 @@ static int qca_init_regulators(struct qca_power *qca,
+ 	return 0;
+ }
+ 
++/*
++ * A BT device attached through an M.2 Key E connector is described by an OF
++ * graph link from the serdev controller to the connector node. Resolve the
++ * remote endpoint instead of merely testing for the presence of a local
++ * 'port', as some device trees carry an unconnected port anchor which must
++ * not be mistaken for an M.2 connector.
++ */
++static bool qca_serdev_is_m2(struct serdev_device *serdev)
++{
++	struct device_node *connector __free(device_node) =
++		of_graph_get_remote_node(dev_of_node(&serdev->ctrl->dev), 0, 0);
++
++	return !!connector;
++}
++
++static void qca_serdev_put_pwrseq(void *data)
++{
++	pwrseq_put(data);
++}
++
++static int qca_serdev_get_m2_pwrseq(struct qca_serdev *qcadev)
++{
++	struct serdev_device *serdev = qcadev->serdev_hu.serdev;
++	struct pwrseq_desc *pwrseq;
++
++	/* The pwrseq is looked up on the serdev controller (which holds the
++	 * OF graph to the M.2 connector), but its lifetime must follow this
++	 * serdev consumer device, not the controller. So acquire it with the
++	 * non-devres pwrseq_get() and release it via a devres action bound to
++	 * &serdev->dev instead of using devm_pwrseq_get(&serdev->ctrl->dev).
++	 */
++	pwrseq = pwrseq_get(&serdev->ctrl->dev, "uart");
++	if (IS_ERR(pwrseq))
++		return PTR_ERR(pwrseq);
++
++	qcadev->bt_power->pwrseq = pwrseq;
++
++	return devm_add_action_or_reset(&serdev->dev, qca_serdev_put_pwrseq, pwrseq);
++}
++
+ static int qca_serdev_probe(struct serdev_device *serdev)
+ {
+ 	struct qca_serdev *qcadev;
+@@ -2474,6 +2515,14 @@ static int qca_serdev_probe(struct serdev_device *serdev)
  	case QCA_WCN6855:
  	case QCA_WCN7850:
  	case QCA_QCC2072:
-+		/*
-+		 * OF graph link is only present for BT devices attached through
-+		 * the M.2 Key E connector.
-+		 */
-+		if (of_graph_is_present(dev_of_node(&serdev->ctrl->dev))) {
-+			qcadev->bt_power->pwrseq = devm_pwrseq_get(&serdev->ctrl->dev,
-+								   "uart");
-+			if (IS_ERR(qcadev->bt_power->pwrseq))
-+				return PTR_ERR(qcadev->bt_power->pwrseq);
++		if (qca_serdev_is_m2(serdev)) {
++			err = qca_serdev_get_m2_pwrseq(qcadev);
++			if (err)
++				return err;
++
 +			break;
 +		}
 +
@@ -52,5 +104,5 @@ index e9d17772865a..d6fdafd1023a 100644
  			/*
  			 * Backward compatibility with old DT sources. If the
 -- 
-2.56.0
+2.56.1
 

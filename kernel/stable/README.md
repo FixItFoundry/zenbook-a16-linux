@@ -9,7 +9,7 @@ here installs or selects a kernel.
 |---|---|
 | Upstream base | `v7.3`, commit `c03c1a14507dfaf8b856c2608f9ac216021fc222` |
 | Ordered residual queue | [161 patches](../../patches/stable/README.md) |
-| Patched source tree | `e6413608c5462649b3f0c670ff19486a19d04cc1` |
+| Patched source tree | `025853e642c038b02a8ba7b8ed8f786bd071c47c` |
 | Recorded release | `7.3.0-ZenbookA16-20261022-final1+` |
 | Package revision 6 | `7.3.0-ZenbookA16-20261022-final1-a16pkg6+` (`bd1327aac6e1`, prior to `0156`–`0158`) |
 | Package revision 7 | `7.3.0-ZenbookA16-20261022-final1-a16pkg7+` (`f5b887e39ef7`) |
@@ -120,4 +120,8 @@ Patch `0158` keeps `msm_dp_ctrl_on_link()` from falling back to a lane count or 
 
 ## CAMSS lite CSID paths, November 21
 
-Patches `0159`–`0160` are v2 of the X1E80100 lite CSID series ([v1](https://lore.kernel.org/r/cover.1795196107.git.jesse.casco@gmail.com)): the lite CSIDs get the `vfe_lite_csid`/`vfe_lite_cphy_rx` clocks, and CSID2, which has no VFE, is dropped so each CSID sits at the index of the VFE it feeds. The lite CSID entities become `msm_csid2` and `msm_csid3`. The local `0161` lifts `0107`'s CSID0/VFE0 limit and registers the full X1E80100 TPG, CSID and VFE tables on Glymur. On revision 7 with the resulting `camss.c` loaded as a module, the HM1092 IR sensor streamed through all four CSID/VFE pairs and the OV02C10 RGB sensor through LITE1, and libcamera captured from both cameras. Package revision 8, built from `e6413608c546`, is installed as the default; on its first boot the same camera checks passed, and the display, Wi-Fi, Bluetooth and 20 DPMS cycles came up as on revision 7.
+Patch `0159` is 1/2 of the X1E80100 lite CSID series ([v1](https://lore.kernel.org/r/cover.1795196107.git.jesse.casco@gmail.com)): the lite CSIDs get the `vfe_lite_csid`/`vfe_lite_cphy_rx` clocks. Patch `0160` drops CSID2, which has no VFE, so each CSID sits at the index of the VFE it feeds; it is now Bryan O'Donoghue's [routing fix 1/3](https://lore.kernel.org/all/20261122-camss-routing-fixes-v1-1-0deeeaca2622@kernel.org/), which replaced our unsent v2 2/2 with the same change. The lite CSID entities become `msm_csid2` and `msm_csid3`. The local `0161` lifts `0107`'s CSID0/VFE0 limit and registers the full X1E80100 TPG, CSID and VFE tables on Glymur. On revision 7 with the resulting `camss.c` loaded as a module, the HM1092 IR sensor streamed through all four CSID/VFE pairs and the OV02C10 RGB sensor through LITE1, and libcamera captured from both cameras. Package revision 8, built from `e6413608c546`, is installed as the default; on its first boot the same camera checks passed, and the display, Wi-Fi, Bluetooth and 20 DPMS cycles came up as on revision 7.
+
+## M.2 Bluetooth v9 and the CSID2 patch swap, November 23
+
+Patch `0153` is now [monza-wireless v9 1/8](https://lore.kernel.org/all/20261123-monza-wireless-v9-1-450d7d764aea@oss.qualcomm.com/) (code unchanged since v8). It resolves the UART's OF graph remote endpoint to detect the M.2 connector and ties the `uart` pwrseq descriptor to the Bluetooth serdev device instead of the UART controller. `0160` is Bryan O'Donoghue's CSID2 removal; the tree is unchanged by that swap. Only `drivers/bluetooth/hci_qca.c` differs from `e6413608c546`. On revision 8, an `hci_uart.ko` built with v9 1/8 was swapped in at runtime: the QCC2072 probed and scanned, and 10 power off/on and 10 serdev unbind/bind cycles all came back, with the connector's `uart-enable` count returning to 1 and Wi-Fi staying up. No package has been built from this tree yet.

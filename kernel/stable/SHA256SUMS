@@ -1,4 +1,4 @@
-486ea28afcd87e376c124e25bd2f45f5732772df738630f0ff50b2e36e13945a  kernel/stable/build.json
+d29c673535f728bce4f7c7196675357bb0c0e8b02adb1a7f1afd6282ef225198  kernel/stable/build.json
 34a90747b0afe950f8e86b4507b14ec5a65ac1dc82a32e988456c1cc0abf5ad7  kernel/stable/build.sh
 afe4f4e2305ee6821ae1da55ead23d397f5bf160e49aa1fc58239360a636ad11  kernel/stable/config
 13feedb2d3088340e9955d29ba19661994a2cd37b628452f5c04d75af2746032  kernel/stable/replay.py
@@ -154,14 +154,14 @@ fc60380d10267d9403faf845eb27a629e02df7937a9770b29b98412c34136adb  patches/stable
 386605fe9dde14d4228fd0d647d4d113493903b3c7133117add40b7822f59a11  patches/stable/0150-FROMLIST-dt-bindings-bluetooth-qca-add-QCC2072.patch
 b21af2e9056256f1bbfe5696ec41cee5de352f4bd4f62e53bfced9a7c716c998  patches/stable/0151-FROMLIST-Bluetooth-qca-add-QCC2072-support.patch
 63acd177e00caddbbb6c88df91ad7d97976b8c30acbf81c95d304aa5a5e9a9c3  patches/stable/0152-FROMLIST-power-sequencing-pwrseq-pcie-m2-add-QCC2072.patch
-2cb342a482a7cdd270968dcfa0c862ca010fc59a0c9a7e4e75b2af4fb6b2fb6c  patches/stable/0153-FROMLIST-Bluetooth-hci_qca-Add-M.2-Bluetooth-device-.patch
+760ae417a33aadf49894eaa968929684a3676d6a3ac8447bceee9ea0aa47bd3d  patches/stable/0153-FROMLIST-Bluetooth-hci_qca-Add-M.2-Bluetooth-device-.patch
 950854a6295568bc121ed331a14332fa1c92e1c500d174a1e6cd7a55b8733ce3  patches/stable/0154-LOCAL-arm64-dts-qcom-glymur-asus-zenbook-a16-use-the.patch
 9587a8d78a277bb125241ee296ac6b995dc36d3b953fc2fdfdc47bc05cdbb003  patches/stable/0155-arm64-dts-qcom-glymur-asus-zenbook-a16-drive-the-RGB.patch
 f89a2d89f44d1d0b1da8ee68240086a177e9f712b8b2222d6829de693120a0b7  patches/stable/0156-media-i2c-hm1092-wire-up-.set_fmt-on-the-sensor-pad.patch
 c3f8da8a89d21a9e1e1924307f191c7702d1fc642bb099a6b038507ed15390a5  patches/stable/0157-arm64-dts-qcom-glymur-asus-zenbook-a16-wire-the-PMH0.patch
 9e377bf4d9fa7461bcaebd1a83e9e3b0128921d4776e994ac37316764f9449bf  patches/stable/0158-drm-msm-dp-don-t-fall-back-to-a-link-that-can-t-carr.patch
 b06345e528d85a1cc579f8db09c1760e0d834d69b386f815cfdadb8686ee30de  patches/stable/0159-media-qcom-camss-x1e80100-Use-the-lite-clocks-for-th.patch
-540ae4bfe9be12edc27c49d30199feb5e89223472dd26cb33b253e47b0eb59f0  patches/stable/0160-media-qcom-camss-x1e80100-Drop-CSID2.patch
+f7e7e7875489c18a2fe0fc3bce50483ee8a43f8c019d61e5783c9d4696d382f3  patches/stable/0160-FROMLIST-media-qcom-camss-x1e80100-Fix-CSID2-routing.patch
 92f3693228ba8e3da3798cf0fdd6b135eb88b259131b25e7928ce59268fc1a29  patches/stable/0161-LOCAL-media-qcom-camss-use-the-full-X1E80100-tables-.patch
-4d9ae28a15768d4f0dfb23adac2cf6969a3e9e16885f8c43d673fd8c499b0bdf  patches/stable/port-map.json
-44cd28ec578bd1a93784b2a2ba566457c4d37250bfe0e1ad1c9a78de2a6583bd  patches/stable/series
+686b1cc5278264805df9458571423810bbd964816a3cbad90c8fd3655f3503f2  patches/stable/port-map.json
+8dfcf538c63ff64bf2c3a0e4afa819f101419b6b24ca5da346cc62e6c7262b63  patches/stable/series

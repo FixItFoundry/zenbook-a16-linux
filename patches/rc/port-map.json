@@ -1057,7 +1057,7 @@
       "rc_patch": "0110-FROMLIST-Bluetooth-hci_qca-Add-M.2-Bluetooth-device-.patch",
       "status": "ported",
       "subject": "FROMLIST: Bluetooth: hci_qca: Add M.2 Bluetooth",
-      "notes": "Added 2026-11-10 to both tracks."
+      "notes": "Added 2026-11-10 to both tracks; updated to monza-wireless v9 1/8 on 2026-11-23."
     },
     {
       "stable_patch": "0154-LOCAL-arm64-dts-qcom-glymur-asus-zenbook-a16-use-the.patch",

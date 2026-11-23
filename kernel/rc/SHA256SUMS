@@ -1,4 +1,4 @@
-6f493b3f50e4189c898eb1c63018a914aa0f7b68772befe089b518192e167f63  kernel/rc/build.json
+c97a502f7cc28b3d76852fdc80b8d541eea9b428bb76c624b3185dfc7c43c14a  kernel/rc/build.json
 2ef9245583068bd0da57c1aad71262b3d3517241a65d94fcd0804be563d33d22  kernel/rc/build.sh
 1af619d3ecf11e4903458a20cb42aad5b78b899194fe377600bd08d2edf3bf19  kernel/rc/config
 7da3f2490140b5209a063f04d7d82995bf79df7f9ee2ea9d551096996c72d9d6  kernel/rc/replay.py
@@ -111,10 +111,10 @@ fd259154afa762f2a3ea00eab467745d329644e459d7b4572a7fcf10ccb75127  patches/rc/010
 c40481233f9b605fdac4352ed728364e5b4fcb6c411d5a020a77c6e9f7686934  patches/rc/0107-FROMLIST-dt-bindings-bluetooth-qca-add-QCC2072.patch
 8cc1580bd23963ac49a440563c75a90b704787a8eb82c4151a152476e594ee84  patches/rc/0108-FROMLIST-Bluetooth-qca-add-QCC2072-support.patch
 9b27993bee47ea9a7289f8875479eef8087bc8e875c6682b9d70589e2d7f2256  patches/rc/0109-FROMLIST-power-sequencing-pwrseq-pcie-m2-add-QCC2072.patch
-b6758e445f0104c0ad87da8a3f4f4b0fbb1b99243aad595d5da8c5c951b066a8  patches/rc/0110-FROMLIST-Bluetooth-hci_qca-Add-M.2-Bluetooth-device-.patch
+311c77dc1f14b24b98c67106fdffe21a155e8d106a79c4c8183e7c43fe8de4ad  patches/rc/0110-FROMLIST-Bluetooth-hci_qca-Add-M.2-Bluetooth-device-.patch
 0722820f6f9a8925c572ae5ae878a074f7107e5074af5504dd0345c075ae0fe3  patches/rc/0111-LOCAL-arm64-dts-qcom-glymur-asus-zenbook-a16-use-the.patch
 1bbf4d81da8aff07dcd135fc70def54a8eee2b6b43890c0a72ae0c4d8cd4590e  patches/rc/0112-arm64-dts-qcom-glymur-asus-zenbook-a16-drive-the-RGB.patch
 c9fc5786909f7eba9bfe1515275a8bc0dc254dcbd2fb0c03669ba28e16fd8e31  patches/rc/0113-arm64-dts-qcom-glymur-asus-zenbook-a16-wire-the-PMH0.patch
 a22558257a28ab83898f83c445f813ab84b47d008e78f2912bee370e0efb30ed  patches/rc/0114-drm-msm-dp-don-t-fall-back-to-a-link-that-can-t-carr.patch
-8205c735aed25b690673d1f3a54ca7e5930c9ca664b48726e7eae9e4878ac409  patches/rc/port-map.json
+5fa881005b53602ddccc2c4a9c60c0747a3cd16d3236ac4a71a76fd503c7cd20  patches/rc/port-map.json
 6cc0a62819fb3df4361d3ac7569ce9a9ba45343a97ffde4b9682938caba82373  patches/rc/series

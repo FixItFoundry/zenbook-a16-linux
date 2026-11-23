@@ -1,5 +1,5 @@
-27321b66666f3191c89bc2ef78b1fd2e20bdd34395e27627f9814d854e3eee08  README.md
-8205c735aed25b690673d1f3a54ca7e5930c9ca664b48726e7eae9e4878ac409  port-map.json
+5ce040b9b51e40d29537dca47a38396e3f3c08b5b17e712743dc1966042377e8  README.md
+5fa881005b53602ddccc2c4a9c60c0747a3cd16d3236ac4a71a76fd503c7cd20  port-map.json
 6cc0a62819fb3df4361d3ac7569ce9a9ba45343a97ffde4b9682938caba82373  series
 7b50c4fa3e0954a45a5338202c0916ba65c3c2be376e615ec5bde215032c64dc  0001-LOCAL-drop-localversion-next-the-build-name-carries-.patch
 689a8ed5490f6fd1097f4f3988a86674e62a6f7b1544fcc84873d0b980a4f2a9  0002-drm-msm-dp-make-the-eDP-1.4-LINK_RATE_SET-path.patch
@@ -110,7 +110,7 @@ fd259154afa762f2a3ea00eab467745d329644e459d7b4572a7fcf10ccb75127  0104-drm-msm-d
 c40481233f9b605fdac4352ed728364e5b4fcb6c411d5a020a77c6e9f7686934  0107-FROMLIST-dt-bindings-bluetooth-qca-add-QCC2072.patch
 8cc1580bd23963ac49a440563c75a90b704787a8eb82c4151a152476e594ee84  0108-FROMLIST-Bluetooth-qca-add-QCC2072-support.patch
 9b27993bee47ea9a7289f8875479eef8087bc8e875c6682b9d70589e2d7f2256  0109-FROMLIST-power-sequencing-pwrseq-pcie-m2-add-QCC2072.patch
-b6758e445f0104c0ad87da8a3f4f4b0fbb1b99243aad595d5da8c5c951b066a8  0110-FROMLIST-Bluetooth-hci_qca-Add-M.2-Bluetooth-device-.patch
+311c77dc1f14b24b98c67106fdffe21a155e8d106a79c4c8183e7c43fe8de4ad  0110-FROMLIST-Bluetooth-hci_qca-Add-M.2-Bluetooth-device-.patch
 0722820f6f9a8925c572ae5ae878a074f7107e5074af5504dd0345c075ae0fe3  0111-LOCAL-arm64-dts-qcom-glymur-asus-zenbook-a16-use-the.patch
 1bbf4d81da8aff07dcd135fc70def54a8eee2b6b43890c0a72ae0c4d8cd4590e  0112-arm64-dts-qcom-glymur-asus-zenbook-a16-drive-the-RGB.patch
 c9fc5786909f7eba9bfe1515275a8bc0dc254dcbd2fb0c03669ba28e16fd8e31  0113-arm64-dts-qcom-glymur-asus-zenbook-a16-wire-the-PMH0.patch

@@ -1,6 +1,6 @@
 {
   "base": "c03c1a14507dfaf8b856c2608f9ac216021fc222",
-  "source_tree": "e6413608c5462649b3f0c670ff19486a19d04cc1",
+  "source_tree": "025853e642c038b02a8ba7b8ed8f786bd071c47c",
   "original_patch_count": 161,
   "patches": [
     {
@@ -1084,67 +1084,68 @@
       "after": "bb10a33a8fb97cfc5a4900606ca2dd8b32ecbf63"
     },
     {
-      "original": "lkml/20261005-monza-wireless-v7-1-5a6de7662dcb@oss.qualcomm.com",
+      "original": "lore/20261123-monza-wireless-v9-1-450d7d764aea@oss.qualcomm.com",
       "status": "adapted",
       "patch": "0153-FROMLIST-Bluetooth-hci_qca-Add-M.2-Bluetooth-device-.patch",
       "before": "bb10a33a8fb97cfc5a4900606ca2dd8b32ecbf63",
-      "after": "6ceb10a0c47c44004537494b68e334e7849777c2"
+      "after": "48018b4b8132c5ef33230862e0b3743b1ff52547"
     },
     {
       "original": "local/03f226de97a326e9e6b38a29acd7c3d6fa2ff49a",
       "status": "unchanged",
       "patch": "0154-LOCAL-arm64-dts-qcom-glymur-asus-zenbook-a16-use-the.patch",
-      "before": "6ceb10a0c47c44004537494b68e334e7849777c2",
-      "after": "8b0474af571ca6b4c0184552f4d95774025bc6ae"
+      "before": "48018b4b8132c5ef33230862e0b3743b1ff52547",
+      "after": "e7a1e75fc0c8940a5989af71fbc3b9c9e641f147"
     },
     {
       "original": "local/5899100e5bc4be25d5a3149930dc8ace0acedc09",
       "status": "unchanged",
       "patch": "0155-arm64-dts-qcom-glymur-asus-zenbook-a16-drive-the-RGB.patch",
-      "before": "8b0474af571ca6b4c0184552f4d95774025bc6ae",
-      "after": "bd1327aac6e1431668eaa53f69e5867d3400b4a0"
+      "before": "e7a1e75fc0c8940a5989af71fbc3b9c9e641f147",
+      "after": "7db65ce0ad673541d4838129e5d6c954c6932855"
     },
     {
       "original": "local/4589c886aff1050b830cc63f1a88483f2edf8502",
       "status": "unchanged",
       "patch": "0156-media-i2c-hm1092-wire-up-.set_fmt-on-the-sensor-pad.patch",
-      "before": "bd1327aac6e1431668eaa53f69e5867d3400b4a0",
-      "after": "31d5a05c18ab35c5a4f334ca3e77cc40a7b6a235"
+      "before": "7db65ce0ad673541d4838129e5d6c954c6932855",
+      "after": "e921c1d679010c290cb419d43b385759b3c354c2"
     },
     {
       "original": "local/9a322704d1709e23698711fb7cff922d89ba09dd",
       "status": "unchanged",
       "patch": "0157-arm64-dts-qcom-glymur-asus-zenbook-a16-wire-the-PMH0.patch",
-      "before": "31d5a05c18ab35c5a4f334ca3e77cc40a7b6a235",
-      "after": "68c6fb5921f92299904c233333fccf4fb5093bc4"
+      "before": "e921c1d679010c290cb419d43b385759b3c354c2",
+      "after": "75b1623ada0a46488656c333cf514dd6cf422de8"
     },
     {
       "original": "lore/20261115000021.78869-1-jesse.casco@gmail.com",
       "status": "unchanged",
       "patch": "0158-drm-msm-dp-don-t-fall-back-to-a-link-that-can-t-carr.patch",
-      "before": "68c6fb5921f92299904c233333fccf4fb5093bc4",
-      "after": "f5b887e39ef793b172a4b4a641068e2e1d1a6db9"
+      "before": "75b1623ada0a46488656c333cf514dd6cf422de8",
+      "after": "6be9097b93524d648204f4bc20d26e8704795114"
     },
     {
       "original": "lore/bf48f3c809f33c060e2944e5896f8a5a93fd78ea.1795196107.git.jesse.casco@gmail.com",
       "status": "unchanged",
       "patch": "0159-media-qcom-camss-x1e80100-Use-the-lite-clocks-for-th.patch",
-      "before": "f5b887e39ef793b172a4b4a641068e2e1d1a6db9",
-      "after": "c3a1dfb8fce1e67d7272ce6bd54f3bf3d63f452b"
+      "before": "6be9097b93524d648204f4bc20d26e8704795114",
+      "after": "99e62ce9a636ba45159ef29a9629a98f18e3cd93"
     },
     {
-      "original": "local/9b8b4aa10affcb682b0998b7f10cfca084701fb3",
-      "status": "unchanged",
-      "patch": "0160-media-qcom-camss-x1e80100-Drop-CSID2.patch",
-      "before": "c3a1dfb8fce1e67d7272ce6bd54f3bf3d63f452b",
-      "after": "2ace98db73d6f954f258818d9b4e3a07acdb89bc"
+      "original": "lore/20261122-camss-routing-fixes-v1-1-0deeeaca2622@kernel.org",
+      "status": "adapted",
+      "patch": "0160-FROMLIST-media-qcom-camss-x1e80100-Fix-CSID2-routing.patch",
+      "before": "99e62ce9a636ba45159ef29a9629a98f18e3cd93",
+      "after": "31141b655e4b8ef14e74d1955addc9ec51c7fd8a",
+      "resolution": "Dropped the camss-next-only .frame_sync_en line; replaces the unsent local v2 2/2 with the same tree."
     },
     {
       "original": "local/6aab4abcda98e79a83697329afa029823715d0a2",
       "status": "unchanged",
       "patch": "0161-LOCAL-media-qcom-camss-use-the-full-X1E80100-tables-.patch",
-      "before": "2ace98db73d6f954f258818d9b4e3a07acdb89bc",
-      "after": "e6413608c5462649b3f0c670ff19486a19d04cc1"
+      "before": "31141b655e4b8ef14e74d1955addc9ec51c7fd8a",
+      "after": "025853e642c038b02a8ba7b8ed8f786bd071c47c"
     }
   ],
   "pre_usb3_source_tree": "004cf498d432dba102ea3d4c9f9389446d40c1bd"

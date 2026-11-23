@@ -2,7 +2,7 @@
 
 Apply the 161 files in [series](series), in order, to Linux `v7.3`
 (`c03c1a14507dfaf8b856c2608f9ac216021fc222`). They reproduce source tree
-`e6413608c5462649b3f0c670ff19486a19d04cc1` (`004cf498d432dba102ea3d4c9f9389446d40c1bd`
+`025853e642c038b02a8ba7b8ed8f786bd071c47c` (`004cf498d432dba102ea3d4c9f9389446d40c1bd`
 prior to patch `0143`). Use the matching
 [config, verifier and build helper](../../kernel/stable/README.md).
 
@@ -18,7 +18,7 @@ eDP rate-set corrections, the pending QCC2072 Bluetooth and M.2 power-sequencing
 mainline M.2 Wi-Fi/Bluetooth wiring, and RGB camera MCLK4 at 6 mA. Patches `0156`–`0157`
 wire `hm1092` `.set_fmt` on 7.3 and connect the ganged PMH0101 IR emitter and `vreg_bob1_e0` supplies.
 Patch `0158` stops the eDP link training fallback from dropping below the bandwidth the panel mode needs.
-Patches `0159`–`0160` (v2 of the X1E80100 lite CSID fixes) give the lite CSIDs their own clocks and drop the
+Patch `0159` gives the X1E80100 lite CSIDs their own clocks, Bryan O'Donoghue's `0160` drops the
 unusable CSID2, and the local `0161` replaces `0107`'s CSID0/VFE0 limit with the full X1E80100 tables.
 The [kernel recipe](../../kernel/stable/README.md) describes all four groups.
 

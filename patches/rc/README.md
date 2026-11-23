@@ -3,7 +3,7 @@
 Apply the 114 patches in [series](series), in order, to Linux `next-20261103`
 (`d6bcfc94eb4da6e089c5473970cd96727292fd97`, built on mainline `v7.4-rc1`
 `6628e7d4c6b25c8d18f1345e3a20d21829aae7e4`). They reproduce source tree
-`0da32f0ed26b0d582fd44edfd1642e17fa76420d` and reverse cleanly back to base tree
+`ae9780ba94c73237250a58ecc44fca2485813f8a` and reverse cleanly back to base tree
 `a8860acf3c1c2856062494c95d68bc2521f54d1a`. Use the matching
 [config, verifier, and build helper](../../kernel/rc/README.md).
 
