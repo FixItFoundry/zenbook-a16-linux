@@ -6,8 +6,11 @@
 # Run as root: sudo -E bash build-live-images.sh [fedora|ubuntu|--all] (default: fedora)
 set -Eeuo pipefail
 
-KREL="${KREL:-7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+}"
 STAGE="${STAGE:-$HOME/glymur-images}"
+if [[ -z "${KREL:-}" && -f "$STAGE/usr/share/doc/linux-zenbook-a16/kernel-release" ]]; then
+  KREL=$(<"$STAGE/usr/share/doc/linux-zenbook-a16/kernel-release")
+fi
+KREL="${KREL:-7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+}"
 OUT="${OUT:-$STAGE/out-live}"
 
 VM="${VM:-$STAGE/vmlinuz-$KREL}"
@@ -64,6 +67,9 @@ preflight(){
     for c in bsdtar unsquashfs; do
       command -v "$c" >/dev/null || { say "MISSING TOOL: $c"; bad=1; }
     done
+  fi
+  if [[ " ${targets[*]} " == *" fedora "* && ! -x "$STAGE/fed_sqroot/usr/bin/fdtget" ]]; then
+    command -v dnf >/dev/null || { say "MISSING TOOL: dnf (adds dtc to the Fedora live rootfs)"; bad=1; }
   fi
   [ "$(id -u)" -eq 0 ] || { say "must run as root"; bad=1; }
   return $bad
@@ -284,13 +290,41 @@ EOF
 }
 
 # --------------------------------------------------------------------------
+# LiveOS/squashfs.img is EROFS on Fedora 43-45; mounting reads it and older squashfs alike.
+extract_fedora()(
+  set -e
+  m=$(mktemp -d)
+  trap 'for d in root img iso; do mountpoint -q "$m/$d" && umount "$m/$d"; done; rmdir "$m"/* "$m"' EXIT
+  mkdir "$m/iso" "$m/img" "$m/root"
+  mount -o loop,ro "$1" "$m/iso"
+  mount -o loop,ro "$m/iso/LiveOS/squashfs.img" "$m/img"
+  top=$m/img
+  if [ -f "$top/LiveOS/rootfs.img" ]; then
+    mount -o loop,ro "$top/LiveOS/rootfs.img" "$m/root"
+    top=$m/root
+  fi
+  # A partial copy must not look like a finished rootfs on the next run.
+  rm -rf "$2.partial" "$2"
+  cp -a "$top" "$2.partial"
+  mv "$2.partial" "$2"
+)
+
 build_fedora(){
   say "FEDORA live: === START ==="
   say "FEDORA: live boot media with bundled disk installer (see iso/README.md)"
-  local SQD=$STAGE/fed_sqroot
-  [ -d "$SQD/usr/bin" ] || { say "FEDORA: FAIL no extracted rootfs at $SQD"; return 1; }
+  local SQD="$STAGE/fed_sqroot" ISO
+  if [ -d "$SQD/usr/bin" ]; then
+    say "FEDORA: reusing extracted rootfs at $SQD"
+  else
+    ISO=$(ls "$STAGE"/Fedora-*aarch64*.iso 2>/dev/null | tail -1) || true
+    [ -n "$ISO" ] || { say "FEDORA: FAIL no extracted rootfs at $SQD and no Fedora-*aarch64*.iso in $STAGE"; return 1; }
+    say "FEDORA: extracting $(basename "$ISO")"
+    extract_fedora "$ISO" "$SQD"  # no "||": it would disable set -e inside and keep a partial copy
+  fi
+  # Fedora live images lack dtc and fdtget, which the installer's boot check runs.
+  [ -x "$SQD/usr/bin/fdtget" ] || dnf -y --installroot="$SQD" --use-host-config \
+    --releasever="$(sed -n 's/^VERSION_ID=//p' "$SQD/etc/os-release")" install dtc
   check_live_tools "$SQD"
-  say "FEDORA: reusing extracted rootfs"
   addmods "$SQD"
   addfw "$SQD"
   add_power_tweaks "$SQD"

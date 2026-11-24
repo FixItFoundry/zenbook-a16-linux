@@ -307,6 +307,7 @@ class InstallSafety(unittest.TestCase):
     def test_live_build_propagates_helper_failure(self):
         stage = self.root / 'stage'
         (stage / 'fed_sqroot/usr/bin').mkdir(parents=True)
+        (stage / 'fed_sqroot/usr/bin/fdtget').touch(0o755)
         (stage / 'modules/k').mkdir(parents=True)
         firmware = stage / 'firmware/qcom/glymur/ASUSTeK/UX3607OA'
         firmware.mkdir(parents=True)
@@ -337,6 +338,52 @@ class InstallSafety(unittest.TestCase):
         self.assertIn('fedora: aborted', result.stdout)
         self.assertNotIn('squashing rootfs', result.stdout)
         self.assertFalse(list((stage / 'out-live').glob('*.img')))
+
+    def test_fedora_build_extracts_iso_and_autodetects_krel(self):
+        stage = self.root / 'stage'
+        (stage / 'usr/share/doc/linux-zenbook-a16').mkdir(parents=True)
+        (stage / 'usr/share/doc/linux-zenbook-a16/kernel-release').write_text('7.3.0-test-a16pkg9+\n')
+        result = subprocess.run(
+            ['bash', '-c', 'source "$1"; printf "%s\\n" "$KREL"', 'test', str(ISO / 'build-live-images.sh')],
+            env={k: v for k, v in os.environ.items() if k != 'KREL'} | {'STAGE': str(stage)},
+            text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), '7.3.0-test-a16pkg9+')
+
+        missing = self.shell('build-live-images.sh',
+                             'STAGE="$1"; ST="$1/status.txt"; build_fedora', stage)
+        self.assertNotEqual(missing.returncode, 0)
+        self.assertIn('Fedora-*aarch64*.iso', missing.stdout)
+
+        (stage / 'Fedora-KDE-Desktop-Live-44-1.7.aarch64.iso').write_text('iso fixture')
+        stubs = '''
+            STAGE="$1"; ST="$1/status.txt"; REPO="$1/repo"
+            mountpoint() { return 1; }
+            mount() { [[ "$4" != */img ]] || mkdir -p "$4/usr/bin" "$4/etc"; }
+            rmdir() { :; }
+            dnf() { printf 'dnf:%s\\n' "$*"; }
+            check_live_tools() { :; }; addmods() { :; }; addfw() { :; }
+            add_power_tweaks() { :; }; stage_bundle_rootfs() { :; }; add_installer() { :; }
+            bash() { :; }
+            mklive() { printf 'mklive:%s:%s\\n' "$1" "$2"; }
+        '''
+        failed = self.shell('build-live-images.sh', stubs + '''
+            cp() { mkdir -p "$3/usr/bin"; return 1; }
+            build_fedora
+        ''', stage)
+        self.assertNotEqual(failed.returncode, 0)
+        self.assertNotIn('mklive', failed.stdout)
+        self.assertFalse((stage / 'fed_sqroot').exists())
+
+        extracted = self.shell('build-live-images.sh', stubs + '''
+            cp() { command cp -R "$2" "$3"; printf 'VERSION_ID=44\\n' > "$3/etc/os-release"; }
+            build_fedora
+        ''', stage)
+        self.assertEqual(extracted.returncode, 0, extracted.stderr + extracted.stdout)
+        self.assertIn('extracting Fedora-KDE-Desktop-Live-44-1.7.aarch64.iso', extracted.stdout)
+        self.assertIn(f'dnf:-y --installroot={stage}/fed_sqroot --use-host-config --releasever=44 install dtc', extracted.stdout)
+        self.assertIn(f'mklive:{stage}/fed_sqroot:fedora-glymur-kde-live', extracted.stdout)
+        self.assertFalse((stage / 'fed_sqroot.partial').exists())
 
 
 if __name__ == '__main__':

@@ -36,12 +36,22 @@ DEST="$STAGE/firmware" iso/glymur-fetch-firmware.sh --from-linux /path/to/firmwa
 
 See [firmware requirements](../firmware/README.md). The source must contain the
 actual A16 firmware requests; older Bluetooth filenames do not satisfy them.
-Build a non-host-only live initramfs with `dmsquash-live`, matching modules and
-the installed A16 DSP hook. Supply `systemd-bootaa64.efi` in `$STAGE` as well.
+Build a non-host-only live initramfs with `dmsquash-live` (from `dracut-live` on
+Fedora), matching modules and
+the installed A16 DSP hook, and stage `systemd-bootaa64.efi` (from
+`systemd-boot-unsigned` on Fedora):
+
+```sh
+sudo dracut --force --no-hostonly --add dmsquash-live --kver "$KREL" \
+  "$STAGE/initramfs-live-$KREL.img"
+cp /usr/lib/systemd/boot/efi/systemd-bootaa64.efi "$STAGE/"
+```
+
 The builder checks inputs and required tools before modifying the live rootfs.
 
-Place a Fedora KDE Live aarch64 ISO or Ubuntu Desktop arm64 ISO under `$STAGE`;
-the target functions specify the filename patterns. Then run:
+Place a Fedora KDE Live aarch64 ISO (`Fedora-*aarch64*.iso`) or Ubuntu Desktop
+arm64 ISO (`ubuntu-*-desktop-arm64.iso`) under `$STAGE`. The Fedora target also needs
+`dnf` and network access to add `dtc` to the live rootfs. Then run:
 
 ```sh
 sudo -E bash iso/build-live-images.sh
