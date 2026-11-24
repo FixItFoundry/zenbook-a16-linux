@@ -176,7 +176,7 @@ def initramfs_policy_files(root, tool):
                       root / "usr/lib/dracut/modules.d/90zenbook-a16/zenbook-a16-pre-udev.sh"))
     else:
         files.append(("scripts/init-premount/zenbook-a16",
-                      root / "etc/initramfs-tools/scripts/init-premount/zenbook-a16"))
+                      root / "usr/share/zenbook-a16/init-premount"))
     return files
 
 

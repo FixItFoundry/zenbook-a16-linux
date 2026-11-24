@@ -16,6 +16,10 @@ REPO = HERE.parents[1]
 spec = importlib.util.spec_from_file_location('artifacts', HERE / 'boot-artifacts.py')
 artifacts = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(artifacts)
+verifier_spec = importlib.util.spec_from_file_location(
+    'verify_boot', REPO / 'packaging/omarchy-a16-support/verify-boot.py')
+verifier = importlib.util.module_from_spec(verifier_spec)
+verifier_spec.loader.exec_module(verifier)
 
 
 class BootHooks(unittest.TestCase):
@@ -197,6 +201,9 @@ class BootHooks(unittest.TestCase):
                             '--distro', distro], check=True, capture_output=True, env=env)
             self.assertEqual((self.root / 'usr/lib/zenbook-a16/dsp-policy.sh').read_text(),
                              (REPO / 'packaging/omarchy-a16-support/initcpio-hook').read_text())
+            for _, source in verifier.initramfs_policy_files(
+                    self.root, {'fedora': 'lsinitrd', 'ubuntu': 'unmkinitramfs'}[distro]):
+                self.assertTrue(source.is_file(), source)
 
     def test_arch_rejected_without_writes(self):
         result = subprocess.run(['bash', str(HERE / 'install-hooks.sh'), '--root', str(self.root),
