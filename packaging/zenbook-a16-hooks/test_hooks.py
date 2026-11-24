@@ -462,9 +462,40 @@ class DefaultPreservation(unittest.TestCase):
 
     def test_later_grub_override_refused_before_snapshot(self):
         self.put('etc/default/grub.d/zz-override.cfg', 'GRUB_DEFAULT=0\n')
-        with self.assertRaisesRegex(ValueError, 'later GRUB drop-in'):
+        with self.assertRaisesRegex(ValueError, r'later GRUB drop-in.*zz-override\.cfg.*\'0\''):
             artifacts.preserve_default(self.root, 'ubuntu')
         self.assertFalse((self.root / 'var/lib/zenbook-a16/rollback.json').exists())
+        self.assertFalse((self.root / 'etc/default/grub.d/99-zenbook-a16-default.cfg').exists())
+
+    def test_unresolvable_grub_default_names_its_file(self):
+        self.put('etc/default/grub.d/zz-override.cfg', 'GRUB_DEFAULT=33\n')
+        with self.assertRaisesRegex(ValueError, r'existing GRUB default: 33 \(from /etc/default/grub\.d/zz-override\.cfg\)'):
+            artifacts.preserve_default(self.root, 'ubuntu')
+
+    def test_ubuntu_policy_mismatch_names_source_and_explains_mode(self):
+        artifacts.preserve_default(self.root, 'ubuntu')
+        self.put('etc/default/grub.d/zz-override.cfg', 'GRUB_DEFAULT=saved\n')
+        for fn in (lambda: artifacts.preserve_default(self.root, 'ubuntu'),
+                   lambda: artifacts.restore_default(self.root)):
+            with self.assertRaises(ValueError) as ctx:
+                fn()
+            msg = str(ctx.exception)
+            self.assertIn('/etc/default/grub.d/zz-override.cfg', msg)
+            self.assertIn("'saved'", msg)
+            self.assertIn("'old-id'", msg)
+            self.assertIn('mode "saved"', msg)
+            self.assertIn('mode "id"', msg)
+
+    def test_rollback_rejects_unversioned_simple_entry(self):
+        for entry_id in ('gnulinux-simple-bootuuid', 'gnulinux-advanced-bootuuid>gnulinux-simple-bootuuid'):
+            with self.subTest(entry_id=entry_id):
+                state = {'schema': 1, 'distro': 'ubuntu', 'kernel': '/boot/vmlinuz-old',
+                         'entry_id': entry_id, 'mode': 'saved'}
+                self.put('var/lib/zenbook-a16/rollback.json', json.dumps(state))
+                for fn in (lambda: artifacts.preserve_default(self.root, 'ubuntu'),
+                           lambda: artifacts.restore_default(self.root)):
+                    with self.assertRaisesRegex(ValueError, 'unversioned Ubuntu simple entry'):
+                        fn()
 
     def test_fedora_missing_cmdline_refused_before_snapshot(self):
         with self.assertRaisesRegex(ValueError, '/etc/kernel/cmdline'):

@@ -260,24 +260,44 @@ def selected_entry(root, selection, with_cmdline=False, stable=False):
     return (*result, entry['cmdline']) if with_cmdline else result
 
 
-def grub_default(root):
-    value = '0'
+def _read_grub_default(config, root):
+    value = None
+    label = '/' + str(config.relative_to(root))
+    for line in config.read_text().splitlines():
+        if not line.strip() or line.lstrip().startswith('#'):
+            continue
+        match = re.match(r'^\s*(?:export\s+)?GRUB_DEFAULT=(.*)$', line)
+        if match:
+            tokens = shlex.split(match[1], comments=True)
+            if len(tokens) != 1 or any(char in tokens[0] for char in '$`\n'):
+                raise ValueError(f'GRUB_DEFAULT in {label} must be a literal index, menu ID, title or saved')
+            value = tokens[0]
+        elif 'GRUB_DEFAULT' in line:
+            raise ValueError(f'conditional GRUB_DEFAULT in {label} is unsupported; choose a literal default before installing')
+    return value, label
+
+
+def grub_default_source(root, override=None):
+    value, source = '0', 'default (0)'
     configs = [root / 'etc/default/grub', *sorted((root / 'etc/default/grub.d').glob('*.cfg'))]
+    if override is not None:
+        pin_path, _ = override
+        if pin_path not in configs:
+            configs = [configs[0], *sorted([*configs[1:], pin_path])]
     for config in configs:
+        if override is not None and config == override[0]:
+            value, source = override[1], '/' + str(config.relative_to(root))
+            continue
         if not config.is_file():
             continue
-        for line in config.read_text().splitlines():
-            if not line.strip() or line.lstrip().startswith('#'):
-                continue
-            match = re.match(r'^\s*(?:export\s+)?GRUB_DEFAULT=(.*)$', line)
-            if match:
-                tokens = shlex.split(match[1], comments=True)
-                if len(tokens) != 1 or any(char in tokens[0] for char in '$`\n'):
-                    raise ValueError('GRUB_DEFAULT must be a literal index, menu ID, title or saved')
-                value = tokens[0]
-            elif 'GRUB_DEFAULT' in line:
-                raise ValueError('conditional GRUB_DEFAULT is unsupported; choose a literal default before installing')
-    return value
+        found, label = _read_grub_default(config, root)
+        if found is not None:
+            value, source = found, label
+    return value, source
+
+
+def grub_default(root):
+    return grub_default_source(root)[0]
 
 
 def distro_name(root):
@@ -326,8 +346,18 @@ def preserve_default(root, distro=None):
             raise ValueError('preserved rollback state belongs to another distribution')
         if state['distro'] == 'ubuntu':
             expected = 'saved' if state['mode'] == 'saved' else state['entry_id']
-            if grub_default(root) != expected or selected_entry(root, state['entry_id']) != (state['entry_id'], state['kernel']):
-                raise ValueError('preserved Ubuntu boot default policy changed')
+            actual, source = grub_default_source(root)
+            if actual != expected:
+                raise ValueError(
+                    f'preserved Ubuntu boot default policy changed: rollback.json mode={state["mode"]!r} '
+                    f'expects GRUB_DEFAULT={expected!r}, but {source} sets GRUB_DEFAULT={actual!r} '
+                    '(mode "saved" expects GRUB_DEFAULT=saved with saved_entry in grubenv; '
+                    'mode "id" expects GRUB_DEFAULT=<entry_id>)')
+            actual_entry = selected_entry(root, state['entry_id'])
+            if actual_entry != (state['entry_id'], state['kernel']):
+                raise ValueError(
+                    f'preserved Ubuntu boot default policy changed: {state["entry_id"]!r} '
+                    f'resolves to {actual_entry[1]} instead of {state["kernel"]}')
             if state['mode'] == 'saved':
                 output = subprocess.check_output(['grub-editenv', '/boot/grub/grubenv', 'list'], text=True)
                 if [line[12:] for line in output.splitlines() if line.startswith('saved_entry=')] != [state['entry_id']]:
@@ -344,15 +374,18 @@ def preserve_default(root, distro=None):
         entry_id, kernel = fedora_default(root)
         mode, cmdline = 'saved', None
     elif distro == 'ubuntu':
-        selection = grub_default(root)
+        selection, source = grub_default_source(root)
         mode = 'saved' if selection == 'saved' else 'id'
         if mode == 'saved':
             output = subprocess.check_output(['grub-editenv', '/boot/grub/grubenv', 'list'], text=True)
             saved = [line[12:] for line in output.splitlines() if line.startswith('saved_entry=')]
             if len(saved) != 1 or not saved[0]:
                 raise ValueError('GRUB_DEFAULT=saved requires one existing saved_entry')
-            selection = saved[0]
-        entry_id, kernel, cmdline = selected_entry(root, selection, with_cmdline=True, stable=True)
+            selection, source = saved[0], 'saved_entry in /boot/grub/grubenv'
+        try:
+            entry_id, kernel, cmdline = selected_entry(root, selection, with_cmdline=True, stable=True)
+        except ValueError as error:
+            raise ValueError(f'{error} (from {source})') from error
     else:
         raise ValueError('unsupported boot default policy')
     state = {'schema': 1, 'distro': distro, 'kernel': kernel, 'entry_id': entry_id, 'mode': mode}
@@ -363,6 +396,11 @@ def preserve_default(root, distro=None):
         content = '# Preserve the pre-install boot selection while adding A16 kernels.\nGRUB_DEFAULT=' + shlex.quote(value) + '\n'
         if pin.exists() and pin.read_text() != content:
             raise ValueError(f'refusing to overwrite existing boot default policy: {pin}')
+        actual, source = grub_default_source(root, override=(pin, value))
+        if actual != value:
+            raise ValueError(
+                f'a later GRUB drop-in ({source}) sets GRUB_DEFAULT={actual!r}, '
+                f'overriding preserved {value!r} (mode={mode!r}); resolve it before installing')
         kernel_cmdline = root / 'etc/kernel/cmdline'
         if not kernel_cmdline.exists():
             # Derive the installed root identity from its existing entry, never the live installer.
@@ -372,8 +410,6 @@ def preserve_default(root, distro=None):
             kernel_cmdline.write_text(line + '\n')
         pin.parent.mkdir(parents=True, exist_ok=True)
         pin.write_text(content)
-        if grub_default(root) != value:
-            raise ValueError('a later GRUB drop-in overrides the preserved default; resolve it before installing')
         if mode == 'saved':
             subprocess.run(['grub-editenv', '/boot/grub/grubenv', 'set', 'saved_entry=' + entry_id], check=True)
     state_path.parent.mkdir(parents=True, exist_ok=True)
@@ -389,6 +425,10 @@ def validate_rollback(root, state):
             or not isinstance(state.get('kernel'), str) or not state['kernel'].startswith('/boot/')
             or '..' in Path(state['kernel']).parts or not (root / state['kernel'].lstrip('/')).is_file()):
         raise ValueError('invalid or missing preserved rollback kernel; refusing to change the boot default')
+    if state['distro'] == 'ubuntu' and state['entry_id'].split('>')[-1].startswith('gnulinux-simple-'):
+        raise ValueError(
+            f'unversioned Ubuntu simple entry {state["entry_id"]!r} cannot be a rollback target; '
+            'pin a versioned Advanced-options entry in /var/lib/zenbook-a16/rollback.json')
 
 
 def restore_default(root):
@@ -404,11 +444,20 @@ def restore_default(root):
         if subprocess.check_output(['grubby', '--default-kernel'], text=True).strip() != state['kernel']:
             raise ValueError('Fedora failed to restore the preserved boot default')
     else:
-        if selected_entry(root, state['entry_id']) != (state['entry_id'], state['kernel']):
-            raise ValueError('preserved Ubuntu kernel entry identity has changed')
+        actual_entry = selected_entry(root, state['entry_id'])
+        if actual_entry != (state['entry_id'], state['kernel']):
+            raise ValueError(
+                f'preserved Ubuntu kernel entry identity has changed: {state["entry_id"]!r} '
+                f'now resolves to {actual_entry[1]} instead of {state["kernel"]}')
         expected = 'saved' if state['mode'] == 'saved' else state['entry_id']
-        if grub_default(root) != expected:
-            raise ValueError('preserved Ubuntu default policy changed; refusing to override it')
+        actual, source = grub_default_source(root)
+        if actual != expected:
+            raise ValueError(
+                f'preserved Ubuntu default policy changed; refusing to override it: '
+                f'rollback.json mode={state["mode"]!r} expects GRUB_DEFAULT={expected!r}, '
+                f'but {source} sets GRUB_DEFAULT={actual!r} '
+                '(mode "saved" expects GRUB_DEFAULT=saved with saved_entry in grubenv; '
+                'mode "id" expects GRUB_DEFAULT=<entry_id>)')
         if state['mode'] == 'saved':
             subprocess.run(['grub-editenv', '/boot/grub/grubenv', 'set', 'saved_entry=' + state['entry_id']], check=True)
 
