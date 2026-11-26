@@ -56,6 +56,13 @@ run_hook
 [[ ! -e $scratch/emergency ]] || fail 'ready boot entered emergency'
 rm "$scratch/modprobes" "$scratch/settle"
 
+echo offline > "$scratch/remote/remoteproc1/state"
+if run_hook; then fail 'offline CDSP accepted in run_hook'; fi
+grep -Fq 'states: adsp=running, cdsp=offline, soccp=attached' "$scratch/emergency" ||
+  fail "timeout diagnostic missing remoteproc states: $(cat "$scratch/emergency")"
+echo running > "$scratch/remote/remoteproc1/state"
+rm "$scratch/emergency" "$scratch/modprobes"
+
 # Exercise the runtime with only commands added by base and our build hook.
 mkdir -p "$scratch/initramfs-bin" "$scratch/firmware/qcom/glymur/ASUSTeK/UX3607OA"
 ln -s "$(command -v grep)" "$scratch/initramfs-bin/grep"

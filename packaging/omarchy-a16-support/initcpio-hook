@@ -1,6 +1,17 @@
 #!/usr/bin/ash
 # BusyBox initramfs hook. Never unload, restart or hand-start a remote processor.
 
+a16_remoteproc_states() {
+  local root="$1" remote name state summary=""
+  for remote in "$root"/remoteproc*; do
+    [ -r "$remote/name" ] && [ -r "$remote/state" ] || continue
+    read -r name < "$remote/name"
+    read -r state < "$remote/state"
+    summary="${summary:+$summary, }$name=$state"
+  done
+  printf '%s' "${summary:-none}"
+}
+
 a16_wait_remoteprocs() {
   local root="$1" attempts="$2" attempt=0 remote name state adsp cdsp soccp
   while [ "$attempt" -lt "$attempts" ]; do
@@ -54,7 +65,7 @@ run_hook() {
     return 1
   fi
   if ! a16_wait_remoteprocs /sys/class/remoteproc 60; then
-    a16_emergency 'ADSP, CDSP and SoCCP did not become ready within 60 seconds'
+    a16_emergency "ADSP, CDSP and SoCCP did not become ready within 60 seconds (states: $(a16_remoteproc_states /sys/class/remoteproc))"
     return 1
   fi
   # Finish handling any USB disconnect/reconnect triggered by DSP startup
