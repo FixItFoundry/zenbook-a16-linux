@@ -74,6 +74,8 @@ sudo /usr/lib/zenbook-a16/activate-hardware
 
 See the [Fedora/Ubuntu installation guide](iso/README.md), [package contract](packaging/zenbook-a16-kernel/README.md), and [Omarchy status](docs/omarchy-status.md).
 
+For openSUSE, Michi ([@scalpel4k](https://github.com/scalpel4k)) maintains an [A16 installer](https://build.opensuse.org/package/show/home:scalpel4k:branches:systemsmanagement:Agama:Release/agama-installer) and [kernel package](https://src.opensuse.org/scalpel4k/kernel-qcom-laptops). It builds on these patches and adds fixes of its own.
+
 ---
 
 ## Repository Layout
