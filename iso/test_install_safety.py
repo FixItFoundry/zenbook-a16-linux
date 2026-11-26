@@ -82,6 +82,12 @@ class InstallSafety(unittest.TestCase):
         for name in ('Image', 'board.dtb'):
             (self.root / name).write_text(name)
         (self.root / 'no-repo/iso').mkdir(parents=True)
+        (self.root / 'no-repo/packaging/omarchy-a16-support').mkdir(parents=True)
+        (self.root / 'no-repo/packaging/omarchy-a16-support/PKGBUILD.in').write_text('arch')
+        # Simulate rebuilding from a cached Fedora rootfs that already had the retired directory.
+        stale = self.root / 'live/usr/share/zenbook-a16/bundle/packaging/omarchy-a16-support'
+        stale.mkdir(parents=True)
+        (stale / 'verify-boot.py').write_text('retired')
         shutil.copy(ISO / 'glymur-fetch-firmware.sh', self.root / 'no-repo/iso')
         result = self.shell('build-live-images.sh', '''
             MODS="$1/modules"; KREL=k; VM="$1/Image"; DTB="$1/board.dtb"
@@ -95,6 +101,7 @@ class InstallSafety(unittest.TestCase):
         self.assertEqual((bundle / 'modules/k/zenbook-a16-boot.json').read_text(), 'build metadata')
         self.assertFalse((bundle / 'modules/k/omarchy-a16-dsp-abi').exists())
         self.assertFalse((bundle / 'modules/k/zenbook-a16-dsp-abi').exists())
+        self.assertFalse((bundle / 'packaging/omarchy-a16-support').exists())
 
     def test_distro_root_options_are_preserved(self):
         directory = self.root / 'boot/loader/entries'
@@ -222,8 +229,8 @@ class InstallSafety(unittest.TestCase):
                 hooks.parent.mkdir(parents=True)
                 hooks.write_text('#!/bin/bash\nexit 0\n')
                 hooks.chmod(0o755)
-                verifier = bundle / 'packaging/omarchy-a16-support/verify-boot.py'
-                verifier.parent.mkdir(parents=True)
+                verifier = bundle / 'packaging/zenbook-a16-hooks/boot-verify.py'
+                verifier.parent.mkdir(parents=True, exist_ok=True)
                 verifier.write_text('pass\n')
                 (bundle / 'firmware/qcom').mkdir(parents=True)
                 (bundle / 'glymur-fetch-firmware.sh').write_text('#!/bin/bash\nexit 0\n')

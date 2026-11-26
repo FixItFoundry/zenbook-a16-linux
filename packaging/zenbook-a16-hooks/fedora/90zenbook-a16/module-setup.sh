@@ -27,7 +27,7 @@ install() {
     a16_managed_kernel || return 0
     inst_multiple tr grep udevadm modprobe sleep || return 1
     inst_simple /usr/lib/zenbook-a16/dsp-policy.sh /usr/lib/zenbook-a16/dsp-policy.sh || return 1
-    inst_simple /usr/share/omarchy-a16/remoteproc-blacklist.conf /etc/modprobe.d/zenbook-a16-remoteproc.conf || return 1
+    inst_simple /usr/share/zenbook-a16/remoteproc-blacklist.conf /etc/modprobe.d/zenbook-a16-remoteproc.conf || return 1
     # Coldplug supplies deferred dependencies; readiness still gates root mount.
     inst_hook pre-mount 01 "$moddir/zenbook-a16-pre-udev.sh" || return 1
 

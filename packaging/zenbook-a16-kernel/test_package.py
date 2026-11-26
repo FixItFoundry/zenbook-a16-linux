@@ -84,10 +84,13 @@ class Packages(unittest.TestCase):
                 self.assertEqual(data['package_family'], 'zenbook-a16')
                 self.assertEqual(data['kernel_sha256'], hashlib.sha256((roots['kernel'] / f'boot/vmlinuz-{release}').read_bytes()).hexdigest())
                 self.assertTrue((modules / 'build/Makefile').is_file())
-                self.assertEqual((modules / 'omarchy-a16-dsp-abi').read_text(), '1\n')
+                self.assertFalse((modules / 'omarchy-a16-dsp-abi').exists())
                 self.assertTrue((roots['support'] / 'usr/lib/zenbook-a16/package-kernel').is_file())
                 self.assertTrue((roots['support'] / 'usr/lib/zenbook-a16/activate-hardware').is_file())
-                self.assertTrue((roots['support'] / 'usr/share/omarchy-a16/51-glymur-ucm.conf').is_file())
+                self.assertTrue((roots['support'] / 'usr/share/zenbook-a16/51-glymur-ucm.conf').is_file())
+                self.assertTrue((roots['support'] / 'usr/share/zenbook-a16/remoteproc-blacklist.conf').is_file())
+                self.assertFalse((roots['support'] / 'usr/share/omarchy-a16').exists())
+                self.assertFalse((roots['support'] / 'usr/share/alsa/ucm2/Qualcomm/omarchy-a16').exists())
                 self.assertTrue((roots['support'] / 'usr/share/zenbook-a16/libcamera/ipa/simple/ov02c10.yaml').is_file())
                 self.assertTrue((roots['support'] / 'usr/share/zenbook-a16/libcamera/ipa/simple/hm1092.yaml').is_file())
                 self.assertTrue((roots['support'] / 'usr/share/zenbook-a16/99-glymur-leds.rules').is_file())
@@ -99,7 +102,7 @@ class Packages(unittest.TestCase):
                     self.assertIn('Requires(pre): zenbook-a16-support >= %{version}', recipe)
                     self.assertIn('Provides: installonlypkg(kernel)', recipe)
                     self.assertIn('Provides: zenbook-a16-dsp-abi = 1', recipe)
-                    self.assertIn('Provides: omarchy-a16-dsp-abi = 1', recipe)
+                    self.assertNotIn('omarchy-a16-dsp-abi', recipe)
                     self.assertNotIn('kernel-uname-r =', recipe)
                     self.assertNotIn('Obsoletes:', recipe)
                     self.assertIn('%global __os_install_post %{nil}', recipe)
@@ -109,9 +112,16 @@ class Packages(unittest.TestCase):
                     package.debian_controls(roots, name, release, version)
                     control = (roots['kernel'] / 'DEBIAN/control').read_text()
                     self.assertIn('Pre-Depends: zenbook-a16-support (>= 20261014.1)', control)
-                    self.assertIn('Provides: zenbook-a16-dsp-abi (= 1), omarchy-a16-dsp-abi (= 1)', control)
+                    self.assertIn('Provides: zenbook-a16-dsp-abi (= 1)\n', control)
+                    self.assertNotIn('omarchy-a16-dsp-abi', control)
                     self.assertNotIn('Replaces:', control)
-                    self.assertIn('NeverAutoRemove', (roots['support'] / 'etc/apt/apt.conf.d/01zenbook-a16-keep-kernels').read_text())
+                    apt_keep = (roots['support'] / 'etc/apt/apt.conf.d/01zenbook-a16-keep-kernels').read_text()
+                    self.assertIn('NeverAutoRemove', apt_keep)
+                    import re as _re
+                    patterns = _re.findall(r'"([^"]+)"', apt_keep)
+                    for pkg_name in ('linux-image-7.3.0-zenbooka16-20261022-final1-a16pkg8+',
+                                     'linux-image-7.4.0-rc1-next-20261103-zenbook-a16-a16pkg6+'):
+                        self.assertTrue(any(_re.search(pat, pkg_name) for pat in patterns), pkg_name)
                     for script in ('preinst', 'postinst', 'prerm', 'postrm'):
                         subprocess.run(['sh', '-n', str(roots['kernel'] / 'DEBIAN' / script)], check=True)
                     for script in ('preinst', 'postinst'):

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Run after coldplug, before mounting root; the name is retained for installed layouts.
-. /lib/dracut-lib.sh
+if [ -r /lib/dracut-lib.sh ]; then . /lib/dracut-lib.sh; else . /usr/lib/dracut-lib.sh; fi
 . /usr/lib/zenbook-a16/dsp-policy.sh
 
 msg() { info "$*"; }

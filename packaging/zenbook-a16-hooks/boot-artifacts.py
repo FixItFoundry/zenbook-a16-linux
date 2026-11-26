@@ -56,9 +56,9 @@ def pair(root, release):
     return kernel, dtb, policy
 
 
-def options(existing, policy, rescue=False):
+def options(existing, policy, rescue=False, legacy_rescue=False):
     tokens = shlex.split(existing)
-    keys = {token.split('=', 1)[0] for token in policy['cmdline']} | {'omarchy.a16.dsp'}
+    keys = {token.split('=', 1)[0] for token in policy['cmdline']} | {'zenbook.a16.dsp', 'omarchy.a16.dsp'}
     result = [token for token in tokens if token.split('=', 1)[0] not in keys]
     result += policy['cmdline']
     if policy.get('camera_enabled') is True:
@@ -77,7 +77,10 @@ def options(existing, policy, rescue=False):
         blocked = [name for token in result if token.startswith('module_blacklist=')
                    for name in token.split('=', 1)[1].split(',')]
         result = [token for token in result if not token.startswith('module_blacklist=')]
-        result += ['omarchy.a16.dsp=off', 'module_blacklist=' + ','.join(dict.fromkeys(blocked + ['qcom_q6v5_pas']))]
+        rescue_flags = ['zenbook.a16.dsp=off']
+        if legacy_rescue:
+            rescue_flags.append('omarchy.a16.dsp=off')
+        result += [*rescue_flags, 'module_blacklist=' + ','.join(dict.fromkeys(blocked + ['qcom_q6v5_pas']))]
     # These are literal kernel tokens, never shell or GRUB expressions.
     if any(not re.fullmatch(r'[A-Za-z0-9_.,:/=+@%\-]+', token) for token in result):
         raise ValueError('unsupported nonliteral kernel command line')
@@ -170,12 +173,16 @@ def grub_entries(root):
         _, _, policy = pair(root, release)
         if not (root / f'boot/initrd.img-{release}').is_file():
             raise ValueError(f'missing initramfs for {release}')
+        legacy_rescue = (
+            (root / f'usr/lib/modules/{release}/omarchy-a16-dsp-abi').exists()
+            or (root / 'usr/share/omarchy-a16/remoteproc-blacklist.conf').exists()
+        )
         for rescue in (False, True):
             title = f'Zenbook A16 {release}' + (' (DSP disabled rescue)' if rescue else '')
             entry_id = f"zenbook-a16-{release}" + ("-rescue" if rescue else "")
             result += [f"menuentry '{title}' --id '{entry_id}' {{", f'  insmod {fs}',
                        f'  search --no-floppy --fs-uuid --set=root {uuid}',
-                       f'  linux {prefix}/vmlinuz-{release} {options(cmdline, policy, rescue)}',
+                       f'  linux {prefix}/vmlinuz-{release} {options(cmdline, policy, rescue, legacy_rescue=legacy_rescue)}',
                        f'  devicetree {prefix}/dtb-{release}',
                        f'  initrd {prefix}/initrd.img-{release}', '}']
     if not found:

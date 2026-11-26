@@ -47,7 +47,7 @@ run_hook() {
     grep -Fqix -e asus,zenbook-a16-ux3607oa -e asus,ux3607oa; then
     return
   fi
-  if [ "$(getarg omarchy.a16.dsp)" = off ]; then
+  if [ "$(getarg zenbook.a16.dsp)" = off ] || [ "$(getarg omarchy.a16.dsp)" = off ]; then
     msg 'A16 DSPs remain disabled for this rescue boot'
     return
   fi

@@ -17,7 +17,7 @@ spec = importlib.util.spec_from_file_location('artifacts', HERE / 'boot-artifact
 artifacts = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(artifacts)
 verifier_spec = importlib.util.spec_from_file_location(
-    'verify_boot', REPO / 'packaging/omarchy-a16-support/verify-boot.py')
+    'verify_boot', HERE / 'boot-verify.py')
 verifier = importlib.util.module_from_spec(verifier_spec)
 verifier_spec.loader.exec_module(verifier)
 
@@ -34,7 +34,7 @@ class BootHooks(unittest.TestCase):
         self.kernel = self.put(f'boot/vmlinuz-{self.release}', b'kernel fixture')
         self.dtb = self.put(f'usr/lib/modules/{self.release}/dtb/qcom/{artifacts.DTB}', b'dtb fixture')
         self.put('usr/lib/zenbook-a16/verify-boot.py',
-                 (REPO / 'packaging/omarchy-a16-support/verify-boot.py').read_bytes())
+                 (HERE / 'boot-verify.py').read_bytes())
         self.metadata = self.put(f'usr/lib/modules/{self.release}/zenbook-a16-boot.json', b'')
         self.policy = {'package_family': 'zenbook-a16', 'source_tree': 'a' * 40, 'schema': 1, 'kernel_release': self.release, 'dsp_policy': 'pre-root-v1',
                        'kernel_sha256': hashlib.sha256(self.kernel.read_bytes()).hexdigest(),
@@ -68,7 +68,8 @@ class BootHooks(unittest.TestCase):
         self.assertIn(f'devicetree /dtbs/{self.release}/qcom/{artifacts.DTB}', first)
         self.assertIn('glymur_pci_skip=5', first)
         self.assertNotIn('glymur_pci_skip=4', first)
-        self.assertIn('omarchy.a16.dsp=off', rescue_text)
+        self.assertIn('zenbook.a16.dsp=off', rescue_text)
+        self.assertNotIn('omarchy.a16.dsp=off', rescue_text)
         self.assertEqual((self.root / f'boot/dtb-{self.release}').read_bytes(), self.dtb.read_bytes())
 
     def test_camera_build_removes_inherited_camera_blacklists_only(self):
@@ -83,7 +84,8 @@ class BootHooks(unittest.TestCase):
             self.assertNotIn(name, normal)
         rescue = artifacts.options(existing, self.policy, rescue=True)
         self.assertIn('module_blacklist=keep,qcom_q6v5_pas', rescue)
-        self.assertIn('omarchy.a16.dsp=off', rescue)
+        self.assertIn('zenbook.a16.dsp=off', rescue)
+        self.assertNotIn('omarchy.a16.dsp=off', rescue)
         clean = artifacts.options('root=UUID=root modprobe.blacklist=qcom_camss', self.policy)
         self.assertNotIn('modprobe.blacklist=', clean)
 
@@ -156,8 +158,29 @@ class BootHooks(unittest.TestCase):
         self.assertIn(f'linux /vmlinuz-{self.release} root=UUID=root-device ro', text)
         self.assertIn(f'devicetree /dtb-{self.release}', text)
         self.assertIn('search --no-floppy --fs-uuid --set=root boot-uuid', text)
-        self.assertIn('omarchy.a16.dsp=off', text)
+        self.assertIn('zenbook.a16.dsp=off', text)
+        self.assertNotIn('omarchy.a16.dsp=off', text)
         self.assertNotIn('arm64.nopauth', text)
+
+    def test_grub_keeps_legacy_rescue_flag_for_pre_upgrade_kernels(self):
+        artifacts.stage(self.root, self.release)
+        old = self.release.replace('a16pkg1', 'a16pkg0')
+        self.put(f'boot/vmlinuz-{old}', self.kernel.read_bytes())
+        self.put(f'boot/initrd.img-{old}', b'old initramfs')
+        self.put(f'usr/lib/modules/{old}/dtb/qcom/{artifacts.DTB}', self.dtb.read_bytes())
+        self.put(f'usr/lib/modules/{old}/zenbook-a16-boot.json',
+                 json.dumps(self.policy | {'kernel_release': old}).encode())
+        self.put(f'usr/lib/modules/{old}/omarchy-a16-dsp-abi', b'1\n')
+        artifacts.stage(self.root, old)
+        with patch.object(artifacts.subprocess, 'check_output', side_effect=['boot-uuid', 'ext2', '/boot']):
+            text = artifacts.grub_entries(self.root)
+        blocks = text.split("menuentry '")
+        old_rescue = next(b for b in blocks if f"--id 'zenbook-a16-{old}-rescue'" in b)
+        new_rescue = next(b for b in blocks if f"--id 'zenbook-a16-{self.release}-rescue'" in b)
+        self.assertIn('zenbook.a16.dsp=off', old_rescue)
+        self.assertIn('omarchy.a16.dsp=off', old_rescue)
+        self.assertIn('zenbook.a16.dsp=off', new_rescue)
+        self.assertNotIn('omarchy.a16.dsp=off', new_rescue)
 
     def test_generation_keeps_legacy_unmanifested_kernel_as_distro_fallback(self):
         old = '7.3.0-ZenbookA16-recorded+'
@@ -200,7 +223,9 @@ class BootHooks(unittest.TestCase):
             subprocess.run(['bash', str(HERE / 'install-hooks.sh'), '--root', str(self.root),
                             '--distro', distro], check=True, capture_output=True, env=env)
             self.assertEqual((self.root / 'usr/lib/zenbook-a16/dsp-policy.sh').read_text(),
-                             (REPO / 'packaging/omarchy-a16-support/initcpio-hook').read_text())
+                             (HERE / 'dsp-policy.sh').read_text())
+            self.assertFalse((self.root / 'usr/share/omarchy-a16').exists())
+            self.assertFalse((self.root / 'usr/share/alsa/ucm2/Qualcomm/omarchy-a16').exists())
             for _, source in verifier.initramfs_policy_files(
                     self.root, {'fedora': 'lsinitrd', 'ubuntu': 'unmkinitramfs'}[distro]):
                 self.assertTrue(source.is_file(), source)
@@ -288,7 +313,7 @@ if installkernel; then exit 86; fi
     def test_activate_hardware_model_gate_and_qcom_tpm_bridge(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for rel in ('usr/share/omarchy-a16/51-glymur-ucm.conf',
+            for rel in ('usr/share/zenbook-a16/51-glymur-ucm.conf',
                         'usr/share/zenbook-a16/battery-baseline.conf',
                         'usr/share/zenbook-a16/glymur-s2idle.conf',
                         'usr/share/zenbook-a16/libcamera/ipa/simple/ov02c10.yaml',
@@ -344,7 +369,7 @@ class DspAdapters(unittest.TestCase):
         for name in ('fedora/90zenbook-a16/zenbook-a16-pre-udev.sh', 'ubuntu/init-premount-zenbook-a16'):
             with tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
-                policy = (REPO / 'packaging/omarchy-a16-support/initcpio-hook').read_text()
+                policy = (HERE / 'dsp-policy.sh').read_text()
                 for old, new in (('/sys/firmware/devicetree/base/compatible', 'compatible'),
                                  ('/sys/class/remoteproc', 'remote'), ('/proc/mounts', 'mounts')):
                     policy = policy.replace(old, str(root / new))
@@ -354,14 +379,17 @@ class DspAdapters(unittest.TestCase):
                     remote.mkdir(parents=True)
                     (remote / 'name').write_text(processor)
                     (remote / 'state').write_text(state)
-                adapter = (HERE / name).read_text().replace('. /lib/dracut-lib.sh', ':')
+                adapter = (HERE / name).read_text().replace(
+                    'if [ -r /lib/dracut-lib.sh ]; then . /lib/dracut-lib.sh; else . /usr/lib/dracut-lib.sh; fi', ':')
                 adapter = adapter.replace('/usr/lib/zenbook-a16/dsp-policy.sh', str(root / 'policy'))
                 adapter = adapter.replace('/proc/cmdline', str(root / 'cmdline'))
                 adapter = '\n'.join(line for line in adapter.splitlines() if line != 'run_hook')
-                for mode in ('ready', 'rescue', 'other-board', 'missing-board', 'module-failure', 'not-ready', 'settle-failure', 'root-mounted'):
+                for mode in ('ready', 'rescue', 'legacy-rescue', 'other-board', 'missing-board', 'module-failure', 'not-ready', 'settle-failure', 'root-mounted'):
                     with self.subTest(adapter=name, mode=mode):
                         (root / 'compatible').write_bytes(b'asus,zenbook-a16-ux3607oa\0qcom,glymur\0')
-                        (root / 'cmdline').write_text('omarchy.a16.dsp=off' if mode == 'rescue' else '')
+                        cmdline = ('zenbook.a16.dsp=off' if mode == 'rescue'
+                                   else 'omarchy.a16.dsp=off' if mode == 'legacy-rescue' else '')
+                        (root / 'cmdline').write_text(cmdline)
                         (root / 'mounts').write_text('/dev/sda /root ext4 rw 0 0\n' if mode == 'root-mounted' else '')
                         (root / 'remote/remoteproc1/state').write_text('offline' if mode == 'not-ready' else 'running')
                         if mode == 'other-board':
@@ -370,7 +398,7 @@ class DspAdapters(unittest.TestCase):
                             (root / 'compatible').unlink()
                         setup = """
 info() { :; }; warn() { :; }; sleep() { :; }
-getarg() { printf '%s' "$DSP_MODE"; }
+getarg() { [ "$1" = "$DSP_ARG" ] && printf '%s' "$DSP_MODE"; }
 """
                         checks = """
 modprobe() { echo "load:$*"; test "$MODE" != module-failure; }
@@ -379,8 +407,11 @@ a16_emergency() { echo "emergency:$*"; exit 29; }
 run_hook
 echo finished
 """
+                        dsp_arg = ('zenbook.a16.dsp' if mode == 'rescue'
+                                   else 'omarchy.a16.dsp' if mode == 'legacy-rescue' else '')
+                        dsp_mode = 'off' if mode in ('rescue', 'legacy-rescue') else ''
                         result = subprocess.run(['sh', '-c', setup + adapter + checks], text=True,
-                                                capture_output=True, env=os.environ | {'MODE': mode, 'DSP_MODE': 'off' if mode == 'rescue' else ''})
+                                                capture_output=True, env=os.environ | {'MODE': mode, 'DSP_ARG': dsp_arg, 'DSP_MODE': dsp_mode})
                         if mode in ('module-failure', 'not-ready', 'settle-failure', 'root-mounted'):
                             self.assertEqual(result.returncode, 29)
                             self.assertNotIn('finished', result.stdout)
@@ -388,7 +419,7 @@ echo finished
                         else:
                             self.assertEqual(result.returncode, 0, result.stderr)
                             self.assertIn('finished', result.stdout)
-                        if mode in ('rescue', 'other-board', 'missing-board', 'root-mounted'):
+                        if mode in ('rescue', 'legacy-rescue', 'other-board', 'missing-board', 'root-mounted'):
                             self.assertNotIn('load:', result.stdout)
                         if mode == 'ready':
                             self.assertIn('settle', result.stdout)
@@ -398,7 +429,7 @@ echo finished
             with self.subTest(adapter=name):
                 text = (HERE / name).read_text()
                 text = '\n'.join(line for line in text.splitlines()
-                                 if not line.startswith('. ') and line != 'run_hook')
+                                 if not line.startswith('. ') and 'dracut-lib.sh' not in line and line != 'run_hook')
                 text = text.replace('/bin/sh -i </dev/console >/dev/console 2>&1', 'true')
                 script = 'warn() { :; }; info() { :; };\n' + text + '\na16_emergency test\nexit 93\n'
                 with self.assertRaises(subprocess.TimeoutExpired):
@@ -618,7 +649,7 @@ class LegacyMigration(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
         sources = {
-            'etc/modprobe.d/zenbook-a16-remoteproc.conf': REPO / 'packaging/omarchy-a16-support/remoteproc-blacklist.conf',
+            'etc/modprobe.d/zenbook-a16-remoteproc.conf': HERE / 'remoteproc-blacklist.conf',
             'etc/grub.d/09_zenbook_a16': HERE / 'ubuntu/09_zenbook_a16',
             'etc/initramfs-tools/scripts/init-premount/zenbook-a16': HERE / 'ubuntu/init-premount-zenbook-a16',
         }
@@ -653,26 +684,27 @@ class LegacyMigration(unittest.TestCase):
         self.assertEqual(self.paths[1].read_text(), '# user customization\n')
 
     def test_old_rescue_requires_hard_blacklist_before_any_migration(self):
-        for relative, command in (('boot/loader/entries/old-rescue.conf', 'options'),
-                                  ('boot/grub/grub.cfg', 'linux /boot/vmlinuz-old'),
-                                  ('boot/grub2/grub.cfg', 'linuxefi /vmlinuz-old')):
-            with self.subTest(config=relative):
-                entry = self.root / relative
-                entry.parent.mkdir(parents=True, exist_ok=True)
-                content = command + ' root=UUID=root omarchy.a16.dsp=off\n'
-                entry.write_text(content)
-                result = self.run_migration('--check')
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn(str(entry), result.stderr)
-                self.assertIn('module_blacklist=qcom_q6v5_pas', result.stderr)
-                self.assertTrue(all(path.exists() for path in self.paths))
-                self.assertEqual(entry.read_text(), content)
-                entry.unlink()
+        for token in ('zenbook.a16.dsp=off', 'omarchy.a16.dsp=off'):
+            for relative, command in (('boot/loader/entries/old-rescue.conf', 'options'),
+                                      ('boot/grub/grub.cfg', 'linux /boot/vmlinuz-old'),
+                                      ('boot/grub2/grub.cfg', 'linuxefi /vmlinuz-old')):
+                with self.subTest(token=token, config=relative):
+                    entry = self.root / relative
+                    entry.parent.mkdir(parents=True, exist_ok=True)
+                    content = command + f' root=UUID=root {token}\n'
+                    entry.write_text(content)
+                    result = self.run_migration('--check')
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(str(entry), result.stderr)
+                    self.assertIn('module_blacklist=qcom_q6v5_pas', result.stderr)
+                    self.assertTrue(all(path.exists() for path in self.paths))
+                    self.assertEqual(entry.read_text(), content)
+                    entry.unlink()
 
     def test_hard_guarded_rescue_allows_migration_without_entry_rewrite(self):
         entry = self.root / 'boot/grub/grub.cfg'
         entry.parent.mkdir(parents=True)
-        content = 'linux /boot/vmlinuz-old root=UUID=root omarchy.a16.dsp=off module_blacklist=other,qcom_q6v5_pas\n'
+        content = 'linux /boot/vmlinuz-old root=UUID=root zenbook.a16.dsp=off module_blacklist=other,qcom_q6v5_pas\n'
         entry.write_text(content)
         result = self.run_migration()
         self.assertEqual(result.returncode, 0, result.stderr)

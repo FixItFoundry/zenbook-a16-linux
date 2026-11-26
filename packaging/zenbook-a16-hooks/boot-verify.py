@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 """Check installed A16 boot artifacts without booting them."""
 import hashlib
 import json
@@ -108,16 +108,6 @@ def verify(root, release=None):
             "dtb_sha256": hashlib.sha256(dtb).hexdigest()}
 
 
-REQUIRED_CMDLINE_PARAMS = [
-    "clk_ignore_unused",
-    "pd_ignore_unused",
-    "arm64.nopauth",
-    "iommu.passthrough=0",
-    "nvme_core.default_ps_max_latency_us=0",
-    "pcie_aspm=off",
-]
-
-
 def checked_output(command, **kwargs):
     kwargs.setdefault("text", True)
     try:
@@ -126,6 +116,32 @@ def checked_output(command, **kwargs):
         raise ValueError(f"required verification tool missing: {command[0]}; install it before retrying") from error
     except subprocess.CalledProcessError as error:
         raise ValueError(f"{command[0]} failed: {error.stderr!r}") from error
+
+
+def resolve_in_archive(root, relative):
+    """Resolve an archive-relative path, rebasing absolute symlinks onto root."""
+    root = root.resolve()
+    parts = [part for part in relative.lstrip("/").split("/") if part and part != "."]
+    current = root
+    hops = 0
+    while parts:
+        part = parts.pop(0)
+        if part == "..":
+            current = current.parent if current != root else root
+            continue
+        candidate = current / part
+        if candidate.is_symlink():
+            hops += 1
+            if hops > 40:
+                raise ValueError(f"symlink loop in initramfs: {relative}")
+            target = os.readlink(candidate)
+            target_parts = [p for p in target.split("/") if p and p != "."]
+            if target.startswith("/"):
+                current = root
+            parts = target_parts + parts
+            continue
+        current = candidate
+    return current
 
 
 def check_initramfs_firmware(path, tool="lsinitrd", required_files=()):
@@ -146,6 +162,13 @@ def check_initramfs_firmware(path, tool="lsinitrd", required_files=()):
             return next((tree / relative for tree in trees
                          if (tree / relative).exists() or (tree / relative).is_symlink()), None)
 
+        def archive_member(relative):
+            for tree in trees:
+                resolved = resolve_in_archive(tree, relative)
+                if resolved.exists() or resolved.is_symlink():
+                    return resolved
+            return None
+
         def nonempty(candidate):
             return (candidate is not None and candidate.resolve().is_relative_to(extracted)
                     and candidate.is_file() and candidate.stat().st_size > 0)
@@ -164,32 +187,32 @@ def check_initramfs_firmware(path, tool="lsinitrd", required_files=()):
         for relative, source in required_files:
             paths = (relative,) if isinstance(relative, str) else tuple(relative)
             expected = source.read_bytes()
-            in_tree = []
+            found_any = False
             for rel in paths:
-                candidate = member(rel)
-                if candidate is None:
+                resolved = archive_member(rel)
+                if resolved is None:
                     continue
-                try:
-                    resolved = candidate.resolve()
-                except OSError as error:
-                    raise ValueError(f"initramfs missing or stale pre-root DSP policy member: {rel}") from error
-                if not resolved.is_relative_to(extracted):
-                    continue
-                in_tree.append((rel, resolved))
-            if not in_tree:
-                raise ValueError(f"initramfs missing or stale pre-root DSP policy member: {paths[0]}")
-            for rel, resolved in in_tree:
-                if not resolved.is_file() or resolved.stat().st_size == 0 or resolved.read_bytes() != expected:
+                found_any = True
+                if (not resolved.is_relative_to(extracted) or not resolved.is_file()
+                        or resolved.stat().st_size == 0 or resolved.read_bytes() != expected):
                     raise ValueError(f"initramfs missing or stale pre-root DSP policy member: {rel}")
+            if not found_any:
+                raise ValueError(f"initramfs missing or stale pre-root DSP policy member: {paths[0]}")
     return True
 
 
 def initramfs_policy_files(root, tool):
+    blacklist = root / "usr/share/zenbook-a16/remoteproc-blacklist.conf"
+    if not blacklist.exists():
+        legacy = root / "usr/share/omarchy-a16/remoteproc-blacklist.conf"
+        if legacy.exists():
+            blacklist = legacy
     files = [("usr/lib/zenbook-a16/dsp-policy.sh", root / "usr/lib/zenbook-a16/dsp-policy.sh"),
-             ("etc/modprobe.d/zenbook-a16-remoteproc.conf", root / "usr/share/omarchy-a16/remoteproc-blacklist.conf")]
+             ("etc/modprobe.d/zenbook-a16-remoteproc.conf", blacklist)]
     if tool == "lsinitrd":
-        # dracut-ng (Fedora 45+) places hooks under var/lib/dracut/hooks; older dracut uses usr/lib or lib.
-        files.append((("var/lib/dracut/hooks/pre-mount/01-zenbook-a16-pre-udev.sh",
+        # dracut-ng checks etc/dracut/hooks, var/lib/dracut/hooks, usr/lib/dracut/hooks, and lib/dracut/hooks.
+        files.append((("etc/dracut/hooks/pre-mount/01-zenbook-a16-pre-udev.sh",
+                       "var/lib/dracut/hooks/pre-mount/01-zenbook-a16-pre-udev.sh",
                        "usr/lib/dracut/hooks/pre-mount/01-zenbook-a16-pre-udev.sh",
                        "lib/dracut/hooks/pre-mount/01-zenbook-a16-pre-udev.sh"),
                       root / "usr/lib/dracut/modules.d/90zenbook-a16/zenbook-a16-pre-udev.sh"))
@@ -218,7 +241,7 @@ def verify_dtb(dtb_path):
 
 def kernel_release(root, release):
     if not release:
-        for package in ("linux-zenbook-a16", "linux-omarchy-a16"):
+        for package in ("zenbook-a16-kernel", "linux-zenbook-a16", "linux-omarchy-a16"):
             metadata = root / f"usr/share/doc/{package}/kernel-release"
             if metadata.is_file():
                 release = metadata.read_text().strip()
@@ -345,7 +368,13 @@ def verify_entry(root, release, surface, directives, tool):
 
 def verify_grub_bls(root, release=None):
     release = kernel_release(root, release)
-    entries = sorted((root / "boot/loader/entries").glob("*.conf"))
+    # Prefer /boot/loader/entries (active GRUB-BLS surface); fall back to /boot/efi only if absent.
+    loader_dir = root / "boot/loader/entries"
+    if not loader_dir.is_dir():
+        efi_dir = root / "boot/efi/loader/entries"
+        if efi_dir.is_dir():
+            loader_dir = efi_dir
+    entries = sorted(loader_dir.glob("*.conf")) if loader_dir.is_dir() else []
     matching = []
     for entry in entries:
         directives = {}
@@ -484,11 +513,20 @@ def verify_grub_ubuntu(root, release=None):
             "vmlinuz": str(kernel), "initrd": str(initrd), "dtb": str(dtb)}
 
 
-def save_report(mode, report):
+def save_report(root, mode, report, bootloader=None):
     report["checked_at"] = datetime.now(timezone.utc).isoformat()
-    state = Path("/var/lib/omarchy-a16")
+    subdir = "var/lib/omarchy-a16" if (bootloader == "limine" or mode in ("pre", "post")) else "var/lib/zenbook-a16"
     try:
+        root_resolved = root.resolve()
+        current = root_resolved
+        for part in subdir.split("/"):
+            current = current / part
+            if current.is_symlink() or (current.exists() and not current.resolve().is_relative_to(root_resolved)):
+                return
+        state = current
         state.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if not state.resolve().is_relative_to(root_resolved):
+            return
         with tempfile.NamedTemporaryFile(mode="w", dir=state, delete=False) as output:
             json.dump(report, output, indent=2)
             output.write("\n")
@@ -551,11 +589,11 @@ def main():
             else:
                 report = {"status": "pass", "esp": "/boot", "filesystem": filesystem}
         except (OSError, ValueError, UnicodeError, struct.error, subprocess.CalledProcessError) as error:
-            save_report(mode, {"status": "fail", "error": str(error)})
+            save_report(root, mode, {"status": "fail", "error": str(error)}, bootloader="limine")
             print(f"A16 {mode}-update boot verification failed: {error}", file=sys.stderr)
             print("Keep the current session running; repair /boot and run limine-update before rebooting.", file=sys.stderr)
             raise SystemExit(1)
-        save_report(mode, report)
+        save_report(root, mode, report, bootloader="limine")
         print(f"A16 {mode}-update boot check passed: {report.get('kernel_release', '/boot mounted')}")
         return
 
@@ -581,11 +619,11 @@ def main():
         else:
             raise ValueError(f"Unknown bootloader: {bootloader}")
     except (OSError, ValueError, UnicodeError, struct.error, subprocess.CalledProcessError) as error:
-        save_report("check", {"status": "fail", "error": str(error)})
+        save_report(root, "check", {"status": "fail", "error": str(error)}, bootloader=bootloader)
         print(f"Zenbook A16 boot verification failed ({bootloader}): {error}", file=sys.stderr)
         raise SystemExit(1)
 
-    save_report("check", report)
+    save_report(root, "check", report, bootloader=bootloader)
     print(f"Zenbook A16 boot check passed ({bootloader}): {report.get('kernel_release', 'OK')}")
 
 

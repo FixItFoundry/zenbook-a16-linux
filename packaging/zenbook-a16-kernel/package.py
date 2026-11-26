@@ -57,7 +57,7 @@ def stage(bundle, output, distro):
     if not re.fullmatch(r'[A-Za-z0-9.+-]+-a16pkg[1-9][0-9]*\+', release):
         raise ValueError('build a versioned package release; refusing the installed baseline identity')
     modules = bundle / f'lib/modules/{release}'
-    spec = importlib.util.spec_from_file_location('verify_boot', REPO / 'packaging/omarchy-a16-support/verify-boot.py')
+    spec = importlib.util.spec_from_file_location('verify_boot', REPO / 'packaging/zenbook-a16-hooks/boot-verify.py')
     verifier = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(verifier)
     kernel, dtb = bundle / f'vmlinuz-{release}', bundle / DTB
@@ -84,7 +84,6 @@ def stage(bundle, output, distro):
         root.mkdir(parents=True, exist_ok=False)
     payload = roots['kernel']
     shutil.copytree(modules, payload / f'usr/lib/modules/{release}', symlinks=True)
-    (payload / f'usr/lib/modules/{release}/omarchy-a16-dsp-abi').write_text('1\n')
     copy(kernel, payload / f'boot/vmlinuz-{release}')
     for dest in (f'boot/dtb-{release}', f'boot/glymur/{release}.dtb',
                  f'boot/dtbs/{release}/qcom/{DTB}', f'usr/lib/modules/{release}/dtb/qcom/{DTB}'):
@@ -101,7 +100,7 @@ def stage(bundle, output, distro):
     if distro == 'ubuntu':
         keep = support / 'etc/apt/apt.conf.d/01zenbook-a16-keep-kernels'
         keep.parent.mkdir(parents=True)
-        keep.write_text('APT::NeverAutoRemove { "^linux-image-.*-zenbooka16-.*$"; };\n')
+        keep.write_text('APT::NeverAutoRemove { "^linux-image-.*-a16pkg[0-9]+\\+$"; "^linux-image-.*-zenbooka16-.*$"; };\n')
     marker = roots['tracking'] / 'usr/share/doc/zenbook-a16-kernel/kernel-release'
     marker.parent.mkdir(parents=True)
     marker.write_text(release + '\n')
@@ -144,7 +143,6 @@ Requires: zenbook-a16-support >= %{{version}}
 Requires(pre): zenbook-a16-support >= %{{version}}
 Provides: installonlypkg(kernel)
 Provides: zenbook-a16-dsp-abi = 1
-Provides: omarchy-a16-dsp-abi = 1
 
 %description -n {name}
 Build-identified A16 kernel. Installing it preserves existing kernel versions.
@@ -213,7 +211,7 @@ def debian_controls(roots, name, release, version):
     for kind, pkg in (('kernel', name), ('support', 'zenbook-a16-support'), ('tracking', 'zenbook-a16-kernel')):
         control_dir = roots[kind] / 'DEBIAN'
         control_dir.mkdir()
-        relations = {'kernel': f'Pre-Depends: zenbook-a16-support (>= {version})\nProvides: zenbook-a16-dsp-abi (= 1), omarchy-a16-dsp-abi (= 1)\n',
+        relations = {'kernel': f'Pre-Depends: zenbook-a16-support (>= {version})\nProvides: zenbook-a16-dsp-abi (= 1)\n',
                      'support': 'Depends: bash, coreutils, python3, kmod, util-linux, device-tree-compiler, initramfs-tools, udev, grub-common, grub2-common, xz-utils, zstd\n',
                      'tracking': f'Depends: {name} (= {version})\n'}[kind]
         (control_dir / 'control').write_text(

@@ -17,9 +17,14 @@ with tempfile.TemporaryDirectory() as scratch:
     subprocess.run(["alsatplg", "-d", str(topology / "GLYMUR-A16.tplg"), "-o", str(decoded)], check=True)
     subprocess.run([sys.executable, str(repo / "firmware/tplg/verify-glymur-a16-topology.py"),
                     str(decoded)], check=True)
+hooks = repo / "packaging/zenbook-a16-hooks"
 files = {name: (here / name).read_bytes() for name in
-         ("initcpio-install", "initcpio-hook", "remoteproc-blacklist.conf", "mkinitcpio.conf", "ucm.conf",
-          "verify-boot.py", "test_verify_boot.py", "test.sh", "60-omarchy-a16-boot-check.hook", "zz-omarchy-a16-boot-check.hook")}
+         ("initcpio-install", "mkinitcpio.conf", "ucm.conf",
+          "test.sh", "60-omarchy-a16-boot-check.hook", "zz-omarchy-a16-boot-check.hook")}
+files["initcpio-hook"] = (hooks / "dsp-policy.sh").read_bytes()
+files["verify-boot.py"] = (hooks / "boot-verify.py").read_bytes()
+for name in ("remoteproc-blacklist.conf", "test_verify_boot.py"):
+    files[name] = (hooks / name).read_bytes()
 for name in ("GLYMUR-A16.tplg", "GLYMUR-A16.build.txt"):
     files[name] = (topology / name).read_bytes()
 files["HiFi.conf"] = (repo / "tweaks/usr/share/alsa/ucm2/Qualcomm/glymur/HiFi.conf").read_bytes()

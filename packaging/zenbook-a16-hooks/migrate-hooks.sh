@@ -43,7 +43,7 @@ if [[ -e "$root/etc/modprobe.d/zenbook-a16-remoteproc.conf" ]]; then
             for word in "${words[@]}"; do
                 word=${word//\"/}
                 word=${word//\'/}
-                [[ $word != omarchy.a16.dsp=off ]] || rescue=1
+                [[ $word != zenbook.a16.dsp=off && $word != omarchy.a16.dsp=off ]] || rescue=1
                 case "$word" in
                     module_blacklist=*)
                         case ",${word#module_blacklist=}," in *,qcom_q6v5_pas,*) blocked=1 ;; esac

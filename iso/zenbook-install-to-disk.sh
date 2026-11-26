@@ -381,19 +381,19 @@ done
 [[ -n "$MODULES_SRC" ]] || die "matching kernel modules are required"
 [[ ! -L "$target/lib/modules/$KREL" ]] || die "target module directory must not be a symlink"
 HOOKS_INSTALLER="$BUNDLE/packaging/zenbook-a16-hooks/install-hooks.sh"
-[[ -x "$HOOKS_INSTALLER" && -s "$BUNDLE/packaging/omarchy-a16-support/verify-boot.py" ]] || die "complete persistent hooks and verifier are required in bundle"
+[[ -x "$HOOKS_INSTALLER" && -s "$BUNDLE/packaging/zenbook-a16-hooks/boot-verify.py" ]] || die "complete persistent hooks and verifier are required in bundle"
 bash "$HOOKS_INSTALLER" --root "$target" --distro "$DISTRO" --check
 [[ "$(uname -m)" == aarch64 ]] || die "run this installer on native aarch64 Linux"
 for tool in python3 dtc fdtget findmnt mountpoint chroot; do
     command -v "$tool" >/dev/null || die "live environment requires tool: $tool"
 done
-python3 "$BUNDLE/packaging/omarchy-a16-support/verify-boot.py" --validate-kernel \
+python3 "$BUNDLE/packaging/zenbook-a16-hooks/boot-verify.py" --validate-kernel \
     --modules-dir "$MODULES_SRC" --kernel-release "$KREL" --kernel-image "$KERNEL_SRC" --dtb-image "$DTB_SRC"
 TARGET_CMDLINE=$(read_target_cmdline)
 required_tools=(sh bash python3 dtc fdtget findmnt depmod udevadm modprobe tr grep sleep)
 case "$DISTRO" in
-    fedora) required_tools+=(dracut lsinitrd kernel-install grub2-mkconfig) ;;
-    ubuntu) required_tools+=(update-initramfs unmkinitramfs update-grub grub-probe apt-get) ;;
+    fedora) required_tools+=(dracut lsinitrd kernel-install grub2-mkconfig grubby) ;;
+    ubuntu) required_tools+=(update-initramfs unmkinitramfs update-grub grub-probe grub-editenv apt-get) ;;
 esac
 for tool in "${required_tools[@]}"; do
     chroot "$target" /bin/sh -c 'command -v "$1" >/dev/null' sh "$tool" || die "target requires native tool: $tool"

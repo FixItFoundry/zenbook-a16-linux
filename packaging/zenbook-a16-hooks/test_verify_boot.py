@@ -12,7 +12,10 @@ import tempfile
 import unittest
 from unittest import mock
 
-spec = importlib.util.spec_from_file_location("boot_check", Path(__file__).with_name("verify-boot.py"))
+verifier_path = Path(__file__).with_name("boot-verify.py")
+if not verifier_path.exists():
+    verifier_path = Path(__file__).with_name("verify-boot.py")
+spec = importlib.util.spec_from_file_location("boot_check", verifier_path)
 boot = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(boot)
 
@@ -263,6 +266,7 @@ class GrubVerification(unittest.TestCase):
                 source.parent.mkdir(parents=True, exist_ok=True)
                 source.write_bytes(f"trusted policy {primary}".encode())
                 self.members[primary] = source.read_bytes()
+        self.symlinks = {}
         self.initrd = self.root / f"boot/initramfs-{self.release}.img"
         self.write_archive()
         self.mount_target, self.fstype, self.fsroot = self.root, "ext4", "/"
@@ -312,6 +316,10 @@ class GrubVerification(unittest.TestCase):
                 destination = output / name
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 destination.write_bytes(content)
+            for name, target in self.symlinks.items():
+                destination = output / name
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.symlink_to(target)
             return ""
         if tool == "dtc":
             if Path(arguments[-1]).read_bytes()[:4] != b"\xd0\x0d\xfe\xed":
@@ -403,6 +411,7 @@ class GrubVerification(unittest.TestCase):
     def test_dracut_hook_paths_accept_var_lib_usr_lib_lib_and_reject_shadowing(self):
         hook_source = (self.root / "usr/lib/dracut/modules.d/90zenbook-a16/zenbook-a16-pre-udev.sh").read_bytes()
         dracut_paths = (
+            "etc/dracut/hooks/pre-mount/01-zenbook-a16-pre-udev.sh",
             "var/lib/dracut/hooks/pre-mount/01-zenbook-a16-pre-udev.sh",
             "usr/lib/dracut/hooks/pre-mount/01-zenbook-a16-pre-udev.sh",
             "lib/dracut/hooks/pre-mount/01-zenbook-a16-pre-udev.sh",
@@ -411,17 +420,49 @@ class GrubVerification(unittest.TestCase):
         for path in dracut_paths:
             with self.subTest(location=path):
                 self.members = dict(base)
+                self.symlinks = {}
                 self.members[path] = hook_source
                 self.write_archive()
                 self.assertEqual(boot.verify_grub_bls(self.root, self.release)["status"], "pass")
-        for shadow in (b"stale hook", b""):
-            with self.subTest(shadow=shadow):
-                self.members = dict(base)
-                self.members[dracut_paths[0]] = shadow
-                self.members[dracut_paths[1]] = hook_source
-                self.write_archive()
-                with self.assertRaisesRegex(ValueError, "pre-root DSP policy"):
-                    boot.verify_grub_bls(self.root, self.release)
+        for high_priority in (dracut_paths[0], dracut_paths[1]):
+            for shadow in (b"stale hook", b""):
+                with self.subTest(high_priority=high_priority, shadow=shadow):
+                    self.members = dict(base)
+                    self.symlinks = {}
+                    self.members[high_priority] = shadow
+                    self.members[dracut_paths[2]] = hook_source
+                    self.write_archive()
+                    with self.assertRaisesRegex(ValueError, "pre-root DSP policy"):
+                        boot.verify_grub_bls(self.root, self.release)
+        # Absolute symlink to a stale file inside the initramfs must fail even with a valid /usr/lib copy.
+        self.members = dict(base)
+        self.members["stale.sh"] = b"stale hook"
+        self.members[dracut_paths[2]] = hook_source
+        self.symlinks = {dracut_paths[1]: "/stale.sh"}
+        self.write_archive()
+        with self.assertRaisesRegex(ValueError, "pre-root DSP policy"):
+            boot.verify_grub_bls(self.root, self.release)
+        # Intermediate directory absolute symlink (etc/dracut/hooks -> /override) shadowing /usr/lib must fail.
+        self.members = dict(base)
+        self.members["override/pre-mount/01-zenbook-a16-pre-udev.sh"] = b"stale hook"
+        self.members[dracut_paths[2]] = hook_source
+        self.symlinks = {"etc/dracut/hooks": "/override"}
+        self.write_archive()
+        with self.assertRaisesRegex(ValueError, "pre-root DSP policy"):
+            boot.verify_grub_bls(self.root, self.release)
+        # Symlink loop inside archive must fail closed.
+        self.members = dict(base)
+        self.symlinks = {dracut_paths[1]: "../pre-mount/01-zenbook-a16-pre-udev.sh"}
+        self.write_archive()
+        with self.assertRaisesRegex(ValueError, "symlink loop"):
+            boot.verify_grub_bls(self.root, self.release)
+        # Usr-merged absolute symlink lib -> /usr/lib pointing at a valid hook inside the initramfs passes.
+        self.members = dict(base)
+        self.members[dracut_paths[2]] = hook_source
+        self.symlinks = {"lib": "/usr/lib"}
+        self.write_archive()
+        self.assertEqual(boot.verify_grub_bls(self.root, self.release)["status"], "pass")
+        self.symlinks = {}
 
     def test_compressed_firmware_requires_successful_nonempty_decode(self):
         self.members = {name + ".xz" if "/firmware/" in name else name:
@@ -586,6 +627,44 @@ class GrubVerification(unittest.TestCase):
         self.mount_target = self.root / "boot/efi"
         with self.assertRaisesRegex(ValueError, "unsupported boot mount"):
             boot.verify_grub_bls(self.root, self.release)
+
+    def test_save_report_respects_root_and_uses_zenbook_state_for_grub(self):
+        boot.save_report(self.root, "check", {"status": "pass"}, bootloader="grub-bls")
+        self.assertTrue((self.root / "var/lib/zenbook-a16/boot-check-update.json").is_file())
+        self.assertFalse((self.root / "var/lib/omarchy-a16").exists())
+        boot.save_report(self.root, "post", {"status": "pass"}, bootloader="limine")
+        self.assertTrue((self.root / "var/lib/omarchy-a16/boot-post-update.json").is_file())
+        with tempfile.TemporaryDirectory() as outside:
+            outside_path = Path(outside)
+            escaped_root = self.root / "escaped-root"
+            (escaped_root / "var/lib").mkdir(parents=True)
+            (escaped_root / "var/lib/zenbook-a16").symlink_to(outside_path)
+            boot.save_report(escaped_root, "check", {"status": "fail"}, bootloader="grub-bls")
+            self.assertEqual(list(outside_path.iterdir()), [])
+
+    def test_kernel_release_discovers_tracking_package_and_separate_efi_mount(self):
+        marker = self.root / "usr/share/doc/zenbook-a16-kernel/kernel-release"
+        marker.parent.mkdir(parents=True)
+        marker.write_text(self.release + "\n")
+        self.assertEqual(boot.kernel_release(self.root, None), self.release)
+        # Separate /boot/efi mount with a copy of the BLS entry must not break /boot/loader/entries.
+        efi_bls = self.root / f"boot/efi/loader/entries/machine-{self.release}.conf"
+        efi_bls.parent.mkdir(parents=True)
+        efi_bls.write_text(self.bls_text(prefix=""))
+        self.mount_target = self.root / "boot"
+        self.bls.write_text(self.bls_text(prefix=""))
+        original = self.command
+        def per_mount(arguments, **kwargs):
+            if arguments[0] == "findmnt" and "/boot/efi/" in arguments[3]:
+                return json.dumps({"filesystems": [{"target": str(self.root / "boot/efi"), "fstype": "vfat",
+                                                    "fsroot": "/", "uuid": "efiuuid"}]})
+            return original(arguments, **kwargs)
+        with mock.patch.object(boot.subprocess, "check_output", side_effect=per_mount):
+            self.assertEqual(boot.verify_grub_bls(self.root)["status"], "pass")
+        # Fallback to /boot/efi/loader/entries when /boot/loader/entries does not exist.
+        self.bls.unlink()
+        self.bls.parent.rmdir()
+        self.assertEqual(boot.verify_grub_bls(self.root)["status"], "pass")
 
 
 if __name__ == "__main__":

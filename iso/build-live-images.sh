@@ -10,7 +10,7 @@ STAGE="${STAGE:-$HOME/glymur-images}"
 if [[ -z "${KREL:-}" && -f "$STAGE/usr/share/doc/linux-zenbook-a16/kernel-release" ]]; then
   KREL=$(<"$STAGE/usr/share/doc/linux-zenbook-a16/kernel-release")
 fi
-KREL="${KREL:-7.3.0-rc5-ZenbookA16-20261013-rc5-soc2+}"
+KREL="${KREL:-7.3.0-ZenbookA16-20261022-final1-a16pkg8+}"
 OUT="${OUT:-$STAGE/out-live}"
 
 VM="${VM:-$STAGE/vmlinuz-$KREL}"
@@ -38,7 +38,7 @@ preflight(){
   local support_root
   support_root=$(mktemp -d) || return 1
   bash "$REPO/packaging/zenbook-a16-hooks/install-hooks.sh" --root "$support_root" --distro fedora || bad=1
-  python3 "$REPO/packaging/omarchy-a16-support/verify-boot.py" --validate-kernel \
+  python3 "$REPO/packaging/zenbook-a16-hooks/boot-verify.py" --validate-kernel \
     --root "$support_root" --initramfs-image "$LIVEINITRD" \
     --modules-dir "$MODS/$KREL" --kernel-release "$KREL" --kernel-image "$VM" --dtb-image "$DTB" || bad=1
   rm -rf "$support_root" || bad=1
@@ -125,10 +125,7 @@ stage_bundle_rootfs(){
     mkdir -p "$bdir/packaging/zenbook-a16-hooks"
     cp -a "$REPO/packaging/zenbook-a16-hooks"/* "$bdir/packaging/zenbook-a16-hooks/"
   fi
-  if [ -d "$REPO/packaging/omarchy-a16-support" ]; then
-    mkdir -p "$bdir/packaging/omarchy-a16-support"
-    cp -a "$REPO/packaging/omarchy-a16-support"/* "$bdir/packaging/omarchy-a16-support/"
-  fi
+  rm -rf "$bdir/packaging/omarchy-a16-support"
   if [ -d "$STAGE/rpms" ]; then
     mkdir -p "$bdir/rpms"
     cp -a "$STAGE/rpms"/* "$bdir/rpms/"
@@ -323,7 +320,7 @@ build_fedora(){
   fi
   # Fedora live images lack dtc and fdtget, which the installer's boot check runs.
   [ -x "$SQD/usr/bin/fdtget" ] || dnf -y --installroot="$SQD" --use-host-config \
-    --releasever="$(sed -n 's/^VERSION_ID=//p' "$SQD/etc/os-release")" install dtc
+    --releasever="$(sed -n 's/^VERSION_ID=//p' "$SQD/etc/os-release" | tr -d '"')" install dtc
   check_live_tools "$SQD"
   addmods "$SQD"
   addfw "$SQD"

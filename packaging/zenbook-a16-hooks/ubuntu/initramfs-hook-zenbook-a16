@@ -26,12 +26,12 @@ fi
 . /usr/share/initramfs-tools/hook-functions
 
 mkdir -p "$DESTDIR/scripts/init-premount"
-cp /usr/share/zenbook-a16/init-premount "$DESTDIR/scripts/init-premount/zenbook-a16"
+cp -p /usr/share/zenbook-a16/init-premount "$DESTDIR/scripts/init-premount/zenbook-a16"
 copy_exec /usr/bin/tr
 copy_exec /usr/bin/udevadm
 mkdir -p "$DESTDIR/usr/lib/zenbook-a16" "$DESTDIR/etc/modprobe.d"
 cp /usr/lib/zenbook-a16/dsp-policy.sh "$DESTDIR/usr/lib/zenbook-a16/dsp-policy.sh"
-cp /usr/share/omarchy-a16/remoteproc-blacklist.conf "$DESTDIR/etc/modprobe.d/zenbook-a16-remoteproc.conf"
+cp /usr/share/zenbook-a16/remoteproc-blacklist.conf "$DESTDIR/etc/modprobe.d/zenbook-a16-remoteproc.conf"
 
 # 1. Install ASUS-signed ADSP/CDSP firmware and topology
 for fw in \

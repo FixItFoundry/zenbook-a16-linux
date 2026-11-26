@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Model-gated hardware activation for ASUS Zenbook A16 (UX3607OA / Glymur).
 # Activated by the post-install hook pipeline: package-owned assets live under
-# /usr/share/{omarchy-a16,zenbook-a16,alsa/ucm2} and are linked into /etc only
+# /usr/share/{zenbook-a16,alsa/ucm2} and are linked into /etc only
 # when running on UX3607OA hardware (or when --force is passed by the disk
 # installer). Bridges Qualcomm's qcom-next / qcom-topics CONFIG_TCG_QCOM fTPM
 # support by only masking dev-tpm0/dev-tpmrm0 when CONFIG_TCG_QCOM is absent.
@@ -93,7 +93,7 @@ if [[ "$FORCE" -ne 1 ]] && ! is_zenbook_a16; then
 fi
 
 # 1. Link staged WirePlumber SoundWire keep-awake policy and platform drop-ins
-link_config "usr/share/omarchy-a16/51-glymur-ucm.conf" \
+link_config "usr/share/zenbook-a16/51-glymur-ucm.conf" \
     "etc/wireplumber/wireplumber.conf.d/51-glymur-ucm.conf"
 link_config "usr/share/zenbook-a16/battery-baseline.conf" \
     "etc/modules-load.d/battery-baseline.conf"

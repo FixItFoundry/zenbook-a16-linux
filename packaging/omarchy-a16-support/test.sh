@@ -5,7 +5,9 @@ scratch=$(mktemp -d)
 trap 'rm -rf "$scratch"' EXIT
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-source "$here/initcpio-hook"
+policy="$here/initcpio-hook"
+[[ -f $policy ]] || policy="$here/../zenbook-a16-hooks/dsp-policy.sh"
+source "$policy"
 sleep() { :; }
 for spec in '0 adsp running' '1 cdsp running' '2 soccp attached'; do
   read -r number name state <<< "$spec"
@@ -25,18 +27,23 @@ echo attached > "$scratch/remote/remoteproc2/state"
 # Execute the real hook against a temporary sysfs/proc fixture.
 sed -e "s|/sys/firmware/devicetree/base/compatible|$scratch/compatible|g" \
   -e "s|/sys/class/remoteproc|$scratch/remote|g" \
-  -e "s|/proc/mounts|$scratch/mounts|g" "$here/initcpio-hook" > "$scratch/hook"
+  -e "s|/proc/mounts|$scratch/mounts|g" "$policy" > "$scratch/hook"
 source "$scratch/hook"
 msg() { :; }
-getarg() { printf '%s' "${dsp_mode:-}"; }
+getarg() {
+  if [[ "$1" == "${dsp_arg:-}" ]]; then printf '%s' "${dsp_mode:-}"; fi
+}
 modprobe() { echo "$*" >> "$scratch/modprobes"; [[ $* != "${failed_module:-}" ]]; }
 udevadm() { echo "$*" > "$scratch/settle"; }
 a16_emergency() { echo "$*" > "$scratch/emergency"; }
 printf 'asus,zenbook-a16-ux3607oa\0qcom,glymur\0' > "$scratch/compatible"
 : > "$scratch/mounts"
-dsp_mode=off
-run_hook
-[[ ! -e $scratch/modprobes ]] || fail 'rescue boot loaded DSPs'
+for dsp_arg in zenbook.a16.dsp omarchy.a16.dsp; do
+  dsp_mode=off
+  run_hook
+  [[ ! -e $scratch/modprobes ]] || fail "rescue boot ($dsp_arg=off) loaded DSPs"
+done
+dsp_arg=
 dsp_mode=
 for mountpoint in /sysroot /new_root /root; do
   printf '/dev/sda2 %s btrfs rw 0 0\n' "$mountpoint" > "$scratch/mounts"
