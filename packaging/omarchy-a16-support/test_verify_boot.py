@@ -259,9 +259,10 @@ class GrubVerification(unittest.TestCase):
                         for name in ("qcadsp8480.mbn", "adsp_dtbs.elf", "qccdsp8480.mbn", "cdsp_dtbs.elf")}
         for tool in ("lsinitrd", "unmkinitramfs"):
             for relative, source in boot.initramfs_policy_files(self.root, tool):
+                primary = relative if isinstance(relative, str) else relative[0]
                 source.parent.mkdir(parents=True, exist_ok=True)
-                source.write_bytes(f"trusted policy {relative}".encode())
-                self.members[relative] = source.read_bytes()
+                source.write_bytes(f"trusted policy {primary}".encode())
+                self.members[primary] = source.read_bytes()
         self.initrd = self.root / f"boot/initramfs-{self.release}.img"
         self.write_archive()
         self.mount_target, self.fstype, self.fsroot = self.root, "ext4", "/"
@@ -388,15 +389,39 @@ class GrubVerification(unittest.TestCase):
         original = dict(self.members)
         for tool, verify in (("lsinitrd", boot.verify_grub_bls), ("unmkinitramfs", boot.verify_grub_ubuntu)):
             for relative, _ in boot.initramfs_policy_files(self.root, tool):
+                primary = relative if isinstance(relative, str) else relative[0]
                 for replacement in (None, b"stale policy"):
-                    with self.subTest(tool=tool, member=relative, replacement=replacement):
+                    with self.subTest(tool=tool, member=primary, replacement=replacement):
                         self.members = dict(original)
-                        del self.members[relative]
+                        del self.members[primary]
                         if replacement is not None:
-                            self.members[relative] = replacement
+                            self.members[primary] = replacement
                         self.write_archive()
                         with self.assertRaisesRegex(ValueError, "pre-root DSP policy"):
                             verify(self.root, self.release)
+
+    def test_dracut_hook_paths_accept_var_lib_usr_lib_lib_and_reject_shadowing(self):
+        hook_source = (self.root / "usr/lib/dracut/modules.d/90zenbook-a16/zenbook-a16-pre-udev.sh").read_bytes()
+        dracut_paths = (
+            "var/lib/dracut/hooks/pre-mount/01-zenbook-a16-pre-udev.sh",
+            "usr/lib/dracut/hooks/pre-mount/01-zenbook-a16-pre-udev.sh",
+            "lib/dracut/hooks/pre-mount/01-zenbook-a16-pre-udev.sh",
+        )
+        base = {k: v for k, v in self.members.items() if k not in dracut_paths}
+        for path in dracut_paths:
+            with self.subTest(location=path):
+                self.members = dict(base)
+                self.members[path] = hook_source
+                self.write_archive()
+                self.assertEqual(boot.verify_grub_bls(self.root, self.release)["status"], "pass")
+        for shadow in (b"stale hook", b""):
+            with self.subTest(shadow=shadow):
+                self.members = dict(base)
+                self.members[dracut_paths[0]] = shadow
+                self.members[dracut_paths[1]] = hook_source
+                self.write_archive()
+                with self.assertRaisesRegex(ValueError, "pre-root DSP policy"):
+                    boot.verify_grub_bls(self.root, self.release)
 
     def test_compressed_firmware_requires_successful_nonempty_decode(self):
         self.members = {name + ".xz" if "/firmware/" in name else name:

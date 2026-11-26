@@ -162,9 +162,25 @@ def check_initramfs_firmware(path, tool="lsinitrd", required_files=()):
             if not found:
                 return False
         for relative, source in required_files:
-            candidate = member(relative)
-            if not nonempty(candidate) or candidate.read_bytes() != source.read_bytes():
-                raise ValueError(f"initramfs missing or stale pre-root DSP policy member: {relative}")
+            paths = (relative,) if isinstance(relative, str) else tuple(relative)
+            expected = source.read_bytes()
+            in_tree = []
+            for rel in paths:
+                candidate = member(rel)
+                if candidate is None:
+                    continue
+                try:
+                    resolved = candidate.resolve()
+                except OSError as error:
+                    raise ValueError(f"initramfs missing or stale pre-root DSP policy member: {rel}") from error
+                if not resolved.is_relative_to(extracted):
+                    continue
+                in_tree.append((rel, resolved))
+            if not in_tree:
+                raise ValueError(f"initramfs missing or stale pre-root DSP policy member: {paths[0]}")
+            for rel, resolved in in_tree:
+                if not resolved.is_file() or resolved.stat().st_size == 0 or resolved.read_bytes() != expected:
+                    raise ValueError(f"initramfs missing or stale pre-root DSP policy member: {rel}")
     return True
 
 
@@ -172,7 +188,10 @@ def initramfs_policy_files(root, tool):
     files = [("usr/lib/zenbook-a16/dsp-policy.sh", root / "usr/lib/zenbook-a16/dsp-policy.sh"),
              ("etc/modprobe.d/zenbook-a16-remoteproc.conf", root / "usr/share/omarchy-a16/remoteproc-blacklist.conf")]
     if tool == "lsinitrd":
-        files.append(("lib/dracut/hooks/pre-mount/01-zenbook-a16-pre-udev.sh",
+        # dracut-ng (Fedora 45+) places hooks under var/lib/dracut/hooks; older dracut uses usr/lib or lib.
+        files.append((("var/lib/dracut/hooks/pre-mount/01-zenbook-a16-pre-udev.sh",
+                       "usr/lib/dracut/hooks/pre-mount/01-zenbook-a16-pre-udev.sh",
+                       "lib/dracut/hooks/pre-mount/01-zenbook-a16-pre-udev.sh"),
                       root / "usr/lib/dracut/modules.d/90zenbook-a16/zenbook-a16-pre-udev.sh"))
     else:
         files.append(("scripts/init-premount/zenbook-a16",
