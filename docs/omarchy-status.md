@@ -1,4 +1,6 @@
-# Omarchy A16 status — 2026-11-13
+# Omarchy A16 status — updated 2026-11-27
+
+> **2026-11-27 update:** `linux-omarchy-aarch64` is now on **`7.3.6-6`** (`linux-omarchy-dtbs 7.3-75`, `asus-zenbook-a16-support 1-6`), carrying our eDP link-fallback fix ([`#3628`](https://github.com/omacom/omarchy-pkgs/pull/3628)), A16 RGB/IR camera stack ([`#3615`](https://github.com/omacom/omarchy-pkgs/pull/3615)/[`#3617`](https://github.com/omacom/omarchy-pkgs/pull/3617)), and Omarchy's full `s2idle` deep-sleep stack ([`#3689`](https://github.com/omacom/omarchy-pkgs/pull/3689), [`#3690`](https://github.com/omacom/omarchy-pkgs/pull/3690), [`#3738`](https://github.com/omacom/omarchy-pkgs/pull/3738), [`#3740`](https://github.com/omacom/omarchy-pkgs/pull/3740)). Our `stable` track (`v7.3.6`, `pkg14`, promoted default) now incorporates those same power/sleep and GMU/crypto `sync_state` fixes alongside DP/HDMI audio (`0203`) and Iris video. The older November 13 / October 31 snapshots below are retained for history.
 
 **A16 board support is in the shared `linux-omarchy` kernel.** The
 [`linux-omarchy-aarch64` recipe](https://github.com/omacom/omarchy-pkgs/tree/master/pkgbuilds/linux-omarchy-aarch64)

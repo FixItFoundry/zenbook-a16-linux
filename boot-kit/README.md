@@ -1,4 +1,6 @@
-# boot-kit
+# boot-kit (historical bringup tooling)
+
+> **Historical notice (2026-11-27):** These `v7.1`/`RC4`-era scripts and sample GRUB configs are retained for reference only. For current `v7.3.6` builds and distro packaging, use [`kernel/stable/README.md`](../kernel/stable/README.md) and [`packaging/zenbook-a16-kernel/README.md`](../packaging/zenbook-a16-kernel/README.md).
 
 Scripts and a sample GRUB config for building, patching, and deploying glymur DTBs and the
 kernel onto the Zenbook A16.

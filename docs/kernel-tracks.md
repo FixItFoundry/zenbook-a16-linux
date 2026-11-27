@@ -1,16 +1,16 @@
 # Stable and RC Kernel Tracks
 
-Updated 2026-11-03. With Qualcomm actively developing Snapdragon X2 (`glymur`) laptop support upstream (`qcom-next`, `laptops-kernel/topic/glymur-laptops`, and LKML), this repository serves two connected roles:
+Updated 2026-11-27. With Qualcomm actively developing Snapdragon X2 (`glymur`) laptop support upstream (`qcom-next`, `laptops-kernel/topic/glymur-laptops`, and LKML) and the `stable` track now feature-complete on `v7.3.6`, this repository serves two connected roles on a weekly maintenance cadence:
 
-1. **Packaging & Delivery Layer**: Turn validated kernel trees, board DTBs, early-DSP initramfs hooks, audio UCM2/WirePlumber routing, and owner-extracted firmware into safe, side-by-side installable packages (`RPM`, `DEB`, `PKGBUILD`, and portable bundles) for people running Linux on the **ASUS Zenbook A16 UX3607OA**.
-2. **Two-Track Upstream Contributor & Testing Bridge**: Maintain a rock-solid **`stable` release track** (aligned with Linux `7.3` final and `linux-omarchy 7.3`) alongside an **`rc` development track** for testing LKML series, `qcom-next` / `linux-next` snapshots, and authoring upstream fixes (`Author:` / `Tested-by:` / `Reviewed-by:`), dropping local patches as mainline absorbs them.
+1. **Packaging & Delivery Layer**: Turn validated kernel trees, board DTBs, early-DSP initramfs hooks, audio UCM2/WirePlumber routing, DMI-gated power/sleep rules, and owner-extracted firmware into safe, side-by-side installable packages (`RPM`, `DEB`, and portable bundles) for people running Linux on the **ASUS Zenbook A16 UX3607OA**.
+2. **Two-Track Upstream Contributor & Testing Bridge**: Maintain the **`stable` release track** (aligned with Linux `7.3.6` and `linux-omarchy 7.3.6`) alongside an **`rc` development track** for testing LKML series, `qcom-next` / `linux-next` snapshots, and authoring upstream fixes (`Author:` / `Tested-by:` / `Reviewed-by:`), dropping local patches as mainline absorbs them.
 
 ## Track Layout
 
 | Track | Recipe Directory | Patch Queue | Upstream Base | Replayed Source Tree | Role |
 |---|---|---|---|---|---|
-| **`stable`** | [`kernel/stable/`](../kernel/stable/README.md) | [`patches/stable/`](../patches/stable/README.md) (201 patches) | `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) | `c9073bc3daaf012b47e5c0631316308f4a3f3a7c` | Primary release and packaging target for Fedora, Ubuntu/Debian, and `linux-omarchy 7.3`. |
-| **`rc`** | [`kernel/rc/`](../kernel/rc/README.md) | [`patches/rc/`](../patches/rc/README.md) (114 patches) | `next-20261103` (`d6bcfc94eb4da6e089c5473970cd96727292fd97`, `v7.4-rc1`) | `ae9780ba94c73237250a58ecc44fca2485813f8a` | Opt-in development, LKML patch validation, and upstream rebase staging (`7.4.0-rc1-next-20261103-zenbook-a16+`). |
+| **`stable`** | [`kernel/stable/`](../kernel/stable/README.md) | [`patches/stable/`](../patches/stable/README.md) (183 patches) | `v7.3.6` (`1a0388846138eda9f6eb4258ff227a223afc2f52`) | `a25b51b1ceda63f568d36f0dd4847c0787dfcfaa` | Primary release and packaging target for Fedora, Ubuntu/Debian, and `linux-omarchy 7.3.6` parity. |
+| **`rc`** | [`kernel/rc/`](../kernel/rc/README.md) | [`patches/rc/`](../patches/rc/README.md) (114 patches) | `next-20261103` (`d6bcfc94eb4da6e089c5473970cd96727292fd97`, `v7.4-rc1`) | `ae9780ba94c73237250a58ecc44fca2485813f8a` | Opt-in development, LKML patch validation, and upstream rebase staging (`7.4.0-rc1-next-20261103-zenbook-a16+`; pending sync with `stable` rev 12–14). |
 
 Historical bringup recipes (`rc3-*`, `rc5-20261002`, `rc5-20261008`, `rc5-20261013`, `rc5-20261031`) and standalone diagnostic patches are archived under [`archive/`](../archive/README.md).
 

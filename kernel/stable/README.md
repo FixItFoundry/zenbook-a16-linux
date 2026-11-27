@@ -1,13 +1,13 @@
-# Linux 7.3.6 A16/Qualcomm candidate
+# Linux 7.3.6 A16/Qualcomm stable track
 
 Local source port of the full A16 stack to **Linux v7.3.6**. The current
-183-patch queue (`a25b51b1ceda`, target **package revision 14**) retires
-`0012` (`glymur_pci_skip`), drops `clk_ignore_unused`/`pd_ignore_unused`/
-`glymur_pci_skip=5` from packaged cmdline defaults, and adds the GMU driver +
-crypto-disable `sync_state` fixes (`0207`–`0213`) that unlocked full
-`APSS + CXSD + AOSD + DDR` `s2idle` collapse on the A16. Native package
-transactions and long-term stability acceptance remain open; nothing here
-installs or selects a kernel.
+183-patch queue (`a25b51b1ceda`, **package revision 14**, promoted default on
+the A16) retires `0012` (`glymur_pci_skip`), drops `clk_ignore_unused`/
+`pd_ignore_unused`/`glymur_pci_skip=5` from packaged cmdline defaults, and adds
+the GMU driver + crypto-disable `sync_state` fixes (`0207`–`0213`) that
+unlocked full `APSS + CXSD + AOSD + DDR` `s2idle` collapse on the A16. Native
+package transactions and long-term stability acceptance remain open; nothing
+here installs or selects a kernel.
 
 | Identity | Value |
 |---|---|
@@ -18,9 +18,9 @@ installs or selects a kernel.
 | Package revision 6 | `7.3.0-ZenbookA16-20261022-final1-a16pkg6+` (`bd1327aac6e1`, prior to `0156`–`0158`) |
 | Package revision 7 | `7.3.0-ZenbookA16-20261022-final1-a16pkg7+` (`f5b887e39ef7`) |
 | Package revision 8 | `7.3.0-ZenbookA16-20261022-final1-a16pkg8+` (`e6413608c546`) |
-| Package revision 12 | `7.3.0-ZenbookA16-20261022-final1-a16pkg12+` (`c9073bc3daaf`, current default) |
+| Package revision 12 | `7.3.0-ZenbookA16-20261022-final1-a16pkg12+` (`c9073bc3daaf`, fallback entry) |
 | Package revision 13 | `7.3.6-ZenbookA16-20261022-final1-a16pkg13+` (`91e3f1250937`, one-shot verified; `0207`–`0213` tested live on boot `6c95f197`) |
-| Package revision 14 (candidate) | `7.3.6-ZenbookA16-20261022-final1-a16pkg14+` (`a25b51b1ceda`, `0012` dropped, clean cmdline) |
+| Package revision 14 | `7.3.6-ZenbookA16-20261022-final1-a16pkg14+` (`a25b51b1ceda`, promoted default, boot `9f167dd9`, `0012` dropped, clean cmdline) |
 
 The queue retains the 64-patch A16 baseline, 40-patch Qualcomm bridge and
 10-patch camera/microphone overlay (minus three complete patches already in
@@ -160,4 +160,4 @@ Added seven `sync_state` fixes (`0207`–`0213`, adapted from `omacom/omarchy-pk
 - `0213`: disable broken QCE `crypto@1dfa000` in `glymur.dtsi`/`hamoa.dtsi` so `aggre1_noc`/`mc_virt` reach `state_synced=1` and drop the boot-time DDR/CX interconnect floor vote.
 - Retired `0012` (`glymur_pci_skip`), dropped `clk_ignore_unused`, `pd_ignore_unused`, and `glymur_pci_skip=5` from `packaging/zenbook-a16-kernel/package.py` `CMDLINE`, and updated `51-glymur-ucm.conf` `*Speaker*` `session.suspend-timeout-seconds` from `0` → `2` so PipeWire closes `pcm0p` when idle and `zenbook-a16-sleep` can runtime-suspend SoundWire across `s2idle` (while `0058` keeps SoundWire `power/control=on` while awake).
 
-Verified on `loazen` (boot `6c95f197`, `pkg13` + signed `msm.ko`/DTB from `0207`–`0213`, `glymur_pci_skip=0`, no `clk_ignore_unused`/`pd_ignore_unused`): `unsynced_count=0`, 258 s open-lid `systemctl suspend` achieved **97.7% `APSS`/`CXSD`/`AOSD`/`DDR` residency** (`252.06 s` each, `Count: 3`), with clean resume of PCIe5 NVMe (`Gen.4 x4`, `btrfs_err=0`, `nvme_aer=0/0`), PCIe4 Wi-Fi (`Gen.3 x1`, `ath12k` MHI → connected), Bluetooth (`Powered: yes`), and SoundWire speakers (`SPEAKER_RESUME_PW=PASS`, `tainted=0`). Clean `pkg14` package build from `a25b51b1ceda` and closed-lid wake / 10-minute wattage tests remain open.
+Verified on `loazen` (boot `6c95f197`, `pkg13` + signed `msm.ko`/DTB from `0207`–`0213`, `glymur_pci_skip=0`, no `clk_ignore_unused`/`pd_ignore_unused`): `unsynced_count=0`, 258 s open-lid `systemctl suspend` achieved **97.7% `APSS`/`CXSD`/`AOSD`/`DDR` residency** (`252.06 s` each, `Count: 3`), with clean resume of PCIe5 NVMe (`Gen.4 x4`, `btrfs_err=0`, `nvme_aer=0/0`), PCIe4 Wi-Fi (`Gen.3 x1`, `ath12k` MHI → connected), Bluetooth (`Powered: yes`), and SoundWire speakers (`SPEAKER_RESUME_PW=PASS`, `tainted=0`). Clean `pkg14` (`a25b51b1ceda`) subsequently built with Fedora RPMs + bundle, promoted to default GRUB (`fedora`), and verified on boot `9f167dd9` (`tainted=0`, `failed_count=0`, `unsynced_count=0`, `glymur_pci_skip` absent); closed-lid wake and 60–90 minute travel wattage soak remain next.

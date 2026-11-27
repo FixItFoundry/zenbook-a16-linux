@@ -5,8 +5,8 @@ limits. Component notes retain historical measurements.
 
 | Document | Contents |
 |---|---|
-| [Stable and rc tracks](kernel-tracks.md) | 7.3 final/linux-next transition, Qualcomm intake, porting blockers and installation release checks. |
-| [Current build](current-build.md) | 7.3 source candidate, pending camera validation, dated Omarchy and Fedora acceptance records. |
+| [Stable and rc tracks](kernel-tracks.md) | 7.3.6 / linux-next tracks, upstream intake, weekly maintenance cadence, and release checks. |
+| [Current build](current-build.md) | 7.3.6 hardware-validated baseline (external displays, DP audio, cameras, Iris, full `s2idle` collapse) and historical records. |
 | [Omarchy status](omarchy-status.md) | Validated hardware, open PRs, package prerequisites and channel promotion. |
 | [Hardware](hardware.md) | Components, interfaces and historical observations. |
 | [Modifications](modifications.md) | Earlier device-tree and kernel changes. |

@@ -1,4 +1,6 @@
-# A16 local customizations (userspace) — captured from the working install
+# A16 local customizations (userspace)
+
+> **2026-11-27 current setup:** Active UX3607OA userspace files are now staged automatically by [`packaging/zenbook-a16-hooks/install-hooks.sh`](packaging/zenbook-a16-hooks/install-hooks.sh) and model-gated by [`activate-hardware.sh`](packaging/zenbook-a16-hooks/activate-hardware.sh): upstream `MM1`/`MM2`/`MM3`/`MM4`/`MM7` UCM2 (`HiFi.conf` with `Speaker`, `Mic`, `HDMI0`/`1`/`2`), scoped WirePlumber rules (`51-glymur-ucm.conf`, 2 s Speaker / 1 s HDMI idle suspend), `libcamera` IPA black-level tuning (`ov02c10.yaml`, `hm1092.yaml`, `99-glymur-leds.rules`), and DMI-gated power/deep-sleep rules (`90-asus-zenbook-a16-power.rules`, `zenbook-a16-sleep`). Legacy `glymur-audio-route`, `a16-wifi-pci`, and `glymur-resume-guard` hooks are retired. The sections below retain the 2026-07-18–11-14 bringup history.
 
 Everything below was pulled from the running A16 (`loazen`, kernel `7.1.0-glymur-clean+`)
 on 2026-07-18 and is baked into every distro image by `iso/build-all.sh` via two overlays:

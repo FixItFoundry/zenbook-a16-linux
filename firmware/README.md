@@ -10,6 +10,7 @@ establish successful firmware loading or hardware acceptance.
 | Wi-Fi | `ath12k/QCC2072/hw1.0/{board-2.bin,firmware-2.bin}` |
 | Bluetooth | `qca/{ornbtfw11.tlv,ornnv11.bin,ornbcscal11.bin}` |
 | GPU | `qcom/{gen80100_sqe.fw,gen80100_gmu.bin}` |
+| Video (`iris`) | `qcom/vpu/vpu33_4v.mbn` (from `linux-firmware`, required for hardware decode/encode) |
 | ASUS ADSP | `qcom/glymur/ASUSTeK/UX3607OA/{qcadsp8480.mbn,adsp_dtbs.elf}` |
 | ASUS CDSP | `qcom/glymur/ASUSTeK/UX3607OA/{qccdsp8480.mbn,cdsp_dtbs.elf}` |
 | Audio topology | `qcom/glymur/ASUSTeK/UX3607OA-tplg.bin` or `qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin` |

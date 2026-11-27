@@ -9,7 +9,7 @@ do not make the RC kernel production-ready.
 ## Build without installing
 
 Two recipes are maintained: [`kernel/stable`](../../kernel/stable/README.md)
-(Linux 7.3 final) and [`kernel/rc`](../../kernel/rc/README.md) (`next-20261103`).
+(Linux 7.3.6) and [`kernel/rc`](../../kernel/rc/README.md) (`next-20261103`).
 Each builder applies its patch queue to a staged index without making commits,
 preserving HEAD at the pinned upstream base.
 
@@ -23,11 +23,11 @@ it refuses source changes, unrelated worktrees and incomplete patch application.
 
 ```sh
 # Fedora:
-JOBS=4 PACKAGE_REVISION=6 BUILD_RPM=1 BUILD_DEB=0 \
+JOBS=4 PACKAGE_REVISION=14 BUILD_RPM=1 BUILD_DEB=0 \
   ./kernel/stable/build.sh /path/to/linux /path/to/fedora-build
 
 # Ubuntu:
-JOBS=4 PACKAGE_REVISION=6 BUILD_RPM=0 BUILD_DEB=1 \
+JOBS=4 PACKAGE_REVISION=14 BUILD_RPM=0 BUILD_DEB=1 \
   ./kernel/stable/build.sh /path/to/linux /path/to/ubuntu-build
 ```
 
@@ -49,7 +49,7 @@ Each native build produces three packages:
 | Package | Owns |
 |---|---|
 | `kernel-zenbook-a16-<release>` (Fedora), `linux-image-<release>` (Ubuntu) | Versioned Image, modules, build headers, config, DTB, boot metadata, and `zenbook-a16-dsp-abi = 1` capability |
-| `zenbook-a16-support` | Scoped initramfs hooks, boot generation, verification, rollback helpers, staged ALSA UCM2/WirePlumber/platform configs, and `activate-hardware` post-install hook |
+| `zenbook-a16-support` | Scoped initramfs hooks, boot generation, verification, rollback helpers, staged ALSA UCM2/WirePlumber/libcamera/power-udev/`systemd-sleep` configs, and `activate-hardware` post-install hook |
 | `zenbook-a16-kernel` | Dependency on the exact current payload version |
 
 Package names use the lowercase release; files retain its original spelling.

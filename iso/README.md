@@ -19,7 +19,10 @@ Linux; the local regression tests do not establish hardware boot acceptance.
 - Generic Arch/Manjaro installation is unsupported by these hooks. Omarchy keeps
   its separate packaged kernel, UKI and transaction-ordering contract under
   `packaging/omarchy-a16-support/`.
-- Experimental automatic suspend and xHCI unbinding are not installed.
+- DMI-gated power management (`90-asus-zenbook-a16-power.rules`) and `s2idle`
+  deep-sleep hooks (`zenbook-a16-sleep`) are staged by `install-hooks.sh` and
+  linked by `activate-hardware.sh`. Legacy xHCI-unbinding (`glymur-resume-guard`)
+  and `a16-wifi-pci` hooks are not installed.
   [Current hardware limits](../docs/current-build.md) still apply.
 
 ## Prepare a live image

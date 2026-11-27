@@ -1,9 +1,54 @@
 # Current build — 2026-11-27
 
-The A16 runs Fedora with **`7.3.0-ZenbookA16-20261022-final1-a16pkg12+`**, built
+The A16 runs Fedora with **`7.3.6-ZenbookA16-20261022-final1-a16pkg14+`**, built
+clean from the 183-patch `v7.3.6` stable queue (`a25b51b1ceda63f568d36f0dd4847c0787dfcfaa`)
+on November 27 and promoted to the default GRUB entry (`fedora`, `"Fedora (7.3.6 Stable)"`),
+with `pkg12` (`fedora-pkg12`) retained as fallback, `Fedora (7.4 RC)` (`fedora-rc`)
+kept for next week's 7.4 sync, and `Windows Boot Manager` (`windows-boot`). Legacy
+`Test DTBs` and the stray `/boot/grub2/custom.cfg` `pkg1+` entry were removed.
+
+Live verification of `pkg14` on boot `9f167dd9` (`tainted=0`, `failed_units=0`,
+`btrfs_err=0`, `nvme_aer=0/0`, clean cmdline without `clk_ignore_unused`,
+`pd_ignore_unused`, `glymur_pci_skip=5`, `systemd.mask=sleep.target`, or
+`no_console_suspend`):
+
+- **Deep-sleep readiness & `0012` retirement:** `glymur_pci_skip` parameter absent
+  (`0012` dropped), `unsynced_count=0` across all `/sys/devices` `state_synced`
+  nodes, `3d6c000.gmu` bound via `a6xx_gmu_bind_ops [msm]`, broken QCE `1dfa000`
+  disabled, `apss_cpucp_mbox` IRQ delta `0` over 2 s, PCIe4 Wi-Fi `wakeup=disabled`,
+  and SoundWire controllers `power/control=on` while awake.
+- **Peripherals & audio:** PCIe5 NVMe `Gen.4 x4` (`16GT/s x4`), PCIe4 Wi-Fi
+  `Gen.3 x1` (`8GT/s x1`, connected), Bluetooth powered, `eDP-1` active, PipeWire
+  `Speaker` + `HDMI0`/`HDMI1`/`HDMI2` sinks present.
+- **Prior `s2idle` hardware proof (same `0207`–`0213` kernel/DTB/cmdline on `pkg13`
+  boot `6c95f197`):** 258 s open-lid `systemctl suspend` achieved **97.7%
+  `APSS`/`CXSD`/`AOSD`/`DDR` collapse** (`252.06 s` each, `Count: 3`), with clean
+  resume of NVMe, Wi-Fi, Bluetooth, and speakers (`SPEAKER_RESUME_PW=PASS`,
+  `tainted=0`). Long 60–90 minute closed-lid travel soak and wattage measurement
+  remain next.
+
+| Track | Patches | Replayed source tree | Package release | State |
+|---|---:|---|---|---|
+| stable | 183 | `a25b51b1ceda63f568d36f0dd4847c0787dfcfaa` | `7.3.6-ZenbookA16-20261022-final1-a16pkg14+` | **Promoted default (`fedora`)**, verified on boot `9f167dd9` (`pkg12` fallback) |
+| rc | 114 | `ae9780ba94c73237250a58ecc44fca2485813f8a` | `7.4.0-rc1-next-20261103-zenbook-a16-a16pkg6+` | Built (`fedora-rc` entry kept for 7.4 sync) |
+
+## Revision 13 / 14 (`v7.3.6`, DP/HDMI audio, and full `s2idle` deep sleep) — 2026-11-27
+
+Fast-forwarded `kernel/stable` from `v7.3` (`c03c1a14507d`) to **`v7.3.6`** (`1a0388846138`), retiring 28 patches already upstream in `7.3.1`–`7.3.6` and refreshing five overlapping patches (`0028`, `0078`, `0152`, `0178`, `0184`), then added:
+
+- **`0203` + UCM/WirePlumber updates:** DisplayPort/HDMI audio DAI links (`dp0`/`dp1`/`dp2-dai-link`) wired to upstream `audioreach-topology` `MM3`/`MM4`/`MM7` (`HDMI0`/`HDMI1`/`HDMI2`), with WirePlumber 4-channel upmix scoped to `*Speaker*` (`session.suspend-timeout-seconds = 2`) and 1 s idle suspend on `*HDMI*`.
+- **`0204`–`0206` + userspace power/sleep rules (from `omacom/omarchy-pkgs` `#3689`/`#3690`/`#3738`/`#3740`):** `scmi-qcom-memlat-devfreq` `polling_ms = 0`, `cluster_cl5` `min-residency-us = 1000 s` in `glymur.dtsi`, drop `EV_ACT_DEASSERTED` on `switch-lid`, `90-asus-zenbook-a16-power.rules`, and `zenbook-a16-sleep`.
+- **`0207`–`0213` (`sync_state` fixes) and cmdline cleanup:** attached platform driver `adreno_gmu` (`0207`–`0212`), disabled broken QCE `crypto@1dfa000` (`0213`), retired `0012` (`glymur_pci_skip`), and dropped `clk_ignore_unused`, `pd_ignore_unused`, and `glymur_pci_skip=5` from `packaging/zenbook-a16-kernel/package.py` `CMDLINE`.
+- **Hardware verification on `loazen`:**
+  - `pkg13` (`91e3f1250937`, boot `e1814992`): `taint=0`, 0 failed units, `btrfs_errors=0`, NVMe AER `0/0`, `scmi_err=0`, 3 displays active, `HDMI0`/`HDMI2`/`Speaker` PipeWire PASS (`Mic` verified on `71d0f0a1`), `memlat` `polling_interval=0` with `0` `apss_cpucp_mbox` IRQs in 3 s, `cluster_cl5` `Usage=0`/`Rejected=0`, PCIe4 Wi-Fi `wakeup=disabled`, idle USB + SD autosuspend active.
+  - Full `s2idle` deep sleep (`pkg13` + signed `msm.ko`/DTB from `0207`–`0213`, `glymur_pci_skip=0`, no `clk_ignore_unused`/`pd_ignore_unused`, boot `6c95f197`): `unsynced_count=0`, 258 s open-lid `systemctl suspend` achieved **97.7% `APSS`/`CXSD`/`AOSD`/`DDR` collapse** (`252.06 s` each, `Count: 3`), with clean resume of PCIe5 NVMe (`Gen.4 x4`, `btrfs_err=0`, `nvme_aer=0/0`), PCIe4 Wi-Fi (`Gen.3 x1`, `wlP4p1s0:connected`), Bluetooth (`Powered: yes`), and speakers (`SPEAKER_RESUME_PW=PASS`, `tainted=0`).
+  - Clean `pkg14` (`a25b51b1ceda`, boot `9f167dd9`): built cleanly with Fedora RPMs + bundle, promoted to default GRUB entry (`fedora`), verified `tainted=0`, `failed_count=0`, `unsynced_count=0`, `glymur_pci_skip` absent, `btrfs_err=0`, NVMe AER `0/0`, and clean Wi-Fi/BT/audio/eDP bringup.
+
+## Revision 12 — 2026-11-27
+
+The A16 previously ran Fedora with **`7.3.0-ZenbookA16-20261022-final1-a16pkg12+`**, built
 from the 201-patch stable queue (`c9073bc3daaf012b47e5c0631316308f4a3f3a7c`) on
-November 27 and promoted to the default GRUB entry (`fedora`). Revision 8 remains
-installed in the `Test DTBs` fallback submenu.
+November 27; revision 12 remains installed as the `fedora-pkg12` fallback entry.
 
 Compared to revision 8, revision 12 drops legacy `0062` (refreshes `0120`), adds
 Ritesh Kumar's Glymur DP PHY v8 series (`0162`–`0169`), moves HDMI HPD pinctrl
@@ -55,22 +100,6 @@ Remaining limits and open items:
   reproduce on revision 12's build, validation, or soak).
 - **Not yet tested on revision 12:** physical cable hotplug/unplug cycles, 4K60,
   suspend/resume, native `dnf`/`apt` transactions, and Ubuntu DEB installation.
-
-| Track | Patches | Replayed source tree | Package release | State |
-|---|---:|---|---|---|
-| stable | 183 | `a25b51b1ceda63f568d36f0dd4847c0787dfcfaa` | `7.3.6-ZenbookA16-20261022-final1-a16pkg14+` (candidate) | `pkg12` default; `pkg13` + `0207`–`0213` deep-sleep verified (`boot 6c95f197`); `pkg14` ready to build |
-| rc | 114 | `ae9780ba94c73237250a58ecc44fca2485813f8a` | `7.4.0-rc1-next-20261103-zenbook-a16-a16pkg6+` | Built, staged in `Test DTBs` |
-
-## Revision 13 / 14 candidate (`v7.3.6`, DP/HDMI audio, and full `s2idle` deep sleep) — 2026-11-27
-
-Fast-forwarded `kernel/stable` from `v7.3` (`c03c1a14507d`) to **`v7.3.6`** (`1a0388846138`), retiring 28 patches already upstream in `7.3.1`–`7.3.6` and refreshing five overlapping patches (`0028`, `0078`, `0152`, `0178`, `0184`), then added:
-
-- **`0203` + UCM/WirePlumber updates:** DisplayPort/HDMI audio DAI links (`dp0`/`dp1`/`dp2-dai-link`) wired to upstream `audioreach-topology` `MM3`/`MM4`/`MM7` (`HDMI0`/`HDMI1`/`HDMI2`), with WirePlumber 4-channel upmix scoped to `*Speaker*` (`session.suspend-timeout-seconds = 2`) and 1 s idle suspend on `*HDMI*`.
-- **`0204`–`0206` + userspace power/sleep rules (from `omacom/omarchy-pkgs` `#3689`/`#3690`/`#3738`/`#3740`):** `scmi-qcom-memlat-devfreq` `polling_ms = 0`, `cluster_cl5` `min-residency-us = 1000 s` in `glymur.dtsi`, drop `EV_ACT_DEASSERTED` on `switch-lid`, `90-asus-zenbook-a16-power.rules`, and `zenbook-a16-sleep`.
-- **`0207`–`0213` (`sync_state` fixes) and cmdline cleanup:** attached platform driver `adreno_gmu` (`0207`–`0212`), disabled broken QCE `crypto@1dfa000` (`0213`), retired `0012` (`glymur_pci_skip`), and dropped `clk_ignore_unused`, `pd_ignore_unused`, and `glymur_pci_skip=5` from `packaging/zenbook-a16-kernel/package.py` `CMDLINE`.
-- **Hardware verification on `loazen`:**
-  - `pkg13` (`91e3f1250937`, boot `e1814992`): `taint=0`, 0 failed units, `btrfs_errors=0`, NVMe AER `0/0`, `scmi_err=0`, 3 displays active, `HDMI0`/`HDMI2`/`Speaker` PipeWire PASS (`Mic` verified on `71d0f0a1`), `memlat` `polling_interval=0` with `0` `apss_cpucp_mbox` IRQs in 3 s, `cluster_cl5` `Usage=0`/`Rejected=0`, PCIe4 Wi-Fi `wakeup=disabled`, idle USB + SD autosuspend active.
-  - Full `s2idle` deep sleep (`pkg13` + signed `msm.ko`/DTB from `0207`–`0213`, `glymur_pci_skip=0`, no `clk_ignore_unused`/`pd_ignore_unused`, boot `6c95f197`): `unsynced_count=0`, 258 s open-lid `systemctl suspend` achieved **97.7% `APSS`/`CXSD`/`AOSD`/`DDR` collapse** (`252.06 s` each, `Count: 3`), with clean resume of PCIe5 NVMe (`Gen.4 x4`, `btrfs_err=0`, `nvme_aer=0/0`), PCIe4 Wi-Fi (`Gen.3 x1`, `wlP4p1s0:connected`), Bluetooth (`Powered: yes`), and speakers (`SPEAKER_RESUME_PW=PASS`, `tainted=0`). Clean `pkg14` package build from `a25b51b1ceda`, closed-lid wake, and 10-minute wattage tests remain open.
 
 ## Revision 8 — 2026-11-21
 
