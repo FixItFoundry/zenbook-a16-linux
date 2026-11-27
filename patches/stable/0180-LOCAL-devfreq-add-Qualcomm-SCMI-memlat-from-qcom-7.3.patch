@@ -1,0 +1,2955 @@
+From c707170ea2885549b7cedcd075a006278e3e2e84 Mon Sep 17 00:00:00 2001
+From: scalpel4k <scalpel4k@gmail.com>
+Date: Wed, 18 Nov 2026 08:33:11 +0100
+Subject: [PATCH] LOCAL: devfreq: add Qualcomm SCMI memlat from
+ qcom-7.3
+
+Backport from Qualcomm's qcom-7.3 branch (github.com/qualcomm-linux/kernel,
+ee11c5b10, 2026-11-17), unchanged:
+
+- firmware: arm_scmi: Qualcomm generic vendor protocol (0x80) and
+  include/linux/scmi_qcom_protocol.h
+- devfreq: "remote" governor (DEVFREQ_GOV_FLAG_TRACK_REMOTE) for buses
+  scaled by firmware, and the TARGET_FREQ governor attribute that the core
+  now checks for the target_freq sysfs file (added to all governors)
+- devfreq: scmi-qcom-memlat-devfreq, which configures and starts the
+  CPUCP memory-latency algorithm (DDR/LLCC/DDR_QOS scaling) and exposes
+  each bus as a devfreq device
+---
+ drivers/devfreq/Kconfig                       |   23 +
+ drivers/devfreq/Makefile                      |    2 +
+ drivers/devfreq/devfreq.c                     |   27 +
+ drivers/devfreq/governor_passive.c            |    1 +
+ drivers/devfreq/governor_performance.c        |    1 +
+ drivers/devfreq/governor_powersave.c          |    1 +
+ drivers/devfreq/governor_remote.c             |   73 +
+ drivers/devfreq/governor_simpleondemand.c     |    1 +
+ drivers/devfreq/governor_userspace.c          |    1 +
+ drivers/devfreq/hisi_uncore_freq.c            |    1 +
+ drivers/devfreq/scmi-qcom-memlat-devfreq.c    | 1331 +++++++++++++++++
+ drivers/devfreq/tegra30-devfreq.c             |    3 +-
+ drivers/firmware/arm_scmi/Kconfig             |    1 +
+ drivers/firmware/arm_scmi/Makefile            |    1 +
+ .../firmware/arm_scmi/vendors/qcom/Kconfig    |   15 +
+ .../firmware/arm_scmi/vendors/qcom/Makefile   |    2 +
+ .../arm_scmi/vendors/qcom/qcom-generic-ext.c  |  183 +++
+ .../arm_scmi/vendors/qcom/qcom_generic.rst    |  954 ++++++++++++
+ include/linux/devfreq-governor.h              |    8 +
+ include/linux/devfreq.h                       |    1 +
+ include/linux/scmi_qcom_protocol.h            |   37 +
+ 21 files changed, 2666 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/devfreq/governor_remote.c
+ create mode 100644 drivers/devfreq/scmi-qcom-memlat-devfreq.c
+ create mode 100644 drivers/firmware/arm_scmi/vendors/qcom/Kconfig
+ create mode 100644 drivers/firmware/arm_scmi/vendors/qcom/Makefile
+ create mode 100644 drivers/firmware/arm_scmi/vendors/qcom/qcom-generic-ext.c
+ create mode 100644 drivers/firmware/arm_scmi/vendors/qcom/qcom_generic.rst
+ create mode 100644 include/linux/scmi_qcom_protocol.h
+
+diff --git a/drivers/devfreq/Kconfig b/drivers/devfreq/Kconfig
+index c999c4a..fdf6484 100644
+--- a/drivers/devfreq/Kconfig
++++ b/drivers/devfreq/Kconfig
+@@ -56,6 +56,14 @@ config DEVFREQ_GOV_POWERSAVE
+ 	  the DEVFREQ framework returns the lowest frequency available
+ 	  at any time.
+ 
++config DEVFREQ_GOV_REMOTE
++	tristate "Remote"
++	help
++	  A simple governor to track the frequency of devices whose
++	  dvfs control lies outside the kernel. This governor acts
++	  as an observer and provides for ways to track frequency and
++	  set/get information related to the remote dvfs device.
++
+ config DEVFREQ_GOV_USERSPACE
+ 	tristate "Userspace"
+ 	help
+@@ -161,6 +169,21 @@ config ARM_SUN8I_A33_MBUS_DEVFREQ
+ 	  This adds the DEVFREQ driver for the MBUS controller in some
+ 	  Allwinner sun8i (A33 through H3) and sun50i (A64 and H5) SoCs.
+ 
++config SCMI_QCOM_MEMLAT_DEVFREQ
++	tristate "Qualcomm SCMI memory latency (memlat) devfreq driver"
++	depends on QCOM_SCMI_GENERIC_EXT || COMPILE_TEST
++	select DEVFREQ_GOV_REMOTE
++	help
++	  Enable memory-bus (DDR/LLCC/DDR_QOS) scaling on Qualcomm Glymur,
++	  X1E/X1P-class and Kaanapali SoCs. The scaling algorithm itself runs
++	  autonomously on the CPU Control Processor (CPUCP); this driver only
++	  configures and starts it at boot and then exposes each bus as a
++	  devfreq device so its operating point is visible via trans_stat and
++	  tunable from userspace.
++
++	  Nothing else needs to be enabled for the scaling to take effect. Say Y
++	  or M here on the affected Qualcomm SoCs; otherwise say N.
++
+ source "drivers/devfreq/event/Kconfig"
+ 
+ endif # PM_DEVFREQ
+diff --git a/drivers/devfreq/Makefile b/drivers/devfreq/Makefile
+index 404179d..b11f94e 100644
+--- a/drivers/devfreq/Makefile
++++ b/drivers/devfreq/Makefile
+@@ -4,6 +4,7 @@ obj-$(CONFIG_PM_DEVFREQ_EVENT)	+= devfreq-event.o
+ obj-$(CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND)	+= governor_simpleondemand.o
+ obj-$(CONFIG_DEVFREQ_GOV_PERFORMANCE)	+= governor_performance.o
+ obj-$(CONFIG_DEVFREQ_GOV_POWERSAVE)	+= governor_powersave.o
++obj-$(CONFIG_DEVFREQ_GOV_REMOTE)	+= governor_remote.o
+ obj-$(CONFIG_DEVFREQ_GOV_USERSPACE)	+= governor_userspace.o
+ obj-$(CONFIG_DEVFREQ_GOV_PASSIVE)	+= governor_passive.o
+ 
+@@ -16,6 +17,7 @@ obj-$(CONFIG_ARM_MEDIATEK_CCI_DEVFREQ)	+= mtk-cci-devfreq.o
+ obj-$(CONFIG_ARM_RK3399_DMC_DEVFREQ)	+= rk3399_dmc.o
+ obj-$(CONFIG_ARM_SUN8I_A33_MBUS_DEVFREQ)	+= sun8i-a33-mbus.o
+ obj-$(CONFIG_ARM_TEGRA_DEVFREQ)		+= tegra30-devfreq.o
++obj-$(CONFIG_SCMI_QCOM_MEMLAT_DEVFREQ)	+= scmi-qcom-memlat-devfreq.o
+ 
+ # DEVFREQ Event Drivers
+ obj-$(CONFIG_PM_DEVFREQ_EVENT)		+= event/
+diff --git a/drivers/devfreq/devfreq.c b/drivers/devfreq/devfreq.c
+index 82dd9a4..216c126 100644
+--- a/drivers/devfreq/devfreq.c
++++ b/drivers/devfreq/devfreq.c
+@@ -348,6 +348,26 @@ static int devfreq_set_target(struct devfreq *devfreq, unsigned long new_freq,
+ 	unsigned long cur_freq;
+ 	int err = 0;
+ 
++	/*
++	 * When a remote agent (e.g. firmware) owns the frequency, skip the
++	 * local profile->target() call. Still emit the PRECHANGE/POSTCHANGE
++	 * pair and the trace event so that transition-notifier subscribers
++	 * (passive governor, devfreq cooling, etc.) and tracing observe the
++	 * frequency change exactly as they would on the normal path.
++	 */
++	if (devfreq->governor &&
++	    IS_SUPPORTED_FLAG(devfreq->governor->flags, TRACK_REMOTE)) {
++		freqs.old = devfreq->previous_freq;
++		freqs.new = new_freq;
++		devfreq_notify_transition(devfreq, &freqs, DEVFREQ_PRECHANGE);
++
++		if (trace_devfreq_frequency_enabled() && new_freq != freqs.old)
++			trace_devfreq_frequency(devfreq, new_freq, freqs.old);
++
++		devfreq_notify_transition(devfreq, &freqs, DEVFREQ_POSTCHANGE);
++		goto update_status;
++	}
++
+ 	if (devfreq->profile->get_cur_freq)
+ 		devfreq->profile->get_cur_freq(devfreq->dev.parent, &cur_freq);
+ 	else
+@@ -375,6 +395,7 @@ static int devfreq_set_target(struct devfreq *devfreq, unsigned long new_freq,
+ 	freqs.new = new_freq;
+ 	devfreq_notify_transition(devfreq, &freqs, DEVFREQ_POSTCHANGE);
+ 
++update_status:
+ 	if (devfreq_update_status(devfreq, new_freq))
+ 		dev_warn(&devfreq->dev,
+ 			 "Couldn't update frequency transition information.\n");
+@@ -1562,6 +1583,12 @@ static ssize_t target_freq_show(struct device *dev,
+ {
+ 	struct devfreq *df = to_devfreq(dev);
+ 
++	guard(mutex)(&devfreq_list_lock);
++
++	if (!df->profile || !df->governor ||
++	    !IS_SUPPORTED_ATTR(df->governor->attrs, TARGET_FREQ))
++		return -EINVAL;
++
+ 	return sprintf(buf, "%lu\n", df->previous_freq);
+ }
+ static DEVICE_ATTR_RO(target_freq);
+diff --git a/drivers/devfreq/governor_passive.c b/drivers/devfreq/governor_passive.c
+index d7feecd..b75e4bb 100644
+--- a/drivers/devfreq/governor_passive.c
++++ b/drivers/devfreq/governor_passive.c
+@@ -448,6 +448,7 @@ static int devfreq_passive_event_handler(struct devfreq *devfreq,
+ 
+ static struct devfreq_governor devfreq_passive = {
+ 	.name = DEVFREQ_GOV_PASSIVE,
++	.attrs = DEVFREQ_GOV_ATTR_TARGET_FREQ,
+ 	.flags = DEVFREQ_GOV_FLAG_IMMUTABLE,
+ 	.get_target_freq = devfreq_passive_get_target_freq,
+ 	.event_handler = devfreq_passive_event_handler,
+diff --git a/drivers/devfreq/governor_performance.c b/drivers/devfreq/governor_performance.c
+index fdb22bf..b9ec587 100644
+--- a/drivers/devfreq/governor_performance.c
++++ b/drivers/devfreq/governor_performance.c
+@@ -37,6 +37,7 @@ static int devfreq_performance_handler(struct devfreq *devfreq,
+ 
+ static struct devfreq_governor devfreq_performance = {
+ 	.name = DEVFREQ_GOV_PERFORMANCE,
++	.attrs = DEVFREQ_GOV_ATTR_TARGET_FREQ,
+ 	.get_target_freq = devfreq_performance_func,
+ 	.event_handler = devfreq_performance_handler,
+ };
+diff --git a/drivers/devfreq/governor_powersave.c b/drivers/devfreq/governor_powersave.c
+index ee2d6ec..69eab1d 100644
+--- a/drivers/devfreq/governor_powersave.c
++++ b/drivers/devfreq/governor_powersave.c
+@@ -37,6 +37,7 @@ static int devfreq_powersave_handler(struct devfreq *devfreq,
+ 
+ static struct devfreq_governor devfreq_powersave = {
+ 	.name = DEVFREQ_GOV_POWERSAVE,
++	.attrs = DEVFREQ_GOV_ATTR_TARGET_FREQ,
+ 	.get_target_freq = devfreq_powersave_func,
+ 	.event_handler = devfreq_powersave_handler,
+ };
+diff --git a/drivers/devfreq/governor_remote.c b/drivers/devfreq/governor_remote.c
+new file mode 100644
+index 0000000..df38197
+--- /dev/null
++++ b/drivers/devfreq/governor_remote.c
+@@ -0,0 +1,73 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
++ */
++
++#include <linux/errno.h>
++#include <linux/module.h>
++#include <linux/devfreq.h>
++#include <linux/devfreq-governor.h>
++
++static int devfreq_remote_track_func(struct devfreq *devfreq, unsigned long *freq)
++{
++	if (!devfreq->profile->get_cur_freq)
++		return -ENXIO;
++
++	return devfreq->profile->get_cur_freq(devfreq->dev.parent, freq);
++}
++
++static int devfreq_remote_track_handler(struct devfreq *devfreq, unsigned int event, void *data)
++{
++	switch (event) {
++	case DEVFREQ_GOV_START:
++		devfreq_monitor_start(devfreq);
++		break;
++
++	case DEVFREQ_GOV_STOP:
++		devfreq_monitor_stop(devfreq);
++		break;
++
++	case DEVFREQ_GOV_UPDATE_INTERVAL:
++		devfreq_update_interval(devfreq, (unsigned int *)data);
++		break;
++
++	case DEVFREQ_GOV_SUSPEND:
++		devfreq_monitor_suspend(devfreq);
++		break;
++
++	case DEVFREQ_GOV_RESUME:
++		devfreq_monitor_resume(devfreq);
++		break;
++	}
++
++	return 0;
++}
++
++static struct devfreq_governor devfreq_remote_track = {
++	.name = DEVFREQ_GOV_REMOTE,
++	.attrs = DEVFREQ_GOV_ATTR_POLLING_INTERVAL
++		| DEVFREQ_GOV_ATTR_TIMER,
++	.flags = DEVFREQ_GOV_FLAG_IMMUTABLE
++		| DEVFREQ_GOV_FLAG_TRACK_REMOTE,
++	.get_target_freq = devfreq_remote_track_func,
++	.event_handler = devfreq_remote_track_handler,
++};
++
++static int __init devfreq_remote_track_init(void)
++{
++	return devfreq_add_governor(&devfreq_remote_track);
++}
++subsys_initcall(devfreq_remote_track_init);
++
++static void __exit devfreq_remote_track_exit(void)
++{
++	int ret;
++
++	ret = devfreq_remove_governor(&devfreq_remote_track);
++	if (ret)
++		pr_err("%s: failed to remove governor %d\n", __func__, ret);
++}
++module_exit(devfreq_remote_track_exit);
++
++MODULE_DESCRIPTION("DEVFREQ Remote Tracking governor");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/devfreq/governor_simpleondemand.c b/drivers/devfreq/governor_simpleondemand.c
+index ac9c5e9..65ff9d9 100644
+--- a/drivers/devfreq/governor_simpleondemand.c
++++ b/drivers/devfreq/governor_simpleondemand.c
+@@ -118,6 +118,7 @@ static int devfreq_simple_ondemand_handler(struct devfreq *devfreq,
+ static struct devfreq_governor devfreq_simple_ondemand = {
+ 	.name = DEVFREQ_GOV_SIMPLE_ONDEMAND,
+ 	.attrs = DEVFREQ_GOV_ATTR_POLLING_INTERVAL
++		| DEVFREQ_GOV_ATTR_TARGET_FREQ
+ 		| DEVFREQ_GOV_ATTR_TIMER,
+ 	.get_target_freq = devfreq_simple_ondemand_func,
+ 	.event_handler = devfreq_simple_ondemand_handler,
+diff --git a/drivers/devfreq/governor_userspace.c b/drivers/devfreq/governor_userspace.c
+index 3906ebe..d1b765a 100644
+--- a/drivers/devfreq/governor_userspace.c
++++ b/drivers/devfreq/governor_userspace.c
+@@ -135,6 +135,7 @@ static int devfreq_userspace_handler(struct devfreq *devfreq,
+ 
+ static struct devfreq_governor devfreq_userspace = {
+ 	.name = DEVFREQ_GOV_USERSPACE,
++	.attrs = DEVFREQ_GOV_ATTR_TARGET_FREQ,
+ 	.get_target_freq = devfreq_userspace_func,
+ 	.event_handler = devfreq_userspace_handler,
+ };
+diff --git a/drivers/devfreq/hisi_uncore_freq.c b/drivers/devfreq/hisi_uncore_freq.c
+index ac55641..1e67f75 100644
+--- a/drivers/devfreq/hisi_uncore_freq.c
++++ b/drivers/devfreq/hisi_uncore_freq.c
+@@ -398,6 +398,7 @@ static struct devfreq_governor hisi_platform_governor = {
+ 	 * Set interrupt_driven to skip the devfreq monitor mechanism, though
+ 	 * this governor is not interrupt-driven.
+ 	 */
++	.attrs = DEVFREQ_GOV_ATTR_TARGET_FREQ,
+ 	.flags = DEVFREQ_GOV_FLAG_IRQ_DRIVEN,
+ 	.get_target_freq = hisi_platform_gov_func,
+ 	.event_handler = hisi_platform_gov_handler,
+diff --git a/drivers/devfreq/scmi-qcom-memlat-devfreq.c b/drivers/devfreq/scmi-qcom-memlat-devfreq.c
+new file mode 100644
+index 0000000..9ca85b2
+--- /dev/null
++++ b/drivers/devfreq/scmi-qcom-memlat-devfreq.c
+@@ -0,0 +1,1331 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
++ */
++
++#include <linux/cpu.h>
++#include <linux/devfreq.h>
++#include <linux/device/faux.h>
++#include <linux/err.h>
++#include <linux/errno.h>
++#include <linux/init.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/pm_opp.h>
++#include <linux/scmi_protocol.h>
++#include <linux/scmi_qcom_protocol.h>
++#include <linux/units.h>
++
++/* CPUCP AMU event indices programmed into the common/group event maps. */
++#define MEMLAT_EV_CPU_CYCLES		0
++#define MEMLAT_EV_CNT_CYCLES		1
++#define MEMLAT_EV_INST_RETIRED		2
++#define MEMLAT_EV_STALL_BACKEND_MEM	3
++#define MEMLAT_EV_L2_D_RFILL		5
++
++/* Sentinel for an event slot that is not wired to any AMU counter. */
++#define MEMLAT_INVALID_IDX		0xff
++
++/* hw_type value that targets every group (common events are not group-scoped). */
++#define MEMLAT_HW_TYPE_ALL		0xff
++
++#define MEMLAT_ALGO_STR			0x4d454d4c4154ULL /* "MEMLAT" */
++
++/**
++ * struct scmi_qcom_map_table - one row of a monitor's cpufreq->memfreq map
++ * @cpu_freq_mhz: CPU frequency threshold, in MHz. When the monitor's busiest
++ *                CPU is at or above this frequency, the firmware votes the
++ *                paired memory frequency.
++ * @mem_freq_mhz: memory frequency to vote, in MHz (a 0/1 level for DDR_QOS).
++ */
++struct scmi_qcom_map_table {
++	unsigned int cpu_freq_mhz;
++	unsigned int mem_freq_mhz;
++};
++
++struct scmi_qcom_opp_data {
++	u64 freq;
++};
++
++struct scmi_qcom_memory_range {
++	unsigned int min_freq_khz;
++	unsigned int max_freq_khz;
++};
++
++enum common_ev_idx {
++	INST_IDX,
++	CYC_IDX,
++	CONST_CYC_IDX,
++	FE_STALL_IDX,
++	BE_STALL_IDX,
++	NUM_COMMON_EVS
++};
++
++enum grp_ev_idx {
++	MISS_IDX,
++	WB_IDX,
++	ACC_IDX,
++	NUM_GRP_EVS
++};
++
++/*
++ * hw_type identifiers for the memory buses. These are a firmware-defined
++ * encoding carried in the node/scalar/map/ev messages; the driver only
++ * mirrors them here.
++ */
++enum scmi_qcom_memlat_hw_type {
++	MEMLAT_HW_DDR			= 0,
++	MEMLAT_HW_LLCC			= 1,
++	MEMLAT_HW_DDR_QOS_COMPUTE	= 2,
++	MEMLAT_HW_DDR_QOS_MOBILE	= 3,
++};
++
++/**
++ * struct scmi_qcom_monitor_cfg - per-monitor firmware tuneables
++ * @table: cpufreq->memfreq voting map for this monitor.
++ * @name: monitor name, forwarded to the firmware and used in its log lines.
++ * @be_stall_floor: back-end-stall gating threshold, in percent. Each sample
++ *                  window the firmware computes a per-CPU back-end-stall
++ *                  percentage (stall cycles / total cycles); a CPU only
++ *                  contributes its frequency vote to this monitor when that
++ *                  percentage is at or above @be_stall_floor. A value of 1
++ *                  therefore means "any stall counts", i.e. the CPU is
++ *                  effectively always eligible.
++ * @cpu_mask: bitmask of CPUs whose counters this monitor aggregates.
++ * @ipm_ceil: instructions-per-miss ceiling. A CPU is treated as
++ *            memory-latency-bound (and eligible to vote) only when its IPM is
++ *            at or below this ceiling; a monitor with @ipm_ceil == 0 is a
++ *            "compute" monitor and scales passively with cpufreq.
++ * @table_len: number of valid rows in @table.
++ */
++struct scmi_qcom_monitor_cfg {
++	const struct scmi_qcom_map_table *table;
++	const char *name;
++	u32 be_stall_floor;
++	u32 cpu_mask;
++	u32 ipm_ceil;
++	u32 table_len;
++};
++
++struct scmi_qcom_memory_cfg {
++	const struct scmi_qcom_monitor_cfg *monitor_cfg;
++	const struct scmi_qcom_opp_data *mem_table;
++	struct scmi_qcom_memory_range memory_range;
++	const u32 *grp_ev;
++	const char *name;
++	enum scmi_qcom_memlat_hw_type memory_type;
++	u32 monitor_cnt;
++	u32 num_opps;
++};
++
++struct scmi_qcom_memlat_cfg_data {
++	const struct scmi_qcom_memory_cfg *memory_cfg;
++	const u32 *common_ev;
++	bool cpucp_legacy_freq_method;
++	u32 cpucp_sample_ms;
++	u32 memory_cnt;
++};
++
++#define MEMLAT_MAX_NAME_LEN			20
++#define MEMLAT_MAX_MAP_ENTRIES		10
++
++/*
++ * param_ids of the "MEMLAT" algo_str hosted by the Qualcomm Generic Vendor
++ * Protocol. MEMLAT detects memory-latency-bound workloads and scales the
++ * memory buses accordingly; these are the fixed wire-protocol tokens that
++ * the firmware matches.
++ *
++ * MEMLAT_SET_MEM_GROUP: initializes the frequency/level scaling functions for the memory bus.
++ * MEMLAT_SET_MONITOR: configures the monitor to work on a specific memory bus.
++ * MEMLAT_SET_COMMON_EV_MAP: set up common counters used to monitor the cpu frequency.
++ * MEMLAT_SET_GRP_EV_MAP: set up any specific counters used to monitor the memory bus.
++ * MEMLAT_ADAPTIVE_LOW_FREQ: set the adaptive low frequency floor of the memory bus.
++ * MEMLAT_ADAPTIVE_HIGH_FREQ: set the adaptive high frequency floor of the memory bus.
++ * MEMLAT_GET_ADAPTIVE_CUR_FREQ: query the current adaptive frequency of the memory bus.
++ * MEMLAT_IPM_CEIL: set the IPM (Instruction Per Misses) ceiling per monitor.
++ * MEMLAT_FE_STALL_FLOOR: set the front-end stall floor per monitor.
++ * MEMLAT_BE_STALL_FLOOR: set the back-end stall floor per monitor.
++ * MEMLAT_WB_PCT: set the write-back percentage threshold per monitor.
++ * MEMLAT_IPM_FILTER: set the IPM filter used to reject non-latency samples per monitor.
++ * MEMLAT_FREQ_SCALE_PCT: set the frequency scaling percentage per monitor.
++ * MEMLAT_FREQ_SCALE_CEIL_MHZ: set the cpu frequency ceiling for scaling per monitor.
++ * MEMLAT_FREQ_SCALE_FLOOR_MHZ: set the cpu frequency floor for scaling per monitor.
++ * MEMLAT_SAMPLE_MS: set the sampling period for all the monitors.
++ * MEMLAT_MON_FREQ_MAP: setup the cpufreq to memfreq map.
++ * MEMLAT_SET_MIN_FREQ: set the min frequency of the memory bus.
++ * MEMLAT_SET_MAX_FREQ: set the max frequency of the memory bus.
++ * MEMLAT_GET_CUR_FREQ: query the current frequency/level of the memory bus.
++ * MEMLAT_START_TIMER: start all the monitors with the requested sampling period.
++ * MEMLAT_STOP_TIMER: stop all the running monitors.
++ * MEMLAT_GET_TIMESTAMP: query the firmware timestamp.
++ * MEMLAT_SET_EFFECTIVE_FREQ_METHOD: set the method used to determine cpu frequency.
++ */
++#define MEMLAT_SET_MEM_GROUP			16
++#define MEMLAT_SET_MONITOR				17
++#define MEMLAT_SET_COMMON_EV_MAP		18
++#define MEMLAT_SET_GRP_EV_MAP			19
++#define MEMLAT_ADAPTIVE_LOW_FREQ		20
++#define MEMLAT_ADAPTIVE_HIGH_FREQ		21
++#define MEMLAT_GET_ADAPTIVE_CUR_FREQ	22
++#define MEMLAT_IPM_CEIL					23
++#define MEMLAT_FE_STALL_FLOOR			24
++#define MEMLAT_BE_STALL_FLOOR			25
++#define MEMLAT_WB_PCT					26
++#define MEMLAT_IPM_FILTER				27
++#define MEMLAT_FREQ_SCALE_PCT			28
++#define MEMLAT_FREQ_SCALE_CEIL_MHZ		29
++#define MEMLAT_FREQ_SCALE_FLOOR_MHZ		30
++#define MEMLAT_SAMPLE_MS				31
++#define MEMLAT_MON_FREQ_MAP				32
++#define MEMLAT_SET_MIN_FREQ				33
++#define MEMLAT_SET_MAX_FREQ				34
++#define MEMLAT_GET_CUR_FREQ				35
++#define MEMLAT_START_TIMER				36
++#define MEMLAT_STOP_TIMER				37
++#define MEMLAT_GET_TIMESTAMP			38
++#define MEMLAT_SET_EFFECTIVE_FREQ_METHOD 39
++
++struct cpucp_map_table {
++	__le16 cpu_freq_mhz;
++	__le16 mem_freq_mhz;
++};
++
++struct map_param_msg {
++	__le32 hw_type;
++	__le32 mon_idx;
++	__le32 nr_rows;
++	struct cpucp_map_table tbl[MEMLAT_MAX_MAP_ENTRIES];
++};
++
++struct node_msg {
++	__le32 cpumask;
++	__le32 hw_type;
++	__le32 mon_type;
++	__le32 mon_idx;
++	char mon_name[MEMLAT_MAX_NAME_LEN];
++};
++
++struct scalar_param_msg {
++	__le32 hw_type;
++	__le32 mon_idx;
++	__le32 val;
++};
++
++struct ev_map_msg {
++	__le32 num_evs;
++	__le32 hw_type;
++	__le32 cid[NUM_COMMON_EVS];
++};
++
++/*
++ * MEMLAT_GET_CUR_FREQ reuses the request buffer for its response, so express
++ * the in/out aliasing as a union rather than reinterpreting the bytes.
++ */
++union cur_freq_msg {
++	struct scalar_param_msg req;
++	__le32 resp;
++};
++
++struct scmi_qcom_memory_info {
++	const struct scmi_qcom_memory_cfg *cfg;
++	struct devfreq_dev_profile profile;
++	struct devfreq *devfreq;
++	struct faux_device *fdev;
++	struct scmi_protocol_handle *ph;
++	const struct qcom_generic_ext_ops *ops;
++};
++
++struct scmi_qcom_memlat_info {
++	struct scmi_protocol_handle *ph;
++	const struct qcom_generic_ext_ops *ops;
++	const struct scmi_qcom_memlat_cfg_data *cfg_data;
++	struct scmi_qcom_memory_info **memory;
++	u32 memory_cnt;
++};
++
++/*
++ * ==========================================================================
++ * Per-SoC configuration
++ * ==========================================================================
++ */
++
++static const u32 glymur_common_ev[NUM_COMMON_EVS] = {
++	[INST_IDX]      = MEMLAT_EV_INST_RETIRED,
++	[CYC_IDX]       = MEMLAT_EV_CPU_CYCLES,
++	[CONST_CYC_IDX] = MEMLAT_EV_CNT_CYCLES,
++	[FE_STALL_IDX]  = MEMLAT_INVALID_IDX,
++	[BE_STALL_IDX]  = MEMLAT_EV_STALL_BACKEND_MEM,
++};
++
++static const u32 glymur_ddr_grp_ev[NUM_GRP_EVS] = {
++	[MISS_IDX] = MEMLAT_EV_L2_D_RFILL,
++	[WB_IDX]   = MEMLAT_INVALID_IDX,
++	[ACC_IDX]  = MEMLAT_INVALID_IDX,
++};
++
++static const u32 glymur_llcc_grp_ev[NUM_GRP_EVS] = {
++	[MISS_IDX] = MEMLAT_EV_L2_D_RFILL,
++	[WB_IDX]   = MEMLAT_INVALID_IDX,
++	[ACC_IDX]  = MEMLAT_INVALID_IDX,
++};
++
++static const u32 glymur_ddr_qos_grp_ev[NUM_GRP_EVS] = {
++	[MISS_IDX] = MEMLAT_EV_L2_D_RFILL,
++	[WB_IDX]   = MEMLAT_INVALID_IDX,
++	[ACC_IDX]  = MEMLAT_INVALID_IDX,
++};
++
++static const u32 hamoa_common_ev[NUM_COMMON_EVS] = {
++	[INST_IDX]      = MEMLAT_EV_INST_RETIRED,
++	[CYC_IDX]       = MEMLAT_EV_CPU_CYCLES,
++	[CONST_CYC_IDX] = MEMLAT_EV_CNT_CYCLES,
++	[FE_STALL_IDX]  = MEMLAT_INVALID_IDX,
++	[BE_STALL_IDX]  = MEMLAT_EV_STALL_BACKEND_MEM,
++};
++
++static const u32 hamoa_ddr_grp_ev[NUM_GRP_EVS] = {
++	[MISS_IDX] = MEMLAT_EV_L2_D_RFILL,
++	[WB_IDX]   = MEMLAT_INVALID_IDX,
++	[ACC_IDX]  = MEMLAT_INVALID_IDX,
++};
++
++static const u32 hamoa_llcc_grp_ev[NUM_GRP_EVS] = {
++	[MISS_IDX] = MEMLAT_EV_L2_D_RFILL,
++	[WB_IDX]   = MEMLAT_INVALID_IDX,
++	[ACC_IDX]  = MEMLAT_INVALID_IDX,
++};
++
++static const u32 hamoa_ddr_qos_grp_ev[NUM_GRP_EVS] = {
++	[MISS_IDX] = MEMLAT_EV_L2_D_RFILL,
++	[WB_IDX]   = MEMLAT_INVALID_IDX,
++	[ACC_IDX]  = MEMLAT_INVALID_IDX,
++};
++
++static const u32 kaanapali_common_ev[NUM_COMMON_EVS] = {
++	[INST_IDX]      = MEMLAT_EV_INST_RETIRED,
++	[CYC_IDX]       = MEMLAT_EV_CPU_CYCLES,
++	[CONST_CYC_IDX] = MEMLAT_INVALID_IDX,
++	[FE_STALL_IDX]  = MEMLAT_INVALID_IDX,
++	[BE_STALL_IDX]  = MEMLAT_INVALID_IDX,
++};
++
++static const u32 kaanapali_ddr_grp_ev[NUM_GRP_EVS] = {
++	[MISS_IDX] = MEMLAT_EV_L2_D_RFILL,
++	[WB_IDX]   = MEMLAT_INVALID_IDX,
++	[ACC_IDX]  = MEMLAT_INVALID_IDX,
++};
++
++static const u32 kaanapali_llcc_grp_ev[NUM_GRP_EVS] = {
++	[MISS_IDX] = MEMLAT_EV_L2_D_RFILL,
++	[WB_IDX]   = MEMLAT_INVALID_IDX,
++	[ACC_IDX]  = MEMLAT_INVALID_IDX,
++};
++
++static const u32 kaanapali_ddr_qos_grp_ev[NUM_GRP_EVS] = {
++	[MISS_IDX] = MEMLAT_EV_L2_D_RFILL,
++	[WB_IDX]   = MEMLAT_INVALID_IDX,
++	[ACC_IDX]  = MEMLAT_INVALID_IDX,
++};
++
++static const struct scmi_qcom_opp_data glymur_llcc_table[] = {
++	{ .freq = 315000000 },
++	{ .freq = 479000000 },
++	{ .freq = 545000000 },
++	{ .freq = 725000000 },
++	{ .freq = 840000000 },
++	{ .freq = 959000000 },
++	{ .freq = 1090000000 },
++	{ .freq = 1211000000 },
++};
++
++static const struct scmi_qcom_opp_data hamoa_llcc_table[] = {
++	{ .freq = 300000000 },
++	{ .freq = 466000000 },
++	{ .freq = 600000000 },
++	{ .freq = 806000000 },
++	{ .freq = 933000000 },
++	{ .freq = 1066000000 },
++};
++
++static const struct scmi_qcom_opp_data kaanapali_llcc_table[] = {
++	{ .freq = 282000000 },
++	{ .freq = 350000000 },
++	{ .freq = 533000000 },
++	{ .freq = 605600000 },
++	{ .freq = 806000000 },
++	{ .freq = 933000000 },
++	{ .freq = 1066000000 },
++	{ .freq = 1211000000 },
++	{ .freq = 1350000000 },
++};
++
++static const struct scmi_qcom_opp_data glymur_ddr_table[] = {
++	{ .freq = 200000000 },
++	{ .freq = 547000000 },
++	{ .freq = 1353000000 },
++	{ .freq = 1555000000 },
++	{ .freq = 1708000000 },
++	{ .freq = 2092000000 },
++	{ .freq = 2736000000 },
++	{ .freq = 3187000000 },
++	{ .freq = 3686000000 },
++	{ .freq = 4224000000 },
++	{ .freq = 4761000000 },
++};
++
++static const struct scmi_qcom_opp_data hamoa_ddr_table[] = {
++	{ .freq = 200000000 },
++	{ .freq = 547000000 },
++	{ .freq = 768000000 },
++	{ .freq = 1555000000 },
++	{ .freq = 1708000000 },
++	{ .freq = 2092000000 },
++	{ .freq = 2736000000 },
++	{ .freq = 3187000000 },
++	{ .freq = 3686000000 },
++	{ .freq = 4224000000 },
++};
++
++static const struct scmi_qcom_opp_data kaanapali_ddr_table[] = {
++	{ .freq = 547000000 },
++	{ .freq = 1353000000 },
++	{ .freq = 1555000000 },
++	{ .freq = 1708000000 },
++	{ .freq = 2092000000 },
++	{ .freq = 2736000000 },
++	{ .freq = 3187000000 },
++	{ .freq = 3686000000 },
++	{ .freq = 4224000000 },
++	{ .freq = 4780000000 },
++	{ .freq = 5333000000 },
++};
++
++/*
++ * DDR_QOS is a boolean bus: the firmware reports level 0 (nominal) or 1
++ * (boost) rather than a frequency. dev_pm_opp_add_dynamic() rejects a zero
++ * frequency, so the two OPP entries below use 1 and 100 purely as distinct,
++ * non-zero devfreq keys for the two levels; the values are not real
++ * frequencies. scmi_qcom_devfreq_get_cur_freq() maps the reported level back
++ * to the matching OPP frequency.
++ */
++static const struct scmi_qcom_opp_data glymur_ddr_qos_table[] = {
++	{ .freq = 1 },
++	{ .freq = 100 },
++};
++
++static const struct scmi_qcom_memory_cfg glymur_memory_cfg[] = {
++	{
++		.memory_type = MEMLAT_HW_DDR,
++		.name = "ddr",
++		.mem_table = glymur_ddr_table,
++		.num_opps = ARRAY_SIZE(glymur_ddr_table),
++		.grp_ev = glymur_ddr_grp_ev,
++		.monitor_cnt = 4,
++		.memory_range = { .min_freq_khz = 547000, .max_freq_khz = 4761000 },
++		.monitor_cfg = (const struct scmi_qcom_monitor_cfg[]) {
++			{
++				.name = "mon_0",
++				.cpu_mask = 0x3f,
++				.ipm_ceil = 60000000,
++				.be_stall_floor = 1,
++				.table_len = 8,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 960, .mem_freq_mhz = 547 },
++					{ .cpu_freq_mhz = 1133, .mem_freq_mhz = 1353 },
++					{ .cpu_freq_mhz = 1594, .mem_freq_mhz = 1555 },
++					{ .cpu_freq_mhz = 1920, .mem_freq_mhz = 1708 },
++					{ .cpu_freq_mhz = 2228, .mem_freq_mhz = 2736 },
++					{ .cpu_freq_mhz = 2362, .mem_freq_mhz = 3187 },
++					{ .cpu_freq_mhz = 2650, .mem_freq_mhz = 3686 },
++					{ .cpu_freq_mhz = 2938, .mem_freq_mhz = 4761 },
++				}
++			},
++			{
++				.name = "mon_1",
++				.cpu_mask = 0xfc0,
++				.ipm_ceil = 60000000,
++				.be_stall_floor = 1,
++				.table_len = 8,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 356, .mem_freq_mhz = 547 },
++					{ .cpu_freq_mhz = 1018, .mem_freq_mhz = 1353 },
++					{ .cpu_freq_mhz = 1536, .mem_freq_mhz = 1555 },
++					{ .cpu_freq_mhz = 1748, .mem_freq_mhz = 1708 },
++					{ .cpu_freq_mhz = 2324, .mem_freq_mhz = 2736 },
++					{ .cpu_freq_mhz = 2496, .mem_freq_mhz = 3187 },
++					{ .cpu_freq_mhz = 2900, .mem_freq_mhz = 3686 },
++					{ .cpu_freq_mhz = 3514, .mem_freq_mhz = 4761 },
++				}
++			},
++			{
++				.name = "mon_2",
++				.cpu_mask = 0x3f000,
++				.ipm_ceil = 60000000,
++				.be_stall_floor = 1,
++				.table_len = 8,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 356, .mem_freq_mhz = 547 },
++					{ .cpu_freq_mhz = 1018, .mem_freq_mhz = 1353 },
++					{ .cpu_freq_mhz = 1536, .mem_freq_mhz = 1555 },
++					{ .cpu_freq_mhz = 1748, .mem_freq_mhz = 1708 },
++					{ .cpu_freq_mhz = 2324, .mem_freq_mhz = 2736 },
++					{ .cpu_freq_mhz = 2496, .mem_freq_mhz = 3187 },
++					{ .cpu_freq_mhz = 2900, .mem_freq_mhz = 3686 },
++					{ .cpu_freq_mhz = 3514, .mem_freq_mhz = 4761 },
++				}
++			},
++			{
++				.name = "mon_3",
++				.cpu_mask = 0x3ffff,
++				.table_len = 4,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 2823, .mem_freq_mhz = 547 },
++					{ .cpu_freq_mhz = 3034, .mem_freq_mhz = 1555 },
++					{ .cpu_freq_mhz = 3226, .mem_freq_mhz = 1708 },
++					{ .cpu_freq_mhz = 5012, .mem_freq_mhz = 2092 },
++				}
++			},
++		},
++	},
++	{
++		.memory_type = MEMLAT_HW_LLCC,
++		.name = "llcc",
++		.mem_table = glymur_llcc_table,
++		.num_opps = ARRAY_SIZE(glymur_llcc_table),
++		.grp_ev = glymur_llcc_grp_ev,
++		.monitor_cnt = 3,
++		.memory_range = { .min_freq_khz = 315000, .max_freq_khz = 1211000 },
++		.monitor_cfg = (const struct scmi_qcom_monitor_cfg[]) {
++			{
++				.name = "mon_0",
++				.cpu_mask = 0x3f,
++				.ipm_ceil = 60000000,
++				.be_stall_floor = 1,
++				.table_len = 7,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 960, .mem_freq_mhz = 315 },
++					{ .cpu_freq_mhz = 1113, .mem_freq_mhz = 479 },
++					{ .cpu_freq_mhz = 1594, .mem_freq_mhz = 545 },
++					{ .cpu_freq_mhz = 1920, .mem_freq_mhz = 725 },
++					{ .cpu_freq_mhz = 2362, .mem_freq_mhz = 840 },
++					{ .cpu_freq_mhz = 2650, .mem_freq_mhz = 959 },
++					{ .cpu_freq_mhz = 2938, .mem_freq_mhz = 1211 },
++				}
++			},
++			{
++				.name = "mon_1",
++				.cpu_mask = 0xfc0,
++				.ipm_ceil = 60000000,
++				.be_stall_floor = 1,
++				.table_len = 7,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 356, .mem_freq_mhz = 315 },
++					{ .cpu_freq_mhz = 1018, .mem_freq_mhz = 479 },
++					{ .cpu_freq_mhz = 1536, .mem_freq_mhz = 545 },
++					{ .cpu_freq_mhz = 1748, .mem_freq_mhz = 725 },
++					{ .cpu_freq_mhz = 2496, .mem_freq_mhz = 840 },
++					{ .cpu_freq_mhz = 2900, .mem_freq_mhz = 959 },
++					{ .cpu_freq_mhz = 3514, .mem_freq_mhz = 1211 },
++				}
++			},
++			{
++				.name = "mon_2",
++				.cpu_mask = 0x3f000,
++				.ipm_ceil = 60000000,
++				.be_stall_floor = 1,
++				.table_len = 7,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 356, .mem_freq_mhz = 315 },
++					{ .cpu_freq_mhz = 1018, .mem_freq_mhz = 479 },
++					{ .cpu_freq_mhz = 1536, .mem_freq_mhz = 545 },
++					{ .cpu_freq_mhz = 1748, .mem_freq_mhz = 725 },
++					{ .cpu_freq_mhz = 2496, .mem_freq_mhz = 840 },
++					{ .cpu_freq_mhz = 2900, .mem_freq_mhz = 959 },
++					{ .cpu_freq_mhz = 3514, .mem_freq_mhz = 1211 },
++				}
++			},
++		},
++	},
++	{
++		.memory_type = MEMLAT_HW_DDR_QOS_COMPUTE,
++		.name = "ddr-qos",
++		.monitor_cnt = 3,
++		.mem_table = glymur_ddr_qos_table,
++		.num_opps = ARRAY_SIZE(glymur_ddr_qos_table),
++		.grp_ev = glymur_ddr_qos_grp_ev,
++		.memory_range = { .min_freq_khz = 0, .max_freq_khz = 1 },
++		.monitor_cfg = (const struct scmi_qcom_monitor_cfg[]) {
++			{
++				.name = "mon_0",
++				.cpu_mask = 0x3f,
++				.ipm_ceil = 80000000,
++				.be_stall_floor = 1,
++				.table_len = 2,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 2362, .mem_freq_mhz = 0 },
++					{ .cpu_freq_mhz = 2938, .mem_freq_mhz = 1 },
++				}
++			},
++			{
++				.name = "mon_1",
++				.cpu_mask = 0xfc0,
++				.ipm_ceil = 80000000,
++				.be_stall_floor = 1,
++				.table_len = 2,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 2496, .mem_freq_mhz = 0 },
++					{ .cpu_freq_mhz = 3514, .mem_freq_mhz = 1 },
++				}
++			},
++			{
++				.name = "mon_2",
++				.cpu_mask = 0x3f000,
++				.ipm_ceil = 80000000,
++				.be_stall_floor = 1,
++				.table_len = 2,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 2496, .mem_freq_mhz = 0 },
++					{ .cpu_freq_mhz = 3514, .mem_freq_mhz = 1 },
++				}
++			},
++		},
++	},
++};
++
++static const struct scmi_qcom_memory_cfg hamoa_memory_cfg[] = {
++	{
++		.memory_type = MEMLAT_HW_DDR,
++		.name = "ddr",
++		.mem_table = hamoa_ddr_table,
++		.num_opps = ARRAY_SIZE(hamoa_ddr_table),
++		.grp_ev = hamoa_ddr_grp_ev,
++		.monitor_cnt = 4,
++		.memory_range = { .min_freq_khz = 200000, .max_freq_khz = 4224000 },
++		.monitor_cfg = (const struct scmi_qcom_monitor_cfg[]) {
++			{
++				.name = "mon_0",
++				.cpu_mask = 0xf,
++				.ipm_ceil = 20000000,
++				.be_stall_floor = 1,
++				.table_len = 6,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 999, .mem_freq_mhz = 547 },
++					{ .cpu_freq_mhz = 1440, .mem_freq_mhz = 768 },
++					{ .cpu_freq_mhz = 1671, .mem_freq_mhz = 1555 },
++					{ .cpu_freq_mhz = 2189, .mem_freq_mhz = 2092 },
++					{ .cpu_freq_mhz = 2516, .mem_freq_mhz = 3187 },
++					{ .cpu_freq_mhz = 3860, .mem_freq_mhz = 4224 },
++				}
++			},
++			{
++				.name = "mon_1",
++				.cpu_mask = 0xf0,
++				.ipm_ceil = 20000000,
++				.be_stall_floor = 1,
++				.table_len = 6,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 999, .mem_freq_mhz = 547 },
++					{ .cpu_freq_mhz = 1440, .mem_freq_mhz = 768 },
++					{ .cpu_freq_mhz = 1671, .mem_freq_mhz = 1555 },
++					{ .cpu_freq_mhz = 2189, .mem_freq_mhz = 2092 },
++					{ .cpu_freq_mhz = 2516, .mem_freq_mhz = 3187 },
++					{ .cpu_freq_mhz = 3860, .mem_freq_mhz = 4224 },
++				}
++			},
++			{
++				.name = "mon_2",
++				.cpu_mask = 0xf00,
++				.ipm_ceil = 20000000,
++				.be_stall_floor = 1,
++				.table_len = 6,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 999, .mem_freq_mhz = 547 },
++					{ .cpu_freq_mhz = 1440, .mem_freq_mhz = 768 },
++					{ .cpu_freq_mhz = 1671, .mem_freq_mhz = 1555 },
++					{ .cpu_freq_mhz = 2189, .mem_freq_mhz = 2092 },
++					{ .cpu_freq_mhz = 2516, .mem_freq_mhz = 3187 },
++					{ .cpu_freq_mhz = 3860, .mem_freq_mhz = 4224 },
++				}
++			},
++			{
++				.name = "mon_3",
++				.cpu_mask = 0xfff,
++				.table_len = 4,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 1440, .mem_freq_mhz = 547 },
++					{ .cpu_freq_mhz = 2189, .mem_freq_mhz = 768 },
++					{ .cpu_freq_mhz = 2516, .mem_freq_mhz = 1555 },
++					{ .cpu_freq_mhz = 3860, .mem_freq_mhz = 2092 },
++				}
++			},
++		},
++	},
++	{
++		.memory_type = MEMLAT_HW_LLCC,
++		.name = "llcc",
++		.mem_table = hamoa_llcc_table,
++		.num_opps = ARRAY_SIZE(hamoa_llcc_table),
++		.grp_ev = hamoa_llcc_grp_ev,
++		.monitor_cnt = 3,
++		.memory_range = { .min_freq_khz = 300000, .max_freq_khz = 1066000 },
++		.monitor_cfg = (const struct scmi_qcom_monitor_cfg[]) {
++			{
++				.name = "mon_0",
++				.cpu_mask = 0xf,
++				.ipm_ceil = 20000000,
++				.be_stall_floor = 1,
++				.table_len = 6,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 999, .mem_freq_mhz = 300 },
++					{ .cpu_freq_mhz = 1440, .mem_freq_mhz = 466 },
++					{ .cpu_freq_mhz = 1671, .mem_freq_mhz = 600 },
++					{ .cpu_freq_mhz = 2189, .mem_freq_mhz = 806 },
++					{ .cpu_freq_mhz = 2516, .mem_freq_mhz = 933 },
++					{ .cpu_freq_mhz = 3860, .mem_freq_mhz = 1066 },
++				}
++			},
++			{
++				.name = "mon_1",
++				.cpu_mask = 0xf0,
++				.ipm_ceil = 20000000,
++				.be_stall_floor = 1,
++				.table_len = 6,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 999, .mem_freq_mhz = 300 },
++					{ .cpu_freq_mhz = 1440, .mem_freq_mhz = 466 },
++					{ .cpu_freq_mhz = 1671, .mem_freq_mhz = 600 },
++					{ .cpu_freq_mhz = 2189, .mem_freq_mhz = 806 },
++					{ .cpu_freq_mhz = 2516, .mem_freq_mhz = 933 },
++					{ .cpu_freq_mhz = 3860, .mem_freq_mhz = 1066 },
++				}
++			},
++			{
++				.name = "mon_2",
++				.cpu_mask = 0xf00,
++				.ipm_ceil = 20000000,
++				.be_stall_floor = 1,
++				.table_len = 6,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 999, .mem_freq_mhz = 300 },
++					{ .cpu_freq_mhz = 1440, .mem_freq_mhz = 466 },
++					{ .cpu_freq_mhz = 1671, .mem_freq_mhz = 600 },
++					{ .cpu_freq_mhz = 2189, .mem_freq_mhz = 806 },
++					{ .cpu_freq_mhz = 2516, .mem_freq_mhz = 933 },
++					{ .cpu_freq_mhz = 3860, .mem_freq_mhz = 1066 },
++				}
++			},
++		},
++	},
++	{
++		.memory_type = MEMLAT_HW_DDR_QOS_COMPUTE,
++		.name = "ddr-qos",
++		.monitor_cnt = 3,
++		.mem_table = glymur_ddr_qos_table,
++		.num_opps = ARRAY_SIZE(glymur_ddr_qos_table),
++		.grp_ev = hamoa_ddr_qos_grp_ev,
++		.memory_range = { .min_freq_khz = 0, .max_freq_khz = 1 },
++		.monitor_cfg = (const struct scmi_qcom_monitor_cfg[]) {
++			{
++				.name = "mon_0",
++				.cpu_mask = 0xf,
++				.ipm_ceil = 20000000,
++				.be_stall_floor = 1,
++				.table_len = 2,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 2189, .mem_freq_mhz = 0 },
++					{ .cpu_freq_mhz = 3860, .mem_freq_mhz = 1 },
++				}
++			},
++			{
++				.name = "mon_1",
++				.cpu_mask = 0xf0,
++				.ipm_ceil = 20000000,
++				.be_stall_floor = 1,
++				.table_len = 2,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 2189, .mem_freq_mhz = 0 },
++					{ .cpu_freq_mhz = 3860, .mem_freq_mhz = 1 },
++				}
++			},
++			{
++				.name = "mon_2",
++				.cpu_mask = 0xf00,
++				.ipm_ceil = 20000000,
++				.be_stall_floor = 1,
++				.table_len = 2,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 2189, .mem_freq_mhz = 0 },
++					{ .cpu_freq_mhz = 3860, .mem_freq_mhz = 1 },
++				}
++			},
++		},
++	},
++};
++
++static const struct scmi_qcom_memory_cfg kaanapali_memory_cfg[] = {
++	{
++		.memory_type = MEMLAT_HW_DDR,
++		.name = "ddr",
++		.mem_table = kaanapali_ddr_table,
++		.num_opps = ARRAY_SIZE(kaanapali_ddr_table),
++		.grp_ev = kaanapali_ddr_grp_ev,
++		.monitor_cnt = 4,
++		.memory_range = { .min_freq_khz = 547000, .max_freq_khz = 5333000 },
++		.monitor_cfg = (const struct scmi_qcom_monitor_cfg[]) {
++			{
++				.name = "mon_0",
++				.cpu_mask = 0x3f,
++				.ipm_ceil = 20000000,
++				.be_stall_floor = 1,
++				.table_len = 6,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 787, .mem_freq_mhz = 547 },
++					{ .cpu_freq_mhz = 960, .mem_freq_mhz = 1353 },
++					{ .cpu_freq_mhz = 1200, .mem_freq_mhz = 1555 },
++					{ .cpu_freq_mhz = 1536, .mem_freq_mhz = 2092 },
++					{ .cpu_freq_mhz = 2534, .mem_freq_mhz = 3187 },
++					{ .cpu_freq_mhz = 3552, .mem_freq_mhz = 3686 },
++				}
++			},
++			{
++				.name = "mon_1",
++				.cpu_mask = 0xc0,
++				.ipm_ceil = 20000000,
++				.be_stall_floor = 1,
++				.table_len = 8,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 614, .mem_freq_mhz = 547 },
++					{ .cpu_freq_mhz = 864, .mem_freq_mhz = 1353 },
++					{ .cpu_freq_mhz = 1382, .mem_freq_mhz = 2092 },
++					{ .cpu_freq_mhz = 2131, .mem_freq_mhz = 3187 },
++					{ .cpu_freq_mhz = 2726, .mem_freq_mhz = 3686 },
++					{ .cpu_freq_mhz = 3513, .mem_freq_mhz = 4224 },
++					{ .cpu_freq_mhz = 3916, .mem_freq_mhz = 4780 },
++					{ .cpu_freq_mhz = 4185, .mem_freq_mhz = 5333 },
++				}
++			},
++			{
++				.name = "mon_2",
++				.cpu_mask = 0xff,
++				.table_len = 2,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 2035, .mem_freq_mhz = 547 },
++					{ .cpu_freq_mhz = 4185, .mem_freq_mhz = 2092 },
++				}
++			},
++			{
++				.name = "mon_3",
++				.cpu_mask = 0xc0,
++				.ipm_ceil = 20000000,
++				.be_stall_floor = 1,
++				.table_len = 2,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 2726, .mem_freq_mhz = 547 },
++					{ .cpu_freq_mhz = 4185, .mem_freq_mhz = 4224 },
++				}
++			},
++		},
++	},
++	{
++		.memory_type = MEMLAT_HW_LLCC,
++		.name = "llcc",
++		.mem_table = kaanapali_llcc_table,
++		.num_opps = ARRAY_SIZE(kaanapali_llcc_table),
++		.grp_ev = kaanapali_llcc_grp_ev,
++		.monitor_cnt = 3,
++		.memory_range = { .min_freq_khz = 282000, .max_freq_khz = 1350000 },
++		.monitor_cfg = (const struct scmi_qcom_monitor_cfg[]) {
++			{
++				.name = "mon_0",
++				.cpu_mask = 0x3f,
++				.ipm_ceil = 20000000,
++				.be_stall_floor = 1,
++				.table_len = 5,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 787, .mem_freq_mhz = 282 },
++					{ .cpu_freq_mhz = 960, .mem_freq_mhz = 350 },
++					{ .cpu_freq_mhz = 1536, .mem_freq_mhz = 533 },
++					{ .cpu_freq_mhz = 2534, .mem_freq_mhz = 806 },
++					{ .cpu_freq_mhz = 3552, .mem_freq_mhz = 933 },
++				}
++			},
++			{
++				.name = "mon_1",
++				.cpu_mask = 0xc0,
++				.ipm_ceil = 20000000,
++				.be_stall_floor = 1,
++				.table_len = 8,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 614, .mem_freq_mhz = 282 },
++					{ .cpu_freq_mhz = 864, .mem_freq_mhz = 350 },
++					{ .cpu_freq_mhz = 1382, .mem_freq_mhz = 533 },
++					{ .cpu_freq_mhz = 2131, .mem_freq_mhz = 806 },
++					{ .cpu_freq_mhz = 2726, .mem_freq_mhz = 933 },
++					{ .cpu_freq_mhz = 3513, .mem_freq_mhz = 1066 },
++					{ .cpu_freq_mhz = 3916, .mem_freq_mhz = 1211 },
++					{ .cpu_freq_mhz = 4185, .mem_freq_mhz = 1350 },
++				}
++			},
++			{
++				.name = "mon_2",
++				.cpu_mask = 0xff,
++				.table_len = 2,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 2035, .mem_freq_mhz = 282 },
++					{ .cpu_freq_mhz = 4185, .mem_freq_mhz = 533 },
++				}
++			},
++		},
++	},
++	{
++		.memory_type = MEMLAT_HW_DDR_QOS_MOBILE,
++		.name = "ddr-qos",
++		.monitor_cnt = 4,
++		.mem_table = glymur_ddr_qos_table,
++		.num_opps = ARRAY_SIZE(glymur_ddr_qos_table),
++		.grp_ev = kaanapali_ddr_qos_grp_ev,
++		.memory_range = { .min_freq_khz = 0, .max_freq_khz = 1 },
++		.monitor_cfg = (const struct scmi_qcom_monitor_cfg[]) {
++			{
++				.name = "mon_0",
++				.cpu_mask = 0xff,
++				.ipm_ceil = 20000000,
++				.be_stall_floor = 1,
++				.table_len = 2,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 2035, .mem_freq_mhz = 0 },
++					{ .cpu_freq_mhz = 4185, .mem_freq_mhz = 1 },
++				}
++			},
++			{
++				.name = "mon_1",
++				.cpu_mask = 0xc0,
++				.ipm_ceil = 20000000,
++				.be_stall_floor = 1,
++				.table_len = 2,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 1574, .mem_freq_mhz = 0 },
++					{ .cpu_freq_mhz = 4185, .mem_freq_mhz = 1 },
++				}
++			},
++			{
++				.name = "mon_2",
++				.cpu_mask = 0xc0,
++				.ipm_ceil = 20000000,
++				.be_stall_floor = 1,
++				.table_len = 2,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 2131, .mem_freq_mhz = 0 },
++					{ .cpu_freq_mhz = 4185, .mem_freq_mhz = 1 },
++				}
++			},
++			{
++				.name = "mon_3",
++				.cpu_mask = 0xc0,
++				.table_len = 2,
++				.table = (const struct scmi_qcom_map_table[]) {
++					{ .cpu_freq_mhz = 3513, .mem_freq_mhz = 0 },
++					{ .cpu_freq_mhz = 4185, .mem_freq_mhz = 1 },
++				}
++			},
++		},
++	},
++};
++
++static const struct scmi_qcom_memlat_cfg_data glymur_memlat_data = {
++	.memory_cfg = glymur_memory_cfg,
++	.common_ev = glymur_common_ev,
++	.cpucp_legacy_freq_method = true,
++	.cpucp_sample_ms = 4,
++	.memory_cnt = ARRAY_SIZE(glymur_memory_cfg),
++};
++
++static const struct scmi_qcom_memlat_cfg_data hamoa_memlat_data = {
++	.memory_cfg = hamoa_memory_cfg,
++	.common_ev = hamoa_common_ev,
++	.cpucp_legacy_freq_method = true,
++	.cpucp_sample_ms = 4,
++	.memory_cnt = ARRAY_SIZE(hamoa_memory_cfg),
++};
++
++static const struct scmi_qcom_memlat_cfg_data kaanapali_memlat_data = {
++	.memory_cfg = kaanapali_memory_cfg,
++	.common_ev = kaanapali_common_ev,
++	.cpucp_legacy_freq_method = true,
++	.cpucp_sample_ms = 4,
++	.memory_cnt = ARRAY_SIZE(kaanapali_memory_cfg),
++};
++
++static const struct of_device_id scmi_qcom_memlat_configs[] = {
++	{ .compatible = "qcom,glymur", .data = &glymur_memlat_data },
++	{ .compatible = "qcom,mahua", .data = &glymur_memlat_data },
++	{ .compatible = "qcom,x1e80100", .data = &hamoa_memlat_data },
++	{ .compatible = "qcom,x1p42100", .data = &hamoa_memlat_data },
++	{ .compatible = "qcom,kaanapali", .data = &kaanapali_memlat_data },
++	{ }
++};
++
++static int memlat_set_param(struct scmi_qcom_memlat_info *info, void *msg,
++			    size_t size, u32 param_id)
++{
++	return info->ops->set_param(info->ph, msg, size, MEMLAT_ALGO_STR, param_id);
++}
++
++static int configure_cpucp_common_events(struct scmi_qcom_memlat_info *info)
++{
++	struct ev_map_msg ev = {};
++	int i;
++
++	ev.num_evs = cpu_to_le32(NUM_COMMON_EVS);
++	ev.hw_type = cpu_to_le32(MEMLAT_HW_TYPE_ALL);
++	for (i = 0; i < NUM_COMMON_EVS; i++)
++		ev.cid[i] = cpu_to_le32(info->cfg_data->common_ev[i]);
++
++	return memlat_set_param(info, &ev, sizeof(ev), MEMLAT_SET_COMMON_EV_MAP);
++}
++
++static int configure_cpucp_grp(struct device *dev, struct scmi_qcom_memlat_info *info,
++			       int memory_index)
++{
++	const struct scmi_qcom_memory_cfg *cfg = &info->cfg_data->memory_cfg[memory_index];
++	struct ev_map_msg ev = {};
++	struct node_msg node = {};
++	int ret, i;
++
++	node.cpumask = cpu_to_le32(*cpumask_bits(cpu_possible_mask));
++	node.hw_type = cpu_to_le32(cfg->memory_type);
++
++	/* mon_type/mon_idx are don't-care for SET_MEM_GROUP; leave them zero. */
++	ret = memlat_set_param(info, &node, sizeof(node), MEMLAT_SET_MEM_GROUP);
++	if (ret < 0)
++		return dev_err_probe(dev, ret, "failed to configure mem type %d\n",
++				     cfg->memory_type);
++
++	ev.num_evs = cpu_to_le32(NUM_GRP_EVS);
++	ev.hw_type = cpu_to_le32(cfg->memory_type);
++	for (i = 0; i < NUM_GRP_EVS; i++)
++		ev.cid[i] = cpu_to_le32(cfg->grp_ev[i]);
++
++	ret = memlat_set_param(info, &ev, sizeof(ev), MEMLAT_SET_GRP_EV_MAP);
++	if (ret < 0)
++		return dev_err_probe(dev, ret, "failed to configure event map for mem type %d\n",
++				     cfg->memory_type);
++
++	return 0;
++}
++
++static int configure_cpucp_mon(struct device *dev, struct scmi_qcom_memlat_info *info,
++			       int memory_index, int monitor_index)
++{
++	const struct scmi_qcom_memory_cfg *cfg = &info->cfg_data->memory_cfg[memory_index];
++	const struct scmi_qcom_monitor_cfg *mon = &cfg->monitor_cfg[monitor_index];
++	struct scalar_param_msg scalar = {};
++	struct map_param_msg map = {};
++	struct node_msg node = {};
++	int ret, i;
++
++	if (mon->table_len > MEMLAT_MAX_MAP_ENTRIES)
++		return -EINVAL;
++
++	node.cpumask = cpu_to_le32(mon->cpu_mask);
++	node.hw_type = cpu_to_le32(cfg->memory_type);
++
++	/* The compute monitor passively scales with cpufreq irrespective of IPM ratio. */
++	node.mon_type = cpu_to_le32(!mon->ipm_ceil);
++	node.mon_idx = cpu_to_le32(monitor_index);
++	strscpy(node.mon_name, mon->name, sizeof(node.mon_name));
++	ret = memlat_set_param(info, &node, sizeof(node), MEMLAT_SET_MONITOR);
++	if (ret < 0)
++		return dev_err_probe(dev, ret, "failed to configure monitor %s\n", mon->name);
++
++	scalar.hw_type = cpu_to_le32(cfg->memory_type);
++	scalar.mon_idx = cpu_to_le32(monitor_index);
++	scalar.val = cpu_to_le32(mon->ipm_ceil);
++	ret = memlat_set_param(info, &scalar, sizeof(scalar), MEMLAT_IPM_CEIL);
++	if (ret < 0)
++		return dev_err_probe(dev, ret, "failed to set ipm ceil for %s\n", mon->name);
++
++	scalar.val = cpu_to_le32(mon->be_stall_floor);
++	ret = memlat_set_param(info, &scalar, sizeof(scalar), MEMLAT_BE_STALL_FLOOR);
++	if (ret < 0)
++		return dev_err_probe(dev, ret, "failed to set be_stall_floor for %s\n", mon->name);
++
++	map.hw_type = cpu_to_le32(cfg->memory_type);
++	map.mon_idx = cpu_to_le32(monitor_index);
++	map.nr_rows = cpu_to_le32(mon->table_len);
++	for (i = 0; i < mon->table_len; i++) {
++		map.tbl[i].cpu_freq_mhz = cpu_to_le16(mon->table[i].cpu_freq_mhz);
++		map.tbl[i].mem_freq_mhz = cpu_to_le16(mon->table[i].mem_freq_mhz);
++	}
++	ret = memlat_set_param(info, &map, sizeof(map), MEMLAT_MON_FREQ_MAP);
++	if (ret < 0)
++		return dev_err_probe(dev, ret, "failed to configure freq_map for %s\n", mon->name);
++
++	scalar.val = cpu_to_le32(cfg->memory_range.min_freq_khz);
++	ret = memlat_set_param(info, &scalar, sizeof(scalar), MEMLAT_SET_MIN_FREQ);
++	if (ret < 0)
++		return dev_err_probe(dev, ret, "failed to set min_freq for %s\n", mon->name);
++
++	scalar.val = cpu_to_le32(cfg->memory_range.max_freq_khz);
++	ret = memlat_set_param(info, &scalar, sizeof(scalar), MEMLAT_SET_MAX_FREQ);
++	if (ret < 0)
++		return dev_err_probe(dev, ret, "failed to set max_freq for %s\n", mon->name);
++
++	return 0;
++}
++
++static int scmi_qcom_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
++{
++	struct scmi_qcom_memory_info *memory = dev_get_drvdata(dev);
++	const struct qcom_generic_ext_ops *ops = memory->ops;
++	const struct scmi_qcom_memory_cfg *cfg = memory->cfg;
++	u32 max_freq_khz = 0;
++	int ret, i;
++
++	/* The bus's voted frequency is the max reported across all its monitors. */
++	for (i = 0; i < cfg->monitor_cnt; i++) {
++		union cur_freq_msg msg = {};
++
++		msg.req.hw_type = cpu_to_le32(cfg->memory_type);
++		msg.req.mon_idx = cpu_to_le32(i);
++
++		ret = ops->get_param(memory->ph, &msg, sizeof(msg.req), MEMLAT_ALGO_STR,
++				     MEMLAT_GET_CUR_FREQ, sizeof(msg.resp));
++		if (ret < 0) {
++			/* One monitor failing shouldn't abort the whole read-back. */
++			dev_warn_once(dev, "failed to get current frequency for %s\n",
++				      cfg->monitor_cfg[i].name);
++			continue;
++		}
++
++		max_freq_khz = max(max_freq_khz, le32_to_cpu(msg.resp));
++	}
++
++	/*
++	 * DDR/LLCC report a frequency in kHz (converted to Hz for the OPP
++	 * table); DDR_QOS reports a 0/1 level mapped to its synthetic OPP keys.
++	 */
++	if (cfg->memory_range.max_freq_khz > 1)
++		*freq = (unsigned long)((u64)max_freq_khz * HZ_PER_KHZ);
++	else
++		*freq = max_freq_khz ? 100 : 1;
++
++	return 0;
++}
++
++static void scmi_qcom_memlat_teardown(struct scmi_qcom_memlat_info *info)
++{
++	for (int i = 0; i < info->memory_cnt; i++) {
++		struct scmi_qcom_memory_info *memory = info->memory[i];
++
++		if (!memory || !memory->fdev)
++			continue;
++
++		if (memory->devfreq)
++			devfreq_remove_device(memory->devfreq);
++		dev_pm_opp_remove_all_dynamic(&memory->fdev->dev);
++		faux_device_destroy(memory->fdev);
++	}
++}
++
++static int scmi_qcom_memlat_configure_events(struct scmi_device *sdev,
++					     struct scmi_qcom_memlat_info *info)
++{
++	const struct qcom_generic_ext_ops *ops = info->ops;
++	struct scmi_protocol_handle *ph = info->ph;
++	__le32 sample_ms, freq_method;
++	int i, j, ret;
++
++	ret = configure_cpucp_common_events(info);
++	if (ret < 0)
++		return dev_err_probe(&sdev->dev, ret, "failed to configure common events\n");
++
++	for (i = 0; i < info->memory_cnt; i++) {
++		ret = configure_cpucp_grp(&sdev->dev, info, i);
++		if (ret < 0)
++			return ret;
++
++		for (j = 0; j < info->memory[i]->cfg->monitor_cnt; j++) {
++			ret = configure_cpucp_mon(&sdev->dev, info, i, j);
++			if (ret < 0)
++				return ret;
++		}
++	}
++
++	sample_ms = cpu_to_le32(info->cfg_data->cpucp_sample_ms);
++	ret = memlat_set_param(info, &sample_ms, sizeof(sample_ms), MEMLAT_SAMPLE_MS);
++	if (ret < 0)
++		return dev_err_probe(&sdev->dev, ret, "failed to set sample_ms\n");
++
++	freq_method = cpu_to_le32(info->cfg_data->cpucp_legacy_freq_method);
++	ret = memlat_set_param(info, &freq_method, sizeof(freq_method),
++			       MEMLAT_SET_EFFECTIVE_FREQ_METHOD);
++	if (ret < 0)
++		return dev_err_probe(&sdev->dev, ret,
++				     "failed to set effective frequency calc method\n");
++
++	/* Start sampling and voting timer */
++	ret = ops->start_activity(ph, NULL, 0, MEMLAT_ALGO_STR, MEMLAT_START_TIMER);
++	if (ret < 0)
++		return dev_err_probe(&sdev->dev, ret, "failed to start memory group timer\n");
++
++	for (i = 0; i < info->memory_cnt; i++) {
++		struct scmi_qcom_memory_info *memory = info->memory[i];
++		const struct scmi_qcom_memory_range *range = &memory->cfg->memory_range;
++		struct devfreq_dev_profile *profile = &memory->profile;
++
++		/*
++		 * CPUCP re-evaluates and re-votes at most once per cpucp_sample_ms,
++		 * so a new operating point can appear only that often. Polling at half
++		 * that period guarantees each distinct vote is observed in trans_stat
++		 * before it can change again.
++		 */
++		profile->polling_ms = max(1U, info->cfg_data->cpucp_sample_ms / 2);
++		profile->get_cur_freq = scmi_qcom_devfreq_get_cur_freq;
++		profile->initial_freq = range->max_freq_khz > 1 ?
++					(unsigned long)((u64)range->min_freq_khz * HZ_PER_KHZ) :
++					range->min_freq_khz;
++
++		faux_device_set_drvdata(memory->fdev, memory);
++
++		memory->devfreq = devfreq_add_device(&memory->fdev->dev, profile,
++						     DEVFREQ_GOV_REMOTE, NULL);
++		if (IS_ERR(memory->devfreq)) {
++			ret = PTR_ERR(memory->devfreq);
++			memory->devfreq = NULL;
++			ops->stop_activity(ph, NULL, 0, MEMLAT_ALGO_STR, MEMLAT_STOP_TIMER);
++			return dev_err_probe(&sdev->dev, ret, "failed to add devfreq device\n");
++		}
++	}
++
++	return 0;
++}
++
++static int scmi_qcom_memlat_setup(struct scmi_device *sdev, struct scmi_qcom_memlat_info *info)
++{
++	const struct scmi_qcom_memlat_cfg_data *cfg_data;
++	int ret, i, j;
++
++	cfg_data = of_machine_get_match_data(scmi_qcom_memlat_configs);
++	if (!cfg_data) {
++		dev_dbg(&sdev->dev, "no memlat config data for this platform\n");
++		return -ENODEV;
++	}
++
++	info->cfg_data = cfg_data;
++	info->memory = devm_kcalloc(&sdev->dev, cfg_data->memory_cnt,
++				    sizeof(*info->memory), GFP_KERNEL);
++	if (!info->memory)
++		return -ENOMEM;
++
++	for (i = 0; i < cfg_data->memory_cnt; i++) {
++		const struct scmi_qcom_memory_cfg *memory_cfg = &cfg_data->memory_cfg[i];
++		struct scmi_qcom_memory_info *memory;
++
++		memory = devm_kzalloc(&sdev->dev, sizeof(*memory), GFP_KERNEL);
++		if (!memory) {
++			ret = -ENOMEM;
++			goto err_teardown;
++		}
++
++		memory->cfg = memory_cfg;
++		memory->ops = info->ops;
++		memory->ph = info->ph;
++		info->memory[i] = memory;
++
++		memory->fdev = faux_device_create(memory_cfg->name, &sdev->dev, NULL);
++		if (!memory->fdev) {
++			ret = dev_err_probe(&sdev->dev, -ENODEV,
++					    "failed to create faux device\n");
++			goto err_teardown;
++		}
++		info->memory_cnt = i + 1;
++
++		for (j = 0; j < memory_cfg->num_opps; j++) {
++			struct dev_pm_opp_data data = {
++				.freq = memory_cfg->mem_table[j].freq,
++			};
++
++			ret = dev_pm_opp_add_dynamic(&memory->fdev->dev, &data);
++			if (ret) {
++				dev_err_probe(&sdev->dev, ret, "failed to add OPP\n");
++				goto err_teardown;
++			}
++		}
++	}
++
++	return 0;
++
++err_teardown:
++	scmi_qcom_memlat_teardown(info);
++	return ret;
++}
++
++static int scmi_qcom_devfreq_memlat_probe(struct scmi_device *sdev)
++{
++	const struct scmi_handle *handle = sdev->handle;
++	const struct qcom_generic_ext_ops *ops;
++	struct scmi_qcom_memlat_info *info;
++	struct scmi_protocol_handle *ph;
++	int ret;
++
++	if (!handle)
++		return -ENODEV;
++
++	info = devm_kzalloc(&sdev->dev, sizeof(*info), GFP_KERNEL);
++	if (!info)
++		return -ENOMEM;
++
++	ops = handle->devm_protocol_get(sdev, SCMI_PROTOCOL_QCOM_GENERIC, &ph);
++	if (IS_ERR(ops))
++		return PTR_ERR(ops);
++
++	info->ops = ops;
++	info->ph = ph;
++
++	ret = scmi_qcom_memlat_setup(sdev, info);
++	if (ret)
++		return ret;
++
++	ret = scmi_qcom_memlat_configure_events(sdev, info);
++	if (ret) {
++		scmi_qcom_memlat_teardown(info);
++		return ret;
++	}
++
++	dev_set_drvdata(&sdev->dev, info);
++
++	return 0;
++}
++
++static void scmi_qcom_devfreq_memlat_remove(struct scmi_device *sdev)
++{
++	struct scmi_qcom_memlat_info *info = dev_get_drvdata(&sdev->dev);
++	int ret;
++
++	ret = info->ops->stop_activity(info->ph, NULL, 0, MEMLAT_ALGO_STR, MEMLAT_STOP_TIMER);
++	if (ret < 0)
++		dev_err(&sdev->dev, "failed to stop memory group timer\n");
++
++	scmi_qcom_memlat_teardown(info);
++}
++
++static const struct scmi_device_id scmi_id_table[] = {
++	{ SCMI_PROTOCOL_QCOM_GENERIC, "qcom-generic-ext" },
++	{ },
++};
++MODULE_DEVICE_TABLE(scmi, scmi_id_table);
++
++static struct scmi_driver scmi_qcom_devfreq_memlat_driver = {
++	.name		= "scmi-qcom-devfreq-memlat",
++	.probe		= scmi_qcom_devfreq_memlat_probe,
++	.remove		= scmi_qcom_devfreq_memlat_remove,
++	.id_table	= scmi_id_table,
++};
++module_scmi_driver(scmi_qcom_devfreq_memlat_driver);
++
++MODULE_AUTHOR("Pragnesh Papaniya <pragnesh.papaniya@oss.qualcomm.com>");
++MODULE_AUTHOR("Sibi Sankar <sibi.sankar@oss.qualcomm.com>");
++MODULE_DESCRIPTION("Qualcomm SCMI memlat devfreq driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/devfreq/tegra30-devfreq.c b/drivers/devfreq/tegra30-devfreq.c
+index 401aac6..fcb278c 100644
+--- a/drivers/devfreq/tegra30-devfreq.c
++++ b/drivers/devfreq/tegra30-devfreq.c
+@@ -776,7 +776,8 @@ static int tegra_governor_event_handler(struct devfreq *devfreq,
+ 
+ static struct devfreq_governor tegra_devfreq_governor = {
+ 	.name = "tegra_actmon",
+-	.attrs = DEVFREQ_GOV_ATTR_POLLING_INTERVAL,
++	.attrs = DEVFREQ_GOV_ATTR_POLLING_INTERVAL
++		| DEVFREQ_GOV_ATTR_TARGET_FREQ,
+ 	.flags = DEVFREQ_GOV_FLAG_IMMUTABLE
+ 		| DEVFREQ_GOV_FLAG_IRQ_DRIVEN,
+ 	.get_target_freq = tegra_governor_get_target,
+diff --git a/drivers/firmware/arm_scmi/Kconfig b/drivers/firmware/arm_scmi/Kconfig
+index 783c24a..3918aa2 100644
+--- a/drivers/firmware/arm_scmi/Kconfig
++++ b/drivers/firmware/arm_scmi/Kconfig
+@@ -84,6 +84,7 @@ config ARM_SCMI_QUIRKS
+ 
+ source "drivers/firmware/arm_scmi/transports/Kconfig"
+ source "drivers/firmware/arm_scmi/vendors/imx/Kconfig"
++source "drivers/firmware/arm_scmi/vendors/qcom/Kconfig"
+ 
+ endif #ARM_SCMI_PROTOCOL
+ 
+diff --git a/drivers/firmware/arm_scmi/Makefile b/drivers/firmware/arm_scmi/Makefile
+index 780cd62..5a0e003 100644
+--- a/drivers/firmware/arm_scmi/Makefile
++++ b/drivers/firmware/arm_scmi/Makefile
+@@ -13,6 +13,7 @@ scmi-module-objs := $(scmi-driver-y) $(scmi-protocols-y) $(scmi-transport-y)
+ 
+ obj-$(CONFIG_ARM_SCMI_PROTOCOL) += transports/
+ obj-$(CONFIG_ARM_SCMI_PROTOCOL) += vendors/imx/
++obj-$(CONFIG_ARM_SCMI_PROTOCOL) += vendors/qcom/
+ 
+ obj-$(CONFIG_ARM_SCMI_PROTOCOL) += scmi-core.o
+ obj-$(CONFIG_ARM_SCMI_PROTOCOL) += scmi-module.o
+diff --git a/drivers/firmware/arm_scmi/vendors/qcom/Kconfig b/drivers/firmware/arm_scmi/vendors/qcom/Kconfig
+new file mode 100644
+index 0000000..8aa0efd
+--- /dev/null
++++ b/drivers/firmware/arm_scmi/vendors/qcom/Kconfig
+@@ -0,0 +1,15 @@
++# SPDX-License-Identifier: GPL-2.0-only
++menu "ARM SCMI QCOM Vendor Protocols"
++
++config QCOM_SCMI_GENERIC_EXT
++	tristate "Qualcomm Technologies, Inc. SCMI Generic Vendor Protocol"
++	depends on ARM_SCMI_PROTOCOL || (COMPILE_TEST && OF)
++	help
++	  The QCOM SCMI vendor protocol provides a generic way of exposing
++	  a number of Qualcomm SoC specific features (like memory bus scaling)
++	  through a mixture of pre-determined algorithm strings and param_id
++	  pairs hosted on the SCMI controller.
++
++	  This driver defines/documents the message IDs used for this
++	  communication and also exposes the operations used by the clients.
++endmenu
+diff --git a/drivers/firmware/arm_scmi/vendors/qcom/Makefile b/drivers/firmware/arm_scmi/vendors/qcom/Makefile
+new file mode 100644
+index 0000000..6b98fab
+--- /dev/null
++++ b/drivers/firmware/arm_scmi/vendors/qcom/Makefile
+@@ -0,0 +1,2 @@
++# SPDX-License-Identifier: GPL-2.0-only
++obj-$(CONFIG_QCOM_SCMI_GENERIC_EXT) += qcom-generic-ext.o
+diff --git a/drivers/firmware/arm_scmi/vendors/qcom/qcom-generic-ext.c b/drivers/firmware/arm_scmi/vendors/qcom/qcom-generic-ext.c
+new file mode 100644
+index 0000000..7ca920c
+--- /dev/null
++++ b/drivers/firmware/arm_scmi/vendors/qcom/qcom-generic-ext.c
+@@ -0,0 +1,183 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
++ */
++
++#include <linux/module.h>
++#include <linux/scmi_qcom_protocol.h>
++#include <linux/string.h>
++#include <linux/stringify.h>
++#include <linux/types.h>
++
++#include "../../common.h"
++
++/*
++ * This protocol is intended as a generic way of exposing a number of Qualcomm
++ * SoC specific features through a mixture of pre-determined algorithm string
++ * and param_id pairs hosted on the SCMI controller.
++ *
++ * The QCOM SCMI Vendor Protocol has the protocol id as 0x80 and vendor id set
++ * to Qualcomm and the supported version is set to 0x10000. The PROTOCOL_VERSION
++ * command returns version 1.0.
++ */
++
++/**
++ * enum qcom_generic_ext_protocol_cmd - vendor specific commands supported by SCMI Qualcomm
++ *                                      generic vendor protocol.
++ *
++ * @QCOM_SCMI_SET_PARAM: is used to set the parameter of a specific algo_str hosted on
++ *			 QCOM SCMI Vendor Protocol. The tx len depends on the algo_str used.
++ * @QCOM_SCMI_GET_PARAM: is used to get parameter information of a specific algo_str
++ *			 hosted on QCOM SCMI Vendor Protocol. The tx and rx len depends
++ *			 on the algo_str used.
++ * @QCOM_SCMI_START_ACTIVITY: is used to start the activity performed by the algo_str.
++ * @QCOM_SCMI_STOP_ACTIVITY: is used to stop a pre-existing activity performed by the algo_str.
++ */
++enum qcom_generic_ext_protocol_cmd {
++	QCOM_SCMI_SET_PARAM = 0x10,
++	QCOM_SCMI_GET_PARAM = 0x11,
++	QCOM_SCMI_START_ACTIVITY = 0x12,
++	QCOM_SCMI_STOP_ACTIVITY = 0x13,
++};
++
++/**
++ * struct qcom_scmi_msg - represents the various parameters to be populated
++ *                        for using the QCOM SCMI Vendor Protocol
++ *
++ * @ext_id: reserved, must be zero
++ * @algo_low: lower 32 bits of the algo_str
++ * @algo_high: upper 32 bits of the algo_str
++ * @param_id: serves as token message id to the specific algo_str
++ * @buf: serves as the payload to the specified param_id and algo_str pair
++ */
++struct qcom_scmi_msg {
++	__le32 ext_id;
++	__le32 algo_low;
++	__le32 algo_high;
++	__le32 param_id;
++	__le32 buf[];
++};
++
++/*
++ * The firmware only implements a handful of algorithm strings. Keep an
++ * allowlist so a client cannot push an unsupported (or garbage) string to
++ * the firmware; extend it as new algorithms are added.
++ */
++static const u64 qcom_scmi_algo_str[] = {
++	0x4d454d4c4154ULL, /* "MEMLAT" */
++};
++
++static bool qcom_scmi_algo_str_valid(u64 algo_str)
++{
++	unsigned int i;
++
++	for (i = 0; i < ARRAY_SIZE(qcom_scmi_algo_str); i++)
++		if (algo_str == qcom_scmi_algo_str[i])
++			return true;
++
++	return false;
++}
++
++static int qcom_scmi_common_xfer(const struct scmi_protocol_handle *ph,
++				 enum qcom_generic_ext_protocol_cmd cmd_id, void *buf,
++				 size_t buf_len, u64 algo_str, u32 param_id, size_t rx_size)
++{
++	struct scmi_xfer *t;
++	struct qcom_scmi_msg *msg;
++	int ret;
++
++	if (!qcom_scmi_algo_str_valid(algo_str))
++		return -EINVAL;
++
++	/* Reject calls where rx_size exceeds buf_len. */
++	if (rx_size > buf_len)
++		return -EINVAL;
++
++	ret = ph->xops->xfer_get_init(ph, cmd_id, buf_len + sizeof(*msg), rx_size, &t);
++	if (ret)
++		return ret;
++
++	msg = t->tx.buf;
++	msg->ext_id = 0;
++	msg->algo_low = cpu_to_le32(lower_32_bits(algo_str));
++	msg->algo_high = cpu_to_le32(upper_32_bits(algo_str));
++	msg->param_id = cpu_to_le32(param_id);
++	if (buf_len)
++		memcpy(msg->buf, buf, buf_len);
++
++	ret = ph->xops->do_xfer(ph, t);
++	if (!ret && rx_size) {
++		/*
++		 * The response is returned into the caller's @buf, replacing
++		 * the tx payload. Bound the copy to the caller's buffer since
++		 * t->rx.len is reported by the firmware, and require at least
++		 * the expected rx_size so the caller never reads stale tx data.
++		 */
++		if (t->rx.len < rx_size || t->rx.len > buf_len)
++			ret = -EPROTO;
++		else
++			memcpy(buf, t->rx.buf, rx_size);
++	}
++	ph->xops->xfer_put(ph, t);
++
++	return ret;
++}
++
++static int qcom_scmi_set_param(const struct scmi_protocol_handle *ph, void *buf, size_t buf_len,
++			       u64 algo_str, u32 param_id)
++{
++	return qcom_scmi_common_xfer(ph, QCOM_SCMI_SET_PARAM, buf, buf_len, algo_str,
++				     param_id, 0);
++}
++
++static int qcom_scmi_get_param(const struct scmi_protocol_handle *ph, void *buf, size_t buf_len,
++			       u64 algo_str, u32 param_id, size_t rx_size)
++{
++	return qcom_scmi_common_xfer(ph, QCOM_SCMI_GET_PARAM, buf, buf_len, algo_str,
++				     param_id, rx_size);
++}
++
++static int qcom_scmi_start_activity(const struct scmi_protocol_handle *ph, void *buf,
++				    size_t buf_len, u64 algo_str, u32 param_id)
++{
++	return qcom_scmi_common_xfer(ph, QCOM_SCMI_START_ACTIVITY, buf, buf_len, algo_str,
++				     param_id, 0);
++}
++
++static int qcom_scmi_stop_activity(const struct scmi_protocol_handle *ph, void *buf,
++				   size_t buf_len, u64 algo_str, u32 param_id)
++{
++	return qcom_scmi_common_xfer(ph, QCOM_SCMI_STOP_ACTIVITY, buf, buf_len, algo_str,
++				     param_id, 0);
++}
++
++static const struct qcom_generic_ext_ops qcom_proto_ops = {
++	.set_param = qcom_scmi_set_param,
++	.get_param = qcom_scmi_get_param,
++	.start_activity = qcom_scmi_start_activity,
++	.stop_activity = qcom_scmi_stop_activity,
++};
++
++static int qcom_generic_ext_protocol_init(const struct scmi_protocol_handle *ph)
++{
++	dev_dbg(ph->dev, "QCOM Generic Vendor Version %d.%d\n",
++		PROTOCOL_REV_MAJOR(ph->version), PROTOCOL_REV_MINOR(ph->version));
++
++	return 0;
++}
++
++static const struct scmi_protocol qcom_generic_ext = {
++	.id = SCMI_PROTOCOL_QCOM_GENERIC,
++	.owner = THIS_MODULE,
++	.instance_init = &qcom_generic_ext_protocol_init,
++	.ops = &qcom_proto_ops,
++	.vendor_id = "Qualcomm",
++	.supported_version = 0x10000,
++};
++module_scmi_protocol(qcom_generic_ext);
++
++MODULE_ALIAS("scmi-protocol-" __stringify(SCMI_PROTOCOL_QCOM_GENERIC) "-Qualcomm");
++MODULE_AUTHOR("Pragnesh Papaniya <pragnesh.papaniya@oss.qualcomm.com>");
++MODULE_AUTHOR("Sibi Sankar <sibi.sankar@oss.qualcomm.com>");
++MODULE_DESCRIPTION("QCOM SCMI Generic Vendor Protocol");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/firmware/arm_scmi/vendors/qcom/qcom_generic.rst b/drivers/firmware/arm_scmi/vendors/qcom/qcom_generic.rst
+new file mode 100644
+index 0000000..42e327d
+--- /dev/null
++++ b/drivers/firmware/arm_scmi/vendors/qcom/qcom_generic.rst
+@@ -0,0 +1,954 @@
++.. SPDX-License-Identifier: GPL-2.0
++.. include:: <isonum.txt>
++
++==================================================================================
++System Control and Management Interface (SCMI) Qualcomm Generic Extension Protocol
++==================================================================================
++
++:Copyright: |copy| Qualcomm Technologies, Inc. and/or its subsidiaries.
++
++:Authors:
++   - Sibi Sankar <sibi.sankar@oss.qualcomm.com>
++   - Pragnesh Papaniya <pragnesh.papaniya@oss.qualcomm.com>
++
++System Control and Management Interface Qualcomm Generic Extension Vendor Protocol
++==================================================================================
++
++System Control Management Interface (SCMI) Qualcomm Generic Extension Protocol
++consists of a small set of generic SET/GET/START/STOP commands, which is used to
++turn on/off and configure Qualcomm SoC specific algorithms that run on the SCP.
++Each algorithm is identified through an algorithm string and has an immutable list
++of param_ids. All supported algorithms (currently just MEMLAT) have their own
++dedicated section and are listed after the generic commands.
++
++Commands:
++_________
++
++PROTOCOL_VERSION
++~~~~~~~~~~~~~~~~
++
++message_id: 0x0
++protocol_id: 0x80
++
+++---------------+--------------------------------------------------------------+
++|Return values                                                                 |
+++---------------+--------------------------------------------------------------+
++|Name           |Description                                                   |
+++---------------+--------------------------------------------------------------+
++|int32 status   |See ARM SCMI Specification for status code definitions.       |
+++---------------+--------------------------------------------------------------+
++|uint32 version |For this revision of the specification, this value must be    |
++|               |0x10000.                                                      |
+++---------------+--------------------------------------------------------------+
++
++PROTOCOL_ATTRIBUTES
++~~~~~~~~~~~~~~~~~~~
++
++message_id: 0x1
++protocol_id: 0x80
++
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|int32 status      |See ARM SCMI Specification for status code definitions.    |
+++------------------+-----------------------------------------------------------+
++|uint32 attributes |Bits[31:16] Reserved, must be set to 0.                    |
++|                  |Bits[15:8] Number of agents in the system. Must match the  |
++|                  |value reported by the standard BASE protocol's             |
++|                  |PROTOCOL_ATTRIBUTES response.                              |
++|                  |Bits[7:0] Number of algorithmic strings supported by the   |
++|                  |system. Only "MEMLAT" is currently supported hence it      |
++|                  |returns 1.                                                 |
+++------------------+-----------------------------------------------------------+
++
++PROTOCOL_MESSAGE_ATTRIBUTES
++~~~~~~~~~~~~~~~~~~~~~~~~~~~
++
++message_id: 0x2
++protocol_id: 0x80
++
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|int32 status      |See ARM SCMI Specification for status code definitions.    |
+++------------------+-----------------------------------------------------------+
++|uint32 attributes |For all message IDs the parameter has a value of 0.        |
+++------------------+-----------------------------------------------------------+
++
++QCOM_SCMI_SET_PARAM
++~~~~~~~~~~~~~~~~~~~
++
++message_id: 0x10
++protocol_id: 0x80
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 ext_id     |Reserved, must be zero.                                    |
+++------------------+-----------------------------------------------------------+
++|uint32 algo_low   |Lower 32-bit value of the algorithm string.                |
+++------------------+-----------------------------------------------------------+
++|uint32 algo_high  |Upper 32-bit value of the algorithm string.                |
+++------------------+-----------------------------------------------------------+
++|uint32 param_id   |Serves as the token message id for the algorithm string    |
++|                  |and is used to set various parameters supported by it.     |
+++------------------+-----------------------------------------------------------+
++|uint32 buf[]      |Serves as the payload for the specified param_id and       |
++|                  |algorithm string pair. The payload size depends on the     |
++|                  |(algorithm string, param_id) pair; see the per-algorithm   |
++|                  |sections below.                                            |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS: if the param_id and buf[] is parsed successfully  |
++|                  |by the chosen algorithm string.                            |
++|                  |NOT_SUPPORTED: if the algorithm string does not have any   |
++|                  |matches.                                                   |
++|                  |INVALID_PARAMETERS: if the param_id and the buf[] passed   |
++|                  |is rejected by the algorithm string.                       |
+++------------------+-----------------------------------------------------------+
++
++QCOM_SCMI_GET_PARAM
++~~~~~~~~~~~~~~~~~~~
++
++message_id: 0x11
++protocol_id: 0x80
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 ext_id     |Reserved, must be zero.                                    |
+++------------------+-----------------------------------------------------------+
++|uint32 algo_low   |Lower 32-bit value of the algorithm string.                |
+++------------------+-----------------------------------------------------------+
++|uint32 algo_high  |Upper 32-bit value of the algorithm string.                |
+++------------------+-----------------------------------------------------------+
++|uint32 param_id   |Serves as the token message id for the algorithm string.   |
+++------------------+-----------------------------------------------------------+
++|uint32 buf[]      |Serves as the payload and store of value for the specified |
++|                  |param_id and algorithm string pair. The payload size       |
++|                  |depends on the (algorithm string, param_id) pair; see the  |
++|                  |per-algorithm sections below. The response payload is      |
++|                  |returned in the same buffer, overwriting the request       |
++|                  |contents on success.                                       |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS: if the param_id and buf[] is parsed successfully  |
++|                  |by the chosen algorithm string and the result is copied    |
++|                  |into buf[].                                                |
++|                  |NOT_SUPPORTED: if the algorithm string does not have any   |
++|                  |matches.                                                   |
++|                  |INVALID_PARAMETERS: if the param_id and the buf[] passed   |
++|                  |is rejected by the algorithm string.                       |
+++------------------+-----------------------------------------------------------+
++|uint32 buf[]      |Holds the payload of the result of the query, returned in  |
++|                  |the same buffer used to send the request. Size depends on  |
++|                  |the (algorithm string, param_id) pair.                     |
+++------------------+-----------------------------------------------------------+
++
++QCOM_SCMI_START_ACTIVITY
++~~~~~~~~~~~~~~~~~~~~~~~~
++
++message_id: 0x12
++protocol_id: 0x80
++
++The activity to be started is defined by the algorithm string; see the
++per-algorithm sections (e.g. MEMLAT_START_TIMER) for valid param_ids.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 ext_id     |Reserved, must be zero.                                    |
+++------------------+-----------------------------------------------------------+
++|uint32 algo_low   |Lower 32-bit value of the algorithm string.                |
+++------------------+-----------------------------------------------------------+
++|uint32 algo_high  |Upper 32-bit value of the algorithm string.                |
+++------------------+-----------------------------------------------------------+
++|uint32 param_id   |Serves as the token message id for the algorithm string    |
++|                  |and is generally used to start the activity performed by   |
++|                  |the algorithm string.                                      |
+++------------------+-----------------------------------------------------------+
++|uint32 buf[]      |Serves as the payload for the specified param_id and       |
++|                  |algorithm string pair. The payload size depends on the     |
++|                  |(algorithm string, param_id) pair; see the per-algorithm   |
++|                  |sections below.                                            |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS: if the activity performed by the algorithm string |
++|                  |starts successfully, or if it was already running.         |
++|                  |NOT_SUPPORTED: if the algorithm string does not have any   |
++|                  |matches.                                                   |
+++------------------+-----------------------------------------------------------+
++
++QCOM_SCMI_STOP_ACTIVITY
++~~~~~~~~~~~~~~~~~~~~~~~
++
++message_id: 0x13
++protocol_id: 0x80
++
++The activity to be stopped is defined by the algorithm string; see the
++per-algorithm sections (e.g. MEMLAT_STOP_TIMER) for valid param_ids.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 ext_id     |Reserved, must be zero.                                    |
+++------------------+-----------------------------------------------------------+
++|uint32 algo_low   |Lower 32-bit value of the algorithm string.                |
+++------------------+-----------------------------------------------------------+
++|uint32 algo_high  |Upper 32-bit value of the algorithm string.                |
+++------------------+-----------------------------------------------------------+
++|uint32 param_id   |Serves as the token message id for the algorithm string    |
++|                  |and is generally used to stop the activity performed by    |
++|                  |the algorithm string.                                      |
+++------------------+-----------------------------------------------------------+
++|uint32 buf[]      |Serves as the payload for the specified param_id and       |
++|                  |algorithm string pair. The payload size depends on the     |
++|                  |(algorithm string, param_id) pair; see the per-algorithm   |
++|                  |sections below.                                            |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS: if the activity performed by the algorithm string |
++|                  |stops successfully, or if it was not running.              |
++|                  |NOT_SUPPORTED: if the algorithm string does not have any   |
++|                  |matches.                                                   |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT: Memory Latency algorithm
++________________________________
++
++The MEMLAT algorithm (0x4d454d4c4154, ASCII "MEMLAT") scales the DDR, LLCC and
++DDR_QOS buses in response to memory-latency-bound workloads. It runs on the CPUCP:
++every sampling window it reads the per-CPU AMU counters, derives its statistics
++(instructions-per-miss, back-end stall, write-back ratio), maps that to a target
++level and votes for it directly on the DDR/LLCC/DDR_QOS interconnect. The kernel
++never issues a frequency request in that loop. The 6-byte value is treated as a
++64-bit algorithm string and split into two uint32 fields on the wire: algo_low
++carries its lower 32 bits and algo_high its upper 32 bits.
++
++With a distinct need to have the memory buses scaling done in SCP in response to
++memory-latency-bound workloads, none of the existing SCMI solutions could be used
++as-is. MPAM does not apply either: it is not enabled on all of the affected parts
++(e.g. Hamoa). The role split between SCP and client driver is described next.
++
++MEMLAT client driver pseudo-code:
++~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++
++.. code-block:: text
++
++  probe():
++    SET_COMMON_EV_MAP                          # AMU events (all groups)
++    for each memory group (DDR / LLCC / DDR_QOS):
++      SET_MEM_GROUP                            # bind group to interconnect
++      SET_GRP_EV_MAP                           # per-group AMU events
++      for each monitor in the group:
++        SET_MONITOR                            # topology, cpumask, name
++        IPM_CEIL / BE_STALL_FLOOR              # per-monitor tuneables
++        MON_FREQ_MAP                           # cpufreq -> memfreq map
++        SET_MIN_FREQ / SET_MAX_FREQ            # clamps
++    SAMPLE_MS                                  # sampling period
++    SET_EFFECTIVE_FREQ_METHOD                  # cpu-freq derivation method
++    START_TIMER                                # CPUCP now scales autonomously
++
++  devfreq poll (twice per CPUCP sample period):
++    GET_CUR_FREQ                               # read voted freq, per monitor
++
++  remove():
++    STOP_TIMER
++
++SCP pseudo-code:
++~~~~~~~~~~~~~~~~
++
++.. code-block:: text
++
++  every sample_ms:
++    for each CPU:
++      sample AMU counters (instructions, cycles, cache-misses, stalls)
++      derive per-CPU IPM, back-end-stall % and write-back ratio
++
++    for each configured memory group (DDR / LLCC / DDR_QOS):
++      for each monitor in the group:
++        best_freq = 0
++        for each CPU in the monitor's cpumask:
++          if CPU is memory-bound (IPM/stall/write-back vs. the
++             monitor's configured thresholds):
++            freq = CPU's cpufreq, optionally scaled toward the ceiling
++            best_freq = max(best_freq, freq)
++        monitor.target_freq = monitor's cpufreq->memfreq map(best_freq)
++
++      group_vote = max(target_freq of every monitor in the group)
++      if group_vote changed since the last sample:
++        vote group_vote onto the group's interconnect path
++
++  GET_CUR_FREQ returns a monitor's last target_freq
++  START_TIMER / STOP_TIMER: resume / suspend the loop above
++
++MEMLAT: Supported memory buses
++~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++
++The hw_type field carried in most payloads identifies the memory group:
++
+++----------+--------------------------------------------------------------+
++|hw_type   |Group                                                         |
+++----------+--------------------------------------------------------------+
++|0         |DDR                                                           |
+++----------+--------------------------------------------------------------+
++|1         |LLCC                                                          |
+++----------+--------------------------------------------------------------+
++|2         |DDR_QOS_COMPUTE                                               |
+++----------+--------------------------------------------------------------+
++|3         |DDR_QOS_MOBILE                                                |
+++----------+--------------------------------------------------------------+
++
++All multi-byte fields below are little-endian. mon_idx selects a monitor
++within the group (0-based, less than the firmware-supported maximum). All
++SET commands return the SCMI status word; on success it carries SUCCESS, on
++lookup failure INVALID_PARAMETERS, and on an unknown param_id NOT_SUPPORTED.
++
++Frequency units are not uniform across commands (kHz, MHz or a raw 0/1
++DDR_QOS level, depending on the param_id); each command documents its own
++units below.
++
++MEMLAT_SET_MEM_GROUP
++~~~~~~~~~~~~~~~~~~~~
++
++param_id: 0x10 (16)
++command:  QCOM_SCMI_SET_PARAM
++
++Allocates a new memory group on the firmware side and binds it to the
++underlying interconnect path (DDR / LLCC / DDR_QOS).
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 cpumask    |Bitmask of HW CPU IDs that contribute counters to this     |
++|                  |group (limited to 32 CPUs).                                |
+++------------------+-----------------------------------------------------------+
++|uint32 hw_type    |Memory group identifier (0 = DDR, 1 = LLCC,                |
++|                  |2 = DDR_QOS_COMPUTE, 3 = DDR_QOS_MOBILE).                  |
+++------------------+-----------------------------------------------------------+
++|uint32 mon_type   |Reserved for SET_MEM_GROUP (set to 0; populated only on    |
++|                  |SET_MONITOR).                                              |
+++------------------+-----------------------------------------------------------+
++|uint32 mon_idx    |Reserved for SET_MEM_GROUP (set to 0).                     |
+++------------------+-----------------------------------------------------------+
++|char mon_name[20] |Reserved for SET_MEM_GROUP (zero-filled).                  |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS: group allocated.                                  |
++|                  |BUSY: no free memory group slot (the firmware-supported    |
++|                  |maximum number of groups is already configured).           |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_SET_MONITOR
++~~~~~~~~~~~~~~~~~~
++
++param_id: 0x11 (17)
++command:  QCOM_SCMI_SET_PARAM
++
++Adds a monitor (a CPU subset that votes within an already-configured
++group).
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 cpumask    |Bitmask of HW CPU IDs assigned to this monitor (must be a  |
++|                  |subset of the group's cpumask; limited to 32 CPUs).        |
+++------------------+-----------------------------------------------------------+
++|uint32 hw_type    |Memory group identifier the monitor belongs to.            |
+++------------------+-----------------------------------------------------------+
++|uint32 mon_type   |0 = IPM-based latency monitor, 1 = compute (passive        |
++|                  |governor tracking cpufreq map irrespective of IPM) monitor |
+++------------------+-----------------------------------------------------------+
++|uint32 mon_idx    |Index of the monitor within the group.                     |
+++------------------+-----------------------------------------------------------+
++|char mon_name[20] |Human-readable monitor name (NUL-terminated, used in       |
++|                  |firmware log lines).                                       |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS: monitor created.                                  |
++|                  |NOT_FOUND: hw_type does not match any configured group, or |
++|                  |the firmware-supported maximum number of monitors already  |
++|                  |exist for the group.                                       |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_SET_COMMON_EV_MAP
++~~~~~~~~~~~~~~~~~~~~~~~~
++
++param_id: 0x12 (18)
++command:  QCOM_SCMI_SET_PARAM
++
++Configures the common counter IDs (instructions, cycles, stall, etc.)
++that the firmware reads on every sample for every CPU.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 num_evs    |Number of valid entries in cid[].                          |
+++------------------+-----------------------------------------------------------+
++|uint32 hw_type    |Set to 0xFF (sentinel for the common-events case).         |
+++------------------+-----------------------------------------------------------+
++|uint8 cid[]       |Array of CPUCP counter IDs indexed by INST/CYC/CONST_CYC/  |
++|                  |FE_STALL/BE_STALL. 0xFF marks an unused slot.              |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS / INVALID_PARAMETERS if num_evs exceeds the        |
++|                  |firmware-supported maximum.                                |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_SET_GRP_EV_MAP
++~~~~~~~~~~~~~~~~~~~~~
++
++param_id: 0x13 (19)
++command:  QCOM_SCMI_SET_PARAM
++
++Configures the per-group event IDs (cache miss / writeback / access)
++used by the IPM and write-back computations for the selected hw_type.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 num_evs    |Number of valid entries in cid[].                          |
+++------------------+-----------------------------------------------------------+
++|uint32 hw_type    |Memory group identifier.                                   |
+++------------------+-----------------------------------------------------------+
++|uint8 cid[]       |Array of CPUCP counter IDs indexed by MISS/WB/ACC. 0xFF    |
++|                  |marks an unused slot.                                      |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS / INVALID_PARAMETERS if hw_type is unknown or      |
++|                  |num_evs exceeds the firmware-supported maximum.            |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_ADAPTIVE_LOW_FREQ
++~~~~~~~~~~~~~~~~~~~~~~~~
++
++param_id: 0x14 (20)
++command:  QCOM_SCMI_SET_PARAM
++
++Sets the adaptive low-frequency floor for a group. When the algorithm's
++voted frequency falls below this floor the firmware clamps it up to the
++adaptive floor instead.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 hw_type    |Memory group identifier.                                   |
+++------------------+-----------------------------------------------------------+
++|uint32 mon_idx    |Ignored (group-scoped parameter).                          |
+++------------------+-----------------------------------------------------------+
++|uint32 val        |Adaptive low frequency in kHz (converted to MHz by the     |
++|                  |firmware).                                                 |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS / INVALID_PARAMETERS if hw_type does not match a   |
++|                  |configured group.                                          |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_ADAPTIVE_HIGH_FREQ
++~~~~~~~~~~~~~~~~~~~~~~~~~
++
++param_id: 0x15 (21)
++command:  QCOM_SCMI_SET_PARAM
++
++Sets the adaptive high-frequency floor for a group. Units and behaviour
++mirror MEMLAT_ADAPTIVE_LOW_FREQ.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 hw_type    |Memory group identifier.                                   |
+++------------------+-----------------------------------------------------------+
++|uint32 mon_idx    |Ignored (group-scoped parameter).                          |
+++------------------+-----------------------------------------------------------+
++|uint32 val        |Adaptive high frequency in kHz (converted to MHz by the    |
++|                  |firmware).                                                 |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS / INVALID_PARAMETERS if hw_type does not match a   |
++|                  |configured group.                                          |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_GET_ADAPTIVE_CUR_FREQ
++~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++
++param_id: 0x16 (22)
++command:  QCOM_SCMI_GET_PARAM
++
++Reads the group's current adaptive frequency.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 hw_type    |Memory group identifier.                                   |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS / INVALID_PARAMETERS if hw_type does not match a   |
++|                  |configured group.                                          |
+++------------------+-----------------------------------------------------------+
++|uint32 cur_freq   |Current adaptive frequency in kHz.                         |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_IPM_CEIL
++~~~~~~~~~~~~~~~
++
++param_id: 0x17 (23)
++command:  QCOM_SCMI_SET_PARAM
++
++Sets the IPM (Instructions-Per-Miss) ceiling for a monitor. CPUs whose
++IPM falls at or below this ceiling are considered memory-bound and
++contribute their cpufreq into the monitor's voting pool.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 hw_type    |Memory group identifier.                                   |
+++------------------+-----------------------------------------------------------+
++|uint32 mon_idx    |Monitor index within the group.                            |
+++------------------+-----------------------------------------------------------+
++|uint32 val        |IPM ceiling (instructions per cache miss).                 |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS / INVALID_PARAMETERS if (hw_type, mon_idx) does    |
++|                  |not match a registered monitor.                            |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_FE_STALL_FLOOR
++~~~~~~~~~~~~~~~~~~~~~
++
++param_id: 0x18 (24)
++command:  QCOM_SCMI_SET_PARAM
++
++Sets the front-end stall floor (in percent) for a monitor. Analogous to
++MEMLAT_BE_STALL_FLOOR but for front-end stalls.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 hw_type    |Memory group identifier.                                   |
+++------------------+-----------------------------------------------------------+
++|uint32 mon_idx    |Monitor index within the group.                            |
+++------------------+-----------------------------------------------------------+
++|uint32 val        |Front-end stall floor in percent (0..100).                 |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS / INVALID_PARAMETERS if (hw_type, mon_idx) does    |
++|                  |not match a registered monitor.                            |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_BE_STALL_FLOOR
++~~~~~~~~~~~~~~~~~~~~~
++
++param_id: 0x19 (25)
++command:  QCOM_SCMI_SET_PARAM
++
++Sets the back-end stall floor (in percent) for a monitor. CPUs whose
++back-end stall percentage is at or above this floor are eligible to have
++their cpufreq scaled up by the freq-scale knobs below.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 hw_type    |Memory group identifier.                                   |
+++------------------+-----------------------------------------------------------+
++|uint32 mon_idx    |Monitor index within the group.                            |
+++------------------+-----------------------------------------------------------+
++|uint32 val        |Back-end stall floor in percent (0..100).                  |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS / INVALID_PARAMETERS if (hw_type, mon_idx) does    |
++|                  |not match a registered monitor.                            |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_WB_PCT
++~~~~~~~~~~~~~
++
++param_id: 0x1A (26)
++command:  QCOM_SCMI_SET_PARAM
++
++Sets the write-back ratio threshold (in percent) for a monitor. A CPU's
++write-back ratio must be at or above this value for the monitor to treat
++it as memory-bound.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 hw_type    |Memory group identifier.                                   |
+++------------------+-----------------------------------------------------------+
++|uint32 mon_idx    |Monitor index within the group.                            |
+++------------------+-----------------------------------------------------------+
++|uint32 val        |Write-back ratio threshold in percent.                     |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS / INVALID_PARAMETERS if (hw_type, mon_idx) does    |
++|                  |not match a registered monitor.                            |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_IPM_FILTER
++~~~~~~~~~~~~~~~~~
++
++param_id: 0x1B (27)
++command:  QCOM_SCMI_SET_PARAM
++
++Sets the IPM filter for a monitor. A CPU's IPM must be at or below this
++value (in addition to the write-back check) for the monitor to select it.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 hw_type    |Memory group identifier.                                   |
+++------------------+-----------------------------------------------------------+
++|uint32 mon_idx    |Monitor index within the group.                            |
+++------------------+-----------------------------------------------------------+
++|uint32 val        |IPM filter (instructions per cache miss).                  |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS / INVALID_PARAMETERS if (hw_type, mon_idx) does    |
++|                  |not match a registered monitor.                            |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_FREQ_SCALE_PCT
++~~~~~~~~~~~~~~~~~~~~~
++
++param_id: 0x1C (28)
++command:  QCOM_SCMI_SET_PARAM
++
++Sets the frequency-scale percentage for a monitor. When non-zero, a
++memory-bound CPU's effective frequency is boosted proportionally to how
++far its IPM is below the ceiling, bounded by the scale floor/ceiling
++below.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 hw_type    |Memory group identifier.                                   |
+++------------------+-----------------------------------------------------------+
++|uint32 mon_idx    |Monitor index within the group.                            |
+++------------------+-----------------------------------------------------------+
++|uint32 val        |Frequency-scale factor in percent.                         |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS / INVALID_PARAMETERS if (hw_type, mon_idx) does    |
++|                  |not match a registered monitor.                            |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_FREQ_SCALE_CEIL_MHZ
++~~~~~~~~~~~~~~~~~~~~~~~~~~
++
++param_id: 0x1D (29)
++command:  QCOM_SCMI_SET_PARAM
++
++Sets the upper cpufreq bound (in MHz) for the freq-scale boost above.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 hw_type    |Memory group identifier.                                   |
+++------------------+-----------------------------------------------------------+
++|uint32 mon_idx    |Monitor index within the group.                            |
+++------------------+-----------------------------------------------------------+
++|uint32 val        |Frequency-scale ceiling in MHz.                            |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS / INVALID_PARAMETERS if (hw_type, mon_idx) does    |
++|                  |not match a registered monitor.                            |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_FREQ_SCALE_FLOOR_MHZ
++~~~~~~~~~~~~~~~~~~~~~~~~~~~
++
++param_id: 0x1E (30)
++command:  QCOM_SCMI_SET_PARAM
++
++Sets the lower cpufreq bound (in MHz) for the freq-scale boost above.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 hw_type    |Memory group identifier.                                   |
+++------------------+-----------------------------------------------------------+
++|uint32 mon_idx    |Monitor index within the group.                            |
+++------------------+-----------------------------------------------------------+
++|uint32 val        |Frequency-scale floor in MHz.                              |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS / INVALID_PARAMETERS if (hw_type, mon_idx) does    |
++|                  |not match a registered monitor.                            |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_SAMPLE_MS
++~~~~~~~~~~~~~~~~
++
++param_id: 0x1F (31)
++command:  QCOM_SCMI_SET_PARAM
++
++Sets the sampling period (in milliseconds) used by the firmware update
++loop.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|int32 sample_ms   |Sampling period in milliseconds.                           |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS.                                                   |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_MON_FREQ_MAP
++~~~~~~~~~~~~~~~~~~~
++
++param_id: 0x20 (32)
++command:  QCOM_SCMI_SET_PARAM
++
++Programs the cpufreq to memfreq voting table for a single monitor.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 hw_type    |Memory group identifier.                                   |
+++------------------+-----------------------------------------------------------+
++|uint32 mon_idx    |Monitor index within the group.                            |
+++------------------+-----------------------------------------------------------+
++|uint32 nr_rows    |Number of valid rows in tbl[] (must not exceed the         |
++|                  |firmware-supported maximum).                               |
+++------------------+-----------------------------------------------------------+
++|struct {          |Per-row mapping. cpu_freq_mhz is the cpufreq trigger in    |
++|u16 cpu_freq_mhz; |MHz; mem_freq_mhz is the resulting memfreq vote (MHz for   |
++|u16 mem_freq_mhz; |DDR/LLCC, a level index 0/1 for DDR_QOS).                  |
++|} tbl[]           |                                                           |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS / INVALID_PARAMETERS if (hw_type, mon_idx) is      |
++|                  |unknown / OUT_OF_RANGE if nr_rows exceeds the              |
++|                  |firmware-supported maximum.                                |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_SET_MIN_FREQ
++~~~~~~~~~~~~~~~~~~~
++
++param_id: 0x21 (33)
++command:  QCOM_SCMI_SET_PARAM
++
++Clamps a monitor's vote to a minimum value. Units are kHz for DDR/LLCC and
++raw level index for DDR_QOS.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 hw_type    |Memory group identifier.                                   |
+++------------------+-----------------------------------------------------------+
++|uint32 mon_idx    |Monitor index within the group.                            |
+++------------------+-----------------------------------------------------------+
++|uint32 val        |Minimum frequency: kHz for DDR/LLCC, level for DDR_QOS.    |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS / INVALID_PARAMETERS if (hw_type, mon_idx) does    |
++|                  |not match a registered monitor.                            |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_SET_MAX_FREQ
++~~~~~~~~~~~~~~~~~~~
++
++param_id: 0x22 (34)
++command:  QCOM_SCMI_SET_PARAM
++
++Clamps a monitor's vote to a maximum value. Units identical to
++MEMLAT_SET_MIN_FREQ.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 hw_type    |Memory group identifier.                                   |
+++------------------+-----------------------------------------------------------+
++|uint32 mon_idx    |Monitor index within the group.                            |
+++------------------+-----------------------------------------------------------+
++|uint32 val        |Maximum frequency: kHz for DDR/LLCC, level for DDR_QOS.    |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS / INVALID_PARAMETERS if (hw_type, mon_idx) does    |
++|                  |not match a registered monitor.                            |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_GET_CUR_FREQ
++~~~~~~~~~~~~~~~~~~~
++
++param_id: 0x23 (35)
++command:  QCOM_SCMI_GET_PARAM
++
++Reads the current target frequency that the firmware is voting for the
++selected (hw_type, mon_idx) tuple. The response payload is returned in
++the same buffer used to send the request, overwriting it on success.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|uint32 hw_type    |Memory group identifier.                                   |
+++------------------+-----------------------------------------------------------+
++|uint32 mon_idx    |Monitor index within the group.                            |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS / INVALID_PARAMETERS if (hw_type, mon_idx) does    |
++|                  |not match a registered monitor.                            |
+++------------------+-----------------------------------------------------------+
++|uint32 cur_freq   |Current target frequency in kHz for DDR/LLCC; raw level    |
++|                  |(0/1) for DDR_QOS.                                         |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_START_TIMER
++~~~~~~~~~~~~~~~~~~
++
++param_id: 0x24 (36)
++command:  QCOM_SCMI_START_ACTIVITY
++
++Starts the firmware sampling and voting loop at the configured
++sample_ms interval. Has no payload beyond the QCOM_SCMI_START_ACTIVITY
++header.
++
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS: timer started (or was already running).           |
++|                  |GENERIC_ERROR: events not yet initialized                  |
++|                  |(MEMLAT_SET_GRP_EV_MAP not called for any group).          |
++|                  |NOT_SUPPORTED: invalid param_id under START_ACTIVITY.      |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_STOP_TIMER
++~~~~~~~~~~~~~~~~~
++
++param_id: 0x25 (37)
++command:  QCOM_SCMI_STOP_ACTIVITY
++
++Suspends the firmware sampling and voting loop. Has no payload beyond
++the QCOM_SCMI_STOP_ACTIVITY header. The configured monitors and freq
++maps are retained, so a subsequent MEMLAT_START_TIMER resumes voting
++without re-programming.
++
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS: timer stopped (or was already stopped).           |
++|                  |NOT_SUPPORTED: invalid param_id under STOP_ACTIVITY.       |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_GET_TIMESTAMP
++~~~~~~~~~~~~~~~~~~~~
++
++param_id: 0x26 (38)
++command:  QCOM_SCMI_GET_PARAM
++
++Reads the firmware timestamp (nanoseconds).
++
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS.                                                   |
+++------------------+-----------------------------------------------------------+
++|uint64 tstamp     |Firmware timestamp in nanoseconds.                         |
+++------------------+-----------------------------------------------------------+
++
++MEMLAT_SET_EFFECTIVE_FREQ_METHOD
++~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++
++param_id: 0x27 (39)
++command:  QCOM_SCMI_SET_PARAM
++
++Selects the algorithm used to derive the per-CPU effective frequency
++from the cycle counters.
++
+++------------------+-----------------------------------------------------------+
++|Parameters                                                                    |
+++------------------+-----------------------------------------------------------+
++|Name              |Description                                                |
+++------------------+-----------------------------------------------------------+
++|int32 method      |0: const-cycles method (CPU cycles / const-cycles, scaled  |
++|                  |by the cluster's max frequency).                           |
++|                  |1: legacy method (CPU cycles / sampling-window time).      |
+++------------------+-----------------------------------------------------------+
++|Return values                                                                 |
+++------------------+-----------------------------------------------------------+
++|int32 status      |SUCCESS / INVALID_PARAMETERS if method is not 0 or 1.      |
+++------------------+-----------------------------------------------------------+
+diff --git a/include/linux/devfreq-governor.h b/include/linux/devfreq-governor.h
+index dfdd016..e4f7b6c 100644
+--- a/include/linux/devfreq-governor.h
++++ b/include/linux/devfreq-governor.h
+@@ -33,9 +33,14 @@
+  *   : This governor is never changeable to other governors.
+  * - DEVFREQ_GOV_FLAG_IRQ_DRIVEN
+  *   : The devfreq won't schedule the work for this governor.
++ * - DEVFREQ_GOV_FLAG_TRACK_REMOTE
++ *   : The governor only tracks frequency changes performed by a remote
++ *     agent (e.g. firmware); devfreq skips the local profile->target()
++ *     call and just keeps its statistics and notifiers in sync.
+  */
+ #define DEVFREQ_GOV_FLAG_IMMUTABLE			BIT(0)
+ #define DEVFREQ_GOV_FLAG_IRQ_DRIVEN			BIT(1)
++#define DEVFREQ_GOV_FLAG_TRACK_REMOTE			BIT(2)
+ 
+ /*
+  * Definition of governor attribute flags except for common sysfs attributes
+@@ -43,9 +48,12 @@
+  *   : Indicate polling_interval sysfs attribute
+  * - DEVFREQ_GOV_ATTR_TIMER
+  *   : Indicate timer sysfs attribute
++ * - DEVFREQ_GOV_ATTR_TARGET_FREQ
++ *   : Indicate the target freq sysfs attribute
+  */
+ #define DEVFREQ_GOV_ATTR_POLLING_INTERVAL		BIT(0)
+ #define DEVFREQ_GOV_ATTR_TIMER				BIT(1)
++#define DEVFREQ_GOV_ATTR_TARGET_FREQ			BIT(2)
+ 
+ /**
+  * struct devfreq_governor - Devfreq policy governor
+diff --git a/include/linux/devfreq.h b/include/linux/devfreq.h
+index dc1075d..4d50cf2 100644
+--- a/include/linux/devfreq.h
++++ b/include/linux/devfreq.h
+@@ -21,6 +21,7 @@
+ #define DEVFREQ_GOV_POWERSAVE		"powersave"
+ #define DEVFREQ_GOV_USERSPACE		"userspace"
+ #define DEVFREQ_GOV_PASSIVE		"passive"
++#define DEVFREQ_GOV_REMOTE		"remote"
+ 
+ /* DEVFREQ notifier interface */
+ #define DEVFREQ_TRANSITION_NOTIFIER	(0)
+diff --git a/include/linux/scmi_qcom_protocol.h b/include/linux/scmi_qcom_protocol.h
+new file mode 100644
+index 0000000..41632ee
+--- /dev/null
++++ b/include/linux/scmi_qcom_protocol.h
+@@ -0,0 +1,37 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/*
++ * SCMI Message Protocol driver QCOM extension header
++ *
++ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
++ */
++
++#ifndef _LINUX_SCMI_QCOM_PROTOCOL_H
++#define _LINUX_SCMI_QCOM_PROTOCOL_H
++
++#include <linux/types.h>
++
++#define SCMI_PROTOCOL_QCOM_GENERIC    0x80
++
++struct scmi_protocol_handle;
++
++/**
++ * struct qcom_generic_ext_ops - represents the various operations provided
++ *				 by QCOM Generic Vendor Protocol
++ *
++ * @set_param: set parameter specified by param_id and algo_str pair.
++ * @get_param: retrieve parameter specified by param_id and algo_str pair.
++ * @start_activity: initiate a specific activity defined by algo_str.
++ * @stop_activity: halt previously initiated activity defined by algo_str.
++ */
++struct qcom_generic_ext_ops {
++	int (*set_param)(const struct scmi_protocol_handle *ph, void *buf, size_t buf_len,
++			 u64 algo_str, u32 param_id);
++	int (*get_param)(const struct scmi_protocol_handle *ph, void *buf, size_t buf_len,
++			 u64 algo_str, u32 param_id, size_t rx_size);
++	int (*start_activity)(const struct scmi_protocol_handle *ph, void *buf, size_t buf_len,
++			      u64 algo_str, u32 param_id);
++	int (*stop_activity)(const struct scmi_protocol_handle *ph, void *buf, size_t buf_len,
++			     u64 algo_str, u32 param_id);
++};
++
++#endif /* _LINUX_SCMI_QCOM_PROTOCOL_H */
+-- 
+2.56.0
+

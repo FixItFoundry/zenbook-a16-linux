@@ -1,0 +1,48 @@
+From db7f4f0be3871e6aca8fbd184292206b45707c04 Mon Sep 17 00:00:00 2001
+From: scalpel4k <scalpel4k@gmail.com>
+Date: Wed, 18 Nov 2026 09:32:31 +0100
+Subject: [PATCH] LOCAL: arm64: dts: glymur: zenbook-a16: enable the iris video
+ codec
+
+Enable hardware video decode/encode (iris, VPU 3.6) with the OEM-signed
+firmware qcvss8480.mbn from the ASUS SoC driver package.
+
+Linux runs at EL2 on this laptop, so like the CRD the node needs the
+video-firmware subnode with its own IOMMU stream. Without it iris hands
+the metadata to TrustZone without the SHM bridge and does not map the
+firmware, and qcom_pas_init_image() fails with -EINVAL (seen with both
+the ASUS and the Qualcomm linux-firmware image).
+---
+ .../qcom/glymur-asus-zenbook-a16-ux3607oa.dts    | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+index 7185e18..84a7578 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+@@ -942,6 +942,22 @@
+ 	};
+ };
+ 
++&iris {
++	/* OEM-signed VPU firmware from the ASUS Windows driver package */
++	firmware-name = "qcom/glymur/ASUSTeK/UX3607OA/qcvss8480.mbn";
++
++	status = "okay";
++
++	/*
++	 * Linux runs at EL2 here (no Qualcomm hypervisor), so iris has to map
++	 * the firmware into the VPU IOMMU and hand the metadata to TrustZone
++	 * through the SHM bridge itself. Same stream as on the CRD.
++	 */
++	video-firmware {
++		iommus = <&apps_smmu 0x19e2 0x0>;
++	};
++};
++
+ &pmh0110_f_e0_gpios {
+ 	misc_3p3_reg_en: misc-3p3-reg-en-state {
+ 		pins = "gpio6";
+-- 
+2.56.0
+

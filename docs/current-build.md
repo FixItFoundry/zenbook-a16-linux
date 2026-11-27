@@ -1,9 +1,72 @@
-# Current build — 2026-11-21
+# Current build — 2026-11-27
 
-The A16 runs Fedora with **`7.3.0-ZenbookA16-20261022-final1-a16pkg8+`**, built
-from the 161-patch stable queue on November 21. It adds the X1E80100 lite CSID
+The A16 runs Fedora with **`7.3.0-ZenbookA16-20261022-final1-a16pkg12+`**, built
+from the 201-patch stable queue (`c9073bc3daaf012b47e5c0631316308f4a3f3a7c`) on
+November 27 and promoted to the default GRUB entry (`fedora`). Revision 8 remains
+installed in the `Test DTBs` fallback submenu.
+
+Compared to revision 8, revision 12 drops legacy `0062` (refreshes `0120`), adds
+Ritesh Kumar's Glymur DP PHY v8 series (`0162`–`0169`), moves HDMI HPD pinctrl
+to `&mdss_dp2` (`0170`), carries 27 fixes from Michi (`@scalpel4k`)'s openSUSE
+`kernel-qcom-laptops` stack (`0171`–`0197`, including `MODULE_FIRMWARE`
+declarations, `hid-asus` `fnlock_default`, Qualcomm `qcom-7.3` `iris` video,
+SCMI `memlat`, `SPEL`, Type-C/DP/USB3/Wi-Fi fixes), links Glymur DPU mixers
+`LM_4`–`LM_7` to `DSPP_4`–`DSPP_7` (`0198`), and adds four `iris` fixes
+(`0199`–`0202`: suspend deadlock, removal work cancel, timeout firmware reload,
+and firmware-reported output buffer count). Kconfig enables
+`CONFIG_CLK_GLYMUR_VIDEOCC=m`, `CONFIG_QCOM_SCMI_GENERIC_EXT=m`,
+`CONFIG_DEVFREQ_GOV_REMOTE=m`, `CONFIG_SCMI_QCOM_MEMLAT_DEVFREQ=m`,
+`CONFIG_QCOM_SPEL=m`, `CONFIG_NETCONSOLE_EXTENDED_LOG=y`, and the buddy
+hardlockup detector.
+
+Validation on boot `f3bdc616` (`taint=0`, 0 failed units, 0 oops, `btrfs device
+stats /` all 0, `0005:00:00.0` and `0005:01:00.0` PCIe AER 0):
+
+- **Three displays from power-on:** `eDP-1` (2880x1800@120), `DP-1` USB-C glasses
+  (1920x1080@120), and `HDMI-A-1` (1920x1080@60) came up enabled with
+  `dpu_refusals=0` and `phy_poweron_err=0`; Jesse confirmed clean picture on all
+  three simultaneously. Verified DPMS off/on cycles: `HDMI-A-1` 10/10 (`bad=0`),
+  `DP-1` 10/10 (`bad=0`), `eDP-1` 20/20 (`bad=1`, cycle 2 channel-EQ retry
+  recovered cleanly).
+- **Hardware video (`iris`):** H264/HEVC/VP9 decode bit-exact with software;
+  GStreamer 60x alternating decode `bad=0/60`; 5/5 forced firmware hangs
+  recovered with bit-exact follow-up decodes; 20/20 FFmpeg H264 encodes
+  (`short=0`, `hung=0`); clean runtime suspend afterwards (`taint=0`, no D-state
+  tasks).
+- **USB3, peripherals, power:** 2x128 MiB read-only check on a 64 GB USB3 drive
+  through a VIA USB-C hub passed (`match=OK`, 54.9 / 88.3 MB/s, 0 real USB
+  errors). Wi-Fi (0% loss), Bluetooth (20 devices), upstream `MM1`/`MM2` audio
+  playback and mic capture, both cameras (20/20 frames each), Adreno X2-90, EC,
+  `memlat` (DDR/LLCC devfreq), and `SPEL` (15.9 W idle / 62.3 W load) all passed.
+- **Load/idle soak (24 rounds, `memlat` active, 3 displays connected):** 12
+  balanced rounds (2.92/3.63 GHz, peak 91 °C CPU / 42 °C NVMe) and 12 uncapped
+  boost rounds (4.72 GHz, peak 95 °C CPU / 41 °C NVMe) completed with 0 resets,
+  0/0 PCIe AER, `taint=0`, and 0 Btrfs errors.
+
+Remaining limits and open items:
+
+- **USB-C hub resets under load:** during the 24-round soak, the VIA USB-C hub
+  carrying PD pass-through (`usb 6-1`) reset 10 times strictly during load
+  (2× balanced, 8× boost, 0× idle), and the glasses HID (`usb 3-1`)
+  re-enumerated 3×; PD rail sag vs USB PHY margin under load is untested.
+- **Stability not accepted:** 24 clean rounds do not resolve the historical
+  unexplained silent resets (~1 in 52 rounds on revision 8), nor an intermittent
+  `0005:00:00.0` NVMe PCIe AER storm observed once on revision 11 (did not
+  reproduce on revision 12's build, validation, or soak).
+- **Not yet tested on revision 12:** physical cable hotplug/unplug cycles, 4K60,
+  suspend/resume, native `dnf`/`apt` transactions, and Ubuntu DEB installation.
+
+| Track | Patches | Replayed source tree | Package release | State |
+|---|---:|---|---|---|
+| stable | 201 | `c9073bc3daaf012b47e5c0631316308f4a3f3a7c` | `7.3.0-ZenbookA16-20261022-final1-a16pkg12+` | Built, installed, default |
+| rc | 114 | `ae9780ba94c73237250a58ecc44fca2485813f8a` | `7.4.0-rc1-next-20261103-zenbook-a16-a16pkg6+` | Built, staged in `Test DTBs` |
+
+## Revision 8 — 2026-11-21
+
+The A16 ran Fedora with **`7.3.0-ZenbookA16-20261022-final1-a16pkg8+`**, built
+from the 161-patch stable queue on November 21. It added the X1E80100 lite CSID
 fixes (`0159`–`0160`) and the full Glymur CAMSS tables (`0161`) to revision 7.
-Revision 7 remains installed as the fallback entry.
+Revision 8 remains installed in `Test DTBs` as the fallback entry.
 
 On the first boot of revision 8, the display (2880x1800 at 120 Hz), Wi-Fi,
 Bluetooth and playback came up with no failed units and an untainted kernel.
@@ -14,11 +77,6 @@ followed the emitter (0/80/255/0: 26.7/34.3/44.2/28.3 mean). In 20 Hyprland
 DPMS off/on cycles, 3 trainings failed channel equalisation and recovered; the
 panel ended at 2880x1800 at 120 Hz. The unexplained resets seen on revisions 6
 and 7 are not resolved, so stability is not accepted.
-
-| Track | Patches | Replayed source tree | Package release | State |
-|---|---:|---|---|---|
-| stable | 161 | `e6413608c5462649b3f0c670ff19486a19d04cc1` | `7.3.0-ZenbookA16-20261022-final1-a16pkg8+` | Built, installed, default |
-| rc | 112 | `ed1c21244abbeae943f39c5a4824ea05c1c613ba` | `7.4.0-rc1-next-20261103-zenbook-a16-a16pkg6+` | Built, not installed |
 
 Revision 5 was built without the nine display, Bluetooth, M.2 and camera patches
 and is superseded. Native `dnf`/`apt` transactions, sleep and RTC behaviour are

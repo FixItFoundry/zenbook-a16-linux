@@ -1,9 +1,9 @@
 # Full A16/Qualcomm stack on Linux 7.3 final
 
-Apply the 161 files in [series](series), in order, to Linux `v7.3`
+Apply the 201 files in [series](series), in order, to Linux `v7.3`
 (`c03c1a14507dfaf8b856c2608f9ac216021fc222`). They reproduce source tree
-`025853e642c038b02a8ba7b8ed8f786bd071c47c` (`004cf498d432dba102ea3d4c9f9389446d40c1bd`
-prior to patch `0143`). Use the matching
+`c9073bc3daaf012b47e5c0631316308f4a3f3a7c` (`025853e642c038b02a8ba7b8ed8f786bd071c47c`
+prior to revision 12's display, openSUSE, and `iris` additions). Use the matching
 [config, verifier and build helper](../../kernel/stable/README.md).
 
 The stack combines the 111-patch `7.3` baseline (64 A16 baseline patches, 40 Qualcomm
@@ -20,7 +20,8 @@ wire `hm1092` `.set_fmt` on 7.3 and connect the ganged PMH0101 IR emitter and `v
 Patch `0158` stops the eDP link training fallback from dropping below the bandwidth the panel mode needs.
 Patch `0159` gives the X1E80100 lite CSIDs their own clocks, Bryan O'Donoghue's `0160` drops the
 unusable CSID2, and the local `0161` replaces `0107`'s CSID0/VFE0 limit with the full X1E80100 tables.
-The [kernel recipe](../../kernel/stable/README.md) describes all four groups.
+Revision 12 drops legacy `0062` (refreshing `0120`) and adds `0162`–`0169` (Ritesh Kumar's Glymur DP PHY v8 series), `0170` (HDMI HPD pinctrl on `&mdss_dp2`), `0171`–`0197` (27 patches from Michi `@scalpel4k`'s openSUSE `kernel-qcom-laptops` stack covering firmware declarations, `fnlock_default`, `iris`, SCMI `memlat`, `SPEL`, Type-C/DP/USB3/Wi-Fi fixes), `0198` (Glymur DPU `LM_4`–`LM_7` → `DSPP_4`–`DSPP_7`), and `0199`–`0202` (`iris` suspend deadlock, driver-removal work cancel, timeout firmware reload, and firmware-reported output buffer count).
+The [kernel recipe](../../kernel/stable/README.md) describes all groups.
 
 ## Upstream equivalents
 

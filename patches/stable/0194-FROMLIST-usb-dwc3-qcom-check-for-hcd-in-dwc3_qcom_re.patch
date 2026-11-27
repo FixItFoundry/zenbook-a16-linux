@@ -1,0 +1,62 @@
+From cb847b8629518af8f82d2e3ec46dc35786c6f193 Mon Sep 17 00:00:00 2001
+From: Prashanth K <prashanth.k@oss.qualcomm.com>
+Date: Thu, 22 Oct 2026 10:56:02 +0530
+Subject: [PATCH] FROMLIST: usb: dwc3: qcom: check for hcd in
+ dwc3_qcom_read_usb2_speed
+
+Currently dwc->xhci is not cleared if xhci_plat_probe() fails. During
+system suspend, dwc3_qcom_read_usb2_speed() checks dwc->xhci and assumes
+xhci is initialised. Since the probe failed, hcd will be null, and the
+subsequent access results in a NULL pointer dereference
+
+Unable to handle kernel NULL pointer dereference at
+virtual address 0000000000000058
+
+Call trace:
+  dwc3_qcom_pm_suspend
+  dpm_run_callback
+  device_suspend
+  dpm_suspend
+  dpm_suspend_start
+  suspend_devices_and_enter
+  pm_suspend
+
+Explicitly check the hcd pointer in dwc3_qcom_read_usb2_speed
+before accessing it.
+
+Link: https://lore.kernel.org/all/20261022052602.2335652-1-prashanth.k@oss.qualcomm.com/
+Fixes: 6895ea55c385 ("usb: dwc3: qcom: Configure wakeup interrupts during suspend")
+Signed-off-by: Prashanth K <prashanth.k@oss.qualcomm.com>
+Reviewed-by: Peter Chen <peter.chen@oss.qualcomm.com>
+---
+ drivers/usb/dwc3/dwc3-qcom.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/usb/dwc3/dwc3-qcom.c b/drivers/usb/dwc3/dwc3-qcom.c
+index d35fa55..9b9a3c7 100644
+--- a/drivers/usb/dwc3/dwc3-qcom.c
++++ b/drivers/usb/dwc3/dwc3-qcom.c
+@@ -242,7 +242,7 @@ static bool dwc3_qcom_is_host(struct dwc3_qcom *qcom)
+ 
+ static enum usb_device_speed dwc3_qcom_read_usb2_speed(struct dwc3_qcom *qcom, int port_index)
+ {
+-	struct usb_device *udev;
++	struct usb_device *udev = NULL;
+ 	struct usb_hcd __maybe_unused *hcd;
+ 	struct dwc3 *dwc = &qcom->dwc;
+ 
+@@ -252,9 +252,8 @@ static enum usb_device_speed dwc3_qcom_read_usb2_speed(struct dwc3_qcom *qcom, i
+ 	hcd = platform_get_drvdata(dwc->xhci);
+ 
+ #ifdef CONFIG_USB
+-	udev = usb_hub_find_child(hcd->self.root_hub, port_index + 1);
+-#else
+-	udev = NULL;
++	if (hcd)
++		udev = usb_hub_find_child(hcd->self.root_hub, port_index + 1);
+ #endif
+ 	if (!udev)
+ 		return USB_SPEED_UNKNOWN;
+-- 
+2.56.0
+

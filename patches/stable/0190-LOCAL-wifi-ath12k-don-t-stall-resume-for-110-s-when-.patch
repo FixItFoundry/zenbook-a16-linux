@@ -1,0 +1,78 @@
+From bcbf1feeb5bdcfcbdcf3d553d5758e5e9f77dabc Mon Sep 17 00:00:00 2001
+From: scalpel4k <scalpel4k@gmail.com>
+Date: Fri, 20 Nov 2026 10:14:29 +0100
+Subject: [PATCH] LOCAL: wifi: ath12k: don't stall resume for 110 s when the
+ device is gone
+
+On the Zenbook A16 the QCC2072 sometimes does not come back from a
+longer s2idle ("MHI did not load image over BHI, ret: -110"). Resume
+then waits 90 s for MHI in resume_early and another 20 s for a restart
+that cannot complete in resume. The whole system resume waits for it:
+the screen stays dark for ~2 minutes and the power button looks dead.
+
+A healthy device reaches mission mode within ~2 s, so lower the MHI
+timeout to 10 s, and skip the restart wait when resume_early already
+failed. Wi-Fi is still lost in that case, but the laptop wakes up.
+---
+ drivers/net/wireless/ath/ath12k/core.c | 5 +++++
+ drivers/net/wireless/ath/ath12k/core.h | 2 ++
+ drivers/net/wireless/ath/ath12k/mhi.c  | 7 ++++++-
+ 3 files changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/core.c b/drivers/net/wireless/ath/ath12k/core.c
+index 58b21c7..ffa7c6e 100644
+--- a/drivers/net/wireless/ath/ath12k/core.c
++++ b/drivers/net/wireless/ath/ath12k/core.c
+@@ -191,6 +191,7 @@ int ath12k_core_resume_early(struct ath12k_base *ab)
+ 
+ 	reinit_completion(&ab->restart_completed);
+ 	ret = ath12k_hif_power_up(ab);
++	ab->hif_resume_failed = ret != 0;
+ 	if (ret)
+ 		ath12k_warn(ab, "failed to power up hif during resume: %d\n", ret);
+ 
+@@ -207,6 +208,10 @@ int ath12k_core_resume(struct ath12k_base *ab)
+ 	if (ret <= 0)
+ 		return ret;
+ 
++	/* the restart can't complete if the device never powered up */
++	if (ab->hif_resume_failed)
++		return -EIO;
++
+ 	time_left = wait_for_completion_timeout(&ab->restart_completed,
+ 						ATH12K_RESET_TIMEOUT_HZ);
+ 	if (time_left == 0) {
+diff --git a/drivers/net/wireless/ath/ath12k/core.h b/drivers/net/wireless/ath/ath12k/core.h
+index 93fd227..a86f6a2 100644
+--- a/drivers/net/wireless/ath/ath12k/core.h
++++ b/drivers/net/wireless/ath/ath12k/core.h
+@@ -1113,6 +1113,8 @@ struct ath12k_base {
+ 	} fw;
+ 
+ 	struct completion restart_completed;
++	/* set by resume_early when the device did not come up */
++	bool hif_resume_failed;
+ 
+ #ifdef CONFIG_ACPI
+ 
+diff --git a/drivers/net/wireless/ath/ath12k/mhi.c b/drivers/net/wireless/ath/ath12k/mhi.c
+index bb5e77a..402e57d 100644
+--- a/drivers/net/wireless/ath/ath12k/mhi.c
++++ b/drivers/net/wireless/ath/ath12k/mhi.c
+@@ -13,7 +13,12 @@
+ #include "mhi.h"
+ #include "pci.h"
+ 
+-#define MHI_TIMEOUT_DEFAULT_MS	90000
++/*
++ * A healthy device reaches mission mode within ~2 s (boot and resume).
++ * Resume waits for this synchronously, so a device that will never come up
++ * (e.g. after it lost power in a long s2idle) must not stall it for 90 s.
++ */
++#define MHI_TIMEOUT_DEFAULT_MS	10000
+ #define OTP_INVALID_BOARD_ID	0xFFFF
+ #define OTP_VALID_DUALMAC_BOARD_ID_MASK		0x1000
+ #define MHI_CB_INVALID	0xff
+-- 
+2.56.0
+

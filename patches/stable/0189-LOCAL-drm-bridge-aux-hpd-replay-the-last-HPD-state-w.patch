@@ -1,0 +1,197 @@
+From ece9cad55c1ba3099638a529a4b627e525d334ad Mon Sep 17 00:00:00 2001
+From: scalpel4k <scalpel4k@gmail.com>
+Date: Thu, 19 Nov 2026 21:42:06 +0100
+Subject: [PATCH] LOCAL: drm/bridge: aux-hpd: replay the last HPD state when
+ HPD is enabled
+
+pmic_glink_altmode reports the USB-C DP state as soon as the firmware is
+up. On Glymur that is ~1.0 s into boot, while msm binds its DP
+controllers at ~1.2 s and enables HPD later still. The notification
+finds no callback and is dropped; the firmware only reports again on
+the next plug event, so a display connected at boot stays dark until it
+is replugged.
+
+Keep the last reported status with the auxiliary device the provider
+allocates (it exists before the bridge driver probes) and replay it
+from .hpd_enable. drm_bridge_hpd_enable/disable call these with the
+bridge's hpd_mutex held and drm_bridge_hpd_notify() takes the same
+mutex, so the replay runs from a work item and .hpd_disable cancels it
+without waiting for it.
+---
+ drivers/gpu/drm/bridge/aux-hpd-bridge.c | 86 +++++++++++++++++++++++--
+ 1 file changed, 80 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/bridge/aux-hpd-bridge.c b/drivers/gpu/drm/bridge/aux-hpd-bridge.c
+index a2e525a..76a782e 100644
+--- a/drivers/gpu/drm/bridge/aux-hpd-bridge.c
++++ b/drivers/gpu/drm/bridge/aux-hpd-bridge.c
+@@ -8,6 +8,7 @@
+ #include <linux/export.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
++#include <linux/workqueue.h>
+ 
+ #include <drm/drm_atomic_helper.h>
+ #include <drm/drm_bridge.h>
+@@ -15,9 +16,23 @@
+ 
+ static DEFINE_IDA(drm_aux_hpd_bridge_ida);
+ 
++/*
++ * The provider (e.g. pmic_glink_altmode) can report HPD before the bridge
++ * driver has probed, and before the display driver has enabled HPD. Keep
++ * the last status with the device the provider owns, so it can be replayed.
++ */
++struct drm_aux_hpd_bridge_adev {
++	struct auxiliary_device adev;
++	/* written by drm_aux_hpd_bridge_notify(), read by the replay work */
++	enum drm_connector_status last_status;
++};
++
++#define to_hpd_adev(a) container_of(a, struct drm_aux_hpd_bridge_adev, adev)
++
+ struct drm_aux_hpd_bridge_data {
+ 	struct drm_bridge bridge;
+ 	struct device *dev;
++	struct work_struct replay_work;
+ };
+ 
+ static void drm_aux_hpd_bridge_release(struct device *dev)
+@@ -29,7 +44,7 @@ static void drm_aux_hpd_bridge_release(struct device *dev)
+ 	of_node_put(adev->dev.platform_data);
+ 	of_node_put(adev->dev.of_node);
+ 
+-	kfree(adev);
++	kfree(to_hpd_adev(adev));
+ }
+ 
+ static void drm_aux_hpd_bridge_free_adev(void *_adev)
+@@ -50,16 +65,20 @@ static void drm_aux_hpd_bridge_free_adev(void *_adev)
+  */
+ struct auxiliary_device *devm_drm_dp_hpd_bridge_alloc(struct device *parent, struct device_node *np)
+ {
++	struct drm_aux_hpd_bridge_adev *hpd_adev;
+ 	struct auxiliary_device *adev;
+ 	int ret;
+ 
+-	adev = kzalloc_obj(*adev);
+-	if (!adev)
++	hpd_adev = kzalloc_obj(*hpd_adev);
++	if (!hpd_adev)
+ 		return ERR_PTR(-ENOMEM);
+ 
++	hpd_adev->last_status = connector_status_unknown;
++	adev = &hpd_adev->adev;
++
+ 	ret = ida_alloc(&drm_aux_hpd_bridge_ida, GFP_KERNEL);
+ 	if (ret < 0) {
+-		kfree(adev);
++		kfree(hpd_adev);
+ 		return ERR_PTR(ret);
+ 	}
+ 
+@@ -76,7 +95,7 @@ struct auxiliary_device *devm_drm_dp_hpd_bridge_alloc(struct device *parent, str
+ 		of_node_put(adev->dev.platform_data);
+ 		of_node_put(adev->dev.of_node);
+ 		ida_free(&drm_aux_hpd_bridge_ida, adev->id);
+-		kfree(adev);
++		kfree(hpd_adev);
+ 		return ERR_PTR(ret);
+ 	}
+ 
+@@ -151,6 +170,8 @@ void drm_aux_hpd_bridge_notify(struct device *dev, enum drm_connector_status sta
+ 	struct auxiliary_device *adev = to_auxiliary_dev(dev);
+ 	struct drm_aux_hpd_bridge_data *data = auxiliary_get_drvdata(adev);
+ 
++	WRITE_ONCE(to_hpd_adev(adev)->last_status, status);
++
+ 	if (!data)
+ 		return;
+ 
+@@ -158,6 +179,49 @@ void drm_aux_hpd_bridge_notify(struct device *dev, enum drm_connector_status sta
+ }
+ EXPORT_SYMBOL_GPL(drm_aux_hpd_bridge_notify);
+ 
++static void drm_aux_hpd_bridge_replay(struct work_struct *work)
++{
++	struct drm_aux_hpd_bridge_data *data =
++		container_of(work, struct drm_aux_hpd_bridge_data, replay_work);
++	struct auxiliary_device *adev = to_auxiliary_dev(data->dev);
++	enum drm_connector_status status = READ_ONCE(to_hpd_adev(adev)->last_status);
++
++	/* nothing reported yet: the provider's first notification will come */
++	if (status == connector_status_unknown)
++		return;
++
++	drm_bridge_hpd_notify(&data->bridge, status);
++}
++
++/*
++ * Called with the bridge's hpd_mutex held. The replay calls
++ * drm_bridge_hpd_notify(), which takes the same mutex, so it runs from a
++ * work item, and hpd_disable does not wait for it.
++ */
++static void drm_aux_hpd_bridge_hpd_enable(struct drm_bridge *bridge)
++{
++	struct drm_aux_hpd_bridge_data *data =
++		container_of(bridge, struct drm_aux_hpd_bridge_data, bridge);
++
++	schedule_work(&data->replay_work);
++}
++
++static void drm_aux_hpd_bridge_hpd_disable(struct drm_bridge *bridge)
++{
++	struct drm_aux_hpd_bridge_data *data =
++		container_of(bridge, struct drm_aux_hpd_bridge_data, bridge);
++
++	/* no _sync: a running replay waits for hpd_mutex, which we hold */
++	cancel_work(&data->replay_work);
++}
++
++static void drm_aux_hpd_bridge_cancel_replay(void *_data)
++{
++	struct drm_aux_hpd_bridge_data *data = _data;
++
++	cancel_work_sync(&data->replay_work);
++}
++
+ static int drm_aux_hpd_bridge_attach(struct drm_bridge *bridge,
+ 				     struct drm_encoder *encoder,
+ 				     enum drm_bridge_attach_flags flags)
+@@ -170,12 +234,15 @@ static const struct drm_bridge_funcs drm_aux_hpd_bridge_funcs = {
+ 	.atomic_destroy_state = drm_atomic_helper_bridge_destroy_state,
+ 	.atomic_duplicate_state = drm_atomic_helper_bridge_duplicate_state,
+ 	.attach	= drm_aux_hpd_bridge_attach,
++	.hpd_enable = drm_aux_hpd_bridge_hpd_enable,
++	.hpd_disable = drm_aux_hpd_bridge_hpd_disable,
+ };
+ 
+ static int drm_aux_hpd_bridge_probe(struct auxiliary_device *auxdev,
+ 				    const struct auxiliary_device_id *id)
+ {
+ 	struct drm_aux_hpd_bridge_data *data;
++	int ret;
+ 
+ 	data = devm_drm_bridge_alloc(&auxdev->dev,
+ 				     struct drm_aux_hpd_bridge_data, bridge,
+@@ -192,9 +259,16 @@ static int drm_aux_hpd_bridge_probe(struct auxiliary_device *auxdev,
+ 	data->bridge.interlace_allowed = true;
+ 	data->bridge.ycbcr_420_allowed = true;
+ 
++	INIT_WORK(&data->replay_work, drm_aux_hpd_bridge_replay);
++
+ 	auxiliary_set_drvdata(auxdev, data);
+ 
+-	return devm_drm_bridge_add(data->dev, &data->bridge);
++	ret = devm_drm_bridge_add(data->dev, &data->bridge);
++	if (ret)
++		return ret;
++
++	/* added after the bridge, so it runs before the bridge is removed */
++	return devm_add_action_or_reset(data->dev, drm_aux_hpd_bridge_cancel_replay, data);
+ }
+ 
+ static const struct auxiliary_device_id drm_aux_hpd_bridge_table[] = {
+-- 
+2.56.0
+

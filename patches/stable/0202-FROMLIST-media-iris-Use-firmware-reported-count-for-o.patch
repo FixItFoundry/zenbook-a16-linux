@@ -1,0 +1,43 @@
+From db8f3745df9d012473d16a2628a1431a68a134f4 Mon Sep 17 00:00:00 2001
+From: Vishnu Reddy <busanna.reddy@oss.qualcomm.com>
+Date: Tue, 3 Nov 2026 15:55:46 +0530
+Subject: [PATCH] FROMLIST: media: iris: Use firmware reported count for output
+ buffers
+
+Once the firmware reports its minimum output buffer count, the driver
+still caps it to 4 for VP9 and AV1 when split mode is enabled. After a
+seek, the output buffer count can be lower than the minimum required by
+the firmware for VP9 streams. This causes the firmware to report
+insufficient output buffers and the seek operation can fail.
+
+Use the firmware reported minimum count as is. The driver calculated
+count is only used until the firmware reports its own requirement.
+
+Link: https://lore.kernel.org/all/20261031-fix_dec_seek-v1-3-cfedf0c267ee@oss.qualcomm.com/
+Signed-off-by: Vishnu Reddy <busanna.reddy@oss.qualcomm.com>
+Signed-off-by: Nagesh Jamakhandi <njamakha@qti.qualcomm.com>
+---
+ drivers/media/platform/qcom/iris/iris_vpu_buffer.c | 10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/media/platform/qcom/iris/iris_vpu_buffer.c b/drivers/media/platform/qcom/iris/iris_vpu_buffer.c
+index 9009d227bddb3..674229fe487c0 100644
+--- a/drivers/media/platform/qcom/iris/iris_vpu_buffer.c
++++ b/drivers/media/platform/qcom/iris/iris_vpu_buffer.c
+@@ -2554,14 +2554,8 @@ static int output_min_count(struct iris_inst *inst)
+ 	int output_min_count = 4;
+ 
+ 	/* fw_min_count > 0 indicates reconfig event has already arrived */
+-	if (inst->fw_min_count) {
+-		if (iris_split_mode_enabled(inst) &&
+-		    (inst->codec == V4L2_PIX_FMT_VP9 ||
+-		     inst->codec == V4L2_PIX_FMT_AV1))
+-			return min_t(u32, 4, inst->fw_min_count);
+-		else
+-			return inst->fw_min_count;
+-	}
++	if (inst->fw_min_count)
++		return inst->fw_min_count;
+ 
+ 	if (inst->codec == V4L2_PIX_FMT_VP9)
+ 		output_min_count = 9;

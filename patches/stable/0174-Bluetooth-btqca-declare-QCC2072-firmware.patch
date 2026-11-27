@@ -1,0 +1,22 @@
+From: scalpel4k <scalpel4k@gmail.com>
+Date: Sun, 15 Nov 2026 22:00:00 +0100
+Subject: [PATCH] Bluetooth: btqca: declare QCC2072 firmware
+
+btqca builds its firmware names at runtime and declares none. Image
+builders (dracut, image-janitor fw-cleanup in the openSUSE Agama installer)
+rely on MODULE_FIRMWARE and drop qca/ornbtfw*.tlv, ornnv*.bin and
+ornbcscal*.bin, so the QCC2072 falls back to ROM firmware.
+
+Upstream candidate (would need all supported chips).
+---
+diff --git a/drivers/bluetooth/btqca.c b/drivers/bluetooth/btqca.c
+--- a/drivers/bluetooth/btqca.c
++++ b/drivers/bluetooth/btqca.c
+@@ -1125,3 +1125,7 @@
+ MODULE_AUTHOR("Ben Young Tae Kim <ytkim@qca.qualcomm.com>");
+ MODULE_DESCRIPTION("Bluetooth support for Qualcomm Atheros family");
+ MODULE_LICENSE("GPL");
++/* QCC2072 ("orn"): patch, NVM and calibration files, any ROM version */
++MODULE_FIRMWARE("qca/ornbtfw*.tlv");
++MODULE_FIRMWARE("qca/ornnv*.bin");
++MODULE_FIRMWARE("qca/ornbcscal*.bin");

@@ -1,0 +1,65 @@
+From dad612c12e86f8d83099c6efa1922191e78dee55 Mon Sep 17 00:00:00 2001
+From: scalpel4k <scalpel4k@gmail.com>
+Date: Thu, 19 Nov 2026 16:21:39 +0100
+Subject: [PATCH] LOCAL: drm/msm/dp: turn the external DP PHY off for system
+ sleep
+
+msm keeps the DP PHY of an external display initialised while a sink is
+plugged in. On Glymur the PHY loses its setup in system sleep, but
+phy_initialized stays true, so after resume neither detect nor
+atomic_enable sets it up again. AUX then times out ("Too many retries,
+giving up. First error: -110") and the display stays dark until the
+port is reconfigured, e.g. by plugging another USB-C device.
+
+It also happens when the display was off before suspend: the monitor
+answers the output being turned off with an IRQ_HPD, which reaches
+msm_dp_hpd_plug_handle() while tasks are frozen and turns the PHY on.
+
+Turn the PHY off in the system suspend callback. Detect or atomic_enable
+set it up again after resume.
+---
+ drivers/gpu/drm/msm/dp/dp_display.c | 26 +++++++++++++++++++++++++-
+ 1 file changed, 25 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/msm/dp/dp_display.c b/drivers/gpu/drm/msm/dp/dp_display.c
+index 545579a..4d8781b 100644
+--- a/drivers/gpu/drm/msm/dp/dp_display.c
++++ b/drivers/gpu/drm/msm/dp/dp_display.c
+@@ -1331,9 +1331,33 @@ static int msm_dp_pm_runtime_resume(struct device *dev)
+ 	return 0;
+ }
+ 
++static int msm_dp_pm_suspend(struct device *dev)
++{
++	struct msm_dp_display_private *dp = dev_get_dp_display_private(dev);
++
++	/*
++	 * External DP keeps its PHY on while a sink is plugged in, but the
++	 * PHY loses its setup in system sleep. Turn it off here, so detect or
++	 * atomic_enable sets it up again after resume. Otherwise AUX is dead
++	 * after resume and the display does not come back.
++	 * HPD is already off (drm_mode_config_helper_suspend in prepare).
++	 */
++	if (!dp->msm_dp_display.is_edp) {
++		guard(mutex)(&dp->plugged_lock);
++
++		/* phy_exit touches controller registers: core clocks on */
++		if (dp->phy_initialized && !pm_runtime_resume_and_get(dev)) {
++			msm_dp_display_host_phy_exit(dp);
++			pm_runtime_put_sync(dev);
++		}
++	}
++
++	return pm_runtime_force_suspend(dev);
++}
++
+ static const struct dev_pm_ops msm_dp_pm_ops = {
+ 	SET_RUNTIME_PM_OPS(msm_dp_pm_runtime_suspend, msm_dp_pm_runtime_resume, NULL)
+-	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
++	SET_SYSTEM_SLEEP_PM_OPS(msm_dp_pm_suspend,
+ 				pm_runtime_force_resume)
+ };
+ 
+-- 
+2.56.0
+

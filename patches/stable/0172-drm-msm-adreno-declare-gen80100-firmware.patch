@@ -1,0 +1,21 @@
+From: scalpel4k <scalpel4k@gmail.com>
+Date: Sun, 15 Nov 2026 22:00:00 +0100
+Subject: [PATCH] drm/msm/adreno: declare gen80100 firmware
+
+msm declares no firmware at all. dracut then leaves the Adreno firmware out
+of the initramfs, msm probes there and does not retry after switch-root, and
+image-janitor deletes it from live images. Declare the Glymur (gen80100) files.
+
+Upstream candidate (would need all Adreno generations).
+---
+diff --git a/drivers/gpu/drm/msm/adreno/adreno_device.c b/drivers/gpu/drm/msm/adreno/adreno_device.c
+--- a/drivers/gpu/drm/msm/adreno/adreno_device.c
++++ b/drivers/gpu/drm/msm/adreno/adreno_device.c
+@@ -451,3 +451,7 @@
+ 
+ 	platform_driver_unregister(&adreno_driver);
+ }
++
++/* Adreno X2 (gen80100, Glymur), loaded from qcom/ by adreno_request_fw() */
++MODULE_FIRMWARE("qcom/gen80100_sqe.fw");
++MODULE_FIRMWARE("qcom/gen80100_gmu.bin");

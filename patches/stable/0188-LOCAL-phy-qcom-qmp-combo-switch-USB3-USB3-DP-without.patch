@@ -1,0 +1,79 @@
+From bfafb2f3667ab3526c4b7ad607bc94100d95d4d7 Mon Sep 17 00:00:00 2001
+From: scalpel4k <scalpel4k@gmail.com>
+Date: Thu, 19 Nov 2026 20:56:45 +0100
+Subject: [PATCH] LOCAL: phy: qcom: qmp-combo: switch USB3 <-> USB3+DP without
+ a PHY reset
+
+A USB-C hub or dock with DP (pin assignment D) is first reported as
+USB3 and about half a second later as USB3+DP. By then dwc3 has started
+the USB link. qmp_combo_typec_mux_set() powers the whole PHY down and
+up again for the mode change; com_exit stops the pipe clock under the
+running controller, which then hangs: no USB on the port at all, not
+even USB2, until reboot. DP itself comes up fine.
+
+USB3 keeps its lane pair in both modes, only the DP half changes. For
+these two transitions only update DP_COM_PHY_MODE_CTRL and the DP PCS
+reset, and leave clocks, USB PCS and pipe clock running. All other mode
+changes keep the full power cycle.
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 37 +++++++++++++++++++++++
+ 1 file changed, 37 insertions(+)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index 2ca6258..1af601c 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -4893,6 +4893,27 @@ static int qmp_combo_typec_switch_set(struct typec_switch_dev *sw,
+ 	return 0;
+ }
+ 
++/* Add or remove the DP half while USB3 keeps running (see typec_mux_set) */
++static void qmp_combo_switch_dp_half(struct qmp_combo *qmp)
++{
++	const struct qmp_phy_cfg *cfg = qmp->cfg;
++	void __iomem *com = qmp->com;
++
++	if (qmp->qmpphy_mode == QMPPHY_MODE_USB3DP) {
++		writel(USB3_MODE | DP_MODE, com + QPHY_V3_DP_COM_PHY_MODE_CTRL);
++		/* bring the QMP DP PHY PCS block out of reset */
++		qphy_clrbits(com, QPHY_V3_DP_COM_RESET_OVRD_CTRL,
++			     SW_DPPHY_RESET_MUX | SW_DPPHY_RESET);
++		if (qmp->dp_init_count)
++			cfg->dp_aux_init(qmp);
++	} else {
++		/* hold the QMP DP PHY PCS block in reset */
++		qphy_setbits(com, QPHY_V3_DP_COM_RESET_OVRD_CTRL,
++			     SW_DPPHY_RESET_MUX | SW_DPPHY_RESET);
++		writel(USB3_MODE, com + QPHY_V3_DP_COM_PHY_MODE_CTRL);
++	}
++}
++
+ static int qmp_combo_typec_mux_set(struct typec_mux_dev *mux, struct typec_mux_state *state)
+ {
+ 	struct qmp_combo *qmp = typec_mux_get_drvdata(mux);
+@@ -4943,6 +4964,22 @@ static int qmp_combo_typec_mux_set(struct typec_mux_dev *mux, struct typec_mux_s
+ 	dev_dbg(qmp->dev, "typec_mux_set: switching from qmpphy mode %d to %d\n",
+ 		qmp->qmpphy_mode, new_mode);
+ 
++	/*
++	 * USB3 <-> USB3+DP: USB keeps its lane pair, only the DP half is added
++	 * or removed. Don't power the whole PHY down for that: com_exit stops
++	 * the pipe clock under a running dwc3, which then hangs until reboot
++	 * (no USB at all on the port, not even USB2). A hub or dock reports
++	 * USB3 first and USB3+DP about half a second later, when USB is
++	 * already up.
++	 */
++	if (qmp->init_count && qmp->usb_init_count &&
++	    ((qmp->qmpphy_mode == QMPPHY_MODE_USB3_ONLY && new_mode == QMPPHY_MODE_USB3DP) ||
++	     (qmp->qmpphy_mode == QMPPHY_MODE_USB3DP && new_mode == QMPPHY_MODE_USB3_ONLY))) {
++		qmp->qmpphy_mode = new_mode;
++		qmp_combo_switch_dp_half(qmp);
++		return 0;
++	}
++
+ 	qmp->qmpphy_mode = new_mode;
+ 
+ 	if (qmp->init_count) {
+-- 
+2.56.0
+

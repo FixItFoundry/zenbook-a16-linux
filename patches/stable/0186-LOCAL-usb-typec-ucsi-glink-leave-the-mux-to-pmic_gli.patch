@@ -1,0 +1,99 @@
+From b36b05804b9a741a56e6a86906bfadd440aa1cd1 Mon Sep 17 00:00:00 2001
+From: scalpel4k <scalpel4k@gmail.com>
+Date: Thu, 19 Nov 2026 18:46:57 +0100
+Subject: [PATCH] LOCAL: usb: typec: ucsi: glink: leave the mux to
+ pmic_glink_altmode on Glymur
+
+UCSI and pmic_glink_altmode share the connector's mode switch, the QMP
+combo PHY. pmic_glink_altmode sets it from the firmware's mux_ctrl, e.g.
+USB3+DP pin D for a dock in USB-C fallback mode. About 35 ms later
+ucsi_partner_change() calls typec_set_mode(TYPEC_STATE_USB) without an
+alt mode, which the combo PHY takes as USB3 only: it powers down and
+comes back without DP. DP never gets HPD and USB3 loses its link, so
+docks only work as USB2 hubs.
+
+Add a UCSI_NO_MODE_SET quirk and set it for Glymur.
+---
+ drivers/usb/typec/ucsi/ucsi.c       | 16 ++++++++++++----
+ drivers/usb/typec/ucsi/ucsi.h       |  3 +++
+ drivers/usb/typec/ucsi/ucsi_glink.c |  4 +++-
+ 3 files changed, 18 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/usb/typec/ucsi/ucsi.c b/drivers/usb/typec/ucsi/ucsi.c
+index c145063..65d900e 100644
+--- a/drivers/usb/typec/ucsi/ucsi.c
++++ b/drivers/usb/typec/ucsi/ucsi.c
+@@ -1308,12 +1308,20 @@ static int ucsi_register_partner(struct ucsi_connector *con)
+ 	return 0;
+ }
+ 
++static void ucsi_set_mode(struct ucsi_connector *con, int mode)
++{
++	if (con->ucsi->quirks & UCSI_NO_MODE_SET)
++		return;
++
++	typec_set_mode(con->port, mode);
++}
++
+ static void ucsi_unregister_partner(struct ucsi_connector *con)
+ {
+ 	if (!con->partner)
+ 		return;
+ 
+-	typec_set_mode(con->port, TYPEC_STATE_SAFE);
++	ucsi_set_mode(con, TYPEC_STATE_SAFE);
+ 	if (con->ucsi->ops->remove_partner_altmodes)
+ 		con->ucsi->ops->remove_partner_altmodes(con);
+ 
+@@ -1350,14 +1358,14 @@ static void ucsi_partner_change(struct ucsi_connector *con)
+ 	if (UCSI_CONSTAT(con, CONNECTED)) {
+ 		switch (UCSI_CONSTAT(con, PARTNER_TYPE)) {
+ 		case UCSI_CONSTAT_PARTNER_TYPE_DEBUG:
+-			typec_set_mode(con->port, TYPEC_MODE_DEBUG);
++			ucsi_set_mode(con, TYPEC_MODE_DEBUG);
+ 			break;
+ 		case UCSI_CONSTAT_PARTNER_TYPE_AUDIO:
+-			typec_set_mode(con->port, TYPEC_MODE_AUDIO);
++			ucsi_set_mode(con, TYPEC_MODE_AUDIO);
+ 			break;
+ 		default:
+ 			if (UCSI_CONSTAT(con, PARTNER_FLAG_USB))
+-				typec_set_mode(con->port, TYPEC_STATE_USB);
++				ucsi_set_mode(con, TYPEC_STATE_USB);
+ 		}
+ 
+ 		if (((con->ucsi->version >= UCSI_VERSION_3_0 &&
+diff --git a/drivers/usb/typec/ucsi/ucsi.h b/drivers/usb/typec/ucsi/ucsi.h
+index dc59438..763a868 100644
+--- a/drivers/usb/typec/ucsi/ucsi.h
++++ b/drivers/usb/typec/ucsi/ucsi.h
+@@ -510,6 +510,9 @@ struct ucsi {
+ 
+ /* USB4 connection can imply that USB communcation is supported */
+ #define UCSI_USB4_IMPLIES_USB	BIT(2)
++
++/* Another driver owns the mode switch (mux), don't set the port mode */
++#define UCSI_NO_MODE_SET	BIT(3)
+ };
+ 
+ #define UCSI_MAX_DATA_LENGTH(u) (((u)->version < UCSI_VERSION_2_0) ? 0x10 : 0xff)
+diff --git a/drivers/usb/typec/ucsi/ucsi_glink.c b/drivers/usb/typec/ucsi/ucsi_glink.c
+index a8207bf..00a1bea 100644
+--- a/drivers/usb/typec/ucsi/ucsi_glink.c
++++ b/drivers/usb/typec/ucsi/ucsi_glink.c
+@@ -385,9 +385,11 @@ static unsigned long quirk_sc8180x = UCSI_NO_PARTNER_PDOS;
+ static unsigned long quirk_sc8280xp = UCSI_NO_PARTNER_PDOS | UCSI_DELAY_DEVICE_PDOS;
+ static unsigned long quirk_sm8450 = UCSI_DELAY_DEVICE_PDOS;
+ static unsigned long quirk_x1e80100 = UCSI_DELAY_DEVICE_PDOS | UCSI_USB4_IMPLIES_USB;
++/* pmic_glink_altmode sets the mux from the firmware's mux_ctrl */
++static unsigned long quirk_glymur = UCSI_DELAY_DEVICE_PDOS | UCSI_NO_MODE_SET;
+ 
+ static const struct of_device_id pmic_glink_ucsi_of_quirks[] = {
+-	{ .compatible = "qcom,glymur-pmic-glink", .data = &quirk_sm8450, },
++	{ .compatible = "qcom,glymur-pmic-glink", .data = &quirk_glymur, },
+ 	{ .compatible = "qcom,kaanapali-pmic-glink", .data = &quirk_sm8450, },
+ 	{ .compatible = "qcom,qcm6490-pmic-glink", .data = &quirk_sc8280xp, },
+ 	{ .compatible = "qcom,sc8180x-pmic-glink", .data = &quirk_sc8180x, },
+-- 
+2.56.0
+

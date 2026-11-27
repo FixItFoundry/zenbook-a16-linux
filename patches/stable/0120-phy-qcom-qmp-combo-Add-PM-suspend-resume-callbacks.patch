@@ -18,8 +18,8 @@ Signed-off-by: Prashanth K <prashanth.k@oss.qualcomm.com>
 diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
 --- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
 +++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
-@@ -4624,9 +4624,26 @@ out_unlock:
- 	return ret;
+@@ -4464,9 +4464,26 @@
+ 	return 0;
  }
  
 +static int __maybe_unused qmp_combo_pm_suspend(struct device *dev)

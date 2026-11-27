@@ -1,0 +1,50 @@
+From 5c73d7d3f4eff831c8f47c5e2eeb04ea4b22b40a Mon Sep 17 00:00:00 2001
+From: scalpel4k <scalpel4k@gmail.com>
+Date: Mon, 16 Nov 2026 16:09:31 +0100
+Subject: [PATCH] HID: asus: add fnlock_default module parameter
+
+The Zenbook A16 I2C keyboard starts with Fn lock off
+(QUIRK_FN_LOCK_DEFAULT_OFF), so F1-F12 send the media and brightness
+keys and plain function keys need Fn. Fn+Esc toggles this, but only
+until the next probe.
+
+Add fnlock_default, as asus-wmi has: -1 keeps the device default,
+0 forces Fn lock off, 1 forces it on (plain F1-F12, media keys with
+Fn held).
+---
+ drivers/hid/hid-asus.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/hid/hid-asus.c b/drivers/hid/hid-asus.c
+index 4e3c1ac..1c44026 100644
+--- a/drivers/hid/hid-asus.c
++++ b/drivers/hid/hid-asus.c
+@@ -39,6 +39,11 @@ MODULE_AUTHOR("Victor Vlasenko <victor.vlasenko@sysgears.com>");
+ MODULE_AUTHOR("Frederik Wenigwieser <frederik.wenigwieser@gmail.com>");
+ MODULE_DESCRIPTION("Asus HID Keyboard and TouchPad");
+ 
++static int fnlock_default = -1;
++module_param(fnlock_default, int, 0444);
++MODULE_PARM_DESC(fnlock_default,
++		 "Fn lock at probe: -1 = device default, 0 = off (media keys), 1 = on (F1-F12)");
++
+ #define T100_TPAD_INTF 2
+ #define MEDION_E1239T_TPAD_INTF 1
+ 
+@@ -1320,9 +1325,13 @@ static int asus_input_configured(struct hid_device *hdev, struct hid_input *hi)
+ 		 * session expect. Forcing Fn lock on makes F1-F12 send plain
+ 		 * function keys and silently breaks every media binding.
+ 		 * Fn+Esc still toggles it at runtime via asus_event().
++		 * fnlock_default overrides the device default.
+ 		 */
+ 		bool on = !(drvdata->quirks & QUIRK_FN_LOCK_DEFAULT_OFF);
+ 
++		if (fnlock_default >= 0)
++			on = fnlock_default;
++
+ 		if (asus_kbd_fn_lock_set(drvdata, on))
+ 			hid_warn(hdev, "Error while setting FN lock to %s\n",
+ 				 on ? "ON" : "OFF");
+-- 
+2.56.0
+

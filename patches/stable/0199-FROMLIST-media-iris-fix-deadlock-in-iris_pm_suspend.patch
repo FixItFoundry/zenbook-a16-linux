@@ -1,0 +1,90 @@
+From d6fbc80dad16f5f3d8dc4ab34cea7fdf13b105e0 Mon Sep 17 00:00:00 2001
+From: Wangao Wang <wangao.wang@oss.qualcomm.com>
+Date: Tue, 24 Nov 2026 15:38:10 +0800
+Subject: [PATCH] FROMLIST: media: iris: fix deadlock in iris_pm_suspend() with
+ threaded IRQ handler
+
+Commit b9c2215bdedc ("media: qcom: iris: use disable_irq() during
+power-off") replaced disable_irq_nosync() with disable_irq() in
+iris_vpu_power_off() to ensure the threaded IRQ handler completes
+before the VPU is powered down.
+
+However, this introduced a deadlock. iris_pm_suspend() holds core->lock
+across the entire suspend sequence, and iris_hfi_isr_handler() must
+acquire the same lock before it can complete. Since disable_irq() blocks
+until the threaded handler finishes, the two contexts wait on each other
+indefinitely:
+
+  kworker (pm_runtime_work)         iris_hfi_isr_handler (kthread)
+  -------------------------         ------------------------------
+  mutex_lock(&core->lock)
+    iris_hfi_pm_suspend()
+      iris_vpu_power_off()
+        disable_irq()                 mutex_lock(&core->lock)
+          __synchronize_irq()         [blocked: core->lock held
+            schedule()                 by kworker]
+            [blocked: waiting
+              for handler to finish]
+
+This manifests as a hung task with kworker stuck in D state:
+
+  INFO: task kworker/u33:8:178 blocked for more than 122 seconds.
+  Call trace:
+    __synchronize_irq+0xb8/0xf8
+    disable_irq+0x60/0x88
+    iris_vpu_power_off+0x6c/0xb0 [qcom_iris]
+    iris_hfi_pm_suspend+0x44/0xa0 [qcom_iris]
+    iris_pm_suspend+0x6c/0xa0 [qcom_iris]
+    pm_generic_runtime_suspend+0x38/0x80
+    rpm_suspend+0xec/0x6b8
+    pm_runtime_work+0x118/0x128
+
+Fix this by reverting iris_vpu_power_off() to disable_irq_nosync(),
+which prevents new IRQ deliveries without blocking, and adding
+synchronize_irq() in iris_pm_suspend() after core->lock is released.
+At that point, any in-flight threaded handler can acquire the lock,
+complete its work, and return, so synchronize_irq() is guaranteed to
+make forward progress.
+
+Fixes: b9c2215bdedc ("media: qcom: iris: use disable_irq() during power-off")
+Link: https://lore.kernel.org/linux-arm-msm/20261124-disable_irq_fix-v1-1-d27f44f7eacf@oss.qualcomm.com/
+Signed-off-by: Wangao Wang <wangao.wang@oss.qualcomm.com>
+---
+ drivers/media/platform/qcom/iris/iris_probe.c      | 10 ++++++++++
+ drivers/media/platform/qcom/iris/iris_vpu_common.c |  2 +-
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/qcom/iris/iris_probe.c b/drivers/media/platform/qcom/iris/iris_probe.c
+index 48e37d4d598d3..9fec02766f070 100644
+--- a/drivers/media/platform/qcom/iris/iris_probe.c
++++ b/drivers/media/platform/qcom/iris/iris_probe.c
+@@ -356,6 +356,16 @@ static int __maybe_unused iris_pm_suspend(struct device *dev)
+ exit:
+ 	mutex_unlock(&core->lock);
+ 
++	/*
++	 * iris_vpu_power_off() uses disable_irq_nosync() to avoid a deadlock
++	 * where disable_irq() would wait for the threaded IRQ handler to finish,
++	 * while the threaded handler is itself blocked waiting for core->lock.
++	 * Synchronize here, after releasing the lock, to ensure any in-flight
++	 * threaded IRQ handler has completed before returning from suspend.
++	 */
++	if (!ret)
++		synchronize_irq(core->irq);
++
+ 	return ret;
+ }
+ 
+diff --git a/drivers/media/platform/qcom/iris/iris_vpu_common.c b/drivers/media/platform/qcom/iris/iris_vpu_common.c
+index 12cabd37977df..23110268f9a65 100644
+--- a/drivers/media/platform/qcom/iris/iris_vpu_common.c
++++ b/drivers/media/platform/qcom/iris/iris_vpu_common.c
+@@ -240,7 +240,7 @@ void iris_vpu_power_off(struct iris_core *core)
+ 	iris_unset_icc_bw(core);
+ 
+ 	if (!iris_vpu_watchdog(core, core->intr_status))
+-		disable_irq(core->irq);
++		disable_irq_nosync(core->irq);
+ }
+ 
+ int iris_vpu_power_on_controller(struct iris_core *core)

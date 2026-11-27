@@ -1,0 +1,104 @@
+From 25e475b11c69f4711b12731e45efe972caef0a88 Mon Sep 17 00:00:00 2001
+From: scalpel4k <scalpel4k@gmail.com>
+Date: Wed, 18 Nov 2026 08:34:24 +0100
+Subject: [PATCH] LOCAL: arm64: dts: qcom: glymur: add CPUCP SCMI (memlat) and
+ SPEL nodes
+
+From Qualcomm's qcom-7.3 branch (github.com/qualcomm-linux/kernel,
+ee11c5b10), unchanged:
+
+- cpucp_mbox (mailbox@17620000), cpucp_sram with the two SCMI shared
+  memory sections, and a second SCMI instance (scmi-1) carrying the
+  Qualcomm vendor protocol 0x80 used by the memlat devfreq driver. The
+  existing SCMI instance (perf) uses pdp0_mbox and is unchanged.
+- power-limits@ef3b000 for the SPEL powercap driver.
+---
+ arch/arm64/boot/dts/qcom/glymur.dtsi | 51 ++++++++++++++++++++++++++++
+ 1 file changed, 51 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index f4fc60b..b4db417 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -420,6 +420,20 @@
+ 				#power-domain-cells = <1>;
+ 			};
+ 		};
++
++		cpucp_scmi: scmi-1 {
++			compatible = "arm,scmi";
++			mboxes = <&cpucp_mbox 0>, <&cpucp_mbox 2>;
++			mbox-names = "tx", "rx";
++			shmem = <&cpucp_scp_lpri0>, <&cpucp_scp_lpri1>;
++
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			scmi_vendor: protocol@80 {
++				reg = <0x80>;
++			};
++		};
+ 	};
+ 
+ 	clk_virt: interconnect-0 {
+@@ -6229,6 +6243,16 @@
+ 			};
+ 		};
+ 
++		power-limits@ef3b000 {
++			compatible = "qcom,glymur-spel";
++			reg = <0x0 0x0ef3b000 0x0 0x1000>,
++			      <0x0 0x0ef3d000 0x0 0x1000>,
++			      <0x0 0x0ef3e000 0x0 0x1000>;
++			reg-names = "config",
++				    "constraints",
++				    "nodes";
++		};
++
+ 		tlmm: pinctrl@f100000 {
+ 			compatible = "qcom,glymur-tlmm";
+ 			reg = <0x0 0x0f100000 0x0 0xf00000>;
+@@ -8462,6 +8486,13 @@
+ 			#mbox-cells = <1>;
+ 		};
+ 
++		cpucp_mbox: mailbox@17620000 {
++			compatible = "qcom,glymur-cpucp-mbox", "qcom,x1e80100-cpucp-mbox";
++			reg = <0x0 0x17620000 0 0x8000>, <0 0x18830000 0 0x8000>;
++			interrupts = <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
++			#mbox-cells = <1>;
++		};
++
+ 		timer@17810000 {
+ 			compatible = "arm,armv7-timer-mem";
+ 			reg = <0x0 0x17810000 0x0 0x1000>;
+@@ -8646,6 +8677,26 @@
+ 			};
+ 		};
+ 
++		cpucp_sram: sram@18b4e000 {
++			compatible = "mmio-sram";
++			reg = <0x0 0x18b4e000 0x0 0x400>;
++
++			#address-cells = <1>;
++			#size-cells = <1>;
++
++			ranges = <0x0 0x0 0x18b4e000 0x400>;
++
++			cpucp_scp_lpri0: scp-sram-section@0 {
++				compatible = "arm,scmi-shmem";
++				reg = <0x0 0x200>;
++			};
++
++			cpucp_scp_lpri1: scp-sram-section@200 {
++				compatible = "arm,scmi-shmem";
++				reg = <0x200 0x200>;
++			};
++		};
++
+ 		nsi_noc: interconnect@1d600000 {
+ 			compatible = "qcom,glymur-nsinoc";
+ 			reg = <0x0 0x1d600000 0x0 0x14080>;
+-- 
+2.56.0
+

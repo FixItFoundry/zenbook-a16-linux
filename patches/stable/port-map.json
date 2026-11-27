@@ -1,7 +1,7 @@
 {
   "base": "c03c1a14507dfaf8b856c2608f9ac216021fc222",
-  "source_tree": "025853e642c038b02a8ba7b8ed8f786bd071c47c",
-  "original_patch_count": 161,
+  "source_tree": "c9073bc3daaf012b47e5c0631316308f4a3f3a7c",
+  "original_patch_count": 201,
   "patches": [
     {
       "original": "rc5-20261013/0001-drm-msm-dp-make-the-eDP-1.4-LINK_RATE_SET-path-actua.patch",
@@ -90,372 +90,371 @@
       "status": "unchanged",
       "patch": "0012-LOCAL-PCI-add-glymur_pci_skip-to-work-around-the-sus.patch",
       "before": "e494480f795e81cc7d21d273aa2f0ac93813fb6f",
-      "after": "4a459e43eeb8642f20f7db916295b420152f1fc0"
+      "after": "9ae54b03493d4377e2091e367d8b8edd41415288"
     },
     {
       "original": "rc5-20261013/0014-security-keys-trusted-keys-include-asn1_decoder.h-fo.patch",
       "status": "unchanged",
       "patch": "0013-security-keys-trusted-keys-include-asn1_decoder.h-fo.patch",
-      "before": "4a459e43eeb8642f20f7db916295b420152f1fc0",
-      "after": "f196f974ee3e7a30946242d40405cc452e7ed277"
+      "before": "9ae54b03493d4377e2091e367d8b8edd41415288",
+      "after": "b48e36577933506230f07409733206336085baf9"
     },
     {
       "original": "rc5-20261013/0015-soundwire-qcom-cache-SCP_ADDRPAGE1-2-to-preserve-MBQ.patch",
       "status": "unchanged",
       "patch": "0014-soundwire-qcom-cache-SCP_ADDRPAGE1-2-to-preserve-MBQ.patch",
-      "before": "f196f974ee3e7a30946242d40405cc452e7ed277",
-      "after": "90e1e4355b87d8329c0879362f2c1142421ceccf"
+      "before": "b48e36577933506230f07409733206336085baf9",
+      "after": "02461093fcb910f190e6cd7e21b40b8adf7ea8db"
     },
     {
       "original": "rc5-20261013/0016-arm64-dts-qcom-glymur-asus-zenbook-a16-Fix-up-the-mi.patch",
       "status": "unchanged",
       "patch": "0015-arm64-dts-qcom-glymur-asus-zenbook-a16-Fix-up-the-mi.patch",
-      "before": "90e1e4355b87d8329c0879362f2c1142421ceccf",
-      "after": "6a808d1335f784c6167aa61ffa18f96cf9d6c8b5"
+      "before": "02461093fcb910f190e6cd7e21b40b8adf7ea8db",
+      "after": "326829fbd70f0a6ec6d18338f86190bd73587c50"
     },
     {
       "original": "rc5-20261013/0017-LOCAL-COMPAT-A16-Wi-Fi-and-Bluetooth-power-sequencin.patch",
       "status": "unchanged",
       "patch": "0016-LOCAL-COMPAT-A16-Wi-Fi-and-Bluetooth-power-sequencin.patch",
-      "before": "6a808d1335f784c6167aa61ffa18f96cf9d6c8b5",
-      "after": "78089e3173a8991f51a04b256cc45799c0b31ca4"
+      "before": "326829fbd70f0a6ec6d18338f86190bd73587c50",
+      "after": "379f65e02d4065a322c241353f36b52caa529098"
     },
     {
       "original": "rc5-20261013/0018-LOCAL-COMPAT-A16-display-supply-compatibility.patch",
       "status": "unchanged",
       "patch": "0017-LOCAL-COMPAT-A16-display-supply-compatibility.patch",
-      "before": "78089e3173a8991f51a04b256cc45799c0b31ca4",
-      "after": "e03e74cd24217596906cac5d9d4d34adb23ecea0"
+      "before": "379f65e02d4065a322c241353f36b52caa529098",
+      "after": "5e139ce28c6534d8f872ecd72d81908414afb6cf"
     },
     {
       "original": "rc5-20261013/0019-LOCAL-COMPAT-A16-RTC-compatibility.patch",
       "status": "unchanged",
       "patch": "0018-LOCAL-COMPAT-A16-RTC-compatibility.patch",
-      "before": "e03e74cd24217596906cac5d9d4d34adb23ecea0",
-      "after": "8ce06e40f8f5dcc9d4e4a346bc98d8bb5abb674f"
+      "before": "5e139ce28c6534d8f872ecd72d81908414afb6cf",
+      "after": "015492eafb2a2d44540643f942ad2b20c225decf"
     },
     {
       "original": "rc5-20261013/0020-LOCAL-COMPAT-A16-USB-host-and-HDMI-clock-compatibili.patch",
       "status": "unchanged",
       "patch": "0019-LOCAL-COMPAT-A16-USB-host-and-HDMI-clock-compatibili.patch",
-      "before": "8ce06e40f8f5dcc9d4e4a346bc98d8bb5abb674f",
-      "after": "65ccaf483acf6ac366fe38a8ad0fbee3e6027b52"
+      "before": "015492eafb2a2d44540643f942ad2b20c225decf",
+      "after": "b8eb48ca4dce80aac8d84c0ef6d2152081d46379"
     },
     {
       "original": "rc5-20261013/0021-LOCAL-COMPAT-A16-retain-CPU-and-LLC-passive-cooling-.patch",
       "status": "unchanged",
       "patch": "0020-LOCAL-COMPAT-A16-retain-CPU-and-LLC-passive-cooling-.patch",
-      "before": "65ccaf483acf6ac366fe38a8ad0fbee3e6027b52",
-      "after": "d45959ecdafbe69d4195be699ade448f10086563"
+      "before": "b8eb48ca4dce80aac8d84c0ef6d2152081d46379",
+      "after": "0c2ce582729d77c411abe9804510e84d85c1b12b"
     },
     {
       "original": "rc5-20261013/0022-LOCAL-COMPAT-A16-retain-board-scoped-SCMI-polling-an.patch",
       "status": "unchanged",
       "patch": "0021-LOCAL-COMPAT-A16-retain-board-scoped-SCMI-polling-an.patch",
-      "before": "d45959ecdafbe69d4195be699ade448f10086563",
-      "after": "9da0b8640fbcf663ab198aedbef55c8d1926343f"
+      "before": "0c2ce582729d77c411abe9804510e84d85c1b12b",
+      "after": "c73b0b171d636895d4ee410169d455c62bcc31e9"
     },
     {
       "original": "rc5-20261013/0023-LOCAL-COMPAT-align-QCC2072-endpoint-with-effective-b.patch",
       "status": "unchanged",
       "patch": "0022-LOCAL-COMPAT-align-QCC2072-endpoint-with-effective-b.patch",
-      "before": "9da0b8640fbcf663ab198aedbef55c8d1926343f",
-      "after": "c46deeb6bcf8a1fe6f0de5cfa02dbe2871b4542c"
+      "before": "c73b0b171d636895d4ee410169d455c62bcc31e9",
+      "after": "79a795abb11181dec0c524199b6fbb3b210d043f"
     },
     {
       "original": "rc5-20261013/0024-dt-bindings-embedded-controller-Add-ASUS-Zenbook-A16.patch",
       "status": "unchanged",
       "patch": "0023-dt-bindings-embedded-controller-Add-ASUS-Zenbook-A16.patch",
-      "before": "c46deeb6bcf8a1fe6f0de5cfa02dbe2871b4542c",
-      "after": "94d79e999668ef4ba07f8d26b164cac6dcbecd98"
+      "before": "79a795abb11181dec0c524199b6fbb3b210d043f",
+      "after": "224cb0b82c440f4da7461d73e403ddd528aa94a4"
     },
     {
       "original": "rc5-20261013/0025-platform-arm64-Add-a-driver-for-the-EC-found-on-ASUS.patch",
       "status": "unchanged",
       "patch": "0024-platform-arm64-Add-a-driver-for-the-EC-found-on-ASUS.patch",
-      "before": "94d79e999668ef4ba07f8d26b164cac6dcbecd98",
-      "after": "6eddf4d1e69cf54b0283cb0f6ae84e953bb1effb"
+      "before": "224cb0b82c440f4da7461d73e403ddd528aa94a4",
+      "after": "d18b84bd5346f8226af4a891ed448f0b5652c5c8"
     },
     {
       "original": "rc5-20261013/0026-arm64-dts-qcom-glymur-zenbook-a16-Add-Embedded-Contr.patch",
       "status": "unchanged",
       "patch": "0025-arm64-dts-qcom-glymur-zenbook-a16-Add-Embedded-Contr.patch",
-      "before": "6eddf4d1e69cf54b0283cb0f6ae84e953bb1effb",
-      "after": "7d7b35e7623d2435151f51167f9633e7d5738832"
+      "before": "d18b84bd5346f8226af4a891ed448f0b5652c5c8",
+      "after": "d3f64d82d87ff23305b165d396a2df5786e82fed"
     },
     {
       "original": "rc5-20261013/0027-LOCAL-keep-HID-ownership-of-Zenbook-keyboard-backlig.patch",
       "status": "unchanged",
       "patch": "0026-LOCAL-keep-HID-ownership-of-Zenbook-keyboard-backlig.patch",
-      "before": "7d7b35e7623d2435151f51167f9633e7d5738832",
-      "after": "3d994a6ba5b1ee943dfa54fe8bb103cc5fed3418"
+      "before": "d3f64d82d87ff23305b165d396a2df5786e82fed",
+      "after": "d7abdf451feae0674ce7cc787c970c9431f2367f"
     },
     {
       "original": "rc5-20261013/0028-regulator-qcom-rpmh-add-PMH0104-camera-LDOs.patch",
       "status": "unchanged",
       "patch": "0027-regulator-qcom-rpmh-add-PMH0104-camera-LDOs.patch",
-      "before": "3d994a6ba5b1ee943dfa54fe8bb103cc5fed3418",
-      "after": "a7f2ca5800583782c29ba2ad97d4a73c73fd8ed5"
+      "before": "d7abdf451feae0674ce7cc787c970c9431f2367f",
+      "after": "e3d986c256ead9677dbd61e1f9d06dbb0ea148b8"
     },
     {
       "original": "rc5-20261013/0029-Snapshot-RC5-source-only-build-push-for-Windows-WSL-continuation.patch",
       "status": "ported",
       "patch": "0028-Snapshot-RC5-source-only-build-push-for-Windows-WSL-continuation.patch",
-      "before": "a7f2ca5800583782c29ba2ad97d4a73c73fd8ed5",
-      "after": "567b74a85543d0942abb68a492b48b9a059bd7d1"
+      "before": "e3d986c256ead9677dbd61e1f9d06dbb0ea148b8",
+      "after": "72de26dbc8343801f84dada7516a824b5607cd2f"
     },
     {
       "original": "rc5-20261013/0030-drm-msm-a6xx-Fix-secondary-rail-vote-in-ARC-votes.patch",
       "status": "unchanged",
       "patch": "0029-drm-msm-a6xx-Fix-secondary-rail-vote-in-ARC-votes.patch",
-      "before": "567b74a85543d0942abb68a492b48b9a059bd7d1",
-      "after": "3a4c22c47d658e90e49a0e8bd2cb9d4f1c4534b2"
+      "before": "72de26dbc8343801f84dada7516a824b5607cd2f",
+      "after": "67c038e1964d3a3a7ccf4a59f5817c36f827fd28"
     },
     {
       "original": "rc5-20261013/0031-drm-msm-a6xx-Fix-RPMH-dependency-votes.patch",
       "status": "unchanged",
       "patch": "0030-drm-msm-a6xx-Fix-RPMH-dependency-votes.patch",
-      "before": "3a4c22c47d658e90e49a0e8bd2cb9d4f1c4534b2",
-      "after": "83af7df774a6b419394794123aaaec47bf902de5"
+      "before": "67c038e1964d3a3a7ccf4a59f5817c36f827fd28",
+      "after": "f1b3a6257133fbbf2325461da18e94ff7a27f7ea"
     },
     {
       "original": "rc5-20261013/0032-drm-msm-a6xx-Honor-perfmode_bw-threshold-on-A8x.patch",
       "status": "unchanged",
       "patch": "0031-drm-msm-a6xx-Honor-perfmode_bw-threshold-on-A8x.patch",
-      "before": "83af7df774a6b419394794123aaaec47bf902de5",
-      "after": "361f11cbe10891ccddc8636509a305daeeb0c84e"
+      "before": "f1b3a6257133fbbf2325461da18e94ff7a27f7ea",
+      "after": "81cd9bfab6f20e122f36fabbb63d14464f235b00"
     },
     {
       "original": "rc5-20261013/0033-PCI-qcom-Only-check-bridge-nodes-for-PERST-GPIOs.patch",
       "status": "unchanged",
       "patch": "0032-PCI-qcom-Only-check-bridge-nodes-for-PERST-GPIOs.patch",
-      "before": "361f11cbe10891ccddc8636509a305daeeb0c84e",
-      "after": "024f7c45dd26be592b1c64fa8c3a7fbf75822ced"
+      "before": "81cd9bfab6f20e122f36fabbb63d14464f235b00",
+      "after": "e8a8ee992eb4dc2ee94c2c74f58fc4932976e5b8"
     },
     {
       "original": "rc5-20261013/0034-wifi-ath12k-signal-regd-update-completion-when-reg-event-is-dropped.patch",
       "status": "unchanged",
       "patch": "0033-wifi-ath12k-signal-regd-update-completion-when-reg-event-is-dropped.patch",
-      "before": "024f7c45dd26be592b1c64fa8c3a7fbf75822ced",
-      "after": "5d741903c1ef426ac69e1b0993a20772d5ee53dd"
+      "before": "e8a8ee992eb4dc2ee94c2c74f58fc4932976e5b8",
+      "after": "de4145e07e16af740ebbee0b342b34d7ef5cd383"
     },
     {
       "original": "rc5-20261013/0035-wifi-ath12k-use-per-radio-ab-in-ath12k_mac_hw_register.patch",
       "status": "unchanged",
       "patch": "0034-wifi-ath12k-use-per-radio-ab-in-ath12k_mac_hw_register.patch",
-      "before": "5d741903c1ef426ac69e1b0993a20772d5ee53dd",
-      "after": "cabbcdec0bcd4362408655931e1f0b8824a14916"
+      "before": "de4145e07e16af740ebbee0b342b34d7ef5cd383",
+      "after": "50095114a8eabdfcc0781662c6eb1ec4a4a5460a"
     },
     {
       "original": "rc5-20261013/0036-wifi-ath12k-protect-new_alpha2-access-with-base_lock.patch",
       "status": "unchanged",
       "patch": "0035-wifi-ath12k-protect-new_alpha2-access-with-base_lock.patch",
-      "before": "cabbcdec0bcd4362408655931e1f0b8824a14916",
-      "after": "40e77305d028926a83645d28a489a462c7fe7503"
+      "before": "50095114a8eabdfcc0781662c6eb1ec4a4a5460a",
+      "after": "44fabc3d04cecde7e289b48f5d8a6e9f7f2810df"
     },
     {
       "original": "rc5-20261013/0037-wifi-ath12k-skip-setting-country-code-during-registration-when-unchanged.patch",
       "status": "unchanged",
       "patch": "0036-wifi-ath12k-skip-setting-country-code-during-registration-when-unchanged.patch",
-      "before": "40e77305d028926a83645d28a489a462c7fe7503",
-      "after": "aaaac47ac0fd05813dc5d4083fd4b5c3123787d2"
+      "before": "44fabc3d04cecde7e289b48f5d8a6e9f7f2810df",
+      "after": "1ea4e68e1aaf1c845281a10172d8d37ca97537e3"
     },
     {
       "original": "rc5-20261013/0038-wifi-ath12k-Free-allocated-CE-IRQs-on-request_irq-failure.patch",
       "status": "unchanged",
       "patch": "0037-wifi-ath12k-Free-allocated-CE-IRQs-on-request_irq-failure.patch",
-      "before": "aaaac47ac0fd05813dc5d4083fd4b5c3123787d2",
-      "after": "6889f06ee5888739f75523152f7a3a0693b1f735"
+      "before": "1ea4e68e1aaf1c845281a10172d8d37ca97537e3",
+      "after": "6f6ec0e02a7c2ccc48885558112f48896d725cda"
     },
     {
       "original": "rc5-20261013/0039-wifi-ath12k-Free-allocated-external-IRQs-on-request_irq-failure.patch",
       "status": "unchanged",
       "patch": "0038-wifi-ath12k-Free-allocated-external-IRQs-on-request_irq-failure.patch",
-      "before": "6889f06ee5888739f75523152f7a3a0693b1f735",
-      "after": "51ab31e56cfd1f6ca544e1d5ea3341a61544fe07"
+      "before": "6f6ec0e02a7c2ccc48885558112f48896d725cda",
+      "after": "7cb80657ba198654d650a8c543995b95f2145c0a"
     },
     {
       "original": "rc5-20261013/0040-wifi-ath12k-clear-dangling-channel-pointers-on-error-paths.patch",
       "status": "unchanged",
       "patch": "0039-wifi-ath12k-clear-dangling-channel-pointers-on-error-paths.patch",
-      "before": "51ab31e56cfd1f6ca544e1d5ea3341a61544fe07",
-      "after": "ba6b65b18daeb047b821d5f0ee644eed8bd7dd52"
+      "before": "7cb80657ba198654d650a8c543995b95f2145c0a",
+      "after": "6d643d7237c0ac0bae02d3dd72877844f333f4f3"
     },
     {
       "original": "rc5-20261013/0041-wifi-ath12k-use-per-device-max-QMI-chunk-size.patch",
       "status": "unchanged",
       "patch": "0040-wifi-ath12k-use-per-device-max-QMI-chunk-size.patch",
-      "before": "ba6b65b18daeb047b821d5f0ee644eed8bd7dd52",
-      "after": "15af290ecc671a2a5e0c04602eb26a2c5fd2b969"
+      "before": "6d643d7237c0ac0bae02d3dd72877844f333f4f3",
+      "after": "4382fa8a813d72aab02db2561beb0c8adb8d8d7d"
     },
     {
       "original": "rc5-20261013/0042-wifi-ath12k-clear-chunk-paddr-and-size-in-ath12k_qmi_free_target_mem_chunk.patch",
       "status": "unchanged",
       "patch": "0041-wifi-ath12k-clear-chunk-paddr-and-size-in-ath12k_qmi_free_target_mem_chunk.patch",
-      "before": "15af290ecc671a2a5e0c04602eb26a2c5fd2b969",
-      "after": "eb3a14493b935c3d5119f9a2ad25d6de25c820d2"
+      "before": "4382fa8a813d72aab02db2561beb0c8adb8d8d7d",
+      "after": "b0347ef9198c73ba21f577e0b578994693d74b83"
     },
     {
       "original": "rc5-20261013/0043-wifi-ath12k-align-QMI-target-memory-to-64-KB.patch",
       "status": "unchanged",
       "patch": "0042-wifi-ath12k-align-QMI-target-memory-to-64-KB.patch",
-      "before": "eb3a14493b935c3d5119f9a2ad25d6de25c820d2",
-      "after": "40bd435ec6e845b4dc4f4f730438fb16cbab3945"
+      "before": "b0347ef9198c73ba21f577e0b578994693d74b83",
+      "after": "97a46676b378fa752966ecb86e500d1cb036a68b"
     },
     {
       "original": "rc5-20261013/0044-soc-qcom-pmic_glink-Avoid-losing-early-rpmsg-probe.patch",
       "status": "unchanged",
       "patch": "0043-soc-qcom-pmic_glink-Avoid-losing-early-rpmsg-probe.patch",
-      "before": "40bd435ec6e845b4dc4f4f730438fb16cbab3945",
-      "after": "27490c2fb2972f205977c64a685f8d916913cadd"
+      "before": "97a46676b378fa752966ecb86e500d1cb036a68b",
+      "after": "8ebaae4d0e45393356e176c7da2d807cf7d981c7"
     },
     {
       "original": "rc5-20261013/0045-wifi-ath12k-bound-padded-QMI-DMA-allocation-size.patch",
       "status": "unchanged",
       "patch": "0044-wifi-ath12k-bound-padded-QMI-DMA-allocation-size.patch",
-      "before": "27490c2fb2972f205977c64a685f8d916913cadd",
-      "after": "83781866fc2f9ab0fa2a8a4590c8d098d4fd6df9"
+      "before": "8ebaae4d0e45393356e176c7da2d807cf7d981c7",
+      "after": "53741283bbb399c37c8742415693dfd437f05b24"
     },
     {
       "original": "rc5-20261013/0046-drm-msm-a6xx-Factor-out-RPMh-arc-vote-helpers.patch",
       "status": "unchanged",
       "patch": "0045-drm-msm-a6xx-Factor-out-RPMh-arc-vote-helpers.patch",
-      "before": "83781866fc2f9ab0fa2a8a4590c8d098d4fd6df9",
-      "after": "9c35c76d891da0d98bbc5c5fe902b2e1b4bcae23"
+      "before": "53741283bbb399c37c8742415693dfd437f05b24",
+      "after": "f079974848ebb82a852bec2d9940a95867afbd61"
     },
     {
       "original": "rc5-20261013/0047-drm-msm-a6xx-Add-BX-rail-support-to-GMU-dependency-votes.patch",
       "status": "unchanged",
       "patch": "0046-drm-msm-a6xx-Add-BX-rail-support-to-GMU-dependency-votes.patch",
-      "before": "9c35c76d891da0d98bbc5c5fe902b2e1b4bcae23",
-      "after": "2a8f557cd3781c8fbb6e3c2b4869e5de708f6dba"
+      "before": "f079974848ebb82a852bec2d9940a95867afbd61",
+      "after": "c917fa7234c651a4406b46dc2cfd14c44d447da3"
     },
     {
       "original": "rc5-20261013/0048-drm-msm-a6xx-Clamp-MX-dependency-vote.patch",
       "status": "unchanged",
       "patch": "0047-drm-msm-a6xx-Clamp-MX-dependency-vote.patch",
-      "before": "2a8f557cd3781c8fbb6e3c2b4869e5de708f6dba",
-      "after": "d0d3d372cc287039d49bcdb3acfbccb341bb317f"
+      "before": "c917fa7234c651a4406b46dc2cfd14c44d447da3",
+      "after": "c5cf4cbaaf9f90c6660248a24d4d0497add92085"
     },
     {
       "original": "rc5-20261013/0049-PCI-qcom-Block-accesses-to-downstream-devices-on-link-down.patch",
       "status": "unchanged",
       "patch": "0048-PCI-qcom-Block-accesses-to-downstream-devices-on-link-down.patch",
-      "before": "d0d3d372cc287039d49bcdb3acfbccb341bb317f",
-      "after": "4f949cdaf7a65fe2b5e4663d13130bb287d88652"
+      "before": "c5cf4cbaaf9f90c6660248a24d4d0497add92085",
+      "after": "42ab9df5a34c7747fefe7b2f66a7927c25a8f8df"
     },
     {
       "original": "rc5-20261013/0050-PCI-qcom-Skip-system-suspend-resume-for-firmware-managed-PCIe.patch",
       "status": "unchanged",
       "patch": "0049-PCI-qcom-Skip-system-suspend-resume-for-firmware-managed-PCIe.patch",
-      "before": "4f949cdaf7a65fe2b5e4663d13130bb287d88652",
-      "after": "8c5d53af0cf39cbd19c90b439a00eb2fa0b633b4"
+      "before": "42ab9df5a34c7747fefe7b2f66a7927c25a8f8df",
+      "after": "273c2a18af37cbe6dab7709e5e8556ff56d70f36"
     },
     {
       "original": "rc5-20261013/0051-Preserve-RPMh-request-lifetime-and-stop-GPU-submission-after-failed-power-votes.patch",
       "status": "unchanged",
       "patch": "0050-Preserve-RPMh-request-lifetime-and-stop-GPU-submission-after-failed-power-votes.patch",
-      "before": "8c5d53af0cf39cbd19c90b439a00eb2fa0b633b4",
-      "after": "4ef9592c0852456e4a5fd3a94215978554081102"
+      "before": "273c2a18af37cbe6dab7709e5e8556ff56d70f36",
+      "after": "dde3c7270a04346bb43f6aa02bb766665c611c20"
     },
     {
       "original": "rc5-20261013/0052-Align-bounded-TCS-wait-continuation.patch",
       "status": "unchanged",
       "patch": "0051-Align-bounded-TCS-wait-continuation.patch",
-      "before": "4ef9592c0852456e4a5fd3a94215978554081102",
-      "after": "639e3cb5f7c97b441e5f16044215e64c001a2441"
+      "before": "dde3c7270a04346bb43f6aa02bb766665c611c20",
+      "after": "2a0e4c4f3afba97f02ff1974aa4f3d042c4a14f3"
     },
     {
       "original": "rc5-20261013/0053-Stop-GMU-resume-before-MMIO-when-runtime-power-fails.patch",
       "status": "unchanged",
       "patch": "0052-Stop-GMU-resume-before-MMIO-when-runtime-power-fails.patch",
-      "before": "639e3cb5f7c97b441e5f16044215e64c001a2441",
-      "after": "de900e60603545de27a3cd0c5f2a80c17153c4ce"
+      "before": "2a0e4c4f3afba97f02ff1974aa4f3d042c4a14f3",
+      "after": "8291125fa4d57ea8187dc9bc8ab0b803e4c6122d"
     },
     {
       "original": "rc5-20261013/0054-Add-opt-in-BIOS-312-EC-fan-profile-selection-for-A16.patch",
       "status": "unchanged",
       "patch": "0053-Add-opt-in-BIOS-312-EC-fan-profile-selection-for-A16.patch",
-      "before": "de900e60603545de27a3cd0c5f2a80c17153c4ce",
-      "after": "c434637a898a68e02727aa397835085e0ca5ab42"
+      "before": "8291125fa4d57ea8187dc9bc8ab0b803e4c6122d",
+      "after": "66112e45c329ac21dcccc25f8524d00605522f18"
     },
     {
       "original": "rc5-20261013/0055-Repair-GMU-lifetime-SoundWire-PM-I2C-DMA-accounting-and-failed-vote-propagation.patch",
       "status": "ported",
       "patch": "0054-Repair-GMU-lifetime-SoundWire-PM-I2C-DMA-accounting-and-failed-vote-propagation.patch",
-      "before": "c434637a898a68e02727aa397835085e0ca5ab42",
-      "after": "7a1a8beff5fd6442cfeeabf8afdbcc0975f82ef0",
+      "before": "66112e45c329ac21dcccc25f8524d00605522f18",
+      "after": "063a02139459dbdcfc27988bc8e69d6be2c4bdb2",
       "resolution": "Retain final out_pm cleanup label; omit duplicate runtime-PM fix and retain remaining A16 DMA fixes."
     },
     {
       "original": "rc5-20261013/0056-Reset-successful-DP-configuration-byte-count-before-repeater-training.patch",
       "status": "unchanged",
       "patch": "0055-Reset-successful-DP-configuration-byte-count-before-repeater-training.patch",
-      "before": "7a1a8beff5fd6442cfeeabf8afdbcc0975f82ef0",
-      "after": "4c727f37f56b842c1d4ec410d4b18aa939dd4c65"
+      "before": "063a02139459dbdcfc27988bc8e69d6be2c4bdb2",
+      "after": "85c5e725a3801699140951c2bb0b20fceaa24686"
     },
     {
       "original": "rc5-20261013/0057-Keep-pending-I2C-mappings-owned-until-completion-or-termination.patch",
       "status": "unchanged",
       "patch": "0056-Keep-pending-I2C-mappings-owned-until-completion-or-termination.patch",
-      "before": "4c727f37f56b842c1d4ec410d4b18aa939dd4c65",
-      "after": "655cc36a6534457680753272891c3c0a8242996f"
+      "before": "85c5e725a3801699140951c2bb0b20fceaa24686",
+      "after": "1c54b4ac6615d6c27d756584574176f30f22d313"
     },
     {
       "original": "rc5-20261013/0058-dmaengine-qcom-gpi-retire-linked-I2C-command-descriptors.patch",
       "status": "unchanged",
       "patch": "0057-dmaengine-qcom-gpi-retire-linked-I2C-command-descriptors.patch",
-      "before": "655cc36a6534457680753272891c3c0a8242996f",
-      "after": "2dc88eb6de0aeb6b8c79324921f840691927808a"
+      "before": "1c54b4ac6615d6c27d756584574176f30f22d313",
+      "after": "4fef30c28a72ade6ca083cbcef24d440dec22d05"
     },
     {
       "original": "rc5-20261013/0059-LOCAL-keep-A16-speaker-controllers-runtime-active-for-audio-prevention-baseline.patch",
       "status": "unchanged",
       "patch": "0058-LOCAL-keep-A16-speaker-controllers-runtime-active-for-audio-prevention-baseline.patch",
-      "before": "2dc88eb6de0aeb6b8c79324921f840691927808a",
-      "after": "bb45da2f1aa3c6a2e3742b634340d987662250a1"
+      "before": "4fef30c28a72ade6ca083cbcef24d440dec22d05",
+      "after": "af9fe2776c9e98df8acc45ff2b6683c88e9e8338"
     },
     {
       "original": "rc5-20261013/0060-Integrate-16-private-A16-review-source-fixes.patch",
       "status": "unchanged",
       "patch": "0059-Integrate-16-private-A16-review-source-fixes.patch",
-      "before": "bb45da2f1aa3c6a2e3742b634340d987662250a1",
-      "after": "9e0ca643c422b674629229966f76151125e9d826"
+      "before": "af9fe2776c9e98df8acc45ff2b6683c88e9e8338",
+      "after": "358a615364a2946e0f5fe41cac51ba654a25e483"
     },
     {
       "original": "rc5-20261013/0061-Add-approved-A16-hibernation-configuration-fragment.patch",
       "status": "unchanged",
       "patch": "0060-Add-approved-A16-hibernation-configuration-fragment.patch",
-      "before": "9e0ca643c422b674629229966f76151125e9d826",
-      "after": "b0776b29cc92331b7204c682dbe6ca89b0ab9c68"
+      "before": "358a615364a2946e0f5fe41cac51ba654a25e483",
+      "after": "35b3ae9ab0a21d35e2e738b206b632f25938ee9e"
     },
     {
       "original": "rc5-20261013/0062-Integrate-tested-A16-Bluetooth-DMA-SoundWire-and-DP-.patch",
       "status": "unchanged",
       "patch": "0061-Integrate-tested-A16-Bluetooth-DMA-SoundWire-and-DP-.patch",
-      "before": "b0776b29cc92331b7204c682dbe6ca89b0ab9c68",
-      "after": "097648babdc533177ac260712f9e34bb0289950d"
+      "before": "35b3ae9ab0a21d35e2e738b206b632f25938ee9e",
+      "after": "2ee0cae4721ea7945b15e34ec6a02ab99b230dfa"
     },
     {
       "original": "rc5-20261013/0063-Preserve-QMP-Type-C-ownership-and-contain-board-tran.patch",
-      "status": "unchanged",
-      "patch": "0062-Preserve-QMP-Type-C-ownership-and-contain-board-tran.patch",
-      "before": "097648babdc533177ac260712f9e34bb0289950d",
-      "after": "953de098bed2cb6eb9b6119a0716970949c359cb"
+      "status": "dropped",
+      "patch": null,
+      "resolution": "Dropped: 0911, 0924 and 0925 of the openSUSE series rewrite the same mode-switch code."
     },
     {
       "original": "rc5-20261013/0064-Release-GPI-caller-ring-only-on-failures-before-hard.patch",
       "status": "unchanged",
       "patch": "0063-Release-GPI-caller-ring-only-on-failures-before-hard.patch",
-      "before": "953de098bed2cb6eb9b6119a0716970949c359cb",
-      "after": "fef227ebe1021b79f1514d8dacb727856010ca1c"
+      "before": "2ee0cae4721ea7945b15e34ec6a02ab99b230dfa",
+      "after": "9d67e9c67b0f96e4daff6a4d5b4b988208758a29"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0001-soundwire-qcom-allow-deferred-codec-probes.patch",
       "status": "unchanged",
       "patch": "0064-soundwire-qcom-allow-deferred-codec-probes.patch",
-      "before": "fef227ebe1021b79f1514d8dacb727856010ca1c",
-      "after": "d89c39ef35e96d7b97f5abf9026dd36e1767fd08"
+      "before": "9d67e9c67b0f96e4daff6a4d5b4b988208758a29",
+      "after": "6abadb131fea8a011bd9471e73de400e23f9afee"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0002-i2c-qcom-geni-restore-source-clock-selection.patch",
@@ -466,316 +465,316 @@
       "original": "qcom-glymur-bridge-20261018/0003-clk-qcom-gcc-glymur-Use-PWRSTS_RET_ON-flag-for-USB-GDSCs.patch",
       "status": "unchanged",
       "patch": "0065-clk-qcom-gcc-glymur-Use-PWRSTS_RET_ON-flag-for-USB-GDSCs.patch",
-      "before": "d89c39ef35e96d7b97f5abf9026dd36e1767fd08",
-      "after": "08dd1d3be8d5ec941722cc6c493fe0c6b8abf8cc"
+      "before": "6abadb131fea8a011bd9471e73de400e23f9afee",
+      "after": "242c5d41e9fbf18ea45f245da7012e9f63e07957"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0004-phy-qualcomm-phy-qcom-eusb2-repeater-Fix-SMB-Power-leakage.patch",
       "status": "unchanged",
       "patch": "0066-phy-qualcomm-phy-qcom-eusb2-repeater-Fix-SMB-Power-leakage.patch",
-      "before": "08dd1d3be8d5ec941722cc6c493fe0c6b8abf8cc",
-      "after": "6ccdf1c8c8cd14a9030fd74dab77b1df5694cd88"
+      "before": "242c5d41e9fbf18ea45f245da7012e9f63e07957",
+      "after": "1bc0b47444f0db3a681e8504db24f35c7b9d49f1"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0005-usb-typec-ucsi-ucsi_glink-Prevent-suspend-during-UCSI-notification.patch",
       "status": "unchanged",
       "patch": "0067-usb-typec-ucsi-ucsi_glink-Prevent-suspend-during-UCSI-notification.patch",
-      "before": "6ccdf1c8c8cd14a9030fd74dab77b1df5694cd88",
-      "after": "fe7424c40e1455b81aee36dd634d6d0657c1d4cb"
+      "before": "1bc0b47444f0db3a681e8504db24f35c7b9d49f1",
+      "after": "f704648d1a4f779ff3b94a3b6f932a806ade5d0c"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0006-usb-dwc3-qcom-Add-support-to-skip-phy-management-by-USB-core.patch",
       "status": "unchanged",
       "patch": "0068-usb-dwc3-qcom-Add-support-to-skip-phy-management-by-USB-core.patch",
-      "before": "fe7424c40e1455b81aee36dd634d6d0657c1d4cb",
-      "after": "39cfc2aec9f880c7cbc1479d1731f93a91b48f3c"
+      "before": "f704648d1a4f779ff3b94a3b6f932a806ade5d0c",
+      "after": "555a2d9771eb196486817fef104e9312ae724a91"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0007-arm64-dts-qcom-glymur-Fix-missing-SMMU-stream-IDs-for-ADSP.patch",
       "status": "unchanged",
       "patch": "0069-arm64-dts-qcom-glymur-Fix-missing-SMMU-stream-IDs-for-ADSP.patch",
-      "before": "39cfc2aec9f880c7cbc1479d1731f93a91b48f3c",
-      "after": "50c73127d67590848971778a69300de05fad6576"
+      "before": "555a2d9771eb196486817fef104e9312ae724a91",
+      "after": "c0db97b3273c2e098be6e7257c4a4c67647b72ec"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0008-clk-qcom-add-Glymur-LPASS-clock-controller-with-reset-lines.patch",
       "status": "unchanged",
       "patch": "0070-clk-qcom-add-Glymur-LPASS-clock-controller-with-reset-lines.patch",
-      "before": "50c73127d67590848971778a69300de05fad6576",
-      "after": "d6b0dd29640e0bdd841eb8c83c199ae630cefd7a"
+      "before": "c0db97b3273c2e098be6e7257c4a4c67647b72ec",
+      "after": "256ad350a4569a48a32868cce1ea16fd70a4c4b3"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0009-ASoC-codecs-lpass-macro-add-codec-version-2.9-and-fix-regcache.patch",
       "status": "unchanged",
       "patch": "0071-ASoC-codecs-lpass-macro-add-codec-version-2.9-and-fix-regcache.patch",
-      "before": "d6b0dd29640e0bdd841eb8c83c199ae630cefd7a",
-      "after": "f08fad18ce4cdc0bdc381f489f32fbe0f105ab37"
+      "before": "256ad350a4569a48a32868cce1ea16fd70a4c4b3",
+      "after": "8324561fb46245f4032a9baa8588d7ea82e9b0f1"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0010-ASoC-qcom-lpass-macro-common-Add-missing-v2.9-version-string.patch",
       "status": "unchanged",
       "patch": "0072-ASoC-qcom-lpass-macro-common-Add-missing-v2.9-version-string.patch",
-      "before": "f08fad18ce4cdc0bdc381f489f32fbe0f105ab37",
-      "after": "46ce217e66136971fcf24d8cebcbd9672090b1f0"
+      "before": "8324561fb46245f4032a9baa8588d7ea82e9b0f1",
+      "after": "81fc183f81e3d94bce4a7976d328d25fbc78a052"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0011-ASoC-codecs-lpass-rx-macro-manage-clocks-in-runtime-PM.patch",
       "status": "unchanged",
       "patch": "0073-ASoC-codecs-lpass-rx-macro-manage-clocks-in-runtime-PM.patch",
-      "before": "46ce217e66136971fcf24d8cebcbd9672090b1f0",
-      "after": "4d61a2e9763215bd73208253287e8964dabaeff8"
+      "before": "81fc183f81e3d94bce4a7976d328d25fbc78a052",
+      "after": "add4559a4460ab678fd446484193b38f50b367fc"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0012-ASoC-codecs-lpass-tx-macro-manage-clocks-in-runtime-PM.patch",
       "status": "unchanged",
       "patch": "0074-ASoC-codecs-lpass-tx-macro-manage-clocks-in-runtime-PM.patch",
-      "before": "4d61a2e9763215bd73208253287e8964dabaeff8",
-      "after": "ddaddb2ff5a0c94493c3f882683c358ded37dd98"
+      "before": "add4559a4460ab678fd446484193b38f50b367fc",
+      "after": "87a82c4738370d85eea217ff6dd3597238a2ff8c"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0013-ASoC-codecs-lpass-va-macro-manage-clocks-in-runtime-PM.patch",
       "status": "unchanged",
       "patch": "0075-ASoC-codecs-lpass-va-macro-manage-clocks-in-runtime-PM.patch",
-      "before": "ddaddb2ff5a0c94493c3f882683c358ded37dd98",
-      "after": "9ce10e14e61e59d6b330446a485fb4a0d1e92eb5"
+      "before": "87a82c4738370d85eea217ff6dd3597238a2ff8c",
+      "after": "74709a5cd7a30cdd0ebe16fd012b4268e4d6a09c"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0014-ASoC-codecs-lpass-wsa-macro-manage-clocks-in-runtime-PM.patch",
       "status": "unchanged",
       "patch": "0076-ASoC-codecs-lpass-wsa-macro-manage-clocks-in-runtime-PM.patch",
-      "before": "9ce10e14e61e59d6b330446a485fb4a0d1e92eb5",
-      "after": "23fc894833fe6c5217b9ecd257dcb8a8b61161e4"
+      "before": "74709a5cd7a30cdd0ebe16fd012b4268e4d6a09c",
+      "after": "fd6998637bda1393abec58131f70150dc6899081"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0015-ASoC-codecs-lpass-macro-drop-PM_CLK-dependency.patch",
       "status": "unchanged",
       "patch": "0077-ASoC-codecs-lpass-macro-drop-PM_CLK-dependency.patch",
-      "before": "23fc894833fe6c5217b9ecd257dcb8a8b61161e4",
-      "after": "bbd2ae94080060f9ca370e555aef2f2651bafdb7"
+      "before": "fd6998637bda1393abec58131f70150dc6899081",
+      "after": "755b080df09c26a630e98b882e576f6025ebb2ef"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0016-power-supply-qcom_battmgr-Add-multi-port-USB-C-and-capacity.patch",
       "status": "unchanged",
       "patch": "0078-power-supply-qcom_battmgr-Add-multi-port-USB-C-and-capacity.patch",
-      "before": "bbd2ae94080060f9ca370e555aef2f2651bafdb7",
-      "after": "8334f3cebfeb57315f977478799ce245114877d0"
+      "before": "755b080df09c26a630e98b882e576f6025ebb2ef",
+      "after": "0e53831ab1e1e03ee45e0b352aeeb30b11cc0be0"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0017-dt-bindings-soc-qcom-pmic-glink-Document-RTC-client-properties.patch",
       "status": "unchanged",
       "patch": "0079-dt-bindings-soc-qcom-pmic-glink-Document-RTC-client-properties.patch",
-      "before": "8334f3cebfeb57315f977478799ce245114877d0",
-      "after": "8c226adccf23ff3aa2fefc573f46176e9ad40c6f"
+      "before": "0e53831ab1e1e03ee45e0b352aeeb30b11cc0be0",
+      "after": "da86ea8f559e689533d5a4a217241a08dec29128"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0018-rtc-qcom-rtc-glink-Add-PMIC-GLINK-RTC-driver.patch",
       "status": "unchanged",
       "patch": "0080-rtc-qcom-rtc-glink-Add-PMIC-GLINK-RTC-driver.patch",
-      "before": "8c226adccf23ff3aa2fefc573f46176e9ad40c6f",
-      "after": "52b9d7c3c9192035eb35b86a809f77eb43a77b13"
+      "before": "da86ea8f559e689533d5a4a217241a08dec29128",
+      "after": "d3e6c57e6caca9d428de787f401157c2726f5083"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0019-dt-bindings-display-msm-gmu-Fix-Glymur-compatible.patch",
       "status": "unchanged",
       "patch": "0081-dt-bindings-display-msm-gmu-Fix-Glymur-compatible.patch",
-      "before": "52b9d7c3c9192035eb35b86a809f77eb43a77b13",
-      "after": "ac034f23b374d9d41b7a3215c5a6db0b307433bc"
+      "before": "d3e6c57e6caca9d428de787f401157c2726f5083",
+      "after": "f66cfa91017c0db972b68330c093e3d0f4b8e35c"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0020-arm64-dts-qcom-glymur-fix-Adreno-X2-90-GMU-compatible.patch",
       "status": "unchanged",
       "patch": "0082-arm64-dts-qcom-glymur-fix-Adreno-X2-90-GMU-compatible.patch",
-      "before": "ac034f23b374d9d41b7a3215c5a6db0b307433bc",
-      "after": "93ffe6c2d1d373acb63d5603c481b80963e7d418"
+      "before": "f66cfa91017c0db972b68330c093e3d0f4b8e35c",
+      "after": "46e68de9369a811812c34c55f3323eb0842552c0"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0021-drm-msm-dp-wake-threaded-handler-for-HPD-IRQs.patch",
       "status": "unchanged",
       "patch": "0083-drm-msm-dp-wake-threaded-handler-for-HPD-IRQs.patch",
-      "before": "93ffe6c2d1d373acb63d5603c481b80963e7d418",
-      "after": "ee9494c6d3b91abe439a5abfe3b5711497cccd80"
+      "before": "46e68de9369a811812c34c55f3323eb0842552c0",
+      "after": "c29bf9844da797f8440f93cd9d2ddfaa21b381c8"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0022-drm-msm-dp-skip-LTTPR-init-when-no-LTTPRs-are-present.patch",
       "status": "unchanged",
       "patch": "0084-drm-msm-dp-skip-LTTPR-init-when-no-LTTPRs-are-present.patch",
-      "before": "ee9494c6d3b91abe439a5abfe3b5711497cccd80",
-      "after": "6d1c1dbef7a2cb92594929897790d0e8aff05c66"
+      "before": "c29bf9844da797f8440f93cd9d2ddfaa21b381c8",
+      "after": "07b51c7911822dcca8094e4ff69c89d9cf0cbde7"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0023-arm64-dts-qcom-glymur-Fix-fastrpc-compute-cb-reg-values-for-cdsp.patch",
       "status": "unchanged",
       "patch": "0085-arm64-dts-qcom-glymur-Fix-fastrpc-compute-cb-reg-values-for-cdsp.patch",
-      "before": "6d1c1dbef7a2cb92594929897790d0e8aff05c66",
-      "after": "91f5cf4e5de90707775e9475a27c48facbe204a3"
+      "before": "07b51c7911822dcca8094e4ff69c89d9cf0cbde7",
+      "after": "4cd8b92ea75638d7348237f695629ecbd745371c"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0024-arm64-dts-qcom-glymur-Add-iris-video-node.patch",
       "status": "unchanged",
       "patch": "0086-arm64-dts-qcom-glymur-Add-iris-video-node.patch",
-      "before": "91f5cf4e5de90707775e9475a27c48facbe204a3",
-      "after": "069afb4f4ed92d929ee218d3d123f7b589f44b4d"
+      "before": "4cd8b92ea75638d7348237f695629ecbd745371c",
+      "after": "29bd64a6827c0bf8bfc37a24d589cb7d92d1f04d"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0025-wifi-ath12k-fix-MLO-4-way-handshake-timeout-on-QCC2072.patch",
       "status": "unchanged",
       "patch": "0087-wifi-ath12k-fix-MLO-4-way-handshake-timeout-on-QCC2072.patch",
-      "before": "069afb4f4ed92d929ee218d3d123f7b589f44b4d",
-      "after": "3b7ce4fd99034e777b95f851dd69665942a92307"
+      "before": "29bd64a6827c0bf8bfc37a24d589cb7d92d1f04d",
+      "after": "57f6799c3363aa495f6ada7b188a5cfb297d4eb4"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0026-wifi-ath12k-Fix-missing-station-power-save-configuration.patch",
       "status": "unchanged",
       "patch": "0088-wifi-ath12k-Fix-missing-station-power-save-configuration.patch",
-      "before": "3b7ce4fd99034e777b95f851dd69665942a92307",
-      "after": "1ed5e21a4c7ed5950f163ee3ff4a01847b9e8a1c"
+      "before": "57f6799c3363aa495f6ada7b188a5cfb297d4eb4",
+      "after": "dc3aaa2a49df05e04f9fb6361f1ab57e2aaace99"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0027-PCI-qcom-Disable-halting-feature.patch",
       "status": "unchanged",
       "patch": "0089-PCI-qcom-Disable-halting-feature.patch",
-      "before": "1ed5e21a4c7ed5950f163ee3ff4a01847b9e8a1c",
-      "after": "d5bc215aa36568af3d2b0dde00c4c22b74e54c21"
+      "before": "dc3aaa2a49df05e04f9fb6361f1ab57e2aaace99",
+      "after": "44e76f3de4727bb31185c5d85327349c73a7e862"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0028-arch_topology-seed-capacity_freq_ref-with-boost-aware-max-freq.patch",
       "status": "unchanged",
       "patch": "0090-arch_topology-seed-capacity_freq_ref-with-boost-aware-max-freq.patch",
-      "before": "d5bc215aa36568af3d2b0dde00c4c22b74e54c21",
-      "after": "ef4a488f6387980caf4b7ad0765562b8c61aa16f"
+      "before": "44e76f3de4727bb31185c5d85327349c73a7e862",
+      "after": "4b5271281f27070e5b773cdcebc09ac0e2da3e31"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0029-arm64-dts-qcom-glymur-Add-EC-thermal-zones.patch",
       "status": "unchanged",
       "patch": "0091-arm64-dts-qcom-glymur-Add-EC-thermal-zones.patch",
-      "before": "ef4a488f6387980caf4b7ad0765562b8c61aa16f",
-      "after": "5a7edbca2015a67929f32efae3d7e9551f513df4"
+      "before": "4b5271281f27070e5b773cdcebc09ac0e2da3e31",
+      "after": "a93972b4b68bff6001f5c23ea7b4b99fd3843767"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0030-tee-qcomtee-Track-the-object-invocation-context.patch",
       "status": "unchanged",
       "patch": "0092-tee-qcomtee-Track-the-object-invocation-context.patch",
-      "before": "5a7edbca2015a67929f32efae3d7e9551f513df4",
-      "after": "36b42828b94809694293e637a97aacc151bd4445"
+      "before": "a93972b4b68bff6001f5c23ea7b4b99fd3843767",
+      "after": "3e91b7328206e8780c5c5a6736a320a2c75d63b4"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0031-tee-Add-kernel-client-object-invoke-helper.patch",
       "status": "unchanged",
       "patch": "0093-tee-Add-kernel-client-object-invoke-helper.patch",
-      "before": "36b42828b94809694293e637a97aacc151bd4445",
-      "after": "21ee34da0221c4f927da812348dfd24747b3523f"
+      "before": "3e91b7328206e8780c5c5a6736a320a2c75d63b4",
+      "after": "1c568036bf48a048d972d3ea3a3c1f8c26954ab7"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0032-tee-qcomtee-Allow-object-invokes-from-kernel-clients.patch",
       "status": "unchanged",
       "patch": "0094-tee-qcomtee-Allow-object-invokes-from-kernel-clients.patch",
-      "before": "21ee34da0221c4f927da812348dfd24747b3523f",
-      "after": "e77f350768d6082a775cf7110f14ea5fd1f96aaf"
+      "before": "1c568036bf48a048d972d3ea3a3c1f8c26954ab7",
+      "after": "7fc160ba09c20ad5e353b6457b3be4b1185b5e3d"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0033-tee-Export-uuidv5-generation-for-TEE-backends.patch",
       "status": "unchanged",
       "patch": "0095-tee-Export-uuidv5-generation-for-TEE-backends.patch",
-      "before": "e77f350768d6082a775cf7110f14ea5fd1f96aaf",
-      "after": "55219291a67e9d86053a86fcebace218ca54b584"
+      "before": "7fc160ba09c20ad5e353b6457b3be4b1185b5e3d",
+      "after": "a039b8c6ea21ac8781bdaee84319bb764bcae1dc"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0034-tee-qcomtee-Add-support-for-registering-QTEE-services-on-TEE-bus.patch",
       "status": "unchanged",
       "patch": "0096-tee-qcomtee-Add-support-for-registering-QTEE-services-on-TEE-bus.patch",
-      "before": "55219291a67e9d86053a86fcebace218ca54b584",
-      "after": "5d0fa78916cd0baccc3fc38c34add2e33a1c5234"
+      "before": "a039b8c6ea21ac8781bdaee84319bb764bcae1dc",
+      "after": "c58355d4c67601502bc04e406382ea1f4efb9b4d"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0035-firmware-qcom-Add-support-for-TEE-based-EFI-var-client-driver.patch",
       "status": "unchanged",
       "patch": "0097-firmware-qcom-Add-support-for-TEE-based-EFI-var-client-driver.patch",
-      "before": "5d0fa78916cd0baccc3fc38c34add2e33a1c5234",
-      "after": "9ca443a914f983171bfc9ef41eeadae66d0f583b"
+      "before": "c58355d4c67601502bc04e406382ea1f4efb9b4d",
+      "after": "36f611cea45a5baffa06e239d8f453d250e07cd3"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0036-tee-qcomtee-Register-qcom.tz.tpm-service-for-discovery.patch",
       "status": "unchanged",
       "patch": "0098-tee-qcomtee-Register-qcom.tz.tpm-service-for-discovery.patch",
-      "before": "9ca443a914f983171bfc9ef41eeadae66d0f583b",
-      "after": "7658818a0cccd1e31713a89c904362c7d84ace60"
+      "before": "36f611cea45a5baffa06e239d8f453d250e07cd3",
+      "after": "68b8dd9099b09d77f2085da1e37699df3783098d"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0037-tpm-Introduce-Qualcomm-TPM-driver.patch",
       "status": "unchanged",
       "patch": "0099-tpm-Introduce-Qualcomm-TPM-driver.patch",
-      "before": "7658818a0cccd1e31713a89c904362c7d84ace60",
-      "after": "5fac9df146598af3e6fbb510be3c22f02611dd2a"
+      "before": "68b8dd9099b09d77f2085da1e37699df3783098d",
+      "after": "e0106bb164a473ca74184498bdc99c189a2a1b38"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0038-arm64-dts-qcom-glymur-Add-CAMSS-and-CSIPHY-nodes-for-Glymur.patch",
       "status": "unchanged",
       "patch": "0100-arm64-dts-qcom-glymur-Add-CAMSS-and-CSIPHY-nodes-for-Glymur.patch",
-      "before": "5fac9df146598af3e6fbb510be3c22f02611dd2a",
-      "after": "9946974623d596e39e31c54f981bdbc9c522d0e2"
+      "before": "e0106bb164a473ca74184498bdc99c189a2a1b38",
+      "after": "4d139c38b005ae886340b290e14a7e34c26ba8c5"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0039-arm64-dts-qcom-glymur-Add-CCI-definitions-for-Glymur.patch",
       "status": "unchanged",
       "patch": "0101-arm64-dts-qcom-glymur-Add-CCI-definitions-for-Glymur.patch",
-      "before": "9946974623d596e39e31c54f981bdbc9c522d0e2",
-      "after": "80c523776dc8b0e1aec459eec4f5c3b4a863ce4c"
+      "before": "4d139c38b005ae886340b290e14a7e34c26ba8c5",
+      "after": "62fb9fc3c1ba6b2b42f212c593b066f4109c1d8d"
     },
     {
       "original": "qcom-glymur-bridge-20261018/0040-arm64-dts-qcom-glymur-Add-camera-MCLK-pinctrl.patch",
       "status": "unchanged",
       "patch": "0102-arm64-dts-qcom-glymur-Add-camera-MCLK-pinctrl.patch",
-      "before": "80c523776dc8b0e1aec459eec4f5c3b4a863ce4c",
-      "after": "82ce722e5c73d5e67352677cc999339d4a418b1e"
+      "before": "62fb9fc3c1ba6b2b42f212c593b066f4109c1d8d",
+      "after": "c4b2baa060a7e90b1e97a52429c3f70cc3396896"
     },
     {
       "original": "camera-microphone-20261022/0001-i2c-cci-require-exact-clock-rates.patch",
       "status": "unchanged",
       "patch": "0103-i2c-cci-require-exact-clock-rates.patch",
-      "before": "82ce722e5c73d5e67352677cc999339d4a418b1e",
-      "after": "f33547ed2fb5399827aadf7cc1a6cf162162e0f1"
+      "before": "c4b2baa060a7e90b1e97a52429c3f70cc3396896",
+      "after": "881f28cb58b978d0226da90f05daa3fb40386504"
     },
     {
       "original": "camera-microphone-20261022/0002-mfd-pm8010-i2c.patch",
       "status": "unchanged",
       "patch": "0104-mfd-pm8010-i2c.patch",
-      "before": "f33547ed2fb5399827aadf7cc1a6cf162162e0f1",
-      "after": "8d0255374e2073fe744e12ec33d1851bd84efa4f"
+      "before": "881f28cb58b978d0226da90f05daa3fb40386504",
+      "after": "40d7d52f6e4814d0554957818770480c88594d24"
     },
     {
       "original": "camera-microphone-20261022/0003-regulator-pm8010.patch",
       "status": "unchanged",
       "patch": "0105-regulator-pm8010.patch",
-      "before": "8d0255374e2073fe744e12ec33d1851bd84efa4f",
-      "after": "8b837848cef56b2f8b5e0a55eaf05d38ffdab3f1"
+      "before": "40d7d52f6e4814d0554957818770480c88594d24",
+      "after": "f060350dbd44b614ac702f2dff3804b37208d5a3"
     },
     {
       "original": "camera-microphone-20261022/0004-media-hm1092.patch",
       "status": "unchanged",
       "patch": "0106-media-hm1092.patch",
-      "before": "8b837848cef56b2f8b5e0a55eaf05d38ffdab3f1",
-      "after": "5317afc328f25d2d85263958c0ebadf8e792a688"
+      "before": "f060350dbd44b614ac702f2dff3804b37208d5a3",
+      "after": "c227f8dfe91f0e98904eb7dfe6ef63708157fc07"
     },
     {
       "original": "camera-microphone-20261022/0006-camss-glymur-nonsecure-resources.patch",
       "status": "unchanged",
       "patch": "0107-camss-glymur-nonsecure-resources.patch",
-      "before": "5317afc328f25d2d85263958c0ebadf8e792a688",
-      "after": "7af7afa1d31b0d4ed8e95dc7e677bd9eca286a20"
+      "before": "c227f8dfe91f0e98904eb7dfe6ef63708157fc07",
+      "after": "3a51893c7c179d320ae446882c7fed554b9eecff"
     },
     {
       "original": "camera-microphone-20261022/0007-arm64-dts-a16-rgb-ir.patch",
       "status": "unchanged",
       "patch": "0108-arm64-dts-a16-rgb-ir.patch",
-      "before": "7af7afa1d31b0d4ed8e95dc7e677bd9eca286a20",
-      "after": "2e802e3793583fdb1147b55906aaf60e6700484a"
+      "before": "3a51893c7c179d320ae446882c7fed554b9eecff",
+      "after": "b4bc6dcfeeaeee437f4ee706310c539426952fcc"
     },
     {
       "original": "camera-microphone-20261022/0008-i2c-cci-clock-stretching.patch",
       "status": "unchanged",
       "patch": "0109-i2c-cci-clock-stretching.patch",
-      "before": "2e802e3793583fdb1147b55906aaf60e6700484a",
-      "after": "7a0f373571690ed3a6e1369f355e9678293234f7"
+      "before": "b4bc6dcfeeaeee437f4ee706310c539426952fcc",
+      "after": "a1b58cbe359300a59af40b701be7a0e7dcc4ab45"
     },
     {
       "original": "camera-microphone-20261022/0009-i2c-cci-halt-reset.patch",
@@ -786,366 +785,654 @@
       "original": "camera-microphone-20261022/0010-audioreach-clear-reused-default-channel-map.patch",
       "status": "unchanged",
       "patch": "0110-audioreach-clear-reused-default-channel-map.patch",
-      "before": "7a0f373571690ed3a6e1369f355e9678293234f7",
-      "after": "2ab57be4fc39b301f6dea0b06cf0154493542638"
+      "before": "a1b58cbe359300a59af40b701be7a0e7dcc4ab45",
+      "after": "0274cf36c63b042f7ea0817630098bdf126eabc3"
     },
     {
       "original": "camera-microphone-20261022/0011-glymur-a16-windows-dmic-pin-settings.patch",
       "status": "unchanged",
       "patch": "0111-glymur-a16-windows-dmic-pin-settings.patch",
-      "before": "2ab57be4fc39b301f6dea0b06cf0154493542638",
-      "after": "9ff6f6c65601156c8e0d1992fec83be31d7c5d7c"
+      "before": "0274cf36c63b042f7ea0817630098bdf126eabc3",
+      "after": "deb0e2d593efffa7bb0a8927af9ad44635794e21"
     },
     {
       "original": "glymur-gdsc-genpd-teardown-UPSTREAM.patch",
       "status": "unchanged",
       "patch": "0112-clk-qcom-gdsc-unwind-domains-when-registration-fails.patch",
-      "before": "9ff6f6c65601156c8e0d1992fec83be31d7c5d7c",
-      "after": "0b7cdaf329b147fdee08806483866a0ee22b1a7c"
+      "before": "deb0e2d593efffa7bb0a8927af9ad44635794e21",
+      "after": "02b4656d3c3b58d1771cd0c33ebd4b78c36c163d"
     },
     {
       "original": "genpd-lifecycle-20261031/0001-genpd-clear-states.patch",
       "status": "unchanged",
       "patch": "0113-pmdomain-core-clear-states-after-freeing-them.patch",
-      "before": "0b7cdaf329b147fdee08806483866a0ee22b1a7c",
-      "after": "af61bd1b4c70d958293738437ca60a6c8ed24022"
+      "before": "02b4656d3c3b58d1771cd0c33ebd4b78c36c163d",
+      "after": "98cd98a4f4369f8c574bbf1cf5e4c541bdea39f4"
     },
     {
       "original": "audio-channel-maps-20261031/0001-audioreach-multichannel.patch",
       "status": "unchanged",
       "patch": "0114-ASoC-qcom-audioreach-support-multichannel-PCM-formats.patch",
-      "before": "af61bd1b4c70d958293738437ca60a6c8ed24022",
-      "after": "1e6d5ef05d2e80788e888f6661bcc66a984983e3"
+      "before": "98cd98a4f4369f8c574bbf1cf5e4c541bdea39f4",
+      "after": "b1b7d36fa5fc09d6bcb354e038938a6633214ca8"
     },
     {
       "original": "audio-channel-maps-20261031/0002-q6dma-clear-stale-map.patch",
       "status": "unchanged",
       "patch": "0115-ASoC-qcom-qdsp6-clear-stale-channel_map-entries.patch",
-      "before": "1e6d5ef05d2e80788e888f6661bcc66a984983e3",
-      "after": "03912a67bbc0a3c467b5800e347cb569e5d4cf18"
+      "before": "b1b7d36fa5fc09d6bcb354e038938a6633214ca8",
+      "after": "41c09e42c61a68786e8f890038100f22b56c0b98"
     },
     {
       "original": "lkml/20261015221849.4027591-2-quic_eserrao@quicinc.com",
       "status": "unchanged",
       "patch": "0116-phy-qualcomm-m31-eusb2-Add-register-XCFGI_159_152-for-SE0-recovery.patch",
-      "before": "03912a67bbc0a3c467b5800e347cb569e5d4cf18",
-      "after": "d166bb641761735bfe6636a153b388f394bce67e"
+      "before": "41c09e42c61a68786e8f890038100f22b56c0b98",
+      "after": "3f7e2c162b2914aae738a38dc3e5679dab0cbf36"
     },
     {
       "original": "lkml/20261015080909.2610018-2-peter.chen@oss.qualcomm.com",
       "status": "unchanged",
       "patch": "0117-arm64-dts-qcom-glymur-Set-snps-resume-hs-terminations-for-USB-controllers.patch",
-      "before": "d166bb641761735bfe6636a153b388f394bce67e",
-      "after": "bb816ff73a29c383761f19f52cd6b835ceb96cb1"
+      "before": "3f7e2c162b2914aae738a38dc3e5679dab0cbf36",
+      "after": "9860c1dba5e0add8c0e3f3386b089e065c8b8433"
     },
     {
       "original": "qcom-next/29a70f3d2326",
       "status": "unchanged",
       "patch": "0118-arm64-dts-qcom-glymur-Refrain-from-overclocking-the-USB2-controller.patch",
-      "before": "bb816ff73a29c383761f19f52cd6b835ceb96cb1",
-      "after": "4733a386490939aa37ffc41ba0efd4b176ebfb36"
+      "before": "9860c1dba5e0add8c0e3f3386b089e065c8b8433",
+      "after": "ad54bd8f7afeeb6adeebf0187cc1cf7111c086d1"
     },
     {
       "original": "glymur-laptops/453569726aae",
       "status": "unchanged",
       "patch": "0119-phy-qcom-qmp-usb-Add-PM-suspend-resume-callbacks.patch",
-      "before": "4733a386490939aa37ffc41ba0efd4b176ebfb36",
-      "after": "f27be2da397063bc1b0a7cb27868df0386014ef7"
+      "before": "ad54bd8f7afeeb6adeebf0187cc1cf7111c086d1",
+      "after": "b2a87ba7a66c8ad0a5f69e4553d5949423ffa6fa"
     },
     {
       "original": "glymur-laptops/0d348e9f0a31",
       "status": "adapted",
       "patch": "0120-phy-qcom-qmp-combo-Add-PM-suspend-resume-callbacks.patch",
-      "before": "f27be2da397063bc1b0a7cb27868df0386014ef7",
-      "after": "66eeac0fb7d085b2ad57a0a26c36a15a8629eb1b"
+      "before": "b2a87ba7a66c8ad0a5f69e4553d5949423ffa6fa",
+      "after": "65c94928ff6200c9d88c7a743cf47b8a29173f35",
+      "resolution": "Context refreshed after 0062 was dropped."
     },
     {
       "original": "glymur-laptops/b75408b2f242",
       "status": "unchanged",
       "patch": "0121-soc-qcom-apr-Publish-GPR-callback-before-client-probe.patch",
-      "before": "66eeac0fb7d085b2ad57a0a26c36a15a8629eb1b",
-      "after": "6c72918a61bdfa8cff1007804534a629c7d63bc9"
+      "before": "65c94928ff6200c9d88c7a743cf47b8a29173f35",
+      "after": "ce28b01ae606727dad4ab57bb791c7ecac4d9346"
     },
     {
       "original": "glymur-laptops/d023cbd2af85",
       "status": "unchanged",
       "patch": "0122-ASoC-qcom-q6apm-Guard-callbacks-until-probe-data-is-ready.patch",
-      "before": "6c72918a61bdfa8cff1007804534a629c7d63bc9",
-      "after": "b0715e782995d559bd1d65b8032ba6daec37faed"
+      "before": "ce28b01ae606727dad4ab57bb791c7ecac4d9346",
+      "after": "01c902c28bcd97dca8d279f278cb8eb0e26e6804"
     },
     {
       "original": "glymur-laptops/be2172758f26",
       "status": "unchanged",
       "patch": "0123-ASoC-qcom-q6apm-clear-g_apm-on-driver-removal.patch",
-      "before": "b0715e782995d559bd1d65b8032ba6daec37faed",
-      "after": "0637d263709977ebd3aba9d3a0ca232c0f6af1a4"
+      "before": "01c902c28bcd97dca8d279f278cb8eb0e26e6804",
+      "after": "644a40c3ccfc71da0a44b9c88c51c2b7cbbb42bc"
     },
     {
       "original": "glymur-laptops/4b832a2af52e",
       "status": "unchanged",
       "patch": "0124-ASoC-qcom-q6apm-Fix-unmap-regions-response-handling.patch",
-      "before": "0637d263709977ebd3aba9d3a0ca232c0f6af1a4",
-      "after": "2c3e1fe876c2f88cc275bf77c80fd269599e2580"
+      "before": "644a40c3ccfc71da0a44b9c88c51c2b7cbbb42bc",
+      "after": "ea8f36a903cb2b010debed39d50984ad3ce28e44"
     },
     {
       "original": "glymur-laptops/43c69604271f",
       "status": "unchanged",
       "patch": "0125-ASoC-qcom-q6apm-Clear-the-right-handle-on-pos-buffer-unmap.patch",
-      "before": "2c3e1fe876c2f88cc275bf77c80fd269599e2580",
-      "after": "d7e3e8d8c36b018f5e9015e42a1928a25159ee47"
+      "before": "ea8f36a903cb2b010debed39d50984ad3ce28e44",
+      "after": "fb8da0c94dd86b1f39b879d71eb86515649b0b91"
     },
     {
       "original": "glymur-laptops/a51c5dd7f7fc",
       "status": "unchanged",
       "patch": "0126-ASoC-qcom-q6apm-Unmap-DSP-buffers-before-removing-the-topology.patch",
-      "before": "d7e3e8d8c36b018f5e9015e42a1928a25159ee47",
-      "after": "1478669aeea2fe04a119ad5fe202c4166f95a6a3"
+      "before": "fb8da0c94dd86b1f39b879d71eb86515649b0b91",
+      "after": "84395b3243a4a7e4d5165d293cb7f151fb6d688b"
     },
     {
       "original": "glymur-laptops/0337b8129cf3",
       "status": "unchanged",
       "patch": "0127-ASoC-qcom-q6apm-reset-the-hw-pointer-with-the-fragment-queue.patch",
-      "before": "1478669aeea2fe04a119ad5fe202c4166f95a6a3",
-      "after": "a6a0352b2265afa52fecc1368e0c5962b3be44d6"
+      "before": "84395b3243a4a7e4d5165d293cb7f151fb6d688b",
+      "after": "59b1250443b03357745ff22e91082e9336ab0f89"
     },
     {
       "original": "glymur-laptops/0ea3e0b196f8",
       "status": "unchanged",
       "patch": "0128-ASoC-qcom-q6apm-dai-wrap-the-position-of-a-full-ring-to-0.patch",
-      "before": "a6a0352b2265afa52fecc1368e0c5962b3be44d6",
-      "after": "eedb36d0b02bdea790800f40ac1f69c1ee42b7b0"
+      "before": "59b1250443b03357745ff22e91082e9336ab0f89",
+      "after": "97633e4ad7777a9fb93190b8ca3459c9c32083f7"
     },
     {
       "original": "glymur-laptops/e21fb64a8c47",
       "status": "unchanged",
       "patch": "0129-ASoC-qcom-audioreach-fix-module-cfg-blob-size-handling.patch",
-      "before": "eedb36d0b02bdea790800f40ac1f69c1ee42b7b0",
-      "after": "5aaf1bcfef4065193ba474804fb3399de4a95561"
+      "before": "97633e4ad7777a9fb93190b8ca3459c9c32083f7",
+      "after": "1e048c2d86b909cc5f5a3cc8fd1cff5926c39550"
     },
     {
       "original": "glymur-laptops/f3c7bee984ab",
       "status": "unchanged",
       "patch": "0130-ASoC-qcom-qdsp6-q6afe-fix-clk-vote-response-type-mismatch.patch",
-      "before": "5aaf1bcfef4065193ba474804fb3399de4a95561",
-      "after": "010dbb867ce14ca6fcd90a18c0e7c2953207d526"
+      "before": "1e048c2d86b909cc5f5a3cc8fd1cff5926c39550",
+      "after": "d42aa178afa75efcf39417f744dd23529bfaf2a6"
     },
     {
       "original": "qcom-next/55df18877473",
       "status": "unchanged",
       "patch": "0131-ASoC-qcom-sm8250-Limit-RX-digital-gain-to-0-dB.patch",
-      "before": "010dbb867ce14ca6fcd90a18c0e7c2953207d526",
-      "after": "de5b0e02c97858c13c3da0fe79f92ff44607e59d"
+      "before": "d42aa178afa75efcf39417f744dd23529bfaf2a6",
+      "after": "d861a5e383081bfe8cad783fa138f23d0d79118b"
     },
     {
       "original": "qcom-next/6c067677192f",
       "status": "adapted",
       "patch": "0132-soundwire-qcom-disable-the-interrupt-before-gating-the-clock.patch",
-      "before": "de5b0e02c97858c13c3da0fe79f92ff44607e59d",
-      "after": "48e11ae6ace809d392d688920c0392aab635f5a9"
+      "before": "d861a5e383081bfe8cad783fa138f23d0d79118b",
+      "after": "9c86bac3c3b87940abd35802831125b526137dc8"
     },
     {
       "original": "qcom-next/6666c03f2346",
       "status": "unchanged",
       "patch": "0133-clk-qcom-Fix-camera-rivian-PLL-configuration-settings.patch",
-      "before": "48e11ae6ace809d392d688920c0392aab635f5a9",
-      "after": "3cf4298ae1bf4155b4193549b9e9ba678ad64717"
+      "before": "9c86bac3c3b87940abd35802831125b526137dc8",
+      "after": "26f08e9f1648288ced5b85f636476e5bcefa781c"
     },
     {
       "original": "qcom-next/20b77a88fc6f",
       "status": "unchanged",
       "patch": "0134-clk-qcom-gcc-glymur-Use-clk_regmap_phy_mux_ops-for-GCC-UFS-muxes.patch",
-      "before": "3cf4298ae1bf4155b4193549b9e9ba678ad64717",
-      "after": "6c8810ecee03e7218a2debaaf13f891231bd3f91"
+      "before": "26f08e9f1648288ced5b85f636476e5bcefa781c",
+      "after": "ee730532ad75cbab4b24d8c7e9d9bcaf3a13d73d"
     },
     {
       "original": "glymur-laptops/7848b6fc30f4",
       "status": "unchanged",
       "patch": "0135-iommu-arm-smmu-Work-around-Qualcomm-SMMU-500-TLBIVAL-granule-issue.patch",
-      "before": "6c8810ecee03e7218a2debaaf13f891231bd3f91",
-      "after": "acfd0d640371daec4cb384a4dd4f2387a5b262f2"
+      "before": "ee730532ad75cbab4b24d8c7e9d9bcaf3a13d73d",
+      "after": "6ffe7629f0eb6677ccf77397039bb19c4d97b6d6"
     },
     {
       "original": "qcom-next/b0a3511a02ba",
       "status": "unchanged",
       "patch": "0136-mmc-sdhci-msm-Remove-brownout-risk.patch",
-      "before": "acfd0d640371daec4cb384a4dd4f2387a5b262f2",
-      "after": "be4564c4430949a1ef4ee61eff09dbe219c2c494"
+      "before": "6ffe7629f0eb6677ccf77397039bb19c4d97b6d6",
+      "after": "cec004d3ebf2086056e2aa04e06e242873a078b4"
     },
     {
       "original": "qcom-next/87fd20da8caa",
       "status": "unchanged",
       "patch": "0137-power-supply-qcom_battmgr-Notify-charger-supplies-of-online-changes.patch",
-      "before": "be4564c4430949a1ef4ee61eff09dbe219c2c494",
-      "after": "976a82024b9c5df3e7028d84d5bec18aa2f1b21e"
+      "before": "cec004d3ebf2086056e2aa04e06e242873a078b4",
+      "after": "104673c6ea7ebc4ee496bf6a4a720301cc0ff124"
     },
     {
       "original": "qcom-next/6c8098e04ee4",
       "status": "adapted",
       "patch": "0138-power-supply-qcom_battmgr-report-full-batteries.patch",
-      "before": "976a82024b9c5df3e7028d84d5bec18aa2f1b21e",
-      "after": "93f8943f195442f3d6e12fbcee893cda3641642f"
+      "before": "104673c6ea7ebc4ee496bf6a4a720301cc0ff124",
+      "after": "cba3342d71fbd4041625908fc9f96ad29757b87d"
     },
     {
       "original": "glymur-laptops/cdf7a2675e70",
       "status": "unchanged",
       "patch": "0139-wifi-ath12k-keep-ML-mgmt-tx-on-active-link.patch",
-      "before": "93f8943f195442f3d6e12fbcee893cda3641642f",
-      "after": "5bdf289fda23c77ac72a36c72b84e6094b5f6a68"
+      "before": "cba3342d71fbd4041625908fc9f96ad29757b87d",
+      "after": "b5bf179dac3fa242f383c446aa98ba825439f92b"
     },
     {
       "original": "lkml/20261029-pm-sleep-hibernation-fixes-v1-1-a2fd76bd9066@oss.qualcomm.com",
       "status": "unchanged",
       "patch": "0140-PM-sleep-Do-not-mark-devices-without-PM-callbacks-active-on-resume.patch",
-      "before": "5bdf289fda23c77ac72a36c72b84e6094b5f6a68",
-      "after": "178320cf6e94cc7dbf2ea958b68345ce700bf8d9"
+      "before": "b5bf179dac3fa242f383c446aa98ba825439f92b",
+      "after": "d03c43f7a2a55f8a882e7a4e84b310bcac6f2600"
     },
     {
       "original": "lkml/20261029-pm-sleep-hibernation-fixes-v1-2-a2fd76bd9066@oss.qualcomm.com",
       "status": "unchanged",
       "patch": "0141-PM-sleep-Do-not-arm-wakeup-IRQs-for-hibernation-freeze-and-quiesce.patch",
-      "before": "178320cf6e94cc7dbf2ea958b68345ce700bf8d9",
-      "after": "d83eb5c2b4e898b4daec44b4eee4b8f0b39897be"
+      "before": "d03c43f7a2a55f8a882e7a4e84b310bcac6f2600",
+      "after": "da040d7032d12703f98fa487945dbcfbc8ade671"
     },
     {
       "original": "lkml/20261030-drm-msm-a6xx-hibernation-gmu-reset-v1-1-820bc7859df5@oss.qualcomm.com",
       "status": "unchanged",
       "patch": "0142-drm-msm-a6xx-Reset-the-GMU-state-when-restoring-from-hibernation.patch",
-      "before": "d83eb5c2b4e898b4daec44b4eee4b8f0b39897be",
-      "after": "72c419a5da448413d349a75d0219de8050eadbc7"
+      "before": "da040d7032d12703f98fa487945dbcfbc8ade671",
+      "after": "f851da9591dda45dca6139258555f9cb3df2016e"
     },
     {
       "original": "glymur-usb3-20261031/0001-phy-qcom-qmp-combo-update-glymur-usb3-settings.patch",
       "status": "unchanged",
       "patch": "0143-phy-qcom-qmp-combo-Update-Glymur-USB3-settings.patch",
-      "before": "004cf498d432dba102ea3d4c9f9389446d40c1bd",
-      "after": "11f818cf609ff60e6f826f47e757f939b5442adc"
+      "before": "f851da9591dda45dca6139258555f9cb3df2016e",
+      "after": "fc6efa0ecc869bfedcd2804f9f11c25019a0ed4c"
     },
     {
       "original": "lkml/20261112160942.27909-1-jesse.casco@gmail.com",
       "status": "unchanged",
       "patch": "0144-regulator-qcom-rpmh-preserve-initial-mode.patch",
-      "before": "11f818cf609ff60e6f826f47e757f939b5442adc",
-      "after": "928695840df5d59b1d481a8fa672442ae6205fa8"
+      "before": "fc6efa0ecc869bfedcd2804f9f11c25019a0ed4c",
+      "after": "c74d1c3cbcc55298e861b2bda3b9dca01651a31b"
     },
     {
       "original": "lkml/20261112002125.24566-1-jesse.casco@gmail.com",
       "status": "unchanged",
       "patch": "0145-rtc-interface-release-wakeup-source-on-read-error.patch",
-      "before": "928695840df5d59b1d481a8fa672442ae6205fa8",
-      "after": "44195f01ab0d015144df468e500628b8cba81984"
+      "before": "c74d1c3cbcc55298e861b2bda3b9dca01651a31b",
+      "after": "b0e2ca176b346d5e12bd91dc6f19cab1b512b1fb"
     },
     {
       "original": "local/rtc-glink-read-only-ops-20261110",
       "status": "unchanged",
       "patch": "0146-rtc-qcom-glink-advertise-read-only-ops.patch",
-      "before": "44195f01ab0d015144df468e500628b8cba81984",
-      "after": "ca55d57edf4c0c2ade677f0b5336e69ab8645c3a"
+      "before": "b0e2ca176b346d5e12bd91dc6f19cab1b512b1fb",
+      "after": "35cb720b3c8a62f0b24b14376a3874ee98813d26"
     },
     {
       "original": "local/8e0d190d9ad58b68b187db5e7fcadb95988ad9ed",
       "status": "unchanged",
       "patch": "0147-drm-msm-dp-don-t-write-LINK_BW_SET-before-LINK_RATE_.patch",
-      "before": "ca55d57edf4c0c2ade677f0b5336e69ab8645c3a",
-      "after": "2863393a7a56a63dfd145c2dc70f3f512e69a260"
+      "before": "35cb720b3c8a62f0b24b14376a3874ee98813d26",
+      "after": "f5b28e2082bc4b30d06f97e2ba0d96f6329df7a0"
     },
     {
       "original": "local/8d64c8a237abbd550cb5d4af2165c10ec201c9e1",
       "status": "unchanged",
       "patch": "0148-drm-msm-dp-restore-rate_set-with-the-rate-on-a-lane-.patch",
-      "before": "2863393a7a56a63dfd145c2dc70f3f512e69a260",
-      "after": "e952c073d8e26d93e3aea5e67aba58db504bc960"
+      "before": "f5b28e2082bc4b30d06f97e2ba0d96f6329df7a0",
+      "after": "c29789397ca82dff7c1c8fe818b51e8be6ec6e3e"
     },
     {
       "original": "local/fa2ac6b5a76e6983407e2566ccae4b062a28141d",
       "status": "unchanged",
       "patch": "0149-drm-msm-dp-stop-the-rate-set-fallback-at-the-lowest-.patch",
-      "before": "e952c073d8e26d93e3aea5e67aba58db504bc960",
-      "after": "87a6c6d7b8ce350e9d4d40a534bfc184ac80f71d"
+      "before": "c29789397ca82dff7c1c8fe818b51e8be6ec6e3e",
+      "after": "e9afad27a4efede55721a4804d7f9deb6b2170a3"
     },
     {
       "original": "lkml/20260727-rb3-industrial-bt-uart-v2-1-2d100f30e202@oss.qualcomm.com",
       "status": "unchanged",
       "patch": "0150-FROMLIST-dt-bindings-bluetooth-qca-add-QCC2072.patch",
-      "before": "87a6c6d7b8ce350e9d4d40a534bfc184ac80f71d",
-      "after": "dbe1004d187c9721e43168b5190c7efdd23949c8"
+      "before": "e9afad27a4efede55721a4804d7f9deb6b2170a3",
+      "after": "e44323a45b37031738541a387eb3e7b51c33406a"
     },
     {
       "original": "lkml/20260727-rb3-industrial-bt-uart-v2-2-2d100f30e202@oss.qualcomm.com",
       "status": "unchanged",
       "patch": "0151-FROMLIST-Bluetooth-qca-add-QCC2072-support.patch",
-      "before": "dbe1004d187c9721e43168b5190c7efdd23949c8",
-      "after": "c632dacf96be071abdbf2081c1a33feccc90f410"
+      "before": "e44323a45b37031738541a387eb3e7b51c33406a",
+      "after": "37294795b3778eb22b696943143f4ff429e27aa7"
     },
     {
       "original": "lkml/20260727-rb3-industrial-bt-uart-v2-3-2d100f30e202@oss.qualcomm.com",
       "status": "unchanged",
       "patch": "0152-FROMLIST-power-sequencing-pwrseq-pcie-m2-add-QCC2072.patch",
-      "before": "c632dacf96be071abdbf2081c1a33feccc90f410",
-      "after": "bb10a33a8fb97cfc5a4900606ca2dd8b32ecbf63"
+      "before": "37294795b3778eb22b696943143f4ff429e27aa7",
+      "after": "f3ff00e2481cf6ebef35f04a7bbf9ad019634ab8"
     },
     {
       "original": "lore/20261123-monza-wireless-v9-1-450d7d764aea@oss.qualcomm.com",
       "status": "adapted",
       "patch": "0153-FROMLIST-Bluetooth-hci_qca-Add-M.2-Bluetooth-device-.patch",
-      "before": "bb10a33a8fb97cfc5a4900606ca2dd8b32ecbf63",
-      "after": "48018b4b8132c5ef33230862e0b3743b1ff52547"
+      "before": "f3ff00e2481cf6ebef35f04a7bbf9ad019634ab8",
+      "after": "895071a8ddeee61d2f81d5ecbdbfa1b87c7b1d79"
     },
     {
       "original": "local/03f226de97a326e9e6b38a29acd7c3d6fa2ff49a",
       "status": "unchanged",
       "patch": "0154-LOCAL-arm64-dts-qcom-glymur-asus-zenbook-a16-use-the.patch",
-      "before": "48018b4b8132c5ef33230862e0b3743b1ff52547",
-      "after": "e7a1e75fc0c8940a5989af71fbc3b9c9e641f147"
+      "before": "895071a8ddeee61d2f81d5ecbdbfa1b87c7b1d79",
+      "after": "707bad2291fcaf30f8222ff346887110eee37301"
     },
     {
       "original": "local/5899100e5bc4be25d5a3149930dc8ace0acedc09",
       "status": "unchanged",
       "patch": "0155-arm64-dts-qcom-glymur-asus-zenbook-a16-drive-the-RGB.patch",
-      "before": "e7a1e75fc0c8940a5989af71fbc3b9c9e641f147",
-      "after": "7db65ce0ad673541d4838129e5d6c954c6932855"
+      "before": "707bad2291fcaf30f8222ff346887110eee37301",
+      "after": "fb8fe53e3695edd099ec9ea7f10063f101c5f795"
     },
     {
       "original": "local/4589c886aff1050b830cc63f1a88483f2edf8502",
       "status": "unchanged",
       "patch": "0156-media-i2c-hm1092-wire-up-.set_fmt-on-the-sensor-pad.patch",
-      "before": "7db65ce0ad673541d4838129e5d6c954c6932855",
-      "after": "e921c1d679010c290cb419d43b385759b3c354c2"
+      "before": "fb8fe53e3695edd099ec9ea7f10063f101c5f795",
+      "after": "b6064fd0a0f957d1c99477de1ca9edc8ac9447db"
     },
     {
       "original": "local/9a322704d1709e23698711fb7cff922d89ba09dd",
       "status": "unchanged",
       "patch": "0157-arm64-dts-qcom-glymur-asus-zenbook-a16-wire-the-PMH0.patch",
-      "before": "e921c1d679010c290cb419d43b385759b3c354c2",
-      "after": "75b1623ada0a46488656c333cf514dd6cf422de8"
+      "before": "b6064fd0a0f957d1c99477de1ca9edc8ac9447db",
+      "after": "c00cda80d4d20ba482f39a47e097613423cf6b20"
     },
     {
       "original": "lore/20261115000021.78869-1-jesse.casco@gmail.com",
       "status": "unchanged",
       "patch": "0158-drm-msm-dp-don-t-fall-back-to-a-link-that-can-t-carr.patch",
-      "before": "75b1623ada0a46488656c333cf514dd6cf422de8",
-      "after": "6be9097b93524d648204f4bc20d26e8704795114"
+      "before": "c00cda80d4d20ba482f39a47e097613423cf6b20",
+      "after": "8363773952f8794d71a1edbd7165ded4c78bbc0a"
     },
     {
       "original": "lore/bf48f3c809f33c060e2944e5896f8a5a93fd78ea.1795196107.git.jesse.casco@gmail.com",
       "status": "unchanged",
       "patch": "0159-media-qcom-camss-x1e80100-Use-the-lite-clocks-for-th.patch",
-      "before": "6be9097b93524d648204f4bc20d26e8704795114",
-      "after": "99e62ce9a636ba45159ef29a9629a98f18e3cd93"
+      "before": "8363773952f8794d71a1edbd7165ded4c78bbc0a",
+      "after": "c7cb4f0aa3b440692bf6e800cd2e25c33d331f89"
     },
     {
       "original": "lore/20261122-camss-routing-fixes-v1-1-0deeeaca2622@kernel.org",
       "status": "adapted",
       "patch": "0160-FROMLIST-media-qcom-camss-x1e80100-Fix-CSID2-routing.patch",
-      "before": "99e62ce9a636ba45159ef29a9629a98f18e3cd93",
-      "after": "31141b655e4b8ef14e74d1955addc9ec51c7fd8a",
+      "before": "c7cb4f0aa3b440692bf6e800cd2e25c33d331f89",
+      "after": "ba39b7cd5a2e953d922e51a2be66c4202f28a757",
       "resolution": "Dropped the camss-next-only .frame_sync_en line; replaces the unsent local v2 2/2 with the same tree."
     },
     {
       "original": "local/6aab4abcda98e79a83697329afa029823715d0a2",
       "status": "unchanged",
       "patch": "0161-LOCAL-media-qcom-camss-use-the-full-X1E80100-tables-.patch",
-      "before": "31141b655e4b8ef14e74d1955addc9ec51c7fd8a",
-      "after": "025853e642c038b02a8ba7b8ed8f786bd071c47c"
+      "before": "ba39b7cd5a2e953d922e51a2be66c4202f28a757",
+      "after": "a464a9b0e94fb050cc014c629a83177ed7502ab1"
+    },
+    {
+      "original": "lore/20260908-glymur-phy-v3-v4-1-ff22e5150538@oss.qualcomm.com",
+      "status": "unchanged",
+      "patch": "0162-FROMLIST-phy-qualcomm-qmp-combo-Add-DP-COM-v8-header-.patch",
+      "before": "a464a9b0e94fb050cc014c629a83177ed7502ab1",
+      "after": "f57657a1264fdcbe212b05794942c1aafda0ffae"
+    },
+    {
+      "original": "lore/20260908-glymur-phy-v3-v4-2-ff22e5150538@oss.qualcomm.com",
+      "status": "unchanged",
+      "patch": "0163-FROMLIST-phy-qualcomm-qmp-combo-Update-DP-PHY-common-.patch",
+      "before": "f57657a1264fdcbe212b05794942c1aafda0ffae",
+      "after": "05fa2f43754289133cedb09e254364f9c61864d7"
+    },
+    {
+      "original": "lore/20260908-glymur-phy-v3-v4-3-ff22e5150538@oss.qualcomm.com",
+      "status": "unchanged",
+      "patch": "0164-FROMLIST-phy-qualcomm-qmp-combo-Update-link-rate-spec.patch",
+      "before": "05fa2f43754289133cedb09e254364f9c61864d7",
+      "after": "cc103dce6cce0bff662d6e49ff9efc8ef25caf6b"
+    },
+    {
+      "original": "lore/20260908-glymur-phy-v3-v4-4-ff22e5150538@oss.qualcomm.com",
+      "status": "unchanged",
+      "patch": "0165-FROMLIST-phy-qualcomm-qmp-combo-Add-hardware-specific.patch",
+      "before": "cc103dce6cce0bff662d6e49ff9efc8ef25caf6b",
+      "after": "cb5aed09d377d8c8aa063c768f337ad19db235c3"
+    },
+    {
+      "original": "lore/20260908-glymur-phy-v3-v4-5-ff22e5150538@oss.qualcomm.com",
+      "status": "unchanged",
+      "patch": "0166-FROMLIST-phy-qualcomm-qmp-combo-Add-v8-PCS-level-driv.patch",
+      "before": "cb5aed09d377d8c8aa063c768f337ad19db235c3",
+      "after": "c6610daead3cce854e722e35448928862e878dbe"
+    },
+    {
+      "original": "lore/20260908-glymur-phy-v3-v4-6-ff22e5150538@oss.qualcomm.com",
+      "status": "unchanged",
+      "patch": "0167-FROMLIST-phy-qualcomm-qmp-combo-Extract-common-DP-PHY.patch",
+      "before": "c6610daead3cce854e722e35448928862e878dbe",
+      "after": "baed9aa6d1291b7419f883a9d491eca078977571"
+    },
+    {
+      "original": "lore/20260908-glymur-phy-v3-v4-7-ff22e5150538@oss.qualcomm.com",
+      "status": "unchanged",
+      "patch": "0168-FROMLIST-phy-qualcomm-qmp-combo-Update-qmp_v8_configu.patch",
+      "before": "baed9aa6d1291b7419f883a9d491eca078977571",
+      "after": "8b3a19415762c6ceb4c28a288eb10a8e90d3a835"
+    },
+    {
+      "original": "lore/20260908-glymur-phy-v3-v4-8-ff22e5150538@oss.qualcomm.com",
+      "status": "unchanged",
+      "patch": "0169-FROMLIST-phy-qualcomm-qmp-combo-Fix-Glymur-v8-DP-PHY-.patch",
+      "before": "8b3a19415762c6ceb4c28a288eb10a8e90d3a835",
+      "after": "484f7cd61c8617680572a5d24658a26e88c153e7"
+    },
+    {
+      "original": "local",
+      "status": "unchanged",
+      "patch": "0170-LOCAL-arm64-dts-qcom-glymur-asus-zenbook-a16-give-th.patch",
+      "before": "484f7cd61c8617680572a5d24658a26e88c153e7",
+      "after": "74317c518221edf8c0f0f359b5ed3da631212313"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0900-wifi-ath12k-declare-QCC2072-firmware.patch",
+      "status": "unchanged",
+      "patch": "0171-wifi-ath12k-declare-QCC2072-firmware.patch",
+      "before": "74317c518221edf8c0f0f359b5ed3da631212313",
+      "after": "390d10faab46640c037737c9257de2ce89ff987d"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0901-drm-msm-adreno-declare-gen80100-firmware.patch",
+      "status": "unchanged",
+      "patch": "0172-drm-msm-adreno-declare-gen80100-firmware.patch",
+      "before": "390d10faab46640c037737c9257de2ce89ff987d",
+      "after": "53e4e24e1229d5cd3de01c3892a0213fd7565471"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0902-LOCAL-declare-Zenbook-A16-DSP-firmware-and-topology.patch",
+      "status": "unchanged",
+      "patch": "0173-LOCAL-declare-Zenbook-A16-DSP-firmware-and-topology.patch",
+      "before": "53e4e24e1229d5cd3de01c3892a0213fd7565471",
+      "after": "f6e5c264e95d9f59572d5ffe39040cf850f9642e"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0903-Bluetooth-btqca-declare-QCC2072-firmware.patch",
+      "status": "unchanged",
+      "patch": "0174-Bluetooth-btqca-declare-QCC2072-firmware.patch",
+      "before": "f6e5c264e95d9f59572d5ffe39040cf850f9642e",
+      "after": "358abe443858c02e9edfbc3d1c5da26b37b84b46"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0905-HID-asus-add-fnlock_default-module-parameter.patch",
+      "status": "unchanged",
+      "patch": "0175-HID-asus-add-fnlock_default-module-parameter.patch",
+      "before": "358abe443858c02e9edfbc3d1c5da26b37b84b46",
+      "after": "6f0739a5f48491f394c909d33ae66d90d9acf071"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0911-FROMLIST-phy-qcom-qmp-combo-delay-Type-C-mux-switch-while-DP.patch",
+      "status": "unchanged",
+      "patch": "0176-FROMLIST-phy-qcom-qmp-combo-delay-Type-C-mux-switch-while-DP.patch",
+      "before": "6f0739a5f48491f394c909d33ae66d90d9acf071",
+      "after": "48303652cfe39278e76875ac489b35c9d1b70125"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0912-FROMLIST-drm-msm-dp-skip-sink-requests-while-the-mainlink-cl.patch",
+      "status": "unchanged",
+      "patch": "0177-FROMLIST-drm-msm-dp-skip-sink-requests-while-the-mainlink-cl.patch",
+      "before": "48303652cfe39278e76875ac489b35c9d1b70125",
+      "after": "e8ae466d46e7462428cd0c1f334e3332ce8c2609"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0914-LOCAL-media-iris-backport-the-driver-from-qcom-7.3-f.patch",
+      "status": "unchanged",
+      "patch": "0178-LOCAL-media-iris-backport-the-driver-from-qcom-7.3-f.patch",
+      "before": "e8ae466d46e7462428cd0c1f334e3332ce8c2609",
+      "after": "537bc2150a0e03ab751acd7c8c326a0c8b514ac3"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0915-LOCAL-arm64-dts-glymur-zenbook-a16-enable-the-iris-v.patch",
+      "status": "unchanged",
+      "patch": "0179-LOCAL-arm64-dts-glymur-zenbook-a16-enable-the-iris-v.patch",
+      "before": "537bc2150a0e03ab751acd7c8c326a0c8b514ac3",
+      "after": "6b6d70434a077cc154d6131e07b2400009955e7c"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0916-LOCAL-devfreq-add-Qualcomm-SCMI-memlat-from-qcom-7.3.patch",
+      "status": "unchanged",
+      "patch": "0180-LOCAL-devfreq-add-Qualcomm-SCMI-memlat-from-qcom-7.3.patch",
+      "before": "6b6d70434a077cc154d6131e07b2400009955e7c",
+      "after": "87a7f219821afc23e2534cc9e6fa9c1239d73b11"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0917-LOCAL-powercap-add-the-Qualcomm-SPEL-driver-from-qco.patch",
+      "status": "unchanged",
+      "patch": "0181-LOCAL-powercap-add-the-Qualcomm-SPEL-driver-from-qco.patch",
+      "before": "87a7f219821afc23e2534cc9e6fa9c1239d73b11",
+      "after": "5e029d90d20dda72e51ab066a424b5525a5de94b"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0918-LOCAL-arm64-dts-qcom-glymur-add-CPUCP-SCMI-memlat-an.patch",
+      "status": "unchanged",
+      "patch": "0182-LOCAL-arm64-dts-qcom-glymur-add-CPUCP-SCMI-memlat-an.patch",
+      "before": "5e029d90d20dda72e51ab066a424b5525a5de94b",
+      "after": "c112bd1fcc06f6890ac37e6b8376e7d1e941edcb"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0919-BACKPORT-soc-qcom-pmic_glink_altmode-Disable-TBT-USB.patch",
+      "status": "unchanged",
+      "patch": "0183-BACKPORT-soc-qcom-pmic_glink_altmode-Disable-TBT-USB.patch",
+      "before": "c112bd1fcc06f6890ac37e6b8376e7d1e941edcb",
+      "after": "7583bdcb66992e434955f1b19210c53eabb1425e"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0921-LOCAL-soc-qcom-pmic_glink_altmode-decode-the-orienta.patch",
+      "status": "unchanged",
+      "patch": "0184-LOCAL-soc-qcom-pmic_glink_altmode-decode-the-orienta.patch",
+      "before": "7583bdcb66992e434955f1b19210c53eabb1425e",
+      "after": "7901329fb93453e98d3b2a3b0d550b4bdbfb8abc"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0922-LOCAL-drm-msm-dp-turn-the-external-DP-PHY-off-for-sy.patch",
+      "status": "unchanged",
+      "patch": "0185-LOCAL-drm-msm-dp-turn-the-external-DP-PHY-off-for-sy.patch",
+      "before": "7901329fb93453e98d3b2a3b0d550b4bdbfb8abc",
+      "after": "c09a8b3051534b2fbb8a2b5abc1dfdda9e01e244"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0923-LOCAL-usb-typec-ucsi-glink-leave-the-mux-to-pmic_gli.patch",
+      "status": "unchanged",
+      "patch": "0186-LOCAL-usb-typec-ucsi-glink-leave-the-mux-to-pmic_gli.patch",
+      "before": "c09a8b3051534b2fbb8a2b5abc1dfdda9e01e244",
+      "after": "0d6a59d54056829fced649918a32996deec226dd"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0924-LOCAL-phy-qcom-qmp-combo-let-dwc3-probe-in-DP-only-m.patch",
+      "status": "unchanged",
+      "patch": "0187-LOCAL-phy-qcom-qmp-combo-let-dwc3-probe-in-DP-only-m.patch",
+      "before": "0d6a59d54056829fced649918a32996deec226dd",
+      "after": "30ab836e08726ebddc3a05c07a8caa8f29bc4e11"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0925-LOCAL-phy-qcom-qmp-combo-switch-USB3-USB3-DP-without.patch",
+      "status": "unchanged",
+      "patch": "0188-LOCAL-phy-qcom-qmp-combo-switch-USB3-USB3-DP-without.patch",
+      "before": "30ab836e08726ebddc3a05c07a8caa8f29bc4e11",
+      "after": "adcfec406b08290719151dad3680a9b707b015c9"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0926-LOCAL-drm-bridge-aux-hpd-replay-the-last-HPD-state-w.patch",
+      "status": "unchanged",
+      "patch": "0189-LOCAL-drm-bridge-aux-hpd-replay-the-last-HPD-state-w.patch",
+      "before": "adcfec406b08290719151dad3680a9b707b015c9",
+      "after": "079f843ed9b0320f94cc83821b9ff38cfb185921"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0927-LOCAL-wifi-ath12k-don-t-stall-resume-for-110-s-when-.patch",
+      "status": "unchanged",
+      "patch": "0190-LOCAL-wifi-ath12k-don-t-stall-resume-for-110-s-when-.patch",
+      "before": "079f843ed9b0320f94cc83821b9ff38cfb185921",
+      "after": "5d85127ad788418bbacb7c710b4b5c3a2c13856a"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0928-BACKPORT-usb-dwc3-qcom-Restore-UTMI-PIPE-clock-on-re.patch",
+      "status": "unchanged",
+      "patch": "0191-BACKPORT-usb-dwc3-qcom-Restore-UTMI-PIPE-clock-on-re.patch",
+      "before": "5d85127ad788418bbacb7c710b4b5c3a2c13856a",
+      "after": "dbfa0b412b3e1ba44512a004409e500819c9c645"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0929-BACKPORT-usb-dwc3-qcom-Use-the-UTMI-clock-as-PIPE-cl.patch",
+      "status": "unchanged",
+      "patch": "0192-BACKPORT-usb-dwc3-qcom-Use-the-UTMI-clock-as-PIPE-cl.patch",
+      "before": "dbfa0b412b3e1ba44512a004409e500819c9c645",
+      "after": "fbe66fe0f85f39c728b508766937b6d301171fd9"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0930-FROMLIST-arm64-dts-qcom-glymur-Add-mode-switch-to-th.patch",
+      "status": "unchanged",
+      "patch": "0193-FROMLIST-arm64-dts-qcom-glymur-Add-mode-switch-to-th.patch",
+      "before": "fbe66fe0f85f39c728b508766937b6d301171fd9",
+      "after": "819471c9e37e4ff510ec09baa5aed3ee6dad7af1"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0931-FROMLIST-usb-dwc3-qcom-check-for-hcd-in-dwc3_qcom_re.patch",
+      "status": "unchanged",
+      "patch": "0194-FROMLIST-usb-dwc3-qcom-check-for-hcd-in-dwc3_qcom_re.patch",
+      "before": "819471c9e37e4ff510ec09baa5aed3ee6dad7af1",
+      "after": "31ff29cc78861b96fc5f97a54b260bc5200ec885"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0932-BACKPORT-phy-qcom-m31-eusb2-Add-register-XCFGI_199_1.patch",
+      "status": "unchanged",
+      "patch": "0195-BACKPORT-phy-qcom-m31-eusb2-Add-register-XCFGI_199_1.patch",
+      "before": "31ff29cc78861b96fc5f97a54b260bc5200ec885",
+      "after": "fdd003566a7b95a08321c053f9d5a45fa079674e"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0933-BACKPORT-usb-dwc3-qcom-Defer-VBUS-override-update-du.patch",
+      "status": "unchanged",
+      "patch": "0196-BACKPORT-usb-dwc3-qcom-Defer-VBUS-override-update-du.patch",
+      "before": "fdd003566a7b95a08321c053f9d5a45fa079674e",
+      "after": "2383bbfaa17b15e556b8a4986f0c27ad363df44f"
+    },
+    {
+      "original": "obs/home:scalpel4k/kernel-qcom-laptops-7.3.0-45.4/0934-LOCAL-wifi-ath12k-re-enumerate-the-PCI-device-after-.patch",
+      "status": "unchanged",
+      "patch": "0197-LOCAL-wifi-ath12k-re-enumerate-the-PCI-device-after-.patch",
+      "before": "2383bbfaa17b15e556b8a4986f0c27ad363df44f",
+      "after": "86d70fc877bcd299e25d1d53307c1b3e87ae3b8a"
+    },
+    {
+      "original": "local",
+      "status": "unchanged",
+      "patch": "0198-LOCAL-drm-msm-dpu-link-the-Glymur-mixers-4-7-to-thei.patch",
+      "before": "86d70fc877bcd299e25d1d53307c1b3e87ae3b8a",
+      "after": "7771b86d9269d9fb2703ce447695cc6c0bd73237"
+    },
+    {
+      "original": "lore/20261124-disable_irq_fix-v1-1-d27f44f7eacf@oss.qualcomm.com",
+      "status": "unchanged",
+      "patch": "0199-FROMLIST-media-iris-fix-deadlock-in-iris_pm_suspend.patch",
+      "before": "7771b86d9269d9fb2703ce447695cc6c0bd73237",
+      "after": "0f3432f73747c15b5ef273456fd73db0e615db50"
+    },
+    {
+      "original": "mainline/4524809316482b64ff092afb7e7b0525ce137c75",
+      "status": "unchanged",
+      "patch": "0200-media-iris-cancel-sys-error-work-on-driver-removal.patch",
+      "before": "0f3432f73747c15b5ef273456fd73db0e615db50",
+      "after": "82aac2db1fd1b04aa55856e61ddc710ae3b9ab21"
+    },
+    {
+      "original": "local",
+      "status": "unchanged",
+      "patch": "0201-LOCAL-media-iris-reload-the-firmware-when-a-session-c.patch",
+      "before": "82aac2db1fd1b04aa55856e61ddc710ae3b9ab21",
+      "after": "40bd8fd321e7e1a0cc5953fc84d0488ac760e649"
+    },
+    {
+      "original": "lore/20261031-fix_dec_seek-v1-3-cfedf0c267ee@oss.qualcomm.com",
+      "status": "unchanged",
+      "patch": "0202-FROMLIST-media-iris-Use-firmware-reported-count-for-o.patch",
+      "before": "40bd8fd321e7e1a0cc5953fc84d0488ac760e649",
+      "after": "c9073bc3daaf012b47e5c0631316308f4a3f3a7c"
     }
   ],
   "pre_usb3_source_tree": "004cf498d432dba102ea3d4c9f9389446d40c1bd"

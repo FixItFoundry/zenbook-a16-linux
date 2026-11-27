@@ -1,0 +1,74 @@
+From 00edf0113fcadc39cf06963dd933e04bb14ef963 Mon Sep 17 00:00:00 2001
+From: scalpel4k <scalpel4k@gmail.com>
+Date: Thu, 19 Nov 2026 20:56:20 +0100
+Subject: [PATCH] LOCAL: phy: qcom: qmp-combo: let dwc3 probe in DP-only mode
+
+If a USB-C->DP adapter (pin assignment C, all four lanes DP) is plugged
+in at boot, pmic_glink_altmode puts the PHY into DP-only mode before
+dwc3 probes. qmp_combo_usb_init() then powers on the USB3 PCS, which
+never reports ready without its lanes: "phy init failed --> -110", and
+dwc3 fails to probe, so the port has no USB at all, not even USB2.
+Leaving the USB3 part off is no better: dwc3 then fails its core soft
+reset, because the pipe clock comes from the USB3 PLL.
+
+In DP-only mode keep the USB3 part powered and accept the PCS timeout,
+so the pipe clock runs and dwc3 probes with USB2. When the port
+switches to a USB mode, qmp_combo_typec_mux_set() sets the PHY up again.
+usb_exit skips the power-off while usb_init_count is 0, which happens
+after mux_set has dropped it for DP-only mode.
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 26 +++++++++++++++++++----
+ 1 file changed, 22 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index 9638590..2ca6258 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -4358,6 +4358,19 @@ static int qmp_combo_usb_init(struct phy *phy)
+ 		goto out_unlock;
+ 
+ 	ret = qmp_combo_usb_power_on(phy);
++
++	/*
++	 * In DP-only mode all four lanes belong to DP, so the USB3 PCS never
++	 * reports ready. Its PLL still has to run: dwc3 needs the pipe clock
++	 * for its core soft reset, even when only USB2 is used. Keep it
++	 * powered; qmp_combo_typec_mux_set() sets the PHY up again when the
++	 * port switches to a USB mode.
++	 */
++	if (ret == -ETIMEDOUT && qmp->qmpphy_mode == QMPPHY_MODE_DP_ONLY) {
++		dev_info(qmp->dev, "DP-only mode: USB3 not available, USB2 only\n");
++		ret = 0;
++	}
++
+ 	if (ret) {
+ 		qmp_combo_com_exit(qmp, false);
+ 		goto out_unlock;
+@@ -4376,15 +4389,20 @@ static int qmp_combo_usb_exit(struct phy *phy)
+ 	int ret;
+ 
+ 	mutex_lock(&qmp->phy_mutex);
+-	ret = qmp_combo_usb_power_off(phy);
+-	if (ret)
+-		goto out_unlock;
++
++	/* usb_init_count is 0 while the USB3 part is off (DP-only mode) */
++	if (qmp->usb_init_count) {
++		ret = qmp_combo_usb_power_off(phy);
++		if (ret)
++			goto out_unlock;
++	}
+ 
+ 	ret = qmp_combo_com_exit(qmp, false);
+ 	if (ret)
+ 		goto out_unlock;
+ 
+-	qmp->usb_init_count--;
++	if (qmp->usb_init_count)
++		qmp->usb_init_count--;
+ 
+ out_unlock:
+ 	mutex_unlock(&qmp->phy_mutex);
+-- 
+2.56.0
+

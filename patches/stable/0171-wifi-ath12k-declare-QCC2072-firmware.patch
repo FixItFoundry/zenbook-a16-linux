@@ -1,0 +1,19 @@
+From: scalpel4k <scalpel4k@gmail.com>
+Date: Sun, 15 Nov 2026 22:00:00 +0100
+Subject: [PATCH] wifi: ath12k: declare QCC2072 firmware
+
+ath12k supports QCC2072 (hw1.0) but only lists QCN9274 and WCN7850 in
+MODULE_FIRMWARE. Image builders (dracut, image-janitor fw-cleanup in the
+openSUSE Agama installer) rely on it and drop ath12k/QCC2072/, so MHI fails
+to load the firmware.
+
+Upstream candidate.
+---
+diff --git a/drivers/net/wireless/ath/ath12k/pci.c b/drivers/net/wireless/ath/ath12k/pci.c
+--- a/drivers/net/wireless/ath/ath12k/pci.c
++++ b/drivers/net/wireless/ath/ath12k/pci.c
+@@ -1863,3 +1863,4 @@
+ /* firmware files */
+ MODULE_FIRMWARE(ATH12K_FW_DIR "/QCN9274/hw2.0/*");
+ MODULE_FIRMWARE(ATH12K_FW_DIR "/WCN7850/hw2.0/*");
++MODULE_FIRMWARE(ATH12K_FW_DIR "/QCC2072/hw1.0/*");

@@ -2,6 +2,17 @@
 
 Dated changes and corrections; [current status](docs/current-build.md) is recorded separately.
 
+## 2026-11-27 — Package revision 12: external displays (HDMI / USB-C / 3-screen), openSUSE carry-overs, and `iris` video
+
+- Expanded [`patches/stable/`](patches/stable/README.md) from 161 to **201 patches** on Linux `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`), replaying to **`c9073bc3daaf012b47e5c0631316308f4a3f3a7c`**:
+  - Dropped legacy `0062` (and refreshed `0120` context), replaced by `0176`, `0187`, and `0188`.
+  - Added Ritesh Kumar's Glymur DP PHY v8 series (`0162`–`0169`), HDMI HPD pinctrl on `&mdss_dp2` (`0170`), and Glymur DPU `LM_4`–`LM_7` → `DSPP_4`–`DSPP_7` mapping (`0198`) to resolve `-119` third-display refusals.
+  - Integrated 27 patches from Michi (`@scalpel4k`)'s openSUSE `kernel-qcom-laptops` stack (`0171`–`0197`): firmware declarations, `hid-asus` `fnlock_default`, `qcom-7.3` `iris` / SCMI `memlat` / `SPEL` backports, Type-C/DP/USB3 mode-switching and `aux-hpd` replay, `dwc3-qcom`/`m31-eusb2`, and `ath12k` resume fixes.
+  - Added four `iris` stability/decode fixes (`0199`–`0202`): `iris_pm_suspend` deadlock fix, `sys_error_handler` removal cancel, firmware reload on session command timeout, and firmware-reported minimum output buffer count.
+  - Enabled `CONFIG_CLK_GLYMUR_VIDEOCC=m`, `CONFIG_QCOM_SCMI_GENERIC_EXT=m`, `CONFIG_DEVFREQ_GOV_REMOTE=m`, `CONFIG_SCMI_QCOM_MEMLAT_DEVFREQ=m`, `CONFIG_QCOM_SPEL=m`, `CONFIG_NETCONSOLE_EXTENDED_LOG=y`, and buddy hardlockup detector in [`kernel/stable/config`](kernel/stable/config) (plus `CONFIG_CLK_GLYMUR_VIDEOCC=m` and `CONFIG_VIDEO_QCOM_IRIS=m` in [`kernel/stable/required.config`](kernel/stable/required.config)).
+- Validated **`7.3.0-ZenbookA16-20261022-final1-a16pkg12+`** on the A16 (boot `f3bdc616`, `taint=0`, 0 failed units, 0 oops, 0/0 PCIe AER) and promoted it to default boot: 3 simultaneous displays confirmed visually (`eDP-1` 2880x1800@120, `DP-1` 1920x1080@120, `HDMI-A-1` 1920x1080@60), DPMS cycles (`HDMI-A-1` 10/10, `DP-1` 10/10, `eDP-1` 20/20 with 1 recovered retry), USB3 read via VIA hub without `0062` (`match=OK`), `iris` (60/60 GStreamer decode, 5/5 hang recovery, 20/20 H264 encode), Wi-Fi, BT, upstream `MM1`/`MM2` audio, cameras, `memlat`, `SPEL`, and a 24-round load/idle soak (12 balanced + 12 boost, 0 resets, 0/0 AER).
+- Open limits preserved honestly: load-correlated `usb 6-1` VIA PD-hub resets (10× under load during soak), unresolved historical silent resets / intermittent NVMe AER, physical hotplug, 4K60, suspend/resume, and native `dnf`/`apt` transactions.
+
 ## 2026-11-12 — eDP, QCC2072 Bluetooth, M.2 wiring and RGB camera carried forward
 
 - Added nine patches to each track after the RPMh/RTC fixes: stable `0147`–`0155` (155 total, tree `bd1327aac6e1431668eaa53f69e5867d3400b4a0`) and rc `0104`–`0112` (112 total, tree `ed1c21244abbeae943f39c5a4824ea05c1c613ba`). These are the changes the working revision-2 build carried; revision 5 was built without them and is superseded by revision 6.

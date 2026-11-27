@@ -24,6 +24,15 @@ new fixes (`0112`–`0143`) from in-repo overlays, LKML, `qcom-next`, and
 overlap), plus the November 12 RPMh/RTC fixes (`0144`–`0146`) and nine carried-forward patches (`0147`–`0155`). Its [patch map](patches/stable/port-map.json) preserves original
 provenance and authorship trailers on every patch.
 
+## November 27, 2026 — External displays, openSUSE carry-overs, and `iris` video (`0162`–`0202`)
+
+- **Glymur DP PHY v8 series (`0162`–`0169`, `FROMLIST`)**: **Ritesh Kumar**, v4 series (`phy: qualcomm: qmp-combo` Glymur v8 DP PHY PLL/PCS programming).
+- **openSUSE `kernel-qcom-laptops` carry-overs (`0171`–`0197`)**:
+  - **Michi (`@scalpel4k`)**: `MODULE_FIRMWARE` declarations (`0171`–`0174`), `hid-asus` `fnlock_default` (`0175`), `qcom-7.3` (`ee11c5b10`) backports of `iris` (`0178`–`0179`), SCMI `memlat` (`0180`), `SPEL` (`0181`), and Glymur CPUCP/SPEL DT nodes (`0182`), `pmic_glink_altmode` PAN_EN v1 orientation decoding (`0184`), external DP PHY suspend off (`0185`), `ucsi_glink` `UCSI_NO_MODE_SET` quirk (`0186`), QMP combo DP-only/USB3+DP mode switching (`0187`–`0188`), `aux-hpd` boot-time replay (`0189`), and `ath12k` resume stall/PCI re-enumeration workarounds (`0190`, `0197`).
+  - **Saurabh Anand** (`0176`), **Yongxing Mou** (`0177`), **Konrad Dybcio** (`0183`), **Filippo Falezza** (`0191`), **Joonhoe Kim** (`0192`), **Tapas Rana** (`0193`, `0195`), **Prashanth K** (`0194`), **Krishna Kurapati** (`0196`): carried with original `From:`, `Link:`, and `Signed-off-by:` trailers intact.
+- **`iris` video fixes (`0199`–`0200`, `0202`)**: **Wangao Wang** (`0199`, `iris_pm_suspend` deadlock fix), **Hungyu Lin** (`0200`, cancel `sys_error_handler` on removal), and **Vishnu Reddy** (`0202`, use firmware-reported output buffer count).
+- Local A16 patches (`0170`, `0198`, `0201`) are by Jesse Casco.
+
 ## November 10, 2026 — QCC2072 and M.2 Bluetooth support
 
 - Stable `0150` / rc `0107`: **Rahul Samana**, QCC2072 DT binding, [v2 1/6](https://lore.kernel.org/all/20260727-rb3-industrial-bt-uart-v2-1-2d100f30e202@oss.qualcomm.com/).

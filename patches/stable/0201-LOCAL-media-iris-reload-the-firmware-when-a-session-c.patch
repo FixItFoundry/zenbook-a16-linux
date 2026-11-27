@@ -1,0 +1,61 @@
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Tue, 24 Nov 2026 23:10:00 -0500
+Subject: [PATCH] LOCAL: media: iris: reload the firmware when a session
+ command times out
+
+Turning the stream off while the encoder drains, with no free capture
+buffer for the firmware to finish into, hangs the Glymur video firmware:
+it never answers the STOP. The driver fails that session but leaves the
+firmware running, so every later session hangs too, runtime suspend fails
+("skip power collapse") and only a reset of the block recovers it.
+
+ffmpeg's h264_v4l2m2m encoder gets there by itself: while draining it
+stops as soon as it holds all its capture buffers.
+
+Reload the firmware through the existing system error work, as if the
+firmware had reported the error.
+
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ drivers/media/platform/qcom/iris/iris_utils.c | 22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/qcom/iris/iris_utils.c b/drivers/media/platform/qcom/iris/iris_utils.c
+--- a/drivers/media/platform/qcom/iris/iris_utils.c
++++ b/drivers/media/platform/qcom/iris/iris_utils.c
+@@ -75,6 +75,26 @@
+ 	}
+ }
+ 
++/* Firmware that misses a response answers no session any more: reload it. */
++static void iris_handle_session_timeout(struct iris_inst *inst)
++{
++	struct iris_core *core = inst->core;
++	struct iris_inst *other;
++
++	dev_err(core->dev, "session %#x timed out, reloading the firmware\n",
++		inst->session_id);
++
++	iris_inst_change_state(inst, IRIS_INST_ERROR);
++
++	mutex_lock(&core->lock);
++	core->state = IRIS_CORE_ERROR;
++	list_for_each_entry(other, &core->instances, list)
++		iris_inst_change_state(other, IRIS_INST_ERROR);
++	mutex_unlock(&core->lock);
++
++	schedule_delayed_work(&core->sys_error_handler, msecs_to_jiffies(10));
++}
++
+ int iris_wait_for_session_response(struct iris_inst *inst, bool is_flush)
+ {
+ 	struct completion *done;
+@@ -86,7 +106,7 @@
+ 	ret = wait_for_completion_timeout(done, msecs_to_jiffies(HW_RESPONSE_TIMEOUT_VALUE));
+ 	mutex_lock(&inst->lock);
+ 	if (!ret) {
+-		iris_inst_change_state(inst, IRIS_INST_ERROR);
++		iris_handle_session_timeout(inst);
+ 		return -ETIMEDOUT;
+ 	}
+ 

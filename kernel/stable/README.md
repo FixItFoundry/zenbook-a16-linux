@@ -8,12 +8,13 @@ here installs or selects a kernel.
 | Identity | Value |
 |---|---|
 | Upstream base | `v7.3`, commit `c03c1a14507dfaf8b856c2608f9ac216021fc222` |
-| Ordered residual queue | [161 patches](../../patches/stable/README.md) |
-| Patched source tree | `025853e642c038b02a8ba7b8ed8f786bd071c47c` |
+| Ordered residual queue | [201 patches](../../patches/stable/README.md) |
+| Patched source tree | `c9073bc3daaf012b47e5c0631316308f4a3f3a7c` |
 | Recorded release | `7.3.0-ZenbookA16-20261022-final1+` |
 | Package revision 6 | `7.3.0-ZenbookA16-20261022-final1-a16pkg6+` (`bd1327aac6e1`, prior to `0156`–`0158`) |
 | Package revision 7 | `7.3.0-ZenbookA16-20261022-final1-a16pkg7+` (`f5b887e39ef7`) |
 | Package revision 8 | `7.3.0-ZenbookA16-20261022-final1-a16pkg8+` (`e6413608c546`) |
+| Package revision 12 | `7.3.0-ZenbookA16-20261022-final1-a16pkg12+` (`c9073bc3daaf`, current default) |
 
 The queue retains the 64-patch A16 baseline, 40-patch Qualcomm bridge and
 10-patch camera/microphone overlay (minus three complete patches already in
@@ -29,7 +30,7 @@ see [upstream credits](../../UPSTREAM-CREDITS.md).
 python3 kernel/stable/replay.py /path/to/linux-git
 ```
 
-The verifier checks the manifest and applies all 161 patches in a temporary Git
+The verifier checks the manifest and applies all 201 patches in a temporary Git
 index, requiring the exact source tree above. It leaves HEAD, the normal index
 and working files alone. It creates Git tree/blob objects, not commits.
 
@@ -125,3 +126,9 @@ Patch `0159` is 1/2 of the X1E80100 lite CSID series ([v1](https://lore.kernel.o
 ## M.2 Bluetooth v9 and the CSID2 patch swap, November 23
 
 Patch `0153` is now [monza-wireless v9 1/8](https://lore.kernel.org/all/20261123-monza-wireless-v9-1-450d7d764aea@oss.qualcomm.com/) (code unchanged since v8). It resolves the UART's OF graph remote endpoint to detect the M.2 connector and ties the `uart` pwrseq descriptor to the Bluetooth serdev device instead of the UART controller. `0160` is Bryan O'Donoghue's CSID2 removal; the tree is unchanged by that swap. Only `drivers/bluetooth/hci_qca.c` differs from `e6413608c546`. On revision 8, an `hci_uart.ko` built with v9 1/8 was swapped in at runtime: the QCC2072 probed and scanned, and 10 power off/on and 10 serdev unbind/bind cycles all came back, with the connector's `uart-enable` count returning to 1 and Wi-Fi staying up. No package has been built from this tree yet.
+
+## External displays, openSUSE carry-overs, and `iris` video, November 27
+
+Legacy `0062` is dropped (`0120` context refreshed) and replaced by Ritesh Kumar's Glymur DP PHY v8 series (`0162`–`0169`), HDMI HPD pinctrl on `&mdss_dp2` (`0170`), 27 patches from Michi (`@scalpel4k`)'s openSUSE `kernel-qcom-laptops` queue (`0171`–`0197`), the Glymur DPU `LM_4`–`LM_7` → `DSPP_4`–`DSPP_7` mapping (`0198`), and four `iris` fixes (`0199`–`0202`: suspend deadlock, driver-removal work cancel, firmware reload on session command timeout, and firmware-reported output buffer count). Kconfig adds `CONFIG_CLK_GLYMUR_VIDEOCC=m`, `CONFIG_QCOM_SCMI_GENERIC_EXT=m`, `CONFIG_DEVFREQ_GOV_REMOTE=m`, `CONFIG_SCMI_QCOM_MEMLAT_DEVFREQ=m`, `CONFIG_QCOM_SPEL=m`, `CONFIG_NETCONSOLE_EXTENDED_LOG=y`, and the buddy hardlockup detector; `required.config` adds `CONFIG_CLK_GLYMUR_VIDEOCC=m` and `CONFIG_VIDEO_QCOM_IRIS=m`.
+
+Package revision 12 (`7.3.0-ZenbookA16-20261022-final1-a16pkg12+`, tree `c9073bc3daaf`) passed full `ci.py`, clean build (0 AER), full hardware validation on boot `f3bdc616` (3 simultaneous displays with user-confirmed picture, DPMS cycles, USB3 read without `0062`, `iris` 60/60 GStreamer decode + 5/5 hang recovery + 20/20 H264 encode, Wi-Fi, BT, upstream `MM1`/`MM2` audio, cameras, `memlat`, `SPEL`), and a 24-round load/idle soak (12 balanced + 12 boost, 0 resets, 0/0 PCIe AER, `taint=0`). It is promoted as the default boot entry on the test A16. Load-correlated VIA USB-C PD-hub resets, physical hotplug, 4K60, suspend/resume, and long-term reset stability remain open; see [`docs/current-build.md`](../../docs/current-build.md).

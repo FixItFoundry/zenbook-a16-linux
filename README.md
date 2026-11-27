@@ -10,7 +10,7 @@ Qualcomm is now actively developing Snapdragon X2 (`glymur`) laptop support upst
 
 1. **A Distro Packaging & Update Layer**: Delivers side-by-side installable **Fedora RPMs**, **Ubuntu/Debian DEBs**, **Arch / Omarchy PKGBUILDs**, and portable bundles alongside early-DSP initramfs barriers (`dracut`, `initramfs-tools`, `mkinitcpio`), verified DTBs (`qcom,keep-runtime-active;`), ALSA UCM2 / WirePlumber audio routing, and owner-extracted board firmware.
 2. **A Two-Track Kernel Bridge (`stable` & `rc`)**:
-   - **`stable` ([`kernel/stable/`](kernel/stable/README.md) + [`patches/stable/`](patches/stable/README.md))**: Pinned to **Linux `v7.3` final** (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) with 161 backported and local patches (`025853e642c038b02a8ba7b8ed8f786bd071c47c`). Directly aligned with **`linux-omarchy 7.3`** so patches validated on `stable` ship to both standalone Fedora/Ubuntu users and Omarchy.
+   - **`stable` ([`kernel/stable/`](kernel/stable/README.md) + [`patches/stable/`](patches/stable/README.md))**: Pinned to **Linux `v7.3` final** (`c03c1a14507dfaf8b856c2608f9ac216021fc222`) with 201 backported and local patches (`c9073bc3daaf012b47e5c0631316308f4a3f3a7c`). Directly aligned with **`linux-omarchy 7.3`** so patches validated on `stable` ship to both standalone Fedora/Ubuntu users and Omarchy.
    - **`rc` ([`kernel/rc/`](kernel/rc/README.md) + [`patches/rc/`](patches/rc/README.md))**: Pinned to **Linux `v7.4-rc1` `linux-next` (`next-20261103`, `d6bcfc94eb4da6e089c5473970cd96727292fd97`)** with 113 residual patches (`52ecc2153e2280fcf68b6a2d56f00804d7d27e73`) after retiring 46 upstreamed patches from the `7.3` stable queue ([`patches/rc/port-map.json`](patches/rc/port-map.json)). Used for validating LKML series (`Tested-by:` / `Reviewed-by:`), staging local contributor fixes before upstream submission, and tracking `qcom-next` / `linux-next`.
 
 ---
@@ -26,10 +26,10 @@ Supply any Linux Git repository containing the pinned base commit (`v7.3` for `s
 python3 scripts/ci.py --replay-only --track both --linux-git /path/to/linux.git
 
 # Build the Linux 7.3 final Stable Track (Fedora RPMs + portable bundle):
-JOBS=4 PACKAGE_REVISION=6 ./kernel/stable/build.sh /path/to/linux.git /path/to/stable-out
+JOBS=4 PACKAGE_REVISION=12 ./kernel/stable/build.sh /path/to/linux.git /path/to/stable-out
 
 # Build Ubuntu/Debian DEBs instead:
-JOBS=4 PACKAGE_REVISION=6 BUILD_RPM=0 BUILD_DEB=1 \
+JOBS=4 PACKAGE_REVISION=12 BUILD_RPM=0 BUILD_DEB=1 \
   ./kernel/stable/build.sh /path/to/linux.git /path/to/stable-deb-out
 
 # Build the RC Development Track:
@@ -83,7 +83,7 @@ For openSUSE, Michi ([@scalpel4k](https://github.com/scalpel4k)) maintains an [A
 | Path | Purpose |
 |---|---|
 | [`kernel/stable/`](kernel/stable/README.md) | **Stable Release Track (`v7.3` final)**: `build.sh`, `replay.py`, `build.json`, Kconfig (`config`, `required.config`), and `SHA256SUMS`. |
-| [`patches/stable/`](patches/stable/README.md) | **Stable Patch Queue (157 patches)**: Ordered `git format-patch` series for `v7.3` final plus [`port-map.json`](patches/stable/port-map.json) tracking upstream equivalents. |
+| [`patches/stable/`](patches/stable/README.md) | **Stable Patch Queue (201 patches)**: Ordered `git format-patch` series for `v7.3` final plus [`port-map.json`](patches/stable/port-map.json) tracking upstream equivalents. |
 | [`kernel/rc/`](kernel/rc/README.md) | **RC / Upstream Development Track (`v7.4-rc1` / `next-20261103`)**: `build.sh`, `replay.py`, `build.json`, Kconfig (`config`, `required.config`), and `SHA256SUMS`. |
 | [`patches/rc/`](patches/rc/README.md) | **RC Patch Queue (113 patches)**: Ordered `git format-patch` series for `next-20261103` (`d6bcfc94eb4da6e089c5473970cd96727292fd97`) plus [`port-map.json`](patches/rc/port-map.json) recording 46 retired upstream commits. |
 | [`kernel/arch-7.2.10/`](kernel/arch-7.2.10/BUILD-AND-UPGRADE.txt) | **Arch Linux 7.2.10 Recipe**: Reproducible `PKGBUILD` generator with side-by-side UKI and header support. |
@@ -108,11 +108,14 @@ None of these has been posted to LKML from this repository yet. Patch numbers ar
 - **GDSC error unwind (RFC draft)**: `clk: qcom: gdsc: unwind domains when registration fails` (`0112`).
 - **RPMh regulator and RTC**: `regulator: qcom-rpmh: Don't overwrite the initial mode with the boot readback` (`0144`), `rtc: interface: fix wakeup source leak in rtc_timer_do_work()` (`0145`) and `rtc: qcom-glink: drop set_time when the RTC is read-only` (`0146`).
 - **Audio and SoundWire**: `ASoC: wsa884x: balance pm_runtime_enable() with devm-managed disable` (`0010`), `ASoC: qdsp6: q6apm: fast-retry APM_CMD_GET_SPF_STATE` (`0011`) and the `qcom,keep-runtime-active` speaker-controller guard (`0058`).
-- **A16 input and board**: `HID: asus: complete the feature set for the Zenbook I2C keyboard` (`0004`), M.2 connector wiring for Wi-Fi and Bluetooth (`0154`), the RGB camera MCLK at 6 mA (`0155`), the 7.3 HM1092 `.set_fmt` pad hook (`0156`), and ganged PMH0101 IR emitter + `vreg_bob1_e0` wiring (`0157`).
+- **A16 input, display, video, and board**: `HID: asus: complete the feature set for the Zenbook I2C keyboard` (`0004`), M.2 connector wiring for Wi-Fi and Bluetooth (`0154`), the RGB camera MCLK at 6 mA (`0155`), the 7.3 HM1092 `.set_fmt` pad hook (`0156`), ganged PMH0101 IR emitter + `vreg_bob1_e0` wiring (`0157`), HDMI HPD pin assignment to `&mdss_dp2` (`0170`), Glymur DPU `LM_4`–`LM_7` → `DSPP_4`–`DSPP_7` mapping for three simultaneous displays (`0198`), and `iris` firmware reload on session command timeout (`0201`).
 
-Several older local patches (`0028`, `0050`–`0063`, `0104`–`0111`) are combined snapshots without a sign-off. They are local carries, not upstream candidates in their current form.
+Several older local patches (`0028`, `0050`–`0061`, `0104`–`0111`) are combined snapshots without a sign-off. They are local carries, not upstream candidates in their current form.
 
-### Tracked Qualcomm & LKML Patches Carried in `stable`
+### Tracked Qualcomm, LKML & Community Patches Carried in `stable`
+
+- **Glymur DP PHY v8 & external displays** (*Ritesh Kumar*, *Saurabh Anand*, *Yongxing Mou*, *Konrad Dybcio*, *Michi (@scalpel4k)*): DP PHY v8 PLL/programming series (`0162`–`0169`), Type-C mux delay & DP sink-request guard (`0176`–`0177`), `pmic_glink_altmode` non-USB4/orientation fixes, `ucsi_glink` mux quirk, QMP combo DP/USB3 mode switching, and `aux-hpd` boot-time replay (`0183`–`0189`).
+- **Hardware video (`iris`), SCMI `memlat`, SPEL, firmware declarations & USB/Wi-Fi resume** (*Michi (@scalpel4k)*, *Filippo Falezza*, *Joonhoe Kim*, *Tapas Rana*, *Prashanth K*, *Krishna Kurapati*, *Wangao Wang*, *Hungyu Lin*, *Vishnu Reddy*): `MODULE_FIRMWARE` declarations and `hid-asus` `fnlock_default` (`0171`–`0175`), Qualcomm `qcom-7.3` `iris` / `memlat` / `SPEL` backports (`0178`–`0182`), `dwc3-qcom` / `m31-eusb2` / `ath12k` fixes (`0190`–`0197`), and `iris` suspend deadlock, removal, and output-buffer-count fixes (`0199`–`0200`, `0202`).
 
 - **USB3 QMP combo PHY** (*Konrad Dybcio*): `phy: qcom: qmp-combo: Update Glymur USB3 settings` (`0143`).
 - **Embedded controller** (*Konrad Dybcio*): binding, `asus-glymur-ec` driver and A16 node (`0023`–`0025`).
@@ -131,13 +134,15 @@ See [`docs/current-build.md`](docs/current-build.md) and [`docs/omarchy-status.m
 | Subsystem | Status on `stable` / `rc` |
 |---|---|
 | **Boot, NVMe & Btrfs** | Verified with early-DSP (`qcadsp8480.mbn`, `qccdsp8480.mbn`) pre-root initramfs barrier (`pre-root-v1`). |
-| **Built-in 3K OLED eDP Display** | Working at native 2880x1800 @ 120 Hz (`phy-qcom-edp` v8 + `drm/msm/dp` `LINK_RATE_SET` fixes). |
-| **Keyboard, Backlight & Touchpad** | Working via `hid-asus` UX3607OA I2C HID feature reports and `i2c_hid_of`. |
+| **Built-in 3K OLED eDP Display** | Working at native 2880x1800 @ 120 Hz (`phy-qcom-edp` v8 + `drm/msm/dp` `LINK_RATE_SET` and eDP fallback fixes). |
+| **External Displays (HDMI / USB-C DP)** | Working on `stable` rev 12 (`0162`–`0170`, `0176`–`0177`, `0183`–`0189`, `0198`): 3 simultaneous displays (`eDP-1` 2880x1800@120 + `HDMI-A-1` 1920x1080@60 + `DP-1` 1920x1080@120) confirmed from power-on and across DPMS cycles; 4K60, physical hotplug soak, and suspend/resume remain unaccepted. |
+| **Hardware Video Codec (`iris`)** | Working on `stable` rev 12 (`0178`–`0179`, `0199`–`0202`, `CONFIG_CLK_GLYMUR_VIDEOCC=m`): bit-exact H264/HEVC/VP9 decode (60/60 GStreamer), H264 encode (20/20 FFmpeg), and 5/5 forced firmware-hang recovery with clean runtime suspend. |
+| **Keyboard, Backlight & Touchpad** | Working via `hid-asus` UX3607OA I2C HID feature reports (`fnlock_default` parameter via `0175`) and `i2c_hid_of`. |
 | **Wi-Fi 7 & Bluetooth (QCC2072)** | Wi-Fi working through the mainline M.2 connector with board-specific `board-2.bin` / `firmware-2.bin`. Bluetooth uses the pending QCC2072 series and linux-firmware's `qca/orn*` files. |
-| **Speakers (4x WSA884x SoundWire)** | Working with `qcom,keep-runtime-active;` DTB guard and UX3607OA topology/UCM2. |
+| **Speakers (4x WSA884x SoundWire)** | Working with `qcom,keep-runtime-active;` DTB guard and upstream `MM1`/`MM2` AudioReach topology/UCM2. |
 | **Camera (OV02C10 RGB / HM1092 IR) & DMICs** | Integrated (`camera_enabled: true`, full X1E80100 CSID/VFE tables; `0159`–`0161` fix the lite CSID paths). MCLK4 at 6 mA removes microphone-triggered RGB banding; `0156`–`0157` (`rc` `0113`) wire HM1092 `.set_fmt` on 7.3 and the ganged PMH0101 IR emitter (`ir:flash`, 350 mA torch), with `libcamera` `simple` IPA black-level configs in `tweaks/etc/libcamera/ipa/simple/`. Full packaged-image acceptance is pending. |
-| **USB-C / USB3 (`usb0`, `usb1`)** | `0143` updates Glymur USB3 QMP combo PHY SERDES/TX/RX/PCS tables for `usb1` `-71` SuperSpeed link training; physical port matrix acceptance in progress. |
-| **Power, EC Fan & Sleep** | USB-PD online and `asus_glymur_ec` fan profile 2 active; deep S2idle/PCIe noirq suspend remains guarded (`glymur_pci_skip=5`). |
+| **USB-C / USB3 (`usb0`, `usb1`)** | `0143` updates Glymur USB3 QMP combo PHY tables and rev 12 drops legacy `0062` in favor of `0176`/`0187`/`0188`; SuperSpeed read verification passed through a VIA USB-C hub, while load-correlated hub resets under high PD draw remain open. |
+| **Power, EC Fan & Sleep** | USB-PD online, `asus_glymur_ec` fan profile 2 active, SCMI `memlat` and `SPEL` powercap reporting enabled (`0180`–`0182`); deep S2idle/PCIe noirq suspend remains guarded (`glymur_pci_skip=5`). |
 
 ## Reference
 

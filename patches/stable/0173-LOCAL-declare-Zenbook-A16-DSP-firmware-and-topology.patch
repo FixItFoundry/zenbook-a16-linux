@@ -1,0 +1,29 @@
+From: scalpel4k <scalpel4k@gmail.com>
+Date: Sun, 15 Nov 2026 22:00:00 +0100
+Subject: [PATCH] LOCAL: declare Zenbook A16 DSP firmware and audio topology
+
+The ADSP/CDSP images (qcom/glymur/ASUSTeK/UX3607OA/) are named by
+firmware-name in the DT and the AudioReach topology by the card model, so no
+module declares them. Declare them in qcom_q6v5_pas and snd-q6apm so dracut
+puts them into the initramfs and image-janitor keeps them.
+
+LOCAL: Zenbook A16 board-specific firmware paths.
+---
+diff --git a/drivers/remoteproc/qcom_q6v5_pas.c b/drivers/remoteproc/qcom_q6v5_pas.c
+--- a/drivers/remoteproc/qcom_q6v5_pas.c
++++ b/drivers/remoteproc/qcom_q6v5_pas.c
+@@ -1924,3 +1924,5 @@
+ module_platform_driver(qcom_pas_driver);
+ MODULE_DESCRIPTION("Qualcomm Peripheral Authentication Service remoteproc driver");
+ MODULE_LICENSE("GPL v2");
++/* Asus Zenbook A16 ADSP/CDSP images, named by firmware-name in its DT */
++MODULE_FIRMWARE("qcom/glymur/ASUSTeK/UX3607OA/*");
+diff --git a/sound/soc/qcom/qdsp6/q6apm.c b/sound/soc/qcom/qdsp6/q6apm.c
+--- a/sound/soc/qcom/qdsp6/q6apm.c
++++ b/sound/soc/qcom/qdsp6/q6apm.c
+@@ -1073,3 +1073,5 @@
+ module_gpr_driver(apm_driver);
+ MODULE_DESCRIPTION("Audio Process Manager");
+ MODULE_LICENSE("GPL");
++/* Asus Zenbook A16 AudioReach topology: qcom/<driver>/<card model>-tplg.bin */
++MODULE_FIRMWARE("qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin");

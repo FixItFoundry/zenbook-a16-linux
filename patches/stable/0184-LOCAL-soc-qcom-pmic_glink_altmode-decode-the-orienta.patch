@@ -1,0 +1,46 @@
+From f3f950d53def672b8962c21d9b5cd614b04ab564 Mon Sep 17 00:00:00 2001
+From: scalpel4k <scalpel4k@gmail.com>
+Date: Thu, 19 Nov 2026 16:21:39 +0100
+Subject: [PATCH] LOCAL: soc: qcom: pmic_glink_altmode: decode the orientation
+ of PAN_EN v1
+
+With the versioned PAN_EN (OS type installer, 0919) the Glymur firmware
+sets bit 5 in the orientation byte: 32 normal, 33 reverse, 34 no
+connection. Everything other than 0/1 was mapped to
+TYPEC_ORIENTATION_NONE, which the QMP combo PHY ignores, so the PHY kept
+the orientation of the previous plug and a flipped plug could break
+USB3 and DP AUX.
+
+Use only the low two bits.
+---
+ drivers/soc/qcom/pmic_glink_altmode.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/soc/qcom/pmic_glink_altmode.c b/drivers/soc/qcom/pmic_glink_altmode.c
+index 2952d25..d6e8792 100644
+--- a/drivers/soc/qcom/pmic_glink_altmode.c
++++ b/drivers/soc/qcom/pmic_glink_altmode.c
+@@ -460,6 +460,11 @@ static void pmic_glink_altmode_sc8180xp_notify(struct pmic_glink_altmode *altmod
+ 	schedule_work(&alt_port->work);
+ }
+ 
++/*
++ * 0 normal, 1 reverse, 2 no connection. Firmware that got the versioned
++ * PAN_EN also sets bit 5 (32/33/34), so only the low bits are the orientation.
++ */
++#define SC8280XP_ORIENTATION_MASK	GENMASK(1, 0)
+ #define SC8280XP_DPAM_MASK	0x3f
+ #define SC8280XP_HPD_STATE_MASK BIT(6)
+ #define SC8280XP_HPD_IRQ_MASK	BIT(7)
+@@ -483,7 +488,7 @@ static void pmic_glink_altmode_sc8280xp_notify(struct pmic_glink_altmode *altmod
+ 	notify = data;
+ 
+ 	port = notify->port_idx;
+-	orientation = notify->orientation;
++	orientation = FIELD_GET(SC8280XP_ORIENTATION_MASK, notify->orientation);
+ 
+ 	if (port >= ARRAY_SIZE(altmode->ports) || !altmode->ports[port].altmode) {
+ 		dev_dbg(altmode->dev, "notification on undefined port %d\n", port);
+-- 
+2.56.0
+

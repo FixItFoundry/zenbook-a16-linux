@@ -1,0 +1,40 @@
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Tue, 24 Nov 2026 15:45:00 -0500
+Subject: [PATCH] LOCAL: arm64: dts: qcom: glymur-asus-zenbook-a16: give the
+ HDMI HPD pin to mdss_dp2
+
+The HPD pin (gpio126, usb2_dp) is claimed by the PS185 bridge node. Give it
+to the DP controller, as the Glymur CRD does on the same path in
+https://github.com/qualcomm-linux/kernel/pull/1493 (open).
+
+Package revision 8 detects an HDMI plug without this change, so it is for
+consistency with the CRD. Tested together with the DP PHY series only.
+
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+--- a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+@@ -77,9 +77,6 @@
+ 	hdmi-bridge {
+ 		compatible = "parade,ps185hdm";
+ 
+-		pinctrl-0 = <&usb2_dp_hot_plug_detect>;
+-		pinctrl-names = "default";
+-
+ 		ports {
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+@@ -984,6 +981,9 @@
+ };
+ 
+ &mdss_dp2 {
++	pinctrl-0 = <&usb2_dp_hot_plug_detect>;
++	pinctrl-names = "default";
++
+ 	status = "okay";
+ };
+ 
