@@ -1,59 +1,43 @@
-# Audio topology (.tplg) — built from PUBLIC open source
+# Audio topology (`.tplg`) — built from upstream AudioReach
 
-The AudioReach **audio topology is open source** and reproducible with open
-tools. The matching ADSP and Wi-Fi blobs are also available from upstream
-linux-firmware; see [`../README.md`](../README.md).
-
-## Source
-
-[`linux-msm/audioreach-topology`](https://github.com/linux-msm/audioreach-topology) —
-**BSD-3-Clause**, © Linaro Ltd. It ships an `m4` topology source for the GLYMUR SoC
-(`GLYMUR-CRD.m4`) plus X1E80100 laptop variants. The A16 is an X1E80100-class machine, and
-the AudioReach topology is largely SoC-agnostic (it describes the DSP graph, not register
-addresses), so these compile to a topology the A16 accepts.
+The ASUS Zenbook A16 (`UX3607OA`) AudioReach topology is built directly from
+upstream [`linux-msm/audioreach-topology`](https://github.com/linux-msm/audioreach-topology)
+(`glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA.m4`, BSD-3-Clause).
 
 ## Contents of this directory
 
 | File | What it is |
 |---|---|
-| `GLYMUR-CRD.m4` | The upstream BSD-3 topology source for the GLYMUR SoC (vendored for reference; © Linaro) |
-| `GLYMUR-CRD.tplg` | Prebuilt topology compiled from `GLYMUR-CRD.m4` with `alsatplg` (BSD-3, redistributable) |
-| `build-glymur-tplg.sh` | Recipe that clones upstream and builds `GLYMUR-CRD.tplg` + `X1E80100-CRD.tplg` |
-| `LICENSE.BSD-3-Clause` | The upstream license (retained for attribution) |
+| `build-glymur-a16-tplg.sh` | Builds and verifies `GLYMUR-A16.tplg` from the pinned upstream `glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA.m4` (`31eaaac0`) |
+| `verify-glymur-a16-topology.py` | Verifies the decoded PCM IDs, channel capabilities, and speaker/DMIC routes expected by our UCM |
+| `GLYMUR-CRD.m4` / `GLYMUR-CRD.tplg` / `build-glymur-tplg.sh` | Historical reference-board files kept from bringup (not a drop-in for the A16 UCM) |
+| `LICENSE.BSD-3-Clause` | Upstream BSD-3-Clause license |
 
-## Build it yourself
+## Build and install
 
-```bash
-sudo dnf install -y alsa-topology-utils m4     # Fedora  (Debian/Ubuntu: alsa-utils m4)
-./build-glymur-tplg.sh
-```
-
-`alsatplg` (from `alsa-topology-utils`) + `m4` is the whole toolchain — no cmake/g++ needed.
-
-## Install on the A16
-
-The promoted RC3 DT names the card `GLYMUR-ASUS-Zenbook-A16-UX3607OA`, so the
-machine driver requests the matching firmware name:
+`alsatplg` (`alsa-topology-utils` on Fedora, `alsa-utils` on Debian/Ubuntu) and
+`m4` are the only build dependencies:
 
 ```bash
-sudo install -Dm644 GLYMUR-CRD.tplg \
+git clone https://github.com/linux-msm/audioreach-topology.git /tmp/audioreach-topology
+git -C /tmp/audioreach-topology checkout 31eaaac08da364cb346681b132129028b9c583f4
+./firmware/tplg/build-glymur-a16-tplg.sh /tmp/audioreach-topology /tmp/a16-tplg
+
+sudo install -Dm644 /tmp/a16-tplg/GLYMUR-A16.tplg \
   /lib/firmware/qcom/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA-tplg.bin
-sudo reboot   # or hot-rebind the driver
 ```
 
-## Verified on hardware (2026-07-18)
+## UCM pairing (`MM1` speakers, `MM2` DMICs)
 
-The upstream `X1E80100-CRD.tplg` was swapped onto a real A16 and **instantiated the
-`GLYMUR-A16` card** — MultiMedia1/2/5/6 playback, MultiMedia3/4 capture, the full 4×WSA8845
-speaker control tree (WSA_RX0/RX1, WSA2, compander, softclip, VI‑sense) and the headset‑jack
-input. Confirms the audio topology is open-source-reproducible on this device.
+Upstream `GLYMUR-ASUS-Zenbook-A16-UX3607OA.m4` maps:
 
-### Note on a true drop-in
+- `hw:,0` (`MultiMedia1`, 4 ch) → `WSA_CODEC_DMA_RX_0` (4× WSA8845 speakers)
+- `hw:,1` (`MultiMedia2`, 1–2 ch) ← `VA_CODEC_DMA_TX_0` (internal DMICs)
+- `hw:,2` / `hw:,3` / `hw:,6` (`MultiMedia3`/`4`/`7`) → `DISPLAY_PORT_RX_0/1/2`
+- `hw:,4` / `hw:,5` (`MultiMedia5`/`6`) ↔ WCD9378 headset playback/capture
 
-This project's daily-driver install uses a hand-tuned topology whose UCM profile and
-`glymur-audio-route.sh` are matched to its exact PCM layout (MM1/2 playback + MM3/4 capture).
-The upstream files are **not byte-identical drop-ins** — `GLYMUR-CRD` exposes a
-playback + capture pair, `X1E80100-CRD` exposes MM1–6 — so swapping one in also means
-re-tuning UCM. For a no-regression drop-in, author a `GLYMUR-A16.m4` in the upstream `m4`
-framework reproducing MM1/2‑playback + MM3/4‑capture + `WSA_CODEC_DMA_RX_0` (up to 4ch) +
-`VA_CODEC_DMA_TX_0`, then compile it the same way.
+Our UCM (`tweaks/usr/share/alsa/ucm2/Qualcomm/glymur/HiFi.conf`, installed for
+Fedora and Ubuntu by `packaging/zenbook-a16-hooks/install-hooks.sh` +
+`activate-hardware.sh`) matches this `MM1`/`MM2` layout, as does upstream
+`alsa-ucm-conf`. If upgrading from an older `MM2`/`MM4` topology on disk,
+replace the installed `-tplg.bin` at the same time so topology and UCM match.

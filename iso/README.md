@@ -47,6 +47,9 @@ sudo dracut --force --no-hostonly --add dmsquash-live --kver "$KREL" \
 cp /usr/lib/systemd/boot/efi/systemd-bootaa64.efi "$STAGE/"
 ```
 
+If `--no-hostonly` pulls in Plymouth/XKB and produces an oversized live initramfs
+(reported on Fedora 45 VMs), pass `--omit "i18n plymouth"` to `dracut`.
+
 The builder checks inputs and required tools before modifying the live rootfs.
 
 Place a Fedora KDE Live aarch64 ISO (`Fedora-*aarch64*.iso`) or Ubuntu Desktop

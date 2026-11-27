@@ -22,13 +22,16 @@ def verify(text):
     pcms = block(text, "SectionPCM")
     caps = block(text, "SectionPCMCapabilities")
     expected = [
-        ("MultiMedia1 Playback", 0, "playback", 2, 2),
-        ("MultiMedia2 Playback", 1, "playback", 4, 4),
-        ("MultiMedia3 Capture", 2, "capture", 1, 2),
-        ("MultiMedia4 Capture", 3, "capture", 1, 4),
+        ("MultiMedia1 Playback", 0, "playback", 4, 4),
+        ("MultiMedia2 Capture", 1, "capture", 1, 2),
+        ("MultiMedia3 Playback", 2, "playback", 2, 2),
+        ("MultiMedia4 Playback", 3, "playback", 2, 2),
+        ("MultiMedia5 Playback", 4, "playback", 2, 2),
+        ("MultiMedia6 Capture", 5, "capture", 1, 2),
+        ("MultiMedia7 Playback", 6, "playback", 2, 2),
     ]
-    if len(re.findall(r"pcm\.(?:playback|capture)\.capabilities", pcms)) != 4:
-        raise ValueError("Expected exactly four PCM endpoints")
+    if len(re.findall(r"pcm\.(?:playback|capture)\.capabilities", pcms)) != len(expected):
+        raise ValueError(f"Expected exactly {len(expected)} PCM endpoints")
     for name, index, direction, minimum, maximum in expected:
         pcm = block(pcms, repr(name))
         # alsatplg omits default-valued fields, including PCM id 0.
@@ -45,15 +48,15 @@ def verify(text):
                 raise ValueError(f"Wrong {name} capability: {field}")
     graph = block(text, "SectionGraph")
     for route in (
-        "WSA_CODEC_DMA_RX_0 Audio Mixer, MultiMedia2, stream1.logger1",
-        "MultiMedia4 Mixer, VA_CODEC_DMA_TX_0, device110.logger1",
+        "WSA_CODEC_DMA_RX_0 Audio Mixer, MultiMedia1, stream0.logger1",
+        "MultiMedia2 Mixer, VA_CODEC_DMA_TX_0, device110.logger1",
     ):
         if repr(route) not in graph:
             raise ValueError(f"Missing UCM route: {route}")
     widgets = block(text, "SectionWidget")
     for widget, mixer in (
-        ("WSA_CODEC_DMA_RX_0 Audio Mixer", "MultiMedia2"),
-        ("MultiMedia4 Mixer", "VA_CODEC_DMA_TX_0"),
+        ("WSA_CODEC_DMA_RX_0 Audio Mixer", "MultiMedia1"),
+        ("MultiMedia2 Mixer", "VA_CODEC_DMA_TX_0"),
     ):
         if repr(mixer) not in block(widgets, repr(widget)):
             raise ValueError(f"Missing mixer {widget}/{mixer}")
