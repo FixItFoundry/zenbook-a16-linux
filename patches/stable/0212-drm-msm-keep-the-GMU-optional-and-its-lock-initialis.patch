@@ -1,0 +1,96 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Brandon Williams <turbine.bmw@gmail.com>
+Date: Mon, 19 Oct 2026 12:50:00 -0400
+Subject: [PATCH 212/213] drm/msm: keep the GMU optional and its lock
+ initialised early
+
+Fixes for the "Attach a driver to the GMU" series as carried here:
+
+- add_gpu_components() added the GMU to the match list even when the GPU
+  itself was not added (GPU disabled, unknown chip id, msm.skip_gpu=1), so
+  the display master waited for a GMU that could never bind. Add it only
+  together with its GPU.
+- msm_gpu_probe() handed an empty match list to the component framework
+  when no GPU was usable. Return -ENXIO instead.
+- The GPU code takes gmu.lock (devfreq, hw_init, PM) before the GMU binds.
+  Initialise it in a6xx_gpu_init() again, as before the series, instead of
+  in the GMU bind callbacks, which could also re-initialise it while held.
+
+Signed-off-by: Brandon Williams <turbine.bmw@gmail.com>
+Link: https://github.com/omacom/omarchy-pkgs/blob/master/pkgbuilds/linux-omarchy-aarch64/2178-drm-msm-keep-the-GMU-optional-and-its-lock-initialis.patch
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ drivers/gpu/drm/msm/adreno/a6xx_gmu.c |  2 --
+ drivers/gpu/drm/msm/adreno/a6xx_gpu.c |  1 +
+ drivers/gpu/drm/msm/msm_drv.c         | 16 +++++++++++-----
+ 3 files changed, 12 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+index 5fb019c52..a709b63d2 100644
+--- a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
++++ b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+@@ -2385,7 +2385,6 @@ static int a6xx_gmu_wrapper_pdev_bind(struct a6xx_gpu *a6xx_gpu, struct device_n
+ 	}
+ 
+ 	devres_close_group(gmu->dev, gmu);
+-	mutex_init(&gmu->lock);
+ 	gmu->initialized = true;
+ 
+ 	return 0;
+@@ -2611,7 +2610,6 @@ static int a6xx_gmu_pdev_bind(struct a6xx_gpu *a6xx_gpu, struct device_node *nod
+ 	a6xx_gmu_rpmh_init(gmu);
+ 
+ 	devres_close_group(gmu->dev, gmu);
+-	mutex_init(&gmu->lock);
+ 	gmu->initialized = true;
+ 
+ 	return 0;
+diff --git a/drivers/gpu/drm/msm/adreno/a6xx_gpu.c b/drivers/gpu/drm/msm/adreno/a6xx_gpu.c
+index c6754bf9e..815ec56c0 100644
+--- a/drivers/gpu/drm/msm/adreno/a6xx_gpu.c
++++ b/drivers/gpu/drm/msm/adreno/a6xx_gpu.c
+@@ -2705,6 +2705,7 @@ static struct msm_gpu *a6xx_gpu_init(struct drm_device *dev)
+ 		gpu->num_perfcntr_groups = a8xx_num_perfcntr_groups;
+ 	}
+ 
++	mutex_init(&a6xx_gpu->gmu.lock);
+ 	spin_lock_init(&a6xx_gpu->aperture_lock);
+ 
+ 	adreno_gpu->registers = NULL;
+diff --git a/drivers/gpu/drm/msm/msm_drv.c b/drivers/gpu/drm/msm/msm_drv.c
+index d55615c9f..f7ebd6b00 100644
+--- a/drivers/gpu/drm/msm/msm_drv.c
++++ b/drivers/gpu/drm/msm/msm_drv.c
+@@ -1032,14 +1032,16 @@ static int add_gpu_components(struct device *dev,
+ 	if (!np)
+ 		return 0;
+ 
+-	if (of_device_is_available(np) && adreno_has_gpu(np))
++	if (of_device_is_available(np) && adreno_has_gpu(np)) {
+ 		drm_of_component_match_add(dev, matchptr, component_compare_of, np);
+ 
+-	gmu_np = of_parse_phandle(np, "qcom,gmu", 0);
+-	if (of_device_is_available(gmu_np))
+-		drm_of_component_match_add(dev, matchptr, component_compare_of, gmu_np);
++		/* The GMU binds only alongside its GPU; never wait for it alone. */
++		gmu_np = of_parse_phandle(np, "qcom,gmu", 0);
++		if (of_device_is_available(gmu_np))
++			drm_of_component_match_add(dev, matchptr, component_compare_of, gmu_np);
++		of_node_put(gmu_np);
++	}
+ 
+-	of_node_put(gmu_np);
+ 	of_node_put(np);
+ 
+ 	return 0;
+@@ -1145,6 +1147,10 @@ int msm_gpu_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		return ret;
+ 
++	/* No usable GPU: nothing to bind. */
++	if (!match)
++		return -ENXIO;
++
+ 	return component_master_add_with_match(&pdev->dev, &msm_gpu_drm_ops,
+ 					       match);
+ }

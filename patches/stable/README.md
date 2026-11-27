@@ -1,9 +1,9 @@
 # Full A16/Qualcomm stack on Linux 7.3.6
 
-Apply the 177 files in [series](series), in order, to Linux `v7.3.6`
+Apply the 183 files in [series](series), in order, to Linux `v7.3.6`
 (`1a0388846138eda9f6eb4258ff227a223afc2f52`). They reproduce source tree
-`91e3f125093798823e8c2f1945e8a859298cf266` (`5a4d75ea9e91aa590cbdeecb476cd4a403a2ced4`
-prior to `0204`–`0206`, and `c9073bc3daaf012b47e5c0631316308f4a3f3a7c` on `v7.3`).
+`a25b51b1ceda63f568d36f0dd4847c0787dfcfaa` (`91e3f125093798823e8c2f1945e8a859298cf266`
+prior to retiring `0012` and adding `0207`–`0213`, and `c9073bc3daaf012b47e5c0631316308f4a3f3a7c` on `v7.3`).
 Use the matching [config, verifier and build helper](../../kernel/stable/README.md).
 
 The stack combines the 111-patch `7.3` baseline (64 A16 baseline patches, 40 Qualcomm
@@ -21,7 +21,7 @@ Patch `0158` stops the eDP link training fallback from dropping below the bandwi
 Patch `0159` gives the X1E80100 lite CSIDs their own clocks, Bryan O'Donoghue's `0160` drops the
 unusable CSID2, and the local `0161` replaces `0107`'s CSID0/VFE0 limit with the full X1E80100 tables.
 Revision 12 drops legacy `0062` (refreshing `0120`) and adds `0162`–`0169` (Ritesh Kumar's Glymur DP PHY v8 series), `0170` (HDMI HPD pinctrl on `&mdss_dp2`), `0171`–`0197` (27 patches from Michi `@scalpel4k`'s openSUSE `kernel-qcom-laptops` stack covering firmware declarations, `fnlock_default`, `iris`, SCMI `memlat`, `SPEL`, Type-C/DP/USB3/Wi-Fi fixes), `0198` (Glymur DPU `LM_4`–`LM_7` → `DSPP_4`–`DSPP_7`), and `0199`–`0202` (`iris` suspend deadlock, driver-removal work cancel, timeout firmware reload, and firmware-reported output buffer count).
-Fast-forwarding the base to `v7.3.6` drops 28 patches already merged in `7.3.1`–`7.3.6` (`0006`, `0008`, `0010`, `0015`, `0018`, `0029`–`0033`, `0037`–`0038`, `0043`, `0081`, `0122`–`0130`, `0133`–`0134`, `0137`–`0138`, `0200`), refreshes five overlapping patches (`0028`, `0078`, `0152`, `0178`, `0184`), and adds `0203` (A16 DisplayPort/HDMI audio DAI links) and `0204`–`0206` (Omarchy `memlat` polling disable, `cluster_cl5` s2idle-only guard, and lid-switch wakeup fix).
+Fast-forwarding the base to `v7.3.6` drops 28 patches already merged in `7.3.1`–`7.3.6` (`0006`, `0008`, `0010`, `0015`, `0018`, `0029`–`0033`, `0037`–`0038`, `0043`, `0081`, `0122`–`0130`, `0133`–`0134`, `0137`–`0138`, `0200`), refreshes five overlapping patches (`0028`, `0078`, `0152`, `0178`, `0184`), retires `0012` (`glymur_pci_skip`), and adds `0203` (A16 DisplayPort/HDMI audio DAI links), `0204`–`0206` (Omarchy `memlat` polling disable, `cluster_cl5` s2idle-only guard, and lid-switch wakeup fix), and `0207`–`0213` (Adreno GMU platform driver and broken QCE crypto disable so `gcc`/`gpucc`/`mc_virt` reach `sync_state()`).
 The [kernel recipe](../../kernel/stable/README.md) describes all groups.
 
 ## Upstream equivalents

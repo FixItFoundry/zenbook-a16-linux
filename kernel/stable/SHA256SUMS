@@ -1,4 +1,4 @@
-d90810e29d53925361b4ae82925408dbb759c7ff44406fff3435c2a9bd974c4b  kernel/stable/build.json
+354604cd816fd3b10ac05a1af44acc025504bf68d02e1da40f27bb063e6c3ea2  kernel/stable/build.json
 34a90747b0afe950f8e86b4507b14ec5a65ac1dc82a32e988456c1cc0abf5ad7  kernel/stable/build.sh
 c74ea50537c7f9081c3e4217435f41aed98b8a5265cbaa7cae2577fad8260918  kernel/stable/config
 13feedb2d3088340e9955d29ba19661994a2cd37b628452f5c04d75af2746032  kernel/stable/replay.py
@@ -10,7 +10,6 @@ f5c20707de4b00f96a9a5dfd1bda4b5a3f572056723b8ad26b8061519244c7e4  patches/stable
 ecf982d6cbf28d9fbc97e58c19f16429b133f4194838fa71a38f6153bd003f98  patches/stable/0007-ASoC-codecs-lpass-Make-sure-clk_init_data-is-fully-i.patch
 8079431e50156299d0286bbbf07df0cf7bdca4bceeaad824a93fe191e96cc24f  patches/stable/0009-LOCAL-EXPERIMENT-preserve-test4-SoundWire-compatibil.patch
 1a4d29824dc0b5d60c5100d18150ee976f6ec0b957f5cdef932d461c104449e1  patches/stable/0011-ASoC-qdsp6-q6apm-fast-retry-APM_CMD_GET_SPF_STATE-to.patch
-4cd2d77ad23047352f115ba391386219dd1315af4efb52fb87470dccb094d6f7  patches/stable/0012-LOCAL-PCI-add-glymur_pci_skip-to-work-around-the-sus.patch
 2ec163060a049bd89410bb2280df67f5356e2fec7533dcde18f6e29ff61617f7  patches/stable/0013-security-keys-trusted-keys-include-asn1_decoder.h-fo.patch
 a5bc0d82c727cf4fa5aed7fde5b96aee173e6f8e0bbecb239b57f817f9fb45ef  patches/stable/0014-soundwire-qcom-cache-SCP_ADDRPAGE1-2-to-preserve-MBQ.patch
 4e6064c180812474a9188945e4d05efffc3d1a0aa0e33b43241a93e12f2268d3  patches/stable/0016-LOCAL-COMPAT-A16-Wi-Fi-and-Bluetooth-power-sequencin.patch
@@ -179,5 +178,12 @@ a1fbdfa5d3ef0971c5aff1dbc83ca39e68127bc7ffacc0eba84d1575185c1066  patches/stable
 6a3a5dfbbf159e130fcfdfec915745f9f22cf9de4b7d9aac974cd508f89c6254  patches/stable/0204-PM-devfreq-qcom-scmi-memlat-disable-polling-by-defau.patch
 2642c972b5169eaf5c271f20eff0cd7d0d0104b1c573024832bf24788ac07a3f  patches/stable/0205-arm64-dts-qcom-glymur-Restrict-cluster_cl5-idle-stat.patch
 77bcd75a2175cef123e36ea43ae818dbef052194ee59161aa24635e692ce23e6  patches/stable/0206-arm64-dts-qcom-glymur-asus-zenbook-a16-Drop-rising-e.patch
-4c9430b3f785d38f09db5e08f3cc99e79d9e49d9682f4e58e52c926edaefc168  patches/stable/port-map.json
-415ea2dc86cac9148a409d16ac3bf0f4841e11790e986e2b72317124a18a57ea  patches/stable/series
+8cec4ff5cc70cf9febf49771276c2ace153f30bde1c5f7f9e2a6aee9eae27d63  patches/stable/0207-drm-msm-adreno-a6xx-Mark-cxpd-device_link-as-statele.patch
+0ad205791213a576e69927807caa2c64be124b62a088feb47446a8960d61ca9d  patches/stable/0208-drm-msm-Centralize-the-standalone-drm-device-check-f.patch
+39054ec7014ac48e3725521364b07490e0f797721b14426d6184ce54bb1b2a77  patches/stable/0209-drm-msm-adreno-Fix-invalid-drvdata-typecast-in-adren.patch
+fce0518fb73635ded38883a42bd24a0d82dba000ae97b82929fda6fa49784df8  patches/stable/0210-drm-msm-Always-use-component-model-for-standalone-GP.patch
+fbfba0ef09efe75c2ddde96407d73809c4e1af2c03c4a4e3d239f903e797db1f  patches/stable/0211-drm-msm-Attach-a-driver-to-the-GMU.patch
+e5a7540fae5fd1af16dba9a8cf2d9f8e72adecf6702a64c7a363260c67dcd49b  patches/stable/0212-drm-msm-keep-the-GMU-optional-and-its-lock-initialis.patch
+906bc54525becc3eeafe775cbc23c45cbbc3f52d16ac9e48f71699a765db1390  patches/stable/0213-arm64-dts-qcom-hamoa-glymur-Disable-the-crypto-engin.patch
+6c444aa07434921d681f2297c3847b5ba97d2a732e328a484978583bffb4b7e8  patches/stable/port-map.json
+83bd661d1f0bc760d479f6d966d411d3ceab05bee115797399f8685e763b66ba  patches/stable/series

@@ -58,16 +58,19 @@ Remaining limits and open items:
 
 | Track | Patches | Replayed source tree | Package release | State |
 |---|---:|---|---|---|
-| stable | 177 | `91e3f125093798823e8c2f1945e8a859298cf266` | `7.3.6-ZenbookA16-20261022-final1-a16pkg13+` | `pkg12` default; `pkg13` (`7.3.6` + DP audio + `0204`–`0206`) one-shot verified |
+| stable | 183 | `a25b51b1ceda63f568d36f0dd4847c0787dfcfaa` | `7.3.6-ZenbookA16-20261022-final1-a16pkg14+` (candidate) | `pkg12` default; `pkg13` + `0207`–`0213` deep-sleep verified (`boot 6c95f197`); `pkg14` ready to build |
 | rc | 114 | `ae9780ba94c73237250a58ecc44fca2485813f8a` | `7.4.0-rc1-next-20261103-zenbook-a16-a16pkg6+` | Built, staged in `Test DTBs` |
 
-## Revision 13 (`v7.3.6`, DP/HDMI audio, and power/deep-sleep fixes) — 2026-11-27
+## Revision 13 / 14 candidate (`v7.3.6`, DP/HDMI audio, and full `s2idle` deep sleep) — 2026-11-27
 
 Fast-forwarded `kernel/stable` from `v7.3` (`c03c1a14507d`) to **`v7.3.6`** (`1a0388846138`), retiring 28 patches already upstream in `7.3.1`–`7.3.6` and refreshing five overlapping patches (`0028`, `0078`, `0152`, `0178`, `0184`), then added:
 
-- **`0203` + UCM/WirePlumber updates:** DisplayPort/HDMI audio DAI links (`dp0`/`dp1`/`dp2-dai-link`) wired to upstream `audioreach-topology` `MM3`/`MM4`/`MM7` (`HDMI0`/`HDMI1`/`HDMI2`), with WirePlumber 4-channel upmix scoped to `*Speaker*` and 1 s idle suspend on `*HDMI*`.
+- **`0203` + UCM/WirePlumber updates:** DisplayPort/HDMI audio DAI links (`dp0`/`dp1`/`dp2-dai-link`) wired to upstream `audioreach-topology` `MM3`/`MM4`/`MM7` (`HDMI0`/`HDMI1`/`HDMI2`), with WirePlumber 4-channel upmix scoped to `*Speaker*` (`session.suspend-timeout-seconds = 2`) and 1 s idle suspend on `*HDMI*`.
 - **`0204`–`0206` + userspace power/sleep rules (from `omacom/omarchy-pkgs` `#3689`/`#3690`/`#3738`/`#3740`):** `scmi-qcom-memlat-devfreq` `polling_ms = 0`, `cluster_cl5` `min-residency-us = 1000 s` in `glymur.dtsi`, drop `EV_ACT_DEASSERTED` on `switch-lid`, `90-asus-zenbook-a16-power.rules`, and `zenbook-a16-sleep`.
-- **Package revision 13 (`7.3.6-ZenbookA16-20261022-final1-a16pkg13+`, tree `91e3f1250937`):** built and one-shot verified on `loazen` (boot `e1814992`, `taint=0`, 0 failed units, `btrfs_errors=0`, NVMe AER `0/0`, `scmi_err=0`, 3 displays active from boot, `DP0 Jack=on`/`DP2 Jack=on`, PipeWire `HDMI0`/`HDMI2`/`Speaker` PASS with `audio_dsp_errors=0`, `Mic` capture verified on prior `7.3.6` boot `71d0f0a1`, Wi-Fi/BT/Iris UP, `memlat` `polling_interval=0` with `0` `apss_cpucp_mbox` IRQs in 3 s, `cluster_cl5` `Usage=0`/`Rejected=0` on clusters 0–2, `0004:00:00.0`/`0004:01:00.0` `wakeup=disabled`, idle USB controllers and Realtek SD reader autosuspended with `15000 ms` poll). Attended `s2idle` testing remains open (`sleep.target` is still masked on `loazen` and `pkg12` remains the default GRUB entry).
+- **`0207`–`0213` (`sync_state` fixes) and cmdline cleanup:** attached platform driver `adreno_gmu` (`0207`–`0212`), disabled broken QCE `crypto@1dfa000` (`0213`), retired `0012` (`glymur_pci_skip`), and dropped `clk_ignore_unused`, `pd_ignore_unused`, and `glymur_pci_skip=5` from `packaging/zenbook-a16-kernel/package.py` `CMDLINE`.
+- **Hardware verification on `loazen`:**
+  - `pkg13` (`91e3f1250937`, boot `e1814992`): `taint=0`, 0 failed units, `btrfs_errors=0`, NVMe AER `0/0`, `scmi_err=0`, 3 displays active, `HDMI0`/`HDMI2`/`Speaker` PipeWire PASS (`Mic` verified on `71d0f0a1`), `memlat` `polling_interval=0` with `0` `apss_cpucp_mbox` IRQs in 3 s, `cluster_cl5` `Usage=0`/`Rejected=0`, PCIe4 Wi-Fi `wakeup=disabled`, idle USB + SD autosuspend active.
+  - Full `s2idle` deep sleep (`pkg13` + signed `msm.ko`/DTB from `0207`–`0213`, `glymur_pci_skip=0`, no `clk_ignore_unused`/`pd_ignore_unused`, boot `6c95f197`): `unsynced_count=0`, 258 s open-lid `systemctl suspend` achieved **97.7% `APSS`/`CXSD`/`AOSD`/`DDR` collapse** (`252.06 s` each, `Count: 3`), with clean resume of PCIe5 NVMe (`Gen.4 x4`, `btrfs_err=0`, `nvme_aer=0/0`), PCIe4 Wi-Fi (`Gen.3 x1`, `wlP4p1s0:connected`), Bluetooth (`Powered: yes`), and speakers (`SPEAKER_RESUME_PW=PASS`, `tainted=0`). Clean `pkg14` package build from `a25b51b1ceda`, closed-lid wake, and 10-minute wattage tests remain open.
 
 ## Revision 8 — 2026-11-21
 

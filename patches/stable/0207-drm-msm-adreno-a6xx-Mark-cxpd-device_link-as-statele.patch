@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akhil P Oommen <akhilpo@oss.qualcomm.com>
+Date: Wed, 13 May 2026 02:22:56 +0530
+Subject: [PATCH 207/213] drm/msm/adreno/a6xx: Mark cxpd device_link as
+ stateless
+
+Since the cxpd virtual device is a driverless device, it has no real
+struct device_driver bound it the way a normal platform device does. So,
+the managed lifecycle doesn't map cleanly onto it. Since the lifecycle of
+this device_link is managed by the msm driver, pass DL_FLAG_STATELESS
+together with the existing DL_FLAG_PM_RUNTIME flag.
+
+This fix is required to avoid a device_links_driver_bound() warning when a
+driver is attached to the GMU.
+
+[Context adapted for Linux 7.3.6 where a6xx_gmu_wrapper_init() assigns
+link = device_link_add(...).]
+
+Fixes: ead5d3e5eb37 ("drm/msm/a6xx: Vote for cx gdsc from gpu driver")
+Signed-off-by: Akhil P Oommen <akhilpo@oss.qualcomm.com>
+Reviewed-by: Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>
+Link: https://github.com/omacom/omarchy-pkgs/blob/master/pkgbuilds/linux-omarchy-aarch64/2170-drm-msm-adreno-a6xx-Mark-cxpd-device_link-as-statele.patch
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ drivers/gpu/drm/msm/adreno/a6xx_gmu.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+index 7eadadb1d..94dec522d 100644
+--- a/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
++++ b/drivers/gpu/drm/msm/adreno/a6xx_gmu.c
+@@ -2366,7 +2366,8 @@ int a6xx_gmu_wrapper_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 		goto err_mmio;
+ 	}
+ 
+-	link = device_link_add(gmu->dev, gmu->cxpd, DL_FLAG_PM_RUNTIME);
++	link = device_link_add(gmu->dev, gmu->cxpd,
++			       DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
+ 	if (!link) {
+ 		ret = -ENODEV;
+ 		goto detach_cxpd;
+@@ -2569,7 +2570,8 @@ int a6xx_gmu_init(struct a6xx_gpu *a6xx_gpu, struct device_node *node)
+ 		goto err_gmu_irq;
+ 	}
+ 
+-	link = device_link_add(gmu->dev, gmu->cxpd, DL_FLAG_PM_RUNTIME);
++	link = device_link_add(gmu->dev, gmu->cxpd,
++			       DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
+ 	if (!link) {
+ 		ret = -ENODEV;
+ 		goto detach_cxpd;

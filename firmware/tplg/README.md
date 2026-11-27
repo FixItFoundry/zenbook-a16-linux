@@ -42,8 +42,10 @@ Fedora and Ubuntu by `packaging/zenbook-a16-hooks/install-hooks.sh` +
 `HDMI0`/`HDMI1`/`HDMI2` on `MM3`/`MM4`/`MM7` (`hw:,2`/`3`/`6`) paired with
 `DP0`/`DP1`/`DP2 Jack` detection (requires kernel patch `0203` for the board
 `dp0`/`dp1`/`dp2-dai-link` nodes). `tweaks/etc/wireplumber/wireplumber.conf.d/51-glymur-ucm.conf`
-scopes the 4-channel upmix rule strictly to `*Speaker*` and uses a 1 s idle
-suspend timeout on `*HDMI*` so switching between DP/HDMI outputs releases the
+scopes the 4-channel upmix rule strictly to `*Speaker*` (with a 2 s idle
+suspend timeout so PipeWire closes `pcm0p` when idle and `zenbook-a16-sleep`
+can runtime-suspend SoundWire before `s2idle`) and uses a 1 s idle suspend
+timeout on `*HDMI*` so switching between DP/HDMI outputs releases the
 previous ADSP graph cleanly. If upgrading from an older `MM2`/`MM4` topology on
 disk, replace the installed `-tplg.bin` at the same time so topology and UCM
 match.

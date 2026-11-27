@@ -6,7 +6,6 @@
 0007-ASoC-codecs-lpass-Make-sure-clk_init_data-is-fully-i.patch
 0009-LOCAL-EXPERIMENT-preserve-test4-SoundWire-compatibil.patch
 0011-ASoC-qdsp6-q6apm-fast-retry-APM_CMD_GET_SPF_STATE-to.patch
-0012-LOCAL-PCI-add-glymur_pci_skip-to-work-around-the-sus.patch
 0013-security-keys-trusted-keys-include-asn1_decoder.h-fo.patch
 0014-soundwire-qcom-cache-SCP_ADDRPAGE1-2-to-preserve-MBQ.patch
 0016-LOCAL-COMPAT-A16-Wi-Fi-and-Bluetooth-power-sequencin.patch
@@ -175,3 +174,10 @@
 0204-PM-devfreq-qcom-scmi-memlat-disable-polling-by-defau.patch
 0205-arm64-dts-qcom-glymur-Restrict-cluster_cl5-idle-stat.patch
 0206-arm64-dts-qcom-glymur-asus-zenbook-a16-Drop-rising-e.patch
+0207-drm-msm-adreno-a6xx-Mark-cxpd-device_link-as-statele.patch
+0208-drm-msm-Centralize-the-standalone-drm-device-check-f.patch
+0209-drm-msm-adreno-Fix-invalid-drvdata-typecast-in-adren.patch
+0210-drm-msm-Always-use-component-model-for-standalone-GP.patch
+0211-drm-msm-Attach-a-driver-to-the-GMU.patch
+0212-drm-msm-keep-the-GMU-optional-and-its-lock-initialis.patch
+0213-arm64-dts-qcom-hamoa-glymur-Disable-the-crypto-engin.patch

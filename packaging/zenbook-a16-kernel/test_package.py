@@ -94,6 +94,10 @@ class Packages(unittest.TestCase):
                 self.assertTrue((roots['support'] / 'usr/share/zenbook-a16/libcamera/ipa/simple/ov02c10.yaml').is_file())
                 self.assertTrue((roots['support'] / 'usr/share/zenbook-a16/libcamera/ipa/simple/hm1092.yaml').is_file())
                 self.assertTrue((roots['support'] / 'usr/share/zenbook-a16/99-glymur-leds.rules').is_file())
+                self.assertTrue((roots['support'] / 'usr/share/zenbook-a16/90-asus-zenbook-a16-power.rules').is_file())
+                self.assertTrue((roots['support'] / 'usr/share/zenbook-a16/zenbook-a16-sleep').is_file())
+                for retired in ('clk_ignore_unused', 'pd_ignore_unused', 'glymur_pci_skip=5'):
+                    self.assertNotIn(retired, data['cmdline'])
                 self.assertTrue((roots['support'] / 'usr/share/alsa/ucm2/conf.d/glymur/GLYMUR-ASUS-Zenbook-A16-UX3607OA.conf').is_file())
                 self.assertTrue((roots['support'] / 'usr/share/alsa/ucm2/conf.d/glymur/ASUSTeKCOMPUTERINC.-ZenbookA16UX3607OA-1.0-UX3607OA.conf').is_symlink())
                 self.assertFalse((roots['support'] / 'usr/lib/firmware').exists())

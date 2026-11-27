@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Birk Skyum <birk.skyum@pm.me>
+Date: Wed, 21 Oct 2026 12:54:33 +0000
+Subject: [PATCH 213/213] arm64: dts: qcom: hamoa, glymur: Disable the crypto
+ engine
+
+Since 7.3 the QCE driver is BROKEN (df373d39c6f0, "crypto: qce - Mark
+QCE as BROKEN"), so nothing binds to the crypto node. fw_devlink still
+counts it as a consumer of the interconnects it names, so on the X1
+aggre2_noc and mc_virt never reach sync_state(). mc_virt then keeps its
+boot-time vote on DDR, and in suspend the SoC never collapses CX or puts
+DDR in self-refresh.
+
+Disable the node on the X1 (hamoa) and the X2 (glymur), whose crypto
+engine names aggre1_noc and mc_virt the same way.
+
+[Context adapted for Linux 7.3.6 hamoa.dtsi QCOM_ICC_TAG_ALWAYS.]
+
+Signed-off-by: Birk Skyum <birk.skyum@pm.me>
+Link: https://github.com/omacom/omarchy-pkgs/blob/master/pkgbuilds/linux-omarchy-aarch64/2210-arm64-dts-qcom-hamoa-glymur-Disable-the-crypto-engine.patch
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+ arch/arm64/boot/dts/qcom/glymur.dtsi | 2 ++
+ arch/arm64/boot/dts/qcom/hamoa.dtsi  | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index bdc61575f..c0522f813 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -4210,6 +4210,8 @@ crypto: crypto@1dfa000 {
+ 			interconnects = <&aggre1_noc MASTER_CRYPTO QCOM_ICC_TAG_ALWAYS
+ 					 &mc_virt SLAVE_EBI1 QCOM_ICC_TAG_ALWAYS>;
+ 			interconnect-names = "memory";
++
++			status = "disabled";
+ 		};
+ 
+ 		tcsr_mutex: hwlock@1f40000 {
+diff --git a/arch/arm64/boot/dts/qcom/hamoa.dtsi b/arch/arm64/boot/dts/qcom/hamoa.dtsi
+index 8a96ea1bd..fb985b256 100644
+--- a/arch/arm64/boot/dts/qcom/hamoa.dtsi
++++ b/arch/arm64/boot/dts/qcom/hamoa.dtsi
+@@ -3971,6 +3971,8 @@ crypto: crypto@1dfa000 {
+ 			interconnects = <&aggre2_noc MASTER_CRYPTO QCOM_ICC_TAG_ALWAYS
+ 					 &mc_virt SLAVE_EBI1 QCOM_ICC_TAG_ALWAYS>;
+ 			interconnect-names = "memory";
++
++			status = "disabled";
+ 		};
+ 
+ 		tcsr_mutex: hwlock@1f40000 {

@@ -14,8 +14,7 @@ import tempfile
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 DTB = 'glymur-asus-zenbook-a16-ux3607oa.dtb'
-CMDLINE = ['clk_ignore_unused', 'pd_ignore_unused', 'cma=128M', 'glymur_pci_skip=5',
-           'selinux=0', 'asus_glymur_ec.fan_profile=2',
+CMDLINE = ['cma=128M', 'selinux=0', 'asus_glymur_ec.fan_profile=2',
            'modprobe.blacklist=i2c_qcom_cci,qcom_camss,ov02c10']
 
 
