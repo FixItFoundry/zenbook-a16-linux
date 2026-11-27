@@ -34,7 +34,7 @@ Subject: [PATCH] Snapshot RC5 source-only build push for Windows WSL
 
 diff --git a/Documentation/devicetree/bindings/media/qcom,glymur-camss.yaml b/Documentation/devicetree/bindings/media/qcom,glymur-camss.yaml
 new file mode 100644
-index 0000000000..a0b77edc21
+index 000000000..a0b77edc2
 --- /dev/null
 +++ b/Documentation/devicetree/bindings/media/qcom,glymur-camss.yaml
 @@ -0,0 +1,300 @@
@@ -340,7 +340,7 @@ index 0000000000..a0b77edc21
 +    };
 diff --git a/Documentation/devicetree/bindings/phy/qcom,x1e80100-csi2-phy.yaml b/Documentation/devicetree/bindings/phy/qcom,x1e80100-csi2-phy.yaml
 new file mode 100644
-index 0000000000..1f1e2a4993
+index 000000000..1f1e2a499
 --- /dev/null
 +++ b/Documentation/devicetree/bindings/phy/qcom,x1e80100-csi2-phy.yaml
 @@ -0,0 +1,213 @@
@@ -558,7 +558,7 @@ index 0000000000..1f1e2a4993
 +        };
 +    };
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 782389bd5c..663be6c55d 100644
+index 782389bd5..663be6c55 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
 @@ -22553,6 +22553,16 @@ S:	Maintained
@@ -578,83 +578,8 @@ index 782389bd5c..663be6c55d 100644
  QUALCOMM NAND CONTROLLER DRIVER
  M:	Manivannan Sadhasivam <mani@kernel.org>
  L:	linux-mtd@lists.infradead.org
-diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
-index fbbc82550c..c947dc737a 100644
---- a/arch/arm64/boot/dts/qcom/glymur.dtsi
-+++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
-@@ -4618,6 +4618,8 @@ &mc_virt SLAVE_EBI1 QCOM_ICC_TAG_ALWAYS>,
- 			usb-role-switch;
- 			wakeup-source;
- 
-+			dma-coherent;
-+
- 			status = "disabled";
- 
- 			ports {
-@@ -4706,6 +4708,8 @@ &mc_virt SLAVE_EBI1 QCOM_ICC_TAG_ALWAYS>,
- 			usb-role-switch;
- 			wakeup-source;
- 
-+			dma-coherent;
-+
- 			status = "disabled";
- 
- 			ports {
-@@ -4794,6 +4798,8 @@ &mc_virt SLAVE_EBI1 QCOM_ICC_TAG_ALWAYS>,
- 			usb-role-switch;
- 			wakeup-source;
- 
-+			dma-coherent;
-+
- 			status = "disabled";
- 
- 			ports {
-@@ -4884,6 +4890,8 @@ &mc_virt SLAVE_EBI1 QCOM_ICC_TAG_ALWAYS>,
- 			usb-role-switch;
- 			wakeup-source;
- 
-+			dma-coherent;
-+
- 			status = "disabled";
- 		};
- 
-@@ -4968,6 +4976,8 @@ &mc_virt SLAVE_EBI1 QCOM_ICC_TAG_ALWAYS>,
- 			dr_mode = "host";
- 			wakeup-source;
- 
-+			dma-coherent;
-+
- 			status = "disabled";
- 		};
- 
-diff --git a/drivers/gpu/drm/msm/dp/dp_ctrl.c b/drivers/gpu/drm/msm/dp/dp_ctrl.c
-index 09bdd0aac8..6d1f4bf671 100644
---- a/drivers/gpu/drm/msm/dp/dp_ctrl.c
-+++ b/drivers/gpu/drm/msm/dp/dp_ctrl.c
-@@ -2463,6 +2463,9 @@ int msm_dp_ctrl_on_link(struct msm_dp_ctrl *msm_dp_ctrl,
- 	if (ctrl->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN)
- 		return rc;
- 
-+	if (!link_train_max_retries)
-+		rc = -ETIMEDOUT;
-+
- 	if (rc == 0) {  /* link train successfully */
- 		/*
- 		 * do not stop train pattern here
-diff --git a/drivers/gpu/drm/msm/dp/dp_debug.c b/drivers/gpu/drm/msm/dp/dp_debug.c
-index cf3838fcd1..00fb1a7ba4 100644
---- a/drivers/gpu/drm/msm/dp/dp_debug.c
-+++ b/drivers/gpu/drm/msm/dp/dp_debug.c
-@@ -216,6 +216,7 @@ int msm_dp_debug_init(struct device *dev, struct msm_dp_panel *panel,
- 
- 	debug->link = link;
- 	debug->panel = panel;
-+	debug->connector = connector;
- 
- 	debugfs_create_file("dp_debug", 0444, root,
- 			debug, &msm_dp_debug_fops);
 diff --git a/drivers/gpu/drm/msm/dp/dp_display.c b/drivers/gpu/drm/msm/dp/dp_display.c
-index 4dcbd9b99d..3ca039ff57 100644
+index 4dcbd9b99..3ca039ff5 100644
 --- a/drivers/gpu/drm/msm/dp/dp_display.c
 +++ b/drivers/gpu/drm/msm/dp/dp_display.c
 @@ -450,6 +450,8 @@ static int msm_dp_hpd_unplug_handle(struct msm_dp_display_private *dp)
@@ -684,7 +609,7 @@ index 4dcbd9b99d..3ca039ff57 100644
  	drm_dbg_dp(dp->drm_dev, "Before, type=%d, sink_count=%d\n",
  			dp->msm_dp_display.connector_type,
 diff --git a/drivers/i2c/busses/Kconfig b/drivers/i2c/busses/Kconfig
-index d7b8950831..14eb7e802b 100644
+index d7b895083..14eb7e802 100644
 --- a/drivers/i2c/busses/Kconfig
 +++ b/drivers/i2c/busses/Kconfig
 @@ -1050,6 +1050,7 @@ config I2C_PXA_SLAVE
@@ -696,7 +621,7 @@ index d7b8950831..14eb7e802b 100644
  	  If you say yes to this option, support will be included for the
  	  built-in camera control interface on the Qualcomm SoCs.
 diff --git a/drivers/i2c/busses/i2c-qcom-cci.c b/drivers/i2c/busses/i2c-qcom-cci.c
-index bd70c6bae5..da4bdc4b0d 100644
+index bd70c6bae..da4bdc4b0 100644
 --- a/drivers/i2c/busses/i2c-qcom-cci.c
 +++ b/drivers/i2c/busses/i2c-qcom-cci.c
 @@ -11,6 +11,7 @@
@@ -1134,7 +1059,7 @@ index bd70c6bae5..da4bdc4b0d 100644
  	{ .compatible = "qcom,msm8996-cci", .data = &cci_v2_data},
  
 diff --git a/drivers/media/i2c/ov02c10.c b/drivers/media/i2c/ov02c10.c
-index cf93d36032..b36da75d7d 100644
+index cf93d3603..b36da75d7 100644
 --- a/drivers/media/i2c/ov02c10.c
 +++ b/drivers/media/i2c/ov02c10.c
 @@ -18,8 +18,8 @@
@@ -1149,7 +1074,7 @@ index cf93d36032..b36da75d7d 100644
  #define OV02C10_REG_STREAM_CONTROL	CCI_REG8(0x0100)
  
 diff --git a/drivers/media/platform/qcom/camss/Kconfig b/drivers/media/platform/qcom/camss/Kconfig
-index 4eda48cb1a..b51745c942 100644
+index 4eda48cb1..b51745c94 100644
 --- a/drivers/media/platform/qcom/camss/Kconfig
 +++ b/drivers/media/platform/qcom/camss/Kconfig
 @@ -7,3 +7,5 @@ config VIDEO_QCOM_CAMSS
@@ -1159,7 +1084,7 @@ index 4eda48cb1a..b51745c942 100644
 +	select GENERIC_PHY
 +	imply PHY_QCOM_MIPI_CSI2
 diff --git a/drivers/media/platform/qcom/camss/camss-csiphy.c b/drivers/media/platform/qcom/camss/camss-csiphy.c
-index 539ac4888b..aaed7d0309 100644
+index 539ac4888..aaed7d030 100644
 --- a/drivers/media/platform/qcom/camss/camss-csiphy.c
 +++ b/drivers/media/platform/qcom/camss/camss-csiphy.c
 @@ -13,6 +13,8 @@
@@ -1478,7 +1403,7 @@ index 539ac4888b..aaed7d0309 100644
  	media_entity_cleanup(&csiphy->subdev.entity);
  }
 diff --git a/drivers/media/platform/qcom/camss/camss-csiphy.h b/drivers/media/platform/qcom/camss/camss-csiphy.h
-index 9d9657b82f..8c3319f2ca 100644
+index 9d9657b82..8c3319f2c 100644
 --- a/drivers/media/platform/qcom/camss/camss-csiphy.h
 +++ b/drivers/media/platform/qcom/camss/camss-csiphy.h
 @@ -12,6 +12,7 @@
@@ -1529,10 +1454,10 @@ index 9d9657b82f..8c3319f2ca 100644
  int msm_csiphy_register_entity(struct csiphy_device *csiphy,
  			       struct v4l2_device *v4l2_dev);
 diff --git a/drivers/media/platform/qcom/camss/camss.c b/drivers/media/platform/qcom/camss/camss.c
-index 2123f6388e..3762512313 100644
+index 68491b16d..b9dfb1769 100644
 --- a/drivers/media/platform/qcom/camss/camss.c
 +++ b/drivers/media/platform/qcom/camss/camss.c
-@@ -4734,16 +4734,18 @@ static const struct parent_dev_ops vfe_parent_dev_ops = {
+@@ -4739,16 +4739,18 @@ static const struct parent_dev_ops vfe_parent_dev_ops = {
  
  /*
   * camss_parse_endpoint_node - Parse port endpoint node
@@ -1554,7 +1479,7 @@ index 2123f6388e..3762512313 100644
  	struct csiphy_lanes_cfg *lncfg = &csd->interface.csi2.lane_cfg;
  	struct v4l2_mbus_config_mipi_csi2 *mipi_csi2;
  	struct v4l2_fwnode_endpoint vep = { { 0 } };
-@@ -4763,6 +4765,11 @@ static int camss_parse_endpoint_node(struct device *dev,
+@@ -4768,6 +4770,11 @@ static int camss_parse_endpoint_node(struct device *dev,
  		return -EINVAL;
  	}
  
@@ -1566,7 +1491,7 @@ index 2123f6388e..3762512313 100644
  	csd->interface.csiphy_id = vep.base.port;
  
  	mipi_csi2 = &vep.bus.mipi_csi2;
-@@ -4777,7 +4784,14 @@ static int camss_parse_endpoint_node(struct device *dev,
+@@ -4782,7 +4789,14 @@ static int camss_parse_endpoint_node(struct device *dev,
  		return -ENOMEM;
  
  	for (i = 0; i < lncfg->num_data; i++) {
@@ -1582,7 +1507,7 @@ index 2123f6388e..3762512313 100644
  		lncfg->data[i].pol = mipi_csi2->lane_polarities[i + 1];
  	}
  
-@@ -4793,30 +4807,78 @@ static int camss_parse_endpoint_node(struct device *dev,
+@@ -4798,30 +4812,78 @@ static int camss_parse_endpoint_node(struct device *dev,
  static int camss_parse_ports(struct camss *camss)
  {
  	struct device *dev = camss->dev;
@@ -1673,7 +1598,7 @@ index 2123f6388e..3762512313 100644
  }
  
  /*
-@@ -4832,14 +4894,21 @@ static int camss_init_subdevices(struct camss *camss)
+@@ -4837,14 +4899,21 @@ static int camss_init_subdevices(struct camss *camss)
  	unsigned int i;
  	int ret;
  
@@ -1701,7 +1626,7 @@ index 2123f6388e..3762512313 100644
  			return ret;
  		}
  	}
-@@ -4917,6 +4986,11 @@ inline void camss_link_err(struct camss *camss,
+@@ -4922,6 +4991,11 @@ inline void camss_link_err(struct camss *camss,
  		ret);
  }
  
@@ -1713,7 +1638,7 @@ index 2123f6388e..3762512313 100644
  /*
   * camss_link_entities - Register subdev nodes and create links
   * @camss: CAMSS device
-@@ -4930,6 +5004,9 @@ static int camss_link_entities(struct camss *camss)
+@@ -4935,6 +5009,9 @@ static int camss_link_entities(struct camss *camss)
  
  	for (i = 0; i < camss->res->csiphy_num; i++) {
  		for (j = 0; j < camss->res->csid_num; j++) {
@@ -1723,7 +1648,7 @@ index 2123f6388e..3762512313 100644
  			ret = media_create_pad_link(&camss->csiphy[i].subdev.entity,
  						    MSM_CSIPHY_PAD_SRC,
  						    &camss->csid[j].subdev.entity,
-@@ -5056,6 +5133,9 @@ static int camss_register_entities(struct camss *camss)
+@@ -5061,6 +5138,9 @@ static int camss_register_entities(struct camss *camss)
  	int ret;
  
  	for (i = 0; i < camss->res->csiphy_num; i++) {
@@ -1733,7 +1658,7 @@ index 2123f6388e..3762512313 100644
  		ret = msm_csiphy_register_entity(&camss->csiphy[i],
  						 &camss->v4l2_dev);
  		if (ret < 0) {
-@@ -5131,8 +5211,10 @@ static int camss_register_entities(struct camss *camss)
+@@ -5136,8 +5216,10 @@ static int camss_register_entities(struct camss *camss)
  
  	i = camss->res->csiphy_num;
  err_reg_csiphy:
@@ -1746,7 +1671,7 @@ index 2123f6388e..3762512313 100644
  
  	return ret;
  }
-@@ -5147,8 +5229,10 @@ static void camss_unregister_entities(struct camss *camss)
+@@ -5152,8 +5234,10 @@ static void camss_unregister_entities(struct camss *camss)
  {
  	unsigned int i;
  
@@ -1759,7 +1684,7 @@ index 2123f6388e..3762512313 100644
  
  	if (camss->tpg) {
  		for (i = 0; i < camss->res->tpg_num; i++)
-@@ -5758,6 +5842,7 @@ static const struct of_device_id camss_dt_match[] = {
+@@ -5763,6 +5847,7 @@ static const struct of_device_id camss_dt_match[] = {
  	{ .compatible = "qcom,sm8550-camss", .data = &sm8550_resources },
  	{ .compatible = "qcom,sm8650-camss", .data = &sm8650_resources },
  	{ .compatible = "qcom,x1e80100-camss", .data = &x1e80100_resources },
@@ -1768,7 +1693,7 @@ index 2123f6388e..3762512313 100644
  };
  
 diff --git a/drivers/media/platform/qcom/camss/camss.h b/drivers/media/platform/qcom/camss/camss.h
-index 93d691c8ac..ba3d51d9c0 100644
+index 93d691c8a..ba3d51d9c 100644
 --- a/drivers/media/platform/qcom/camss/camss.h
 +++ b/drivers/media/platform/qcom/camss/camss.h
 @@ -138,6 +138,7 @@ struct camss {
@@ -1780,25 +1705,9 @@ index 93d691c8ac..ba3d51d9c0 100644
  
  struct camss_camera_interface {
 diff --git a/drivers/phy/phy-core.c b/drivers/phy/phy-core.c
-index 21aaf2f76e..597e6b234f 100644
+index 89addd732..597e6b234 100644
 --- a/drivers/phy/phy-core.c
 +++ b/drivers/phy/phy-core.c
-@@ -124,13 +124,13 @@ static struct phy *phy_find(struct device *dev, const char *con_id)
- 	const char *dev_id = dev_name(dev);
- 	struct phy_lookup *p, *pl = NULL;
- 
--	mutex_lock(&phy_provider_mutex);
-+	lockdep_assert_held(&phy_provider_mutex);
-+
- 	list_for_each_entry(p, &phys, node)
- 		if (!strcmp(p->dev_id, dev_id) && !strcmp(p->con_id, con_id)) {
- 			pl = p;
- 			break;
- 		}
--	mutex_unlock(&phy_provider_mutex);
- 
- 	return pl ? pl->phy : ERR_PTR(-ENODEV);
- }
 @@ -606,12 +606,44 @@ int phy_validate(struct phy *phy, enum phy_mode mode, int submode,
  }
  EXPORT_SYMBOL_GPL(phy_validate);
@@ -1845,7 +1754,7 @@ index 21aaf2f76e..597e6b234f 100644
   * after getting a refcount to it or -ENODEV if there is no such phy or
   * -EPROBE_DEFER if there is a phandle to the phy, but the device is
   * not yet loaded. This function uses of_xlate call back function provided
-@@ -620,10 +652,11 @@ EXPORT_SYMBOL_GPL(phy_validate);
+@@ -620,8 +652,7 @@ EXPORT_SYMBOL_GPL(phy_validate);
  static struct phy *_of_phy_get(struct device_node *np, int index)
  {
  	int ret;
@@ -1854,20 +1763,15 @@ index 21aaf2f76e..597e6b234f 100644
 +	struct phy *phy;
  	struct of_phandle_args args;
  
-+	lockdep_assert_held(&phy_provider_mutex);
-+
- 	ret = of_parse_phandle_with_args(np, "phys", "#phy-cells",
- 		index, &args);
- 	if (ret)
-@@ -635,26 +668,8 @@ static struct phy *_of_phy_get(struct device_node *np, int index)
+ 	lockdep_assert_held(&phy_provider_mutex);
+@@ -637,22 +668,7 @@ static struct phy *_of_phy_get(struct device_node *np, int index)
  		goto out_put_node;
  	}
  
--	mutex_lock(&phy_provider_mutex);
 -	phy_provider = of_phy_provider_lookup(args.np);
 -	if (IS_ERR(phy_provider) || !try_module_get(phy_provider->owner)) {
 -		phy = ERR_PTR(-EPROBE_DEFER);
--		goto out_unlock;
+-		goto out_put_node;
 -	}
 -
 -	if (!of_device_is_available(args.np)) {
@@ -1882,12 +1786,9 @@ index 21aaf2f76e..597e6b234f 100644
 -	module_put(phy_provider->owner);
 +	phy = _of_phy_get_with_args(&args);
  
--out_unlock:
--	mutex_unlock(&phy_provider_mutex);
  out_put_node:
  	of_node_put(args.np);
- 
-@@ -666,7 +681,7 @@ static struct phy *_of_phy_get(struct device_node *np, int index)
+@@ -665,7 +681,7 @@ static struct phy *_of_phy_get(struct device_node *np, int index)
   * @np: device_node for which to get the phy
   * @con_id: name of the phy from device's point of view
   *
@@ -1896,32 +1797,7 @@ index 21aaf2f76e..597e6b234f 100644
   * -ENODEV if there is no such phy. The caller is responsible for
   * calling of_phy_put() to release that count.
   */
-@@ -678,15 +693,21 @@ struct phy *of_phy_get(struct device_node *np, const char *con_id)
- 	if (con_id)
- 		index = of_property_match_string(np, "phy-names", con_id);
- 
-+	mutex_lock(&phy_provider_mutex);
-+
- 	phy = _of_phy_get(np, index);
- 	if (IS_ERR(phy))
--		return phy;
-+		goto out_unlock;
- 
--	if (!try_module_get(phy->ops->owner))
--		return ERR_PTR(-EPROBE_DEFER);
-+	if (!try_module_get(phy->ops->owner)) {
-+		phy = ERR_PTR(-EPROBE_DEFER);
-+		goto out_unlock;
-+	}
- 
- 	get_device(&phy->dev);
- 
-+out_unlock:
-+	mutex_unlock(&phy_provider_mutex);
- 	return phy;
- }
- EXPORT_SYMBOL_GPL(of_phy_get);
-@@ -776,7 +797,7 @@ EXPORT_SYMBOL_GPL(of_phy_simple_xlate);
+@@ -781,7 +797,7 @@ EXPORT_SYMBOL_GPL(of_phy_simple_xlate);
   * @string: the phy name as given in the dt data or the name of the controller
   * port for non-dt case
   *
@@ -1930,73 +1806,7 @@ index 21aaf2f76e..597e6b234f 100644
   * -ENODEV if there is no such phy.  The caller is responsible for
   * calling phy_put() to release that count.
   */
-@@ -786,6 +807,7 @@ struct phy *phy_get(struct device *dev, const char *string)
- 	struct phy *phy;
- 	struct device_link *link;
- 
-+	mutex_lock(&phy_provider_mutex);
- 	if (dev->of_node) {
- 		if (string)
- 			index = of_property_match_string(dev->of_node, "phy-names",
-@@ -796,15 +818,18 @@ struct phy *phy_get(struct device *dev, const char *string)
- 	} else {
- 		if (string == NULL) {
- 			dev_WARN(dev, "missing string\n");
--			return ERR_PTR(-EINVAL);
-+			phy = ERR_PTR(-EINVAL);
-+			goto out_unlock;
- 		}
- 		phy = phy_find(dev, string);
- 	}
- 	if (IS_ERR(phy))
--		return phy;
-+		goto out_unlock;
- 
--	if (!try_module_get(phy->ops->owner))
--		return ERR_PTR(-EPROBE_DEFER);
-+	if (!try_module_get(phy->ops->owner)) {
-+		phy = ERR_PTR(-EPROBE_DEFER);
-+		goto out_unlock;
-+	}
- 
- 	get_device(&phy->dev);
- 
-@@ -813,6 +838,8 @@ struct phy *phy_get(struct device *dev, const char *string)
- 		dev_dbg(dev, "failed to create device link to %s\n",
- 			dev_name(phy->dev.parent));
- 
-+out_unlock:
-+	mutex_unlock(&phy_provider_mutex);
- 	return phy;
- }
- EXPORT_SYMBOL_GPL(phy_get);
-@@ -961,15 +988,17 @@ struct phy *devm_of_phy_get_by_index(struct device *dev, struct device_node *np,
- 	if (!ptr)
- 		return ERR_PTR(-ENOMEM);
- 
-+	mutex_lock(&phy_provider_mutex);
- 	phy = _of_phy_get(np, index);
- 	if (IS_ERR(phy)) {
- 		devres_free(ptr);
--		return phy;
-+		goto out_unlock;
- 	}
- 
- 	if (!try_module_get(phy->ops->owner)) {
- 		devres_free(ptr);
--		return ERR_PTR(-EPROBE_DEFER);
-+		phy = ERR_PTR(-EPROBE_DEFER);
-+		goto out_unlock;
- 	}
- 
- 	get_device(&phy->dev);
-@@ -982,10 +1011,77 @@ struct phy *devm_of_phy_get_by_index(struct device *dev, struct device_node *np,
- 		dev_dbg(dev, "failed to create device link to %s\n",
- 			dev_name(phy->dev.parent));
- 
-+out_unlock:
-+	mutex_unlock(&phy_provider_mutex);
- 	return phy;
+@@ -1001,6 +1017,71 @@ struct phy *devm_of_phy_get_by_index(struct device *dev, struct device_node *np,
  }
  EXPORT_SYMBOL_GPL(devm_of_phy_get_by_index);
  
@@ -2069,7 +1879,7 @@ index 21aaf2f76e..597e6b234f 100644
   * phy_create() - create a new phy
   * @dev: device that is creating the new phy
 diff --git a/drivers/phy/qualcomm/Kconfig b/drivers/phy/qualcomm/Kconfig
-index d910a5d1a1..d802e63ad7 100644
+index 9113e1099..204b81ca6 100644
 --- a/drivers/phy/qualcomm/Kconfig
 +++ b/drivers/phy/qualcomm/Kconfig
 @@ -28,6 +28,21 @@ config PHY_QCOM_EDP
@@ -2095,7 +1905,7 @@ index d910a5d1a1..d802e63ad7 100644
  	tristate "Qualcomm IPQ4019 USB PHY driver"
  	depends on OF && (ARCH_QCOM || COMPILE_TEST)
 diff --git a/drivers/phy/qualcomm/Makefile b/drivers/phy/qualcomm/Makefile
-index 8bf887d58e..4b5e6640a6 100644
+index 8bf887d58..4b5e6640a 100644
 --- a/drivers/phy/qualcomm/Makefile
 +++ b/drivers/phy/qualcomm/Makefile
 @@ -6,6 +6,11 @@ obj-$(CONFIG_PHY_QCOM_IPQ4019_USB)	+= phy-qcom-ipq4019-usb.o
@@ -2112,7 +1922,7 @@ index 8bf887d58e..4b5e6640a6 100644
  obj-$(CONFIG_PHY_QCOM_QMP_COMBO)	+= phy-qcom-qmp-combo.o phy-qcom-qmp-usbc.o
 diff --git a/drivers/phy/qualcomm/phy-qcom-mipi-csi2-3ph-dphy.c b/drivers/phy/qualcomm/phy-qcom-mipi-csi2-3ph-dphy.c
 new file mode 100644
-index 0000000000..966d79c98f
+index 000000000..966d79c98
 --- /dev/null
 +++ b/drivers/phy/qualcomm/phy-qcom-mipi-csi2-3ph-dphy.c
 @@ -0,0 +1,385 @@
@@ -2503,7 +2313,7 @@ index 0000000000..966d79c98f
 +};
 diff --git a/drivers/phy/qualcomm/phy-qcom-mipi-csi2-core.c b/drivers/phy/qualcomm/phy-qcom-mipi-csi2-core.c
 new file mode 100644
-index 0000000000..c0a4fa20ea
+index 000000000..c0a4fa20e
 --- /dev/null
 +++ b/drivers/phy/qualcomm/phy-qcom-mipi-csi2-core.c
 @@ -0,0 +1,463 @@
@@ -2972,7 +2782,7 @@ index 0000000000..c0a4fa20ea
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/phy/qualcomm/phy-qcom-mipi-csi2.h b/drivers/phy/qualcomm/phy-qcom-mipi-csi2.h
 new file mode 100644
-index 0000000000..7e55ae0073
+index 000000000..7e55ae007
 --- /dev/null
 +++ b/drivers/phy/qualcomm/phy-qcom-mipi-csi2.h
 @@ -0,0 +1,97 @@
@@ -3074,7 +2884,7 @@ index 0000000000..7e55ae0073
 +
 +#endif /* __PHY_QCOM_MIPI_CSI2_H__ */
 diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
-index c39ced168d..995f9981fd 100644
+index c39ced168..995f9981f 100644
 --- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
 +++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
 @@ -4113,7 +4113,8 @@ static int qmp_combo_com_init(struct qmp_combo *qmp, bool force)
@@ -3105,7 +2915,7 @@ index c39ced168d..995f9981fd 100644
  	return ret;
  }
 diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
-index 9d39f298e0..5f4f4fca2c 100644
+index 9d39f298e..5f4f4fca2 100644
 --- a/drivers/soundwire/qcom.c
 +++ b/drivers/soundwire/qcom.c
 @@ -1492,8 +1492,10 @@ static int qcom_swrm_startup(struct snd_pcm_substream *substream,
@@ -3141,7 +2951,7 @@ index 9d39f298e0..5f4f4fca2c 100644
  	ret = 0;
  unlock:
 diff --git a/include/linux/phy/phy.h b/include/linux/phy/phy.h
-index ea47975e28..14b924a884 100644
+index ea47975e2..14b924a88 100644
 --- a/include/linux/phy/phy.h
 +++ b/include/linux/phy/phy.h
 @@ -284,6 +284,8 @@ struct phy *devm_of_phy_optional_get(struct device *dev, struct device_node *np,
@@ -3172,7 +2982,7 @@ index ea47975e28..14b924a884 100644
  {
  }
 diff --git a/include/linux/property.h b/include/linux/property.h
-index 907c790a3f..9143fe4f5c 100644
+index 907c790a3..9143fe4f5 100644
 --- a/include/linux/property.h
 +++ b/include/linux/property.h
 @@ -547,6 +547,11 @@ unsigned int fwnode_graph_get_endpoint_count(const struct fwnode_handle *fwnode,

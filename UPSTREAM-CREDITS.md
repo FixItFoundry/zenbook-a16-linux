@@ -24,6 +24,11 @@ new fixes (`0112`–`0143`) from in-repo overlays, LKML, `qcom-next`, and
 overlap), plus the November 12 RPMh/RTC fixes (`0144`–`0146`) and nine carried-forward patches (`0147`–`0155`). Its [patch map](patches/stable/port-map.json) preserves original
 provenance and authorship trailers on every patch.
 
+## November 27, 2026 — Linux 7.3.6 fast-forward, DP/HDMI audio, and Omarchy power/sleep fixes (`0203`–`0206`)
+
+- **SCMI `memlat` polling disable, `cluster_cl5` s2idle guard, lid wakeup fix, and userspace power/sleep rules (`0204`–`0206`, `tweaks/etc/udev/rules.d/90-asus-zenbook-a16-power.rules`, `tweaks/usr/lib/systemd/system-sleep/zenbook-a16-sleep`)**: **David Heinemeier Hansson (Omarchy)** via [`omacom/omarchy-pkgs#3689`](https://github.com/omacom/omarchy-pkgs/pull/3689), [`#3690`](https://github.com/omacom/omarchy-pkgs/pull/3690), [`#3738`](https://github.com/omacom/omarchy-pkgs/pull/3738), and [`#3740`](https://github.com/omacom/omarchy-pkgs/pull/3740). Kernel patches retain original authorship; `zenbook-a16-sleep` adds a cross-distro `rfkill` path lookup for Fedora/Ubuntu.
+- **DisplayPort/HDMI audio DAI links (`0203`)**: local board DTS patch by Jesse Casco matching upstream `linux-msm/audioreach-topology` (`31eaaac0`, **Srinivas Kandagatla**) and aligned with the DP audio bindings discussed in [`omacom/omarchy-pkgs#3579`](https://github.com/omacom/omarchy-pkgs/pull/3579) (**Roman Stingler**) and Srinivas Kandagatla's upstream A16 audio series (`20261127155520.358909-7-srinivas.kandagatla@oss.qualcomm.com`).
+
 ## November 27, 2026 — External displays, openSUSE carry-overs, and `iris` video (`0162`–`0202`)
 
 - **Glymur DP PHY v8 series (`0162`–`0169`, `FROMLIST`)**: **Ritesh Kumar**, v4 series (`phy: qualcomm: qmp-combo` Glymur v8 DP PHY PLL/PCS programming).

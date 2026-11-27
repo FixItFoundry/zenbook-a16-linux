@@ -38,7 +38,7 @@ Signed-off-by: Kamal Wadhwa <kamal.wadhwa@oss.qualcomm.com>
  1 file changed, 471 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/power/supply/qcom_battmgr.c b/drivers/power/supply/qcom_battmgr.c
-index 0d38744eee..e7b852b616 100644
+index 24a922079..7f4e2708f 100644
 --- a/drivers/power/supply/qcom_battmgr.c
 +++ b/drivers/power/supply/qcom_battmgr.c
 @@ -27,6 +27,8 @@ enum qcom_battmgr_variant {
@@ -105,16 +105,8 @@ index 0d38744eee..e7b852b616 100644
  	struct work_struct enable_work;
  
  	/*
-@@ -830,6 +850,7 @@ static const enum power_supply_property x1e80100_bat_props[] = {
- 	POWER_SUPPLY_PROP_STATUS,
- 	POWER_SUPPLY_PROP_PRESENT,
- 	POWER_SUPPLY_PROP_TECHNOLOGY,
-+	POWER_SUPPLY_PROP_CAPACITY,
- 	POWER_SUPPLY_PROP_CYCLE_COUNT,
- 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
- 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
-@@ -978,6 +999,16 @@ static const u8 sm8350_usb_prop_map[] = {
- 	[POWER_SUPPLY_PROP_USB_TYPE] = USB_TYPE,
+@@ -979,6 +999,16 @@ static const u8 sm8350_usb_prop_map[] = {
+ 	[POWER_SUPPLY_PROP_USB_TYPE] = USB_ADAP_TYPE,
  };
  
 +static const u8 x1e80100_usb_prop_map[] = {
@@ -130,7 +122,7 @@ index 0d38744eee..e7b852b616 100644
  static int qcom_battmgr_usb_sm8350_update(struct qcom_battmgr *battmgr,
  					  enum power_supply_property psp)
  {
-@@ -996,6 +1027,24 @@ static int qcom_battmgr_usb_sm8350_update(struct qcom_battmgr *battmgr,
+@@ -997,6 +1027,24 @@ static int qcom_battmgr_usb_sm8350_update(struct qcom_battmgr *battmgr,
  	return ret;
  }
  
@@ -155,7 +147,7 @@ index 0d38744eee..e7b852b616 100644
  static int qcom_battmgr_usb_get_property(struct power_supply *psy,
  					 enum power_supply_property psp,
  					 union power_supply_propval *val)
-@@ -1006,8 +1055,7 @@ static int qcom_battmgr_usb_get_property(struct power_supply *psy,
+@@ -1007,8 +1055,7 @@ static int qcom_battmgr_usb_get_property(struct power_supply *psy,
  	if (!battmgr->service_up)
  		return -EAGAIN;
  
@@ -165,7 +157,7 @@ index 0d38744eee..e7b852b616 100644
  		ret = qcom_battmgr_bat_sc8280xp_update(battmgr, psp);
  	else
  		ret = qcom_battmgr_usb_sm8350_update(battmgr, psp);
-@@ -1043,8 +1091,179 @@ static int qcom_battmgr_usb_get_property(struct power_supply *psy,
+@@ -1044,8 +1091,179 @@ static int qcom_battmgr_usb_get_property(struct power_supply *psy,
  	return 0;
  }
  
@@ -345,7 +337,7 @@ index 0d38744eee..e7b852b616 100644
  };
  
  static const struct power_supply_desc sc8280xp_usb_psy_desc = {
-@@ -1065,6 +1284,60 @@ static const struct power_supply_desc sc8280xp_usb_psy_desc = {
+@@ -1066,6 +1284,60 @@ static const struct power_supply_desc sc8280xp_usb_psy_desc = {
  		     BIT(POWER_SUPPLY_USB_TYPE_APPLE_BRICK_ID),
  };
  
@@ -406,7 +398,7 @@ index 0d38744eee..e7b852b616 100644
  static const enum power_supply_property sm8350_usb_props[] = {
  	POWER_SUPPLY_PROP_ONLINE,
  	POWER_SUPPLY_PROP_VOLTAGE_NOW,
-@@ -1213,6 +1486,10 @@ static void qcom_battmgr_notification(struct qcom_battmgr *battmgr,
+@@ -1214,6 +1486,10 @@ static void qcom_battmgr_notification(struct qcom_battmgr *battmgr,
  		break;
  	case NOTIF_USB_PROPERTY:
  		power_supply_changed(battmgr->usb_psy);
@@ -417,15 +409,15 @@ index 0d38744eee..e7b852b616 100644
  		break;
  	case NOTIF_WLS_PROPERTY:
  		power_supply_changed(battmgr->wls_psy);
-@@ -1261,6 +1538,7 @@ static void qcom_battmgr_sc8280xp_callback(struct qcom_battmgr *battmgr,
- 	unsigned int opcode = le32_to_cpu(resp->hdr.opcode);
+@@ -1280,6 +1556,7 @@ static void qcom_battmgr_sc8280xp_callback(struct qcom_battmgr *battmgr,
+ 	unsigned int power_state;
  	unsigned int source;
  	unsigned int state;
 +	unsigned int property;
  	size_t payload_len = len - sizeof(struct pmic_glink_hdr);
  
  	if (payload_len < sizeof(__le32)) {
-@@ -1356,6 +1634,124 @@ static void qcom_battmgr_sc8280xp_callback(struct qcom_battmgr *battmgr,
+@@ -1383,6 +1660,124 @@ static void qcom_battmgr_sc8280xp_callback(struct qcom_battmgr *battmgr,
  	case BATTMGR_CHG_CTRL_LIMIT_EN:
  		battmgr->error = 0;
  		break;
@@ -550,7 +542,7 @@ index 0d38744eee..e7b852b616 100644
  	default:
  		dev_warn(battmgr->dev, "unknown message %#x\n", opcode);
  		break;
-@@ -1584,6 +1980,8 @@ static void qcom_battmgr_callback(const void *data, size_t len, void *priv)
+@@ -1611,6 +2006,8 @@ static void qcom_battmgr_callback(const void *data, size_t len, void *priv)
  		qcom_battmgr_sm8350_callback(battmgr, data, len);
  }
  
@@ -559,7 +551,7 @@ index 0d38744eee..e7b852b616 100644
  static void qcom_battmgr_enable_worker(struct work_struct *work)
  {
  	struct qcom_battmgr *battmgr = container_of(work, struct qcom_battmgr, enable_work);
-@@ -1592,13 +1990,55 @@ static void qcom_battmgr_enable_worker(struct work_struct *work)
+@@ -1619,13 +2016,55 @@ static void qcom_battmgr_enable_worker(struct work_struct *work)
  		.hdr.type = cpu_to_le32(PMIC_GLINK_NOTIFY),
  		.hdr.opcode = cpu_to_le32(BATTMGR_REQUEST_NOTIFICATION),
  	};
@@ -615,7 +607,7 @@ index 0d38744eee..e7b852b616 100644
  }
  
  static void qcom_battmgr_pdr_notify(void *priv, int state)
-@@ -1624,8 +2064,6 @@ static const struct of_device_id qcom_battmgr_of_variants[] = {
+@@ -1651,8 +2090,6 @@ static const struct of_device_id qcom_battmgr_of_variants[] = {
  	{}
  };
  
@@ -624,7 +616,7 @@ index 0d38744eee..e7b852b616 100644
  static int qcom_battmgr_probe(struct auxiliary_device *adev,
  			      const struct auxiliary_device_id *id)
  {
-@@ -1651,6 +2089,8 @@ static int qcom_battmgr_probe(struct auxiliary_device *adev,
+@@ -1678,6 +2115,8 @@ static int qcom_battmgr_probe(struct auxiliary_device *adev,
  	psy_cfg_supply.supplied_to = qcom_battmgr_battery;
  	psy_cfg_supply.num_supplicants = 1;
  
@@ -633,7 +625,7 @@ index 0d38744eee..e7b852b616 100644
  	mutex_init(&battmgr->lock);
  	init_completion(&battmgr->ack);
  
-@@ -1665,14 +2105,9 @@ static int qcom_battmgr_probe(struct auxiliary_device *adev,
+@@ -1692,14 +2131,9 @@ static int qcom_battmgr_probe(struct auxiliary_device *adev,
  		return dev_err_probe(dev, ret,
  				     "failed to init battery charge control thresholds\n");
  
@@ -651,7 +643,7 @@ index 0d38744eee..e7b852b616 100644
  		if (IS_ERR(battmgr->bat_psy))
  			return dev_err_probe(dev, PTR_ERR(battmgr->bat_psy),
  					     "failed to register battery power supply\n");
-@@ -1687,6 +2122,30 @@ static int qcom_battmgr_probe(struct auxiliary_device *adev,
+@@ -1714,6 +2148,30 @@ static int qcom_battmgr_probe(struct auxiliary_device *adev,
  			return dev_err_probe(dev, PTR_ERR(battmgr->usb_psy),
  					     "failed to register USB power supply\n");
  
@@ -682,6 +674,3 @@ index 0d38744eee..e7b852b616 100644
  		battmgr->wls_psy = devm_power_supply_register(dev, &sc8280xp_wls_psy_desc, &psy_cfg_supply);
  		if (IS_ERR(battmgr->wls_psy))
  			return dev_err_probe(dev, PTR_ERR(battmgr->wls_psy),
--- 
-2.56.0
-

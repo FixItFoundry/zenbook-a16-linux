@@ -23,18 +23,15 @@ Link: https://lore.kernel.org/r/20260703-eliza_evk-v1-3-7624440bd76d@oss.qualcom
  1 file changed, 2 insertions(+)
 
 diff --git a/drivers/power/sequencing/pwrseq-pcie-m2.c b/drivers/power/sequencing/pwrseq-pcie-m2.c
-index e42e85f47629..2c3ba08eba0e 100644
+index a745dc810..379f0d3a3 100644
 --- a/drivers/power/sequencing/pwrseq-pcie-m2.c
 +++ b/drivers/power/sequencing/pwrseq-pcie-m2.c
-@@ -199,6 +199,8 @@ static const struct pci_device_id pwrseq_m2_pci_ids[] = {
+@@ -201,6 +201,8 @@ static const struct pci_device_id pwrseq_m2_pci_ids[] = {
  	  .driver_data = (kernel_ulong_t)"qcom,wcn7850-bt" },
- 	{ PCI_DEVICE_SUB(PCI_VENDOR_ID_QCOM, 0x1107, PCI_VENDOR_ID_LENOVO, 0xe0e9),
+ 	{ PCI_DEVICE_SUB(PCI_VENDOR_ID_QCOM, 0x1107, PCI_VENDOR_ID_FOXCONN, 0xe0ee),
  	  .driver_data = (kernel_ulong_t)"qcom,wcn7850-bt" },
 +	{ PCI_DEVICE(PCI_VENDOR_ID_QCOM, 0x1112),
 +	  .driver_data = (kernel_ulong_t)"qcom,qcc2072-bt" },
  	{ } /* Sentinel */
  };
  
--- 
-2.56.0
-

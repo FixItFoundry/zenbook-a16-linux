@@ -17,11 +17,11 @@ Use only the low two bits.
  1 file changed, 6 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/soc/qcom/pmic_glink_altmode.c b/drivers/soc/qcom/pmic_glink_altmode.c
-index 2952d25..d6e8792 100644
+index e64865369..b1cec8a16 100644
 --- a/drivers/soc/qcom/pmic_glink_altmode.c
 +++ b/drivers/soc/qcom/pmic_glink_altmode.c
 @@ -460,6 +460,11 @@ static void pmic_glink_altmode_sc8180xp_notify(struct pmic_glink_altmode *altmod
- 	schedule_work(&alt_port->work);
+ 	queue_work(system_freezable_wq, &alt_port->work);
  }
  
 +/*
@@ -41,6 +41,3 @@ index 2952d25..d6e8792 100644
  
  	if (port >= ARRAY_SIZE(altmode->ports) || !altmode->ports[port].altmode) {
  		dev_dbg(altmode->dev, "notification on undefined port %d\n", port);
--- 
-2.56.0
-

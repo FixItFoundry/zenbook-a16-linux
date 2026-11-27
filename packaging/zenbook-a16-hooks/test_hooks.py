@@ -318,7 +318,9 @@ if installkernel; then exit 86; fi
                         'usr/share/zenbook-a16/glymur-s2idle.conf',
                         'usr/share/zenbook-a16/libcamera/ipa/simple/ov02c10.yaml',
                         'usr/share/zenbook-a16/libcamera/ipa/simple/hm1092.yaml',
-                        'usr/share/zenbook-a16/99-glymur-leds.rules'):
+                        'usr/share/zenbook-a16/99-glymur-leds.rules',
+                        'usr/share/zenbook-a16/90-asus-zenbook-a16-power.rules',
+                        'usr/share/zenbook-a16/zenbook-a16-sleep'):
                 p = root / rel
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_text('# staged config\n')
@@ -331,6 +333,8 @@ if installkernel; then exit 86; fi
             self.assertFalse((root / 'etc/libcamera/ipa/simple/ov02c10.yaml').exists())
             self.assertFalse((root / 'etc/libcamera/ipa/simple/hm1092.yaml').exists())
             self.assertFalse((root / 'etc/udev/rules.d/99-glymur-leds.rules').exists())
+            self.assertFalse((root / 'etc/udev/rules.d/90-asus-zenbook-a16-power.rules').exists())
+            self.assertFalse((root / 'usr/lib/systemd/system-sleep/zenbook-a16-sleep').exists())
             self.assertFalse((root / 'etc/systemd/system/dev-tpm0.device').exists())
 
             # 2. A16 board without CONFIG_TCG_QCOM links configs and masks bare-metal TPM
@@ -345,6 +349,8 @@ if installkernel; then exit 86; fi
             self.assertTrue((root / 'etc/libcamera/ipa/simple/ov02c10.yaml').is_symlink())
             self.assertTrue((root / 'etc/libcamera/ipa/simple/hm1092.yaml').is_symlink())
             self.assertTrue((root / 'etc/udev/rules.d/99-glymur-leds.rules').is_symlink())
+            self.assertTrue((root / 'etc/udev/rules.d/90-asus-zenbook-a16-power.rules').is_symlink())
+            self.assertTrue((root / 'usr/lib/systemd/system-sleep/zenbook-a16-sleep').is_symlink())
             self.assertEqual((root / 'etc/modules-load.d/zenbook-a16.conf').read_text(), 'scmi-cpufreq\n')
             self.assertEqual(os.readlink(root / 'etc/systemd/system/dev-tpm0.device'), '/dev/null')
             self.assertEqual(os.readlink(root / 'etc/systemd/system/dev-tpmrm0.device'), '/dev/null')
@@ -356,6 +362,72 @@ if installkernel; then exit 86; fi
                             '--kernel-release', '7.3-a16pkg1+'], check=True)
             self.assertFalse((root / 'etc/systemd/system/dev-tpm0.device').exists())
             self.assertFalse((root / 'etc/systemd/system/dev-tpmrm0.device').exists())
+
+    def test_zenbook_a16_sleep_hook_pre_post_and_dmi_gate(self):
+        hook = REPO / 'tweaks/usr/lib/systemd/system-sleep/zenbook-a16-sleep'
+        with tempfile.TemporaryDirectory() as directory:
+            tmp = Path(directory)
+            sysfs = tmp / 'sys'
+            run_dir = tmp / 'run'
+            board = sysfs / 'class/dmi/id/board_name'
+            board.parent.mkdir(parents=True)
+            sdw0_ctrl = sysfs / 'bus/platform/devices/6c80000.soundwire/power/control'
+            sdw0_stat = sysfs / 'bus/platform/devices/6c80000.soundwire/power/runtime_status'
+            sdw1_ctrl = sysfs / 'bus/platform/devices/6ca0000.soundwire/power/control'
+            sdw1_stat = sysfs / 'bus/platform/devices/6ca0000.soundwire/power/runtime_status'
+            usb0_wake = sysfs / 'bus/platform/devices/a400000.usb/power/wakeup'
+            usb1_wake = sysfs / 'bus/platform/devices/a600000.usb/power/wakeup'
+            wifi_wake = sysfs / 'bus/pci/devices/0004:01:00.0/power/wakeup'
+            for p, val in ((sdw0_ctrl, 'on\n'), (sdw0_stat, 'suspended\n'),
+                           (sdw1_ctrl, 'auto\n'), (sdw1_stat, 'suspended\n'),
+                           (usb0_wake, 'enabled\n'), (usb1_wake, 'disabled\n'),
+                           (wifi_wake, 'enabled\n')):
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(val)
+            rfkill_log = tmp / 'rfkill.log'
+            fake_rfkill = tmp / 'rfkill'
+            fake_rfkill.write_text(
+                f'#!/bin/bash\n'
+                f'if [[ $1 == -n ]]; then\n'
+                f'  printf "0 bluetooth unblocked\\n1 bluetooth blocked\\n2 wlan unblocked\\n"\n'
+                f'else\n'
+                f'  printf "%s %s\\n" "$1" "$2" >>"{rfkill_log}"\n'
+                f'fi\n'
+            )
+            fake_rfkill.chmod(0o755)
+            env = os.environ | {
+                'ZA16_SLEEP_SYSFS': str(sysfs),
+                'ZA16_SLEEP_RUN_DIR': str(run_dir),
+                'ZA16_SLEEP_RFKILL': str(fake_rfkill),
+                'ZA16_SLEEP_SDW_WAIT_MS': '50',
+                'ZA16_SLEEP_SDW_POLL_MS': '10',
+                'ZA16_SLEEP_BT_SETTLE': '0',
+            }
+            # Non-A16 board is a no-op
+            board.write_text('OTHER_BOARD\n')
+            subprocess.run(['bash', str(hook), 'pre', 'suspend'], check=True, env=env)
+            self.assertEqual(sdw0_ctrl.read_text().strip(), 'on')
+            self.assertEqual(usb0_wake.read_text().strip(), 'enabled')
+            self.assertEqual(wifi_wake.read_text().strip(), 'enabled')
+            self.assertFalse(rfkill_log.exists())
+
+            # UX3607OA pre/post saves and restores only modified state
+            board.write_text('UX3607OA\n')
+            subprocess.run(['bash', str(hook), 'pre', 'suspend'], check=True, env=env)
+            self.assertEqual(sdw0_ctrl.read_text().strip(), 'auto')
+            self.assertEqual(sdw1_ctrl.read_text().strip(), 'auto')
+            self.assertEqual(usb0_wake.read_text().strip(), 'disabled')
+            self.assertEqual(usb1_wake.read_text().strip(), 'disabled')
+            self.assertEqual(wifi_wake.read_text().strip(), 'disabled')
+            self.assertEqual(rfkill_log.read_text().splitlines(), ['block 0'])
+
+            subprocess.run(['bash', str(hook), 'post', 'suspend'], check=True, env=env)
+            self.assertEqual(sdw0_ctrl.read_text().strip(), 'on')
+            self.assertEqual(sdw1_ctrl.read_text().strip(), 'auto')
+            self.assertEqual(usb0_wake.read_text().strip(), 'enabled')
+            self.assertEqual(usb1_wake.read_text().strip(), 'disabled')
+            self.assertEqual(wifi_wake.read_text().strip(), 'disabled')
+            self.assertEqual(rfkill_log.read_text().splitlines(), ['block 0', 'unblock 0'])
 
 
 class DspAdapters(unittest.TestCase):

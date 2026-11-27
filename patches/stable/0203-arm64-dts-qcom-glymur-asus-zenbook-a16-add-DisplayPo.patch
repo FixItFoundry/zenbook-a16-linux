@@ -1,0 +1,79 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jesse Casco <jesse.casco@gmail.com>
+Date: Fri, 27 Nov 2026 15:20:00 -0500
+Subject: [PATCH] arm64: dts: qcom: glymur-asus-zenbook-a16: add DisplayPort
+ audio DAI links
+
+Wire the three external DisplayPort controllers on the ASUS Zenbook A16
+(UX3607OA) to the AudioReach DisplayPort RX backends:
+
+  - mdss_dp0 -> DISPLAY_PORT_RX_0 (USB-C port 1)
+  - mdss_dp1 -> DISPLAY_PORT_RX_1 (USB-C port 2)
+  - mdss_dp2 -> DISPLAY_PORT_RX_2 (onboard HDMI via PS185HDM)
+
+The upstream Glymur A16 AudioReach topology exposes dedicated MultiMedia
+front-ends (MultiMedia3, MultiMedia4, MultiMedia7) for these three
+backends, and the sc8280xp/x1e80100 machine driver registers DP0/DP1/DP2
+jacks automatically once the DAI links are present.
+
+Signed-off-by: Jesse Casco <jesse.casco@gmail.com>
+---
+diff --git a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+index ad02a2e82..e25df5738 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+@@ -327,6 +327,54 @@ platform {
+ 				sound-dai = <&q6apm>;
+ 			};
+ 		};
++
++		dp0-dai-link {
++			link-name = "DP0 Playback";
++
++			codec {
++				sound-dai = <&mdss_dp0>;
++			};
++
++			cpu {
++				sound-dai = <&q6apmbedai DISPLAY_PORT_RX_0>;
++			};
++
++			platform {
++				sound-dai = <&q6apm>;
++			};
++		};
++
++		dp1-dai-link {
++			link-name = "DP1 Playback";
++
++			codec {
++				sound-dai = <&mdss_dp1>;
++			};
++
++			cpu {
++				sound-dai = <&q6apmbedai DISPLAY_PORT_RX_1>;
++			};
++
++			platform {
++				sound-dai = <&q6apm>;
++			};
++		};
++
++		dp2-dai-link {
++			link-name = "DP2 Playback";
++
++			codec {
++				sound-dai = <&mdss_dp2>;
++			};
++
++			cpu {
++				sound-dai = <&q6apmbedai DISPLAY_PORT_RX_2>;
++			};
++
++			platform {
++				sound-dai = <&q6apm>;
++			};
++		};
+ 	};
+ 
+ 	wlan-connector {

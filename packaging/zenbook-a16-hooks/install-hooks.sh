@@ -159,6 +159,14 @@ if [[ -s "$REPO_ROOT/tweaks/etc/udev/rules.d/99-glymur-leds.rules" ]]; then
     install -Dm644 "$REPO_ROOT/tweaks/etc/udev/rules.d/99-glymur-leds.rules" \
         "$TARGET/usr/share/zenbook-a16/99-glymur-leds.rules"
 fi
+if [[ -s "$REPO_ROOT/tweaks/etc/udev/rules.d/90-asus-zenbook-a16-power.rules" ]]; then
+    install -Dm644 "$REPO_ROOT/tweaks/etc/udev/rules.d/90-asus-zenbook-a16-power.rules" \
+        "$TARGET/usr/share/zenbook-a16/90-asus-zenbook-a16-power.rules"
+fi
+if [[ -s "$REPO_ROOT/tweaks/usr/lib/systemd/system-sleep/zenbook-a16-sleep" ]]; then
+    install -Dm755 "$REPO_ROOT/tweaks/usr/lib/systemd/system-sleep/zenbook-a16-sleep" \
+        "$TARGET/usr/share/zenbook-a16/zenbook-a16-sleep"
+fi
 if [[ -s "$REPO_ROOT/tweaks/usr/local/bin/glymur-cpu-profile.sh" ]]; then
     install -Dm755 "$REPO_ROOT/tweaks/usr/local/bin/glymur-cpu-profile.sh" \
         "$TARGET/usr/lib/zenbook-a16/glymur-cpu-profile"

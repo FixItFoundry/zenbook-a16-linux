@@ -50,6 +50,9 @@ def verify(text):
     for route in (
         "WSA_CODEC_DMA_RX_0 Audio Mixer, MultiMedia1, stream0.logger1",
         "MultiMedia2 Mixer, VA_CODEC_DMA_TX_0, device110.logger1",
+        "DISPLAY_PORT_RX_0 Audio Mixer, MultiMedia3, stream2.logger1",
+        "DISPLAY_PORT_RX_1 Audio Mixer, MultiMedia4, stream3.logger1",
+        "DISPLAY_PORT_RX_2 Audio Mixer, MultiMedia7, stream6.logger1",
     ):
         if repr(route) not in graph:
             raise ValueError(f"Missing UCM route: {route}")
@@ -57,6 +60,9 @@ def verify(text):
     for widget, mixer in (
         ("WSA_CODEC_DMA_RX_0 Audio Mixer", "MultiMedia1"),
         ("MultiMedia2 Mixer", "VA_CODEC_DMA_TX_0"),
+        ("DISPLAY_PORT_RX_0 Audio Mixer", "MultiMedia3"),
+        ("DISPLAY_PORT_RX_1 Audio Mixer", "MultiMedia4"),
+        ("DISPLAY_PORT_RX_2 Audio Mixer", "MultiMedia7"),
     ):
         if repr(mixer) not in block(widgets, repr(widget)):
             raise ValueError(f"Missing mixer {widget}/{mixer}")

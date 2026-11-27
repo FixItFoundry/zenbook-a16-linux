@@ -1,20 +1,21 @@
-# Linux 7.3 final A16/Qualcomm candidate
+# Linux 7.3.6 A16/Qualcomm candidate
 
-Local source port of the full A16 stack to **Linux v7.3 final**. Package
-revision 6 was built from this queue on November 12 and boots on the A16.
-Native package transactions and stability acceptance are still open; nothing
-here installs or selects a kernel.
+Local source port of the full A16 stack to **Linux v7.3.6**. Package revision 13
+was built from this 177-patch queue (`91e3f1250937`) on November 27 and verified
+on the A16. Native package transactions, attended `s2idle` testing, and
+stability acceptance remain open; nothing here installs or selects a kernel.
 
 | Identity | Value |
 |---|---|
-| Upstream base | `v7.3`, commit `c03c1a14507dfaf8b856c2608f9ac216021fc222` |
-| Ordered residual queue | [201 patches](../../patches/stable/README.md) |
-| Patched source tree | `c9073bc3daaf012b47e5c0631316308f4a3f3a7c` |
-| Recorded release | `7.3.0-ZenbookA16-20261022-final1+` |
+| Upstream base | `v7.3.6`, commit `1a0388846138eda9f6eb4258ff227a223afc2f52` |
+| Ordered residual queue | [177 patches](../../patches/stable/README.md) |
+| Patched source tree | `91e3f125093798823e8c2f1945e8a859298cf266` |
+| Recorded release | `7.3.6-ZenbookA16-20261022-final1+` |
 | Package revision 6 | `7.3.0-ZenbookA16-20261022-final1-a16pkg6+` (`bd1327aac6e1`, prior to `0156`–`0158`) |
 | Package revision 7 | `7.3.0-ZenbookA16-20261022-final1-a16pkg7+` (`f5b887e39ef7`) |
 | Package revision 8 | `7.3.0-ZenbookA16-20261022-final1-a16pkg8+` (`e6413608c546`) |
 | Package revision 12 | `7.3.0-ZenbookA16-20261022-final1-a16pkg12+` (`c9073bc3daaf`, current default) |
+| Package revision 13 | `7.3.6-ZenbookA16-20261022-final1-a16pkg13+` (`91e3f1250937`, one-shot verified) |
 
 The queue retains the 64-patch A16 baseline, 40-patch Qualcomm bridge and
 10-patch camera/microphone overlay (minus three complete patches already in
@@ -30,7 +31,7 @@ see [upstream credits](../../UPSTREAM-CREDITS.md).
 python3 kernel/stable/replay.py /path/to/linux-git
 ```
 
-The verifier checks the manifest and applies all 201 patches in a temporary Git
+The verifier checks the manifest and applies all 177 patches in a temporary Git
 index, requiring the exact source tree above. It leaves HEAD, the normal index
 and working files alone. It creates Git tree/blob objects, not commits.
 
@@ -132,3 +133,17 @@ Patch `0153` is now [monza-wireless v9 1/8](https://lore.kernel.org/all/20261123
 Legacy `0062` is dropped (`0120` context refreshed) and replaced by Ritesh Kumar's Glymur DP PHY v8 series (`0162`–`0169`), HDMI HPD pinctrl on `&mdss_dp2` (`0170`), 27 patches from Michi (`@scalpel4k`)'s openSUSE `kernel-qcom-laptops` queue (`0171`–`0197`), the Glymur DPU `LM_4`–`LM_7` → `DSPP_4`–`DSPP_7` mapping (`0198`), and four `iris` fixes (`0199`–`0202`: suspend deadlock, driver-removal work cancel, firmware reload on session command timeout, and firmware-reported output buffer count). Kconfig adds `CONFIG_CLK_GLYMUR_VIDEOCC=m`, `CONFIG_QCOM_SCMI_GENERIC_EXT=m`, `CONFIG_DEVFREQ_GOV_REMOTE=m`, `CONFIG_SCMI_QCOM_MEMLAT_DEVFREQ=m`, `CONFIG_QCOM_SPEL=m`, `CONFIG_NETCONSOLE_EXTENDED_LOG=y`, and the buddy hardlockup detector; `required.config` adds `CONFIG_CLK_GLYMUR_VIDEOCC=m` and `CONFIG_VIDEO_QCOM_IRIS=m`.
 
 Package revision 12 (`7.3.0-ZenbookA16-20261022-final1-a16pkg12+`, tree `c9073bc3daaf`) passed full `ci.py`, clean build (0 AER), full hardware validation on boot `f3bdc616` (3 simultaneous displays with user-confirmed picture, DPMS cycles, USB3 read without `0062`, `iris` 60/60 GStreamer decode + 5/5 hang recovery + 20/20 H264 encode, Wi-Fi, BT, upstream `MM1`/`MM2` audio, cameras, `memlat`, `SPEL`), and a 24-round load/idle soak (12 balanced + 12 boost, 0 resets, 0/0 PCIe AER, `taint=0`). It is promoted as the default boot entry on the test A16. Load-correlated VIA USB-C PD-hub resets, physical hotplug, 4K60, suspend/resume, and long-term reset stability remain open; see [`docs/current-build.md`](../../docs/current-build.md).
+
+## Linux 7.3.6 fast-forward, HDMI/DP audio, and power/deep-sleep fixes, November 27
+
+Rebased the stable base from `v7.3` (`c03c1a14507d`) to **`v7.3.6`** (`1a0388846138`), dropping 28 patches already merged in `7.3.1`–`7.3.6` (`0006`, `0008`, `0010`, `0015`, `0018`, `0029`–`0033`, `0037`–`0038`, `0043`, `0081`, `0122`–`0130`, `0133`–`0134`, `0137`–`0138`, `0200`) and refreshing five overlapping patches (`0028`, `0078`, `0152`, `0178`, `0184`).
+
+Added four patches on top:
+- `0203`: HDMI/DisplayPort audio DAI links (`dp0`/`dp1`/`dp2-dai-link`) in the A16 board DTS, paired with UCM `HDMI0`/`HDMI1`/`HDMI2` devices (`tweaks/usr/share/alsa/ucm2/Qualcomm/glymur/HiFi.conf`) and scoped WirePlumber rules (`51-glymur-ucm.conf`).
+- `0204` (from `omacom/omarchy-pkgs#3689`): set `scmi-qcom-memlat-devfreq` `profile->polling_ms = 0` to stop the 1,500 Hz SCMI mailbox polling storm.
+- `0205` (from `omacom/omarchy-pkgs#3738`): raise `cluster_cl5` `min-residency-us` to `1000000000` (1000 s) in `glymur.dtsi` so runtime cpuidle avoids `cluster_cl5` while `s2idle` still enters `domain_ss3` cleanly.
+- `0206` (from `omacom/omarchy-pkgs#3738`): drop `wakeup-event-action = <EV_ACT_DEASSERTED>` on `switch-lid` to prevent open-lid `s2idle` abort after CX collapse.
+
+Matching userspace power management and sleep hooks (`tweaks/etc/udev/rules.d/90-asus-zenbook-a16-power.rules` and `tweaks/usr/lib/systemd/system-sleep/zenbook-a16-sleep`, adapted from `omacom/omarchy-pkgs#3690`, `#3738`, `#3740`) are staged by `install-hooks.sh` and model-gated by `activate-hardware.sh`.
+
+Package revision 13 (`7.3.6-ZenbookA16-20261022-final1-a16pkg13+`, tree `91e3f1250937`) passed full `ci.py` + replay and booted cleanly on the A16 (boot `e1814992`, `taint=0`, 0 failed units, `btrfs_errors=0`, 0/0 NVMe AER, `scmi_err=0`): 3 displays active from boot (`dpu_refusals=0`, `phy_poweron_err=0`), `HDMI0`/`HDMI2`/`Speaker` PipeWire playback verified (`audio_dsp_errors=0`; `Mic` capture verified on prior `7.3.6` boot `71d0f0a1`), `scmi-qcom-memlat-devfreq` at `polling_interval=0` with `0` `apss_cpucp_mbox` IRQs over 3 s, `cluster_cl5` `min-residency-us = 1000000000` with `Usage=0, Rejected=0` across all three clusters, `switch-lid` without `wakeup-event-action`, and `90-asus-zenbook-a16-power.rules` active (`0004:00:00.0`/`0004:01:00.0` `wakeup=disabled`, idle USB controllers and SD reader autosuspended, SD poll `15000 ms`). Attended `s2idle` testing (with `sleep.target` unmasked and legacy `a16-wifi-pci` retired) remains open.
