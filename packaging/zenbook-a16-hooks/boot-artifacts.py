@@ -343,6 +343,18 @@ def fedora_default(root, kernel=None):
     return entry_id, kernel
 
 
+def _ubuntu_policy_mismatch(state, expected, actual, source, prefix):
+    return (
+        f'{prefix}: /var/lib/zenbook-a16/rollback.json mode={state["mode"]!r} '
+        f'expects GRUB_DEFAULT={expected!r}, but {source} sets GRUB_DEFAULT={actual!r} '
+        '(mode "saved" expects GRUB_DEFAULT=saved with saved_entry in grubenv; '
+        'mode "id" expects GRUB_DEFAULT=<entry_id>). '
+        f'Restore GRUB_DEFAULT={expected!r} (e.g. in /etc/default/grub.d/99-zenbook-a16-default.cfg), '
+        'or remove /var/lib/zenbook-a16/rollback.json and '
+        '/etc/default/grub.d/99-zenbook-a16-default.cfg to adopt the current default'
+    )
+
+
 def preserve_default(root, distro=None):
     reject_shared_btrfs_boot()
     state_path = root / 'var/lib/zenbook-a16/rollback.json'
@@ -355,11 +367,9 @@ def preserve_default(root, distro=None):
             expected = 'saved' if state['mode'] == 'saved' else state['entry_id']
             actual, source = grub_default_source(root)
             if actual != expected:
-                raise ValueError(
-                    f'preserved Ubuntu boot default policy changed: rollback.json mode={state["mode"]!r} '
-                    f'expects GRUB_DEFAULT={expected!r}, but {source} sets GRUB_DEFAULT={actual!r} '
-                    '(mode "saved" expects GRUB_DEFAULT=saved with saved_entry in grubenv; '
-                    'mode "id" expects GRUB_DEFAULT=<entry_id>)')
+                raise ValueError(_ubuntu_policy_mismatch(
+                    state, expected, actual, source,
+                    'preserved Ubuntu boot default policy changed'))
             actual_entry = selected_entry(root, state['entry_id'])
             if actual_entry != (state['entry_id'], state['kernel']):
                 raise ValueError(
@@ -367,8 +377,13 @@ def preserve_default(root, distro=None):
                     f'resolves to {actual_entry[1]} instead of {state["kernel"]}')
             if state['mode'] == 'saved':
                 output = subprocess.check_output(['grub-editenv', '/boot/grub/grubenv', 'list'], text=True)
-                if [line[12:] for line in output.splitlines() if line.startswith('saved_entry=')] != [state['entry_id']]:
-                    raise ValueError('the saved boot default changed; review the preserved rollback policy before upgrading')
+                saved = [line[12:] for line in output.splitlines() if line.startswith('saved_entry=')]
+                if saved != [state['entry_id']]:
+                    actual_saved = saved[0] if len(saved) == 1 else (None if not saved else saved)
+                    raise ValueError(
+                        f'the saved boot default changed: /var/lib/zenbook-a16/rollback.json expects '
+                        f'saved_entry={state["entry_id"]!r}, but /boot/grub/grubenv has {actual_saved!r}; '
+                        'restore saved_entry or remove /var/lib/zenbook-a16/rollback.json to adopt the current default')
             if not (root / 'etc/kernel/cmdline').is_file():
                 raise ValueError('installed kernel command line is missing')
         elif not (root / 'etc/kernel/cmdline').is_file() or fedora_default(root) != (state['entry_id'], state['kernel']):
@@ -459,12 +474,9 @@ def restore_default(root):
         expected = 'saved' if state['mode'] == 'saved' else state['entry_id']
         actual, source = grub_default_source(root)
         if actual != expected:
-            raise ValueError(
-                f'preserved Ubuntu default policy changed; refusing to override it: '
-                f'rollback.json mode={state["mode"]!r} expects GRUB_DEFAULT={expected!r}, '
-                f'but {source} sets GRUB_DEFAULT={actual!r} '
-                '(mode "saved" expects GRUB_DEFAULT=saved with saved_entry in grubenv; '
-                'mode "id" expects GRUB_DEFAULT=<entry_id>)')
+            raise ValueError(_ubuntu_policy_mismatch(
+                state, expected, actual, source,
+                'preserved Ubuntu default policy changed; refusing to override it'))
         if state['mode'] == 'saved':
             subprocess.run(['grub-editenv', '/boot/grub/grubenv', 'set', 'saved_entry=' + state['entry_id']], check=True)
 

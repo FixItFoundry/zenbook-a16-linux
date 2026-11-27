@@ -100,6 +100,8 @@ failure. If restoration fails, the transaction reports an error. Choose a new
 entry manually for testing; do not reboot after an unsuccessful verification.
 Changing the saved default later requires reviewing the stored rollback policy;
 subsequent A16 upgrades refuse a conflicting default instead of replacing it.
+To adopt a new default on Ubuntu, remove `/var/lib/zenbook-a16/rollback.json`
+and `/etc/default/grub.d/99-zenbook-a16-default.cfg` before upgrading.
 
 Only metadata-identified A16 kernels receive DSP setup and board-specific entries.
 Missing or damaged metadata on a managed release is an error. Legacy global

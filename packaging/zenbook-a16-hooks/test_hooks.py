@@ -512,10 +512,28 @@ class DefaultPreservation(unittest.TestCase):
                 fn()
             msg = str(ctx.exception)
             self.assertIn('/etc/default/grub.d/zz-override.cfg', msg)
+            self.assertIn('/var/lib/zenbook-a16/rollback.json', msg)
+            self.assertIn('/etc/default/grub.d/99-zenbook-a16-default.cfg', msg)
             self.assertIn("'saved'", msg)
             self.assertIn("'old-id'", msg)
             self.assertIn('mode "saved"', msg)
             self.assertIn('mode "id"', msg)
+
+    def test_ubuntu_policy_mismatch_recovery_adopts_new_default(self):
+        self.put('boot/vmlinuz-alt', 'alt kernel')
+        alt = "menuentry 'Alt Linux' --id 'alt-id' {\n linux /boot/vmlinuz-alt root=UUID=installed-root ro\n}\n"
+        self.put('boot/grub/grub.cfg', self.old + alt)
+        artifacts.preserve_default(self.root, 'ubuntu')
+        (self.root / 'etc/default/grub.d/99-zenbook-a16-default.cfg').unlink()
+        self.put('etc/default/grub', 'GRUB_DEFAULT=1\n')
+        with self.assertRaises(ValueError) as ctx:
+            artifacts.preserve_default(self.root, 'ubuntu')
+        self.assertIn('/var/lib/zenbook-a16/rollback.json', str(ctx.exception))
+        self.assertIn('/etc/default/grub', str(ctx.exception))
+        (self.root / 'var/lib/zenbook-a16/rollback.json').unlink()
+        state = artifacts.preserve_default(self.root, 'ubuntu')
+        self.assertEqual(state['entry_id'], 'alt-id')
+        self.assertEqual(artifacts.grub_default(self.root), 'alt-id')
 
     def test_rollback_rejects_unversioned_simple_entry(self):
         for entry_id in ('gnulinux-simple-bootuuid', 'gnulinux-advanced-bootuuid>gnulinux-simple-bootuuid'):
@@ -547,8 +565,13 @@ class DefaultPreservation(unittest.TestCase):
             artifacts.preserve_default(self.root, 'ubuntu')
         snapshot = (self.root / 'var/lib/zenbook-a16/rollback.json').read_bytes()
         with patch.object(artifacts.subprocess, 'check_output', return_value='saved_entry=user-changed-id\n'), patch.object(artifacts.subprocess, 'run') as run:
-            with self.assertRaisesRegex(ValueError, 'saved boot default changed'):
+            with self.assertRaises(ValueError) as ctx:
                 artifacts.preserve_default(self.root, 'ubuntu')
+            msg = str(ctx.exception)
+            self.assertIn('saved boot default changed', msg)
+            self.assertIn('/var/lib/zenbook-a16/rollback.json', msg)
+            self.assertIn("'old-id'", msg)
+            self.assertIn("'user-changed-id'", msg)
             run.assert_not_called()
         self.assertEqual((self.root / 'var/lib/zenbook-a16/rollback.json').read_bytes(), snapshot)
 
