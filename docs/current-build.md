@@ -20,12 +20,23 @@ Live verification of `pkg14` on boot `9f167dd9` (`tainted=0`, `failed_units=0`,
 - **Peripherals & audio:** PCIe5 NVMe `Gen.4 x4` (`16GT/s x4`), PCIe4 Wi-Fi
   `Gen.3 x1` (`8GT/s x1`, connected), Bluetooth powered, `eDP-1` active, PipeWire
   `Speaker` + `HDMI0`/`HDMI1`/`HDMI2` sinks present.
+- **Closed-lid travel `s2idle` soak (`pkg14` boot `9f167dd9`, 2026-11-27):**
+  102 min 45 s (`6,164.5 s`, `19:32:03`–`21:14:48`; 1 initial `-16` early-wake
+  retry 3 s after lid close, then a single clean lid-open wake with no `0206`
+  double-bounce) achieved **99.69% `AOSD`/`CXSD`/`DDR` collapse** (`6,145.17 s` /
+  `6,145.20 s` / `6,145.38 s`, `Count: 43`, `DDR` `0xd4`) and **99.92% `APSS`**
+  (`6,159.33 s`), with **0% reported battery drop** (`62.744 Wh` / `100%` before
+  and after; note: starting at `100%` off AC keeps `qcom-battmgr` clamped at
+  `energy_full`, so an exact steady-state `mW` figure requires a follow-up soak
+  starting below ~90% SOC). Post-wake health: `tainted=0`, `failed_units=0`,
+  `btrfs_err=0`, NVMe AER `0/0` (`Gen.4 x4`), Wi-Fi `Gen.3 x1` reconnected,
+  Bluetooth `Powered: yes`, `unsynced_count=0`, `eDP-1` + PipeWire sinks intact
+  (`6ca0000.soundwire` self-recovered a post-wake bus clash).
 - **Prior `s2idle` hardware proof (same `0207`–`0213` kernel/DTB/cmdline on `pkg13`
   boot `6c95f197`):** 258 s open-lid `systemctl suspend` achieved **97.7%
   `APSS`/`CXSD`/`AOSD`/`DDR` collapse** (`252.06 s` each, `Count: 3`), with clean
   resume of NVMe, Wi-Fi, Bluetooth, and speakers (`SPEAKER_RESUME_PW=PASS`,
-  `tainted=0`). Long 60–90 minute closed-lid travel soak and wattage measurement
-  remain next.
+  `tainted=0`).
 
 | Track | Patches | Replayed source tree | Package release | State |
 |---|---:|---|---|---|
