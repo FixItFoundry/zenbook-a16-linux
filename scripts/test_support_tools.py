@@ -109,6 +109,44 @@ class CpuProfileChecks(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(limits, ["2918400", "3628800", "3628800"])
 
+    def test_powersave_and_performance_profiles(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "boost").write_text("0\n")
+            for policy, ceil, bfreqs in (
+                ("policy0", "3609600", ""),
+                ("policy6", "4723200", "4569600 4723200\n"),
+                ("policy12", "4723200", "4569600 4723200\n"),
+            ):
+                path = root / policy
+                path.mkdir()
+                (path / "cpuinfo_max_freq").write_text(f"{ceil}\n")
+                (path / "scaling_max_freq").write_text(f"{ceil}\n")
+                (path / "boost").write_text("0\n")
+                (path / "scaling_boost_frequencies").write_text(bfreqs)
+            script = root / "profile.sh"
+            script.write_text((REPO / "tweaks/usr/local/bin/glymur-cpu-profile.sh").read_text()
+                              .replace("CPUFREQ=/sys/devices/system/cpu/cpufreq", f'CPUFREQ="{root}"'))
+            logger = root / "logger"
+            logger.write_text("#!/bin/sh\nexit 0\n")
+            logger.chmod(0o755)
+            env = {**os.environ, "PATH": f"{root}:{os.environ['PATH']}"}
+
+            # powersave: boost already 0 (no-op skip), caps applied
+            res = subprocess.run(["bash", str(script), "powersave"], text=True, capture_output=True, env=env)
+            self.assertEqual(res.returncode, 0, res.stderr)
+            self.assertEqual([(root / p / "scaling_max_freq").read_text().strip() for p in ("policy0", "policy6", "policy12")],
+                             ["2073600", "2400000", "2400000"])
+
+            # performance: policy0 has no boost OPPs and stays 0; policy6/12 enable boost
+            res = subprocess.run(["bash", str(script), "performance"], text=True, capture_output=True, env=env)
+            self.assertEqual(res.returncode, 0, res.stderr)
+            self.assertEqual([(root / p / "scaling_max_freq").read_text().strip() for p in ("policy0", "policy6", "policy12")],
+                             ["3609600", "4723200", "4723200"])
+            self.assertEqual((root / "policy0" / "boost").read_text().strip(), "0")
+            self.assertEqual((root / "policy6" / "boost").read_text().strip(), "1")
+            self.assertEqual((root / "policy12" / "boost").read_text().strip(), "1")
+
     def test_write_failures_never_report_success(self):
         for target, profile in (("policy6/scaling_max_freq", "balanced"),
                                 ("policy6/boost", "balanced"),

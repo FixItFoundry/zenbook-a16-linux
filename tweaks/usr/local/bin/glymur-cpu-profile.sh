@@ -33,17 +33,28 @@ set_max() {
 # Boost must be set BEFORE scaling_max_freq: enabling it raises cpuinfo_max_freq
 # to the top boost bin, and a max-freq write above the current ceiling is clamped.
 set_boost() {
-	local want="$1" pol p
+	local want="$1" pol p cur boost_freqs
 	local found=0
 	if [ -e "$CPUFREQ/boost" ]; then
-		echo "$want" > "$CPUFREQ/boost" 2>/dev/null || { log "ERROR: global boost write failed"; return 1; }
 		found=1
+		cur=$(cat "$CPUFREQ/boost" 2>/dev/null || true)
+		if [ "$cur" != "$want" ]; then
+			echo "$want" > "$CPUFREQ/boost" 2>/dev/null || { log "ERROR: global boost write failed"; return 1; }
+		fi
 	fi
 	for pol in policy0 policy6 policy12; do
 		p="$CPUFREQ/$pol/boost"
 		[ -e "$p" ] || continue
-		echo "$want" > "$p" 2>/dev/null || { log "ERROR: boost write failed: $p"; return 1; }
+		# Skip policies with no boost OPPs (e.g. Glymur policy0): writing 1 returns -EINVAL.
+		boost_freqs="$CPUFREQ/$pol/scaling_boost_frequencies"
+		if [ "$want" = "1" ] && [ -e "$boost_freqs" ] && [ -z "$(tr -d '[:space:]' < "$boost_freqs" 2>/dev/null)" ]; then
+			continue
+		fi
 		found=1
+		cur=$(cat "$p" 2>/dev/null || true)
+		if [ "$cur" != "$want" ]; then
+			echo "$want" > "$p" 2>/dev/null || { log "ERROR: boost write failed: $p"; return 1; }
+		fi
 	done
 	[ "$found" = 1 ] || { log "ERROR: no boost control found"; return 1; }
 }
